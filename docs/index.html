@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<!-- BUG FIJADO (JFC 2026-08-19, caza produccion): lang="es" era herencia del
+     fork de amigable; el default aqui es ingles. i18n.js reasigna
+     document.documentElement.lang al cambiar de idioma, pero el primer paint
+     y los crawlers/social previews leian "es" antes de eso. -->
+
+<!-- SAFEGUARD NUCLEAR (2026-07-17): repara dispositivos atrapados con un SW
+     viejo que no tiene el kill-switch de version. Corre ANTES que todo.
+     Si el SW viejo sirve este HTML cacheado, este script no estara ahi y no
+     pasa nada. Si el SW es network-first (como el actual), el HTML es fresco
+     y este script detecta SWs obsoletos y los mata. Cubre el caso de que el
+     navegador sirva el HTML fresco pero los sub-recursos (JS) desde cache
+     vieja del SW. Al desregistrar el SW viejo y purgar caches, el siguiente
+     reload carga todo fresco. Solo dispara UNA vez (flag en localStorage). -->
+<!-- AISLAMIENTO DE ALMACENAMIENTO — DEBE IR PRIMERO, ANTES QUE TODO.
+     Las 3 apps de la linea se sirven desde el mismo origen de GitHub Pages y
+     localStorage es por origen, no por carpeta: sin esto se pisan datos entre
+     si. Tambien coordina dos pestanas de la misma app. Si se mueve mas abajo,
+     otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
+<script src="./aislamiento.js"></script>
+<script src="./boot-sw-nuke.js"></script>
+<!-- OC_DEMO se setea aquí, al inicio del head, antes de que cualquier script
+     se cargue. Así cargarDashboardInicial() siempre ve la bandera correcta
+     aunque mock-backend.js tarde en ejecutarse (red lenta / carga asíncrona). -->
+<script src="./boot-demo.js"></script>
+<!-- Capa bilingüe EN/ES (default inglés). Carga en el HEAD, antes del script
+     principal, para que window.t() exista cuando las vistas se rendericen. -->
+<script src="./i18n.js"></script>
+<!-- BUG FIX 2026-07-01: estos dos scripts FALTABAN en docs/ — la demo nunca
+     interceptaba fetch() y todo /api/* devolvia 404 (selector de sucursal
+     roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
+     para que el mock ya este instalado cuando el app arranque. NO QUITAR. -->
+<script src="./barcode128.js"></script>
+<!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
+<script src="./qrcode-local.js"></script>
+<!-- Local-first: pocketbase-client.js se carga SIEMPRE pero queda dormido
+     si el dueño no guardó una URL de PocketBase en Avanzado (localStorage
+     OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
+     estática, o server.js real en el servidor local del negocio. -->
+<script src="./pocketbase-client.js"></script>
+<script src="./estado-idb.js"></script>
+<script src="./mock-backend.js"></script>
+<script src="./red-segura.js"></script>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Language" content="en">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title data-i18n="meta.title.app">friendly-123</title>
+<meta name="description" content="friendly-123: shelf, customer and commission control for your store. Bilingual, offline, no spreadsheets. Stop guessing. Start seeing.">
+<!-- iOS Safari + WhatsApp legibility stack: light-only, prevents auto-dark repaint -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#0F1923">
+<!-- Open Graph: link previews in WhatsApp / social when the URL is shared -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="friendly-123">
+<meta property="og:description" content="Your business, in color. Serverless point of sale and inventory control for small business.">
+<meta property="og:image" content="./icons/android-chrome-512x512.png">
+<!-- Favicon "123" (cropped from the friendly-123 wordmark, not the full logo —
+     illegible at 16px). Full set generated 2026-07-15 from friendly-123-logo-source. -->
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
+<link rel="icon" type="image/x-icon" href="./favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+<!-- manifest.json habilita "Instalar en pantalla de inicio" como OPCION adicional.
+     La app funciona perfectamente como website sin instalar — esto es solo una
+     mejora opcional para quienes prefieren el ícono en la pantalla principal.
+     FEATURE — ACTIVO (JFC 2026-07-08). Para desactivar: quitar esta línea. -->
+<link rel="manifest" href="./manifest.json">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* --- superficies y tinta (reasignadas, mismos nombres usados por el script) --- */
+    --crema:#F8F9FB;          /* fondo frio — sin beige, sin cafe */
+    --blanco-calido:#F8F9FB;  /* frio puro — sin beige */
+    --azul-oscuro:#0F1923;    /* tinta-azul de cabecera */
+    --azul-medio:#2E6278;
+    --dorado:#5294AC;         /* alias -> azul Sinclair */
+    --ambar:#E86040;          /* alias -> naranja Simon */
+    --negro:#1e1a12;          /* tinta */
+    --verde:#00C87A;
+    --verde-claro:#C0F5E0;
+    --amarillo:#5294AC;
+    --amarillo-claro:#E8ECF2;
+    --rojo:#E8365D;
+    --rojo-claro:#FAD5DE;
+    --azul-op:#5294AC;
+    --azul-op-claro:#D4ECF5;
+
+    /* --- nuevas variables del sistema --- */
+    --paper-deep:#E2E8ED;
+    --ink:#0F1923;
+    --ink-soft:#2C3E50;
+    --rust:#E86040;
+    --rust-deep:#C05000;
+    --brass:#5294AC;
+    --font-display:"Space Grotesk", "Avenir Next Condensed", sans-serif;
+    --font-body:"Source Sans 3", "Segoe UI", sans-serif;
+    --font-mono:"JetBrains Mono", monospace;
+    --font-serif:"Space Grotesk", "Avenir Next Condensed", sans-serif;
+    --nav-h:78px;
+    --sidebar-w:248px;
+    --header-h:104px;
+    /* === SISTEMA SIMON — paleta oficial, aprobado JFC 2026-07-03 ===
+       Inventario (core):  Verde · Amarillo · Naranja · Rojo · Azul · Negro
+       Accents Sinclair:   Cyan · Magenta  (uso contable / secundario; lavanda
+       se elimino 2026-07-04 por ser duplicado exacto de azul, 0 usos reales)
+       CORREGIDO 2026-07-04: "amarillo" usaba --sim-plata (gris) por error — la plata
+       es el chasis metálico Timex Sinclair (chrome de fotos, menús, bordes UI),
+       NUNCA el estado de inventario. Amarillo ahora es amarillo real.
+       3 grados por color = semaforo de colores: -bg (tenue) · base (medio) · -dk (encendido)
+       Cada tarjeta enciende 1-3 grados de SU PROPIO color según intensidad real — nunca
+       un color nuevo, solo más o menos profundo. */
+
+    /* — Inventario Simon core — */
+    /* === 1 TONO POR ESTADO (JFC 2026-08-05) — semaforo de colores retirado ===
+       -X y -X-bg son EL MISMO tono plano: la tarjeta esta prendida o no, ya
+       no hay 3 grados de encendido. -X-dk es sombra del mismo matiz y sirve
+       SOLO para bordes/biseles/sombras: nunca relleno, nunca texto sobre ese
+       mismo color. Los hues propios de esta app se conservan. */
+    --sim-verde:#0FA46A;    --sim-verde-bg:#0FA46A;    --sim-verde-dk:#086944;
+    --sim-amarillo:#FFC700; --sim-amarillo-bg:#FFC700; --sim-amarillo-dk:#B8860B; /* JFC 2026-08-26: amarillo alineado al MANUAL (manda el manual); antes derivó a olivo opaco (#F5C518/#9E7C00) sin autorización */
+    --sim-plata:#C4CDD8;    --sim-plata-bg:#E8ECF2;    --sim-plata-dk:#8A9AAA;
+    --sim-naranja:#F97316;  --sim-naranja-bg:#F97316;  --sim-naranja-dk:#A24608;
+    --sim-rojo:#C41E3A;     --sim-rojo-bg:#C41E3A;     --sim-rojo-dk:#7C1024;
+    --sim-azul:#5294AC;     --sim-azul-mid:#5294AC;    --sim-azul-bg:#5294AC;   --sim-azul-dk:#2E6278;
+    --sim-negro:#0A0A0F;    --sim-negro-bg:#0A0A0F;    --sim-negro-dk:#000000;
+
+    /* — accents (contable / secundario) — mismo criterio, 1 tono */
+    --sim-cyan:#00D4FF;     --sim-cyan-bg:#00D4FF;     --sim-cyan-dk:#00697F;
+    --sim-magenta:#D946A8;  --sim-magenta-bg:#D946A8;  --sim-magenta-dk:#8C1E68;
+
+    /* === CHASIS METALICO — Timex Sinclair 2068 (JFC 2026-08-05) ===
+       Aluminio cepillado tibio, panel de teclado charcoal, ranuras finas,
+       biseles duros. Precision japonesa, gusto britanico. Es CHROME: nunca
+       compite con el color de estado de una tarjeta. */
+    /* PLATA LUMINOSA. La plata refleja: va de casi-blanco a gris medio en la
+       MISMA superficie. Un gris plano se ve muerto — JFC lo rechaza. Todos
+       estos son SOLIDOS: el brillo sale del gradiente, nunca de opacidad.
+       La opacidad solo se permite en sombras y cantos (relieve del case). */
+    --plata-brillo:#FCFDFC;   /* punto de luz alto */
+    --plata-claro:#EDEFEC;
+    --plata:#D8DBD6;
+    --plata-media:#BFC3BD;
+    --plata-honda:#9DA29B;    /* fondo de bisel */
+    --plata-canto:#7C817A;    /* canto oscuro del case */
+    /* Alias heredados: muchas reglas ya los referencian. */
+    --metal-claro:#EDEFEC;
+    --metal:#D8DBD6;
+    --metal-medio:#BFC3BD;
+    --metal-oscuro:#9DA29B;
+    /* El header YA NO es charcoal: es case plateado. Se conservan los nombres
+       para no romper reglas viejas, pero apuntan a plata. */
+    --panel-charcoal:#D8DBD6;
+    --panel-charcoal-dk:#BFC3BD;
+    --bisel-luz:#FCFDFC;
+    --bisel-sombra:#7C817A;
+  }
+
+  .metal-superficie{
+    background-color:var(--metal);
+    background-image:
+      repeating-linear-gradient(90deg, var(--plata-claro) 0 1px, var(--plata) 1px 3px),
+      linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 22%, var(--plata) 60%, var(--plata-media) 100%);
+    border-top:1px solid var(--bisel-luz);
+    border-bottom:1px solid var(--bisel-sombra);
+  }
+  .metal-ranuras{
+    height:14px;
+    /* Rejilla FISICA del tope de la 2068: es una banda decorativa corta y
+       aislada, nunca una textura detras de contenido (eso seria un CRT). */
+    background-image:repeating-linear-gradient(180deg,
+      var(--metal-medio) 0 1px, var(--metal-claro) 1px 4px);
+    border-top:1px solid var(--bisel-luz);
+    border-bottom:1px solid var(--bisel-sombra);
+  }
+  .metal-tecla{
+    /* Tecla 2.5D: luz arriba, cuerpo plata, canto oscuro abajo. */
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 40%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    border-radius:6px;
+    box-shadow:0 2px 0 var(--plata-canto), 0 3px 5px rgba(0,0,0,.18);
+  }
+  .metal-tecla:active{ transform:translateY(2px); box-shadow:0 0 0 var(--bisel-sombra); }
+
+  /* === FAILSAFE COLORES — navegadores sin CSS variables (Chrome <49, IE, Opera Mini)
+     JFC 2026-07-03. Colores literales como base; el bloque :root los sobreescribe
+     en cualquier browser moderno. Nunca borrar este bloque — es la capa "forever". === */
+  /* M3 (JFC 2026-08-14): LA FOTO MANDA, EL BORDE ES EL SEMAFORO.
+     Antes cada .caja era un rectangulo de color solido con el nombre encima.
+     Con dos variantes del mismo producto ese bloque no distinguia nada. Ahora
+     el fondo es blanco, la foto ocupa el primer golpe de vista y el color
+     Simon vive en el borde, donde se lee igual de rapido sin tapar nada.
+     El mismo patron que ya usaba la cuadricula de Vender.
+     Si se vuelve al relleno solido, hay que devolver tambien los colores de
+     texto en blanco que estaban aca. */
+  .caja{background:#FFFFFF !important;border-width:4px !important;}
+  .caja .nombre,.caja .detalle,.caja .stock{
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+  .caja .detalle{color:var(--ink-soft) !important;-webkit-text-fill-color:var(--ink-soft) !important;}
+  /* Los botones de ajuste rapido usaban currentColor, que antes era el blanco
+     del relleno. Con fondo blanco hay que fijarlos a tinta. */
+  .caja .ajuste-rapido button{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+
+  /* LIQUID: proporcion fija, ancho libre. Nada de alturas en px. */
+  /* M5: la etiqueta de variante. Mono para que se lea como un codigo y no
+     se confunda con el nombre del producto. 13px es el piso de JFC. */
+  .fam-chip{
+    font-family:var(--font-mono,monospace);font-size:14px;font-weight:700;min-height:44px;
+    padding:9px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:10px;background:#FFFFFF;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;
+  }
+  .fam-chip{
+    font-family:var(--font-mono,monospace);font-size:14px;font-weight:700;min-height:44px;
+    padding:9px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:10px;background:#FFFFFF;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;
+  }
+  .chip-var{
+    display:inline-block;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;
+    padding:2px 8px;border-radius:6px;margin-top:5px;background:#EEF2F6;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;
+  }
+  .caja .fotowrap{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:8px;overflow:hidden;
+    background:linear-gradient(135deg,#DCE4EC 0%,#C4CDD8 100%);margin-bottom:9px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* Eslabon 3 de la cadena: SIEMPRE pintado, debajo de la imagen. */
+  .caja .fotowrap .iniciales{
+    font-family:var(--font-display);font-weight:700;
+    font-size:clamp(24px,7vw,38px);letter-spacing:.02em;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;
+  }
+  .caja .fotowrap img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  }
+  /* Marca discreta cuando la foto es prestada de otra variante de la familia:
+     el dueno tiene que poder saber que esa no es la foto de ESTE producto. */
+  .caja .fotowrap .heredada{
+    position:absolute;left:0;bottom:0;right:0;
+    font-size:13px;font-weight:700;padding:3px 7px;text-align:center;
+    background:#0F1923;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+  }
+  @media (max-width:360px){ .caja .fotowrap{aspect-ratio:3/2;} }
+
+  /* BORDES = SISTEMA DE SEMÁFORO EXACTO (JFC 2026-08-26). Los mismos hex que
+     usa el semáforo en TODA la app: alertas (.lista-alertas), hero (.hero-semaforo)
+     y filtros (.filtros-estado). Esta paleta es la BASE de toda la experiencia de
+     usuario (solo se le sacó el azul); NO se inventa ni se cambia por estética.
+     Antes estos bordes usaban shades oscuros distintos (olivo/muddy) que rompían
+     la coherencia del semáforo. */
+  .caja.verde   {border-color:#00C87A;}
+  .caja.amarillo{border-color:#FFC700;}
+  .caja.naranja {border-color:#F97316;}
+  .caja.rojo    {border-color:#E8365D;}
+  .caja.azul    {border-color:#5294AC;}
+  .caja.negro   {border-color:#0A0A0F;}
+
+  .lista-alertas li.verde   {background:#C0F5E0;color:#009A5A;border:2px solid #00C87A;}
+  .lista-alertas li.amarillo{background:#FFF3C2;color:#8A6800;border:2px solid #FFC700;}
+  .lista-alertas li.naranja {background:#FDD9BE;color:#C05000;border:2px solid #F97316;}
+  .lista-alertas li.rojo    {background:#FAD5DE;color:#B0183E;border:2px solid #E8365D;}
+  .lista-alertas li.negro   {background:#17171D;color:#E0E0E2;border:2px solid #000000;}
+
+  .hero-semaforo.verde   {background-color:#00C87A;}
+  .hero-semaforo.amarillo{background-color:#FFC700;}
+  .hero-semaforo.rojo    {background-color:#E8365D;}
+
+  .filtros-estado button[data-estado="verde"]::before   {background:#00C87A;}
+  .filtros-estado button[data-estado="amarillo"]::before{background:#FFC700;}
+  .filtros-estado button[data-estado="naranja"]::before {background:#F97316;}
+  .filtros-estado button[data-estado="rojo"]::before    {background:#E8365D;}
+  .filtros-estado button[data-estado="azul"]::before    {background:#5294AC;}
+  .filtros-estado button[data-estado="negro"]::before   {background:#0A0A0F;}
+  /* === fin FAILSAFE === */
+
+  *{box-sizing:border-box;}
+  html{-webkit-tap-highlight-color:transparent;}
+  ::selection{ background:var(--brass); color:var(--blanco-calido); }
+  :focus-visible{ outline:2.5px solid var(--rust); outline-offset:2px; border-radius:3px; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:var(--paper-deep); }
+  ::-webkit-scrollbar-thumb{ background:var(--brass); border-radius:6px; border:2px solid var(--paper-deep); }
+  body{
+    margin:0;
+    font-family:var(--font-body);
+    background-color:#FFFFFF;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- utilidad: tarjeta-etiqueta (esquina cortada + ojal) ---------- */
+  .tag-card{
+    position:relative;
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+    clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    box-shadow:0 1px 2px rgba(33,28,20,0.06), 0 6px 16px -8px rgba(33,28,20,0.28);
+    transition:box-shadow .2s ease, transform .2s ease;
+  }
+  .tag-card::before{
+    content:"";
+    position:absolute;
+    top:0; right:0;
+    width:18px; height:18px;
+    background:linear-gradient(135deg, transparent 49.5%, rgba(33,28,20,0.14) 50%, transparent 50.5%);
+    pointer-events:none;
+  }
+  .tag-card::after{
+    /* TRIANGULO DE ESQUINA — DORMANT (homologado de AMIGABLE, JFC 2026-07-22).
+       Se confundia con un indicador o un desplegable. NO BORRAR.
+       Para re-activar: restaurar la version previa de esta regla. */
+    content:none;
+  }
+  @media (hover:hover){
+    .caja.tag-card:hover, .etiqueta-card.tag-card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 2px 3px rgba(33,28,20,0.08), 0 14px 26px -10px rgba(33,28,20,0.34);
+    }
+  }
+
+  /* ---------- botones tipo sello ---------- */
+  button{
+    font-family:var(--font-display);
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    border:2px solid var(--ink);
+    border-radius:5px;
+    background:var(--blanco-calido);
+    color:var(--ink);
+    box-shadow:3px 3px 0 rgba(33,28,20,0.18);
+    cursor:pointer;
+    transition:transform .1s ease, box-shadow .1s ease, background-color .15s ease;
+  }
+  @media (hover:hover){
+    button:not(:disabled):hover{
+      transform:translate(-1px,-1px);
+      box-shadow:4px 4px 0 rgba(33,28,20,0.2);
+    }
+  }
+  button:active:not(:disabled){
+    transform:translate(2px,2px);
+    box-shadow:0 0 0 rgba(33,28,20,0);
+  }
+
+  /* ================= HEADER ================= */
+  header{
+    /* Panel de teclado de la Timex Sinclair 2068: charcoal con veta y biseles. */
+    /* CASE PLATEADO 2.5D (JFC: "el header no puede ser negro sino parecer case
+       metalico plateado"). El brillo sale de un gradiente de solidos con un
+       punto de luz alto; el relieve, de cantos claros/oscuros. Sin opacidad
+       en la superficie: solo en la sombra inferior. */
+    background-color:var(--plata);
+    background-image:linear-gradient(180deg,
+      var(--plata-brillo) 0%,
+      var(--plata-claro) 18%,
+      var(--plata) 52%,
+      var(--plata-media) 82%,
+      var(--plata-honda) 100%);
+    border-bottom:1px solid var(--plata-canto);
+    box-shadow:inset 0 1px 0 var(--plata-brillo), 0 2px 6px rgba(0,0,0,.22);
+    color:var(--ink) !important;
+    -webkit-text-fill-color:var(--ink) !important;
+    padding:18px 20px;
+    min-height:var(--header-h);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    position:sticky;
+    top:0;
+    z-index:40;
+    border-bottom:3px solid var(--brass);
+  }
+  header .marca{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  header .sello{
+    width:44px; height:44px;
+    border-radius:50%;
+    border:2px solid var(--brass);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:var(--font-serif);
+    font-style:italic;
+    font-weight:400;
+    font-size:20px;
+    color:var(--brass);
+    flex-shrink:0;
+    overflow:hidden;
+    cursor:pointer;
+    background:var(--azul-oscuro);
+    transition:width 0.15s, border-radius 0.15s;
+  }
+  /* Cuando el logo horizontal carga, el sello se abre al wordmark recortado.
+     FONDO TRANSPARENTE — el logo es dorado con contorno navy, se lee perfecto
+     sobre el header oscuro. NUNCA poner background blanco aquí (ver memoria
+     feedback_logo_header: JFC se frustró 2 veces con la pastilla blanca).
+     176x40 = proporción real del wordmark recortado (765x174).
+     ═══════════════════════════════════════════════════════════════════════
+     ESTADO APROBADO POR JFC (2026-07-15). NO TOCAR.
+     ═══════════════════════════════════════════════════════════════════════
+     DESCRIPCIÓN: wordmark friendly-123 (176×40px), transparente sobre
+     el header azul oscuro. El logo es dorado/naranja con contorno oscuro,
+     legible directamente — no necesita fondo blanco ni filtros.
+
+     LO QUE NO DEBES CAMBIAR NUNCA:
+       ❌ NO agregar background:#ffffff o cualquier color sólido.
+       ❌ NO agregar border-radius mayor a 0 (crea pastilla).
+       ❌ NO agregar filter:invert() o brightness() sobre este elemento.
+       ❌ NO cambiar width>176px ni height>40px.
+       ❌ NO copiar CSS de AMIGABLE aquí — friendly-123 y AMIGABLE tienen
+          logos distintos con tratamiento CSS distinto (AMIGABLE: 104×26px
+          esquinado; friendly-123: 176×40px centrado en .marca).
+     ═══════════════════════════════════════════════════════════════════════ */
+  header .sello.con-logo{
+    width:176px;
+    height:40px;
+    border-radius:0;
+    background:transparent;
+    border-color:transparent;
+  }
+
+  /* === HEADER PLATEADO: tinta oscura obligatoria (JFC 2026-08-05) ===
+     El header dejo de ser oscuro y paso a case plateado claro. Todo lo que
+     escribe encima tiene que ser tinta solida, o queda ilegible. Colores
+     solidos y -webkit-text-fill-color por iOS. NO usar opacidad aqui. */
+  header, header h1, header .marca, header .slogan-app, header .sub,
+  header span, header small, header em, header strong, header label, header a{
+    color:#14181C !important;
+    -webkit-text-fill-color:#14181C !important;
+  }
+  header .slogan-app{ color:#3A4048 !important; -webkit-text-fill-color:#3A4048 !important; }
+  /* Botones del header como teclas del case: plata con relieve, tinta oscura. */
+  header button{
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 45%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    color:#14181C !important;
+    -webkit-text-fill-color:#14181C !important;
+    box-shadow:0 2px 0 var(--plata-canto);
+  }
+  header button:active{ transform:translateY(2px); box-shadow:0 0 0 var(--plata-canto); }
+  /* Tecla de idioma activa: se hunde y se oscurece, sin perder legibilidad. */
+  .oc-lang-btn.activo{
+    background-image:linear-gradient(180deg, var(--plata-media) 0%, var(--plata-honda) 100%) !important;
+    color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,.35) !important;
+  }
+  header h1{
+    margin:0;
+    font-family:var(--font-serif);
+    font-weight:400;
+    font-size:22px;
+    letter-spacing:0.01em;
+  }
+  header .slogan-app{
+    display:block;
+    font-family:Verdana,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-style:italic;
+    font-size:13px;
+    color:#CCCCCC;
+    letter-spacing:0.02em;
+    margin:2px 0 3px;
+    font-weight:400;
+  }
+  header .sub{
+    font-family:var(--font-mono);
+    font-size:13px;
+    letter-spacing:0.04em;
+    color:var(--brass);
+    margin-top:3px;
+    text-transform:uppercase;
+  }
+  .selector-ubicacion{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:3px;
+    flex-shrink:0;
+  }
+  .selector-ubicacion label{
+    font-family:var(--font-body);
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.07em;
+    text-transform:uppercase;
+    color:#CCCCCC;
+    -webkit-text-fill-color:#CCCCCC;
+  }
+  .selector-ubicacion select{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:14px;
+    padding:8px 12px;
+    border-radius:5px;
+    border:2px solid var(--brass);
+    background:var(--blanco-calido);
+    color:var(--azul-oscuro);
+    -webkit-text-fill-color:var(--azul-oscuro);
+    cursor:pointer;
+    max-width:180px;
+  }
+
+  /* ================= NAV — barra inferior en móvil, riel lateral en tablet/desktop ================= */
+  nav{
+    display:flex;
+    gap:4px;
+    /* Case plateado liso (JFC 2026-08-05): FUERA la veta/microrayas verticales
+       — leian como lineas zebra y agregaban ruido. La chapa del case es un
+       gradiente vertical limpio; el relieve metalico ahora vive en los BOTONES
+       (teclas del case), no en una textura de fondo. NO reintroducir el
+       repeating-linear-gradient aqui. */
+    background-color:var(--plata);
+    background-image:
+      linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 22%, var(--plata) 60%, var(--plata-media) 100%);
+    border-top:2px solid var(--bisel-sombra);
+    box-shadow:inset 0 1px 0 var(--bisel-luz);
+    position:fixed;
+    left:0; right:0; bottom:0;
+    /* ALTURA FIJA + content-box (homologado de AMIGABLE, 2026-07-28).
+       Con border-box (el default aqui), la altura INCLUIA el safe-area, asi
+       que en iPhones con notch el padding inferior se comia el alto util y
+       aplastaba los botones. Con content-box el alto del contenido es fijo y
+       solo el padding absorbe el home indicator. align-items:center evita
+       que los botones se estiren si iOS cambia el inset al colapsar la barra
+       de URL — la causa de que la nav "creciera" hasta el siguiente refresh. */
+    box-sizing:content-box;
+    height:var(--nav-h);
+    align-items:center;
+    padding:4px 6px env(safe-area-inset-bottom, 4px);
+    z-index:35;
+    /* Con 7 botones (Comisiones y Avanzado se agregaron después), flex:1
+       ya no cabía en pantallas angostas y los últimos quedaban totalmente
+       fuera del viewport, sin ninguna forma de llegar a ellos (ni siquiera
+       con swipe, porque nav no tenía overflow-x). Ahora se puede deslizar
+       horizontalmente, y un botón parcialmente visible en el borde es la
+       pista de que hay más — sin flechas ni indicadores extra que mantener. */
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  nav::-webkit-scrollbar{ display:none; }
+  nav button{
+    flex:0 0 auto;
+    width:74px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    padding:6px 2px;
+    min-height:44px;
+    /* TECLA METALICA 2.5D (JFC 2026-08-05): cada boton del menu es una tecla
+       del case — luz arriba, cuerpo plata, canto oscuro abajo. Reemplaza el
+       fondo transparente que dejaba ver la textura del riel. Solidos, cero
+       opacidad. El estado .activo (mas abajo) pinta la tecla con su color. */
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 42%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    box-shadow:0 2px 0 var(--plata-canto), 0 2px 4px rgba(0,0,0,.16);
+    color:var(--ink);
+    border-radius:8px;
+    transition:filter .12s ease, transform .08s ease, color .15s ease;
+  }
+  nav button svg{ width:20px; height:20px; transition:transform .15s ease; }
+  @media (hover:hover){
+    nav button:not(.activo):hover{ background-image:linear-gradient(180deg, #FFFFFF 0%, var(--plata-brillo) 45%, var(--plata-claro) 100%); color:var(--ink); }
+  }
+  nav button svg{ width:20px; height:20px; }
+  /* Tecla presionada, sin color (portado de amigable-123, JFC 2026-08-11;
+     aplicado aqui 2026-08-19). Antes cada boton se pintaba de un color al
+     estar activo, y eran los colores del Simon: var(--sim-verde) y
+     var(--sim-azul). Eso competia con el Simon real — el color de los
+     PRODUCTOS, que es la unica paleta que debe significar algo en la app.
+     El estado activo ahora es la MISMA tecla plata, pero hundida: gradiente
+     invertido + sombra interior, como si el dedo la mantuviera presionada.
+     Ningun matiz nuevo, solo profundidad 2.5D.
+     NO volver a meter color aqui: se rompe la lectura del semaforo. */
+  nav button.activo{
+    background-image:linear-gradient(180deg, var(--plata-honda) 0%, var(--plata-media) 55%, var(--plata-claro) 100%);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.28), inset 0 -1px 0 rgba(255,255,255,.5);
+    border-color:var(--plata-canto);
+    border-top-color:var(--plata-honda);
+    color:var(--ink);
+  }
+  nav button.activo svg{ transform:scale(1.05); }
+  nav button:active{ transform:scale(0.94); }
+
+  main{
+    padding:18px 16px calc(var(--nav-h) + 28px);
+    max-width:1200px;
+    margin:0 auto;
+  }
+  .vista{display:none;}
+  .vista.activa{display:block; animation:vistaEntra .32s cubic-bezier(.22,.8,.32,1);}
+  @keyframes vistaEntra{
+    /* Solo transform — NUNCA opacity: el contenido debe ser visible aunque
+       la animacion no corra (regla IN STONE de JFC, contenido visible x default). */
+    from{ transform:translateY(8px); }
+    to{ transform:translateY(0); }
+  }
+
+  /* ================= HERO SEMÁFORO ================= */
+  /* Aligerado (JFC 2026-08-25): "se traga mucho espacio". Se le baja el peso
+     visual —sombra grande fuera, padding y margen mas justos— para dar amplitud
+     y holgura (estilo Airtable) sin quitar el semaforo, que es el corazon de
+     Hoy. Es puro CSS y reversible: subir de nuevo padding/sombra lo restaura. */
+  .hero-semaforo{
+    padding:11px 20px;
+    margin-bottom:8px;
+    color:var(--blanco-calido);
+    border-color:rgba(255,255,255,0.35);
+    box-shadow:0 1px 2px rgba(0,0,0,0.08);
+    background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,0.09) 1px, transparent 0);
+    background-size:14px 14px, auto;
+  }
+  .hero-semaforo.verde{background-color:var(--sim-verde); --tc-bg:var(--sim-verde);}
+  .hero-semaforo.amarillo{background-color:var(--sim-amarillo); --tc-bg:var(--sim-amarillo);}
+  .hero-semaforo.rojo{background-color:var(--sim-rojo); --tc-bg:var(--sim-rojo);}
+  .hero-semaforo h2{
+    margin:0 0 4px 0;
+    font-family:var(--font-serif);
+    font-weight:400;
+    font-size:18px;
+    line-height:1.12;
+  }
+  .hero-semaforo p{
+    font-size:13px;
+    margin:0;
+    color:var(--blanco-calido);
+  }
+
+  /* ================= TARJETAS RESUMEN ================= */
+  .grid-resumen{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+    margin-bottom:22px;
+  }
+  .tarjeta{
+    padding:14px 16px;
+  }
+  .tarjeta .etiqueta{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:0.07em;
+  }
+  .tarjeta .valor{
+    font-family:var(--font-serif);
+    font-size:24px;
+    font-weight:400;
+    color:var(--ink);
+    margin-top:5px;
+  }
+
+  h3.seccion{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:18px;
+    color:var(--ink);
+    border-bottom:3px solid var(--brass);
+    padding-bottom:9px;
+    margin-top:30px;
+  }
+
+  /* ================= ALERTAS ================= */
+  .lista-alertas{
+    list-style:none;
+    padding:0;
+    margin:0;
+  }
+  .lista-alertas li{
+    font-size:15px;
+    padding:13px 14px;
+    border-radius:5px;
+    margin-bottom:9px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+  }
+  .lista-alertas li.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-verde-dk);}
+  .lista-alertas li.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important; border:2px solid var(--sim-amarillo-dk);}
+  .lista-alertas li.naranja{background:var(--sim-naranja); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-naranja-dk);}
+  .lista-alertas li.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-rojo-dk);}
+  .lista-alertas li.negro{background:var(--sim-negro-bg); color:#E0E0E2; border:2px solid var(--sim-negro);}
+
+  /* ================= INVENTARIO ================= */
+  .grid-cajas{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+    gap:14px;
+  }
+  /* FIX 2026-07-07 (misma familia del bug de primera impresion): iOS hace
+     zoom forzoso al enfocar cualquier input con letra menor a 16px. Piso
+     global de 16px en campos de texto — nadie pierde la pantalla por tocar
+     el buscador de Escanear o un formulario. */
+  input, select, textarea{ font-size:16px !important; }
+
+  /* ============ TARJETAS INVENTARIO — SIMON-STYLE ============ */
+  /* Colores vivos + esquinas redondeadas + hover. Portado de OC. */
+  .caja{
+    padding:16px;
+    border:3px solid transparent;
+    cursor:pointer;
+    min-height:44px;
+    border-radius:12px;
+    position:relative;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .caja:hover{transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,0.18);}
+  .caja:active{transform:translateY(0); box-shadow:none;}
+  /* Intensidad/degradé por color (JFC 2026-07-04): el color base y el
+     estado que dispara cada uno NO cambian (eso sigue siendo el canon
+     estricto de calcularEstado() en server.js/mock-backend.js/pocketbase-
+     client.js, religiosamente identico en los 3). Lo que se enriquece aqui
+     es solo el RENDER: degradé full->dk para dar profundidad, y en rojo
+     (emergencia) un pulso sutil que sube la urgencia percibida un grado
+     mas que naranja (urgente pero no emergencia). Negro es la excepcion:
+     nada de degradé de color, solo un vinieta hacia el negro absoluto —
+     "oscuridad que se traga todo". */
+  /* ============ ENCENDIDOS EN LA PROPIA TARJETA (JFC 2026-07-07) ============
+     La semaforo de colores se APLICA a la tarjeta entera, no se dibuja como
+     indicador aparte (la mini-escala de barras quedo DORMANT abajo):
+       n1 (tenue)     -> fondo -bg del color, borde base, TINTA OSCURA
+       n2 (medio)     -> degrade base->dk (el look clasico), texto blanco
+       n3 (encendido) -> degrade cargado al -dk + GLOW del propio color
+     Mismo color siempre; solo cambia que tan fuerte esta encendido.
+     Sin clase n* cae al look n2 (retrocompatible). Negro es excepcion: sus
+     3 niveles oscurecen hacia el negro absoluto, texto blanco siempre. */
+  /* === 1 TONO PLANO POR ESTADO (JFC 2026-08-05) ===
+     Se retiran los degradados y los overrides por nivel (.n1/.n2/.n3): daban
+     a cada tarjeta un tono distinto segun intensidad, que es exactamente el
+     semaforo de colores retirado. Ahora el estado es UN color plano y el -dk solo
+     pinta el borde/bisel. El pulso del rojo se queda: es movimiento, no un
+     tono extra. NO reintroducir degradados por nivel. */
+  /* COLORES EXACTOS DEL SEMÁFORO (JFC 2026-08-26) — paleta BASE de la UX (solo
+     sin azul). Antes usaban var(--sim-*-dk), shades oscuros (amarillo=#9E7C00
+     olivo "caca") que rompían la coherencia con alertas/hero/filtros. Estos son
+     los mismos hex del semáforo en toda la app. Esta regla pisa a las de arriba. */
+  .caja.verde{border-color:#00C87A;border-width:4px;}
+  .caja.amarillo{border-color:#FFC700;border-width:4px;}
+  .caja.rojo{border-color:#E8365D; animation:pulsoEmergencia 2.2s ease-in-out infinite;}
+  .caja.naranja{border-color:#F97316;border-width:4px;}
+  .caja.negro{border-color:#0A0A0F;border-width:4px;}
+  @keyframes pulsoEmergencia{
+    0%, 100%{box-shadow:0 0 0 0 rgba(232,54,93,0.55), 0 4px 8px rgba(0,0,0,0.18);}
+    50%{box-shadow:0 0 0 8px rgba(232,54,93,0), 0 4px 8px rgba(0,0,0,0.18);}
+  }
+  /* Fondos oscuros: texto blanco */
+  .caja.verde .nombre,.caja.rojo .nombre,.caja.naranja .nombre,.caja.negro .nombre{color:var(--ink) !important;}
+  .caja.verde .detalle,.caja.rojo .detalle,.caja.naranja .detalle,.caja.negro .detalle{color:var(--ink-soft) !important;}
+  .caja.verde .stock,.caja.rojo .stock,.caja.naranja .stock,.caja.negro .stock{color:var(--ink) !important;}/* M3 (2026-08-14): esta regla forzaba BLANCO en los botones de ajuste
+     porque la tarjeta era un rectangulo de color oscuro. Ahora el fondo es
+     blanco y la foto manda, asi que el blanco los volvia invisibles.
+     Pasan a tinta. Si algun dia vuelve el relleno solido, esto vuelve a blanco. */
+  .caja.verde [data-ajuste-menos],.caja.rojo [data-ajuste-menos],.caja.naranja [data-ajuste-menos],.caja.negro [data-ajuste-menos],
+  .caja.verde [data-ajuste-mas],.caja.rojo [data-ajuste-mas],.caja.naranja [data-ajuste-mas],.caja.negro [data-ajuste-mas],
+  .caja.verde [data-estrella-toggle],.caja.rojo [data-estrella-toggle],.caja.naranja [data-estrella-toggle],.caja.negro [data-estrella-toggle]
+  {color:var(--ink) !important; border-color:var(--ink) !important;}
+  /* Dorado=oportunidad: tinta oscura (el amarillo nunca soporta texto blanco) */
+  .caja.amarillo .nombre{color:#0F1923 !important;}
+  .caja.amarillo .detalle{color:#2C3E50 !important;}
+  .caja.amarillo .stock{color:#0F1923 !important;}
+  .caja.amarillo [data-ajuste-menos],.caja.amarillo [data-ajuste-mas],.caja.amarillo [data-estrella-toggle]{color:#0F1923 !important; border-color:var(--sim-amarillo-dk) !important;}
+  /* Nivel 1 (fondo tenue -bg, claro): tinta oscura para legibilidad — regla
+     absoluta de contraste. Negro queda fuera: su n1 sigue siendo oscuro.
+     3 clases (>2) para ganarle a las reglas blancas de arriba. */
+  /* 1 TONO (2026-08-05): n1 ya no es un tinte claro, es el color solido,
+     asi que forzar tinta oscura aqui dejaba el texto ilegible. Se anula. */
+  /* La estrella de "promover" va ENGAZADA en la esquina rota (JFC 2026-08-28):
+     el usuario pidió que encaje JUSTO en el doblez, superimpuesta/engarzada,
+     NO como en Sold (esas cards no tienen esquina trunca). El clip-path de
+     .tag-card recorta la esquina superior derecha (18px). Poniendo la estrella
+     en top:0;right:0, el MISMO clip-path le recorta su propia esquina superior
+     derecha a lo largo de la diagonal → la estrella queda "engarzada" en el
+     corte, como una gema en su engaste, siguiendo la línea del doblez. */
+  .caja .estrella-badge{
+    position:absolute; top:0; right:0; z-index:3;
+    font-size:20px; line-height:1;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+  }
+  .caja .nombre{
+    font-family:var(--font-display);
+    font-size:16px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .caja .detalle{
+    font-size:13px;
+    margin-top:5px;
+    color:var(--ink-soft);
+  }
+  .caja .stock{
+    font-family:var(--font-serif);
+    font-size:34px;
+    font-weight:700;
+    margin-top:4px;
+  }
+
+  .filtros-estado{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .filtros-estado button{
+    padding:9px 14px 9px 28px;
+    border-radius:20px;
+    border:2px solid var(--azul-medio);
+    background:var(--blanco-calido);
+    color:var(--azul-medio);
+    font-weight:600;
+    font-size:13px;
+    box-shadow:none;
+    min-height:40px;
+    position:relative;
+  }
+  .filtros-estado button::before{
+    content:"";
+    position:absolute;
+    left:12px; top:50%;
+    width:8px; height:8px;
+    border-radius:50%;
+    transform:translateY(-50%);
+    background:var(--ink-soft);
+  }
+  .filtros-estado button[data-estado="rojo"]::before{background:var(--sim-rojo);}
+  .filtros-estado button[data-estado="amarillo"]::before{background:var(--sim-amarillo);}
+  .filtros-estado button[data-estado="verde"]::before{background:var(--sim-verde);}
+  .filtros-estado button[data-estado="naranja"]::before{background:var(--sim-naranja);}
+  .filtros-estado button[data-estado="negro"]::before{background:var(--sim-negro);}
+  .filtros-estado button[data-estado=""]{padding-left:14px;}
+  .filtros-estado button[data-estado=""]::before{content:none;}
+  .filtros-estado button.activo{
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+  }
+
+  /* ================= ESCANEAR ================= */
+  .panel-escaner{
+    padding:30px 22px;
+    text-align:center;
+  }
+  .panel-escaner p{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin-top:0;
+  }
+  .panel-escaner input{
+    font-size:19px;
+    padding:15px 16px;
+    width:100%;
+    max-width:420px;
+    border-radius:5px;
+    border:2px solid var(--azul-medio);
+    font-family:var(--font-mono);
+    text-align:center;
+    background:var(--crema);
+    color:var(--ink);
+  }
+  .panel-escaner button.ir{
+    font-size:15px;
+    padding:14px 26px;
+    margin-top:14px;
+    background:var(--rust);
+    color:var(--blanco-calido);
+    border-color:var(--rust-deep);
+    min-height:48px;
+  }
+  .ficha-resultado{
+    margin-top:24px;
+    text-align:left;
+  }
+
+  .ficha-producto{
+    padding:20px;
+  }
+  .ficha-producto .titulo{
+    font-family:var(--font-serif);
+    font-size:22px;
+    font-weight:400;
+    color:var(--ink);
+  }
+  .ficha-producto .precio{
+    font-family:var(--font-serif);
+    font-size:26px;
+    color:var(--ambar);
+    font-weight:400;
+    font-style:italic;
+    margin:4px 0 8px;
+  }
+  .ficha-producto .linea{
+    font-size:15px;
+    margin:4px 0;
+    color:var(--ink-soft);
+  }
+  .ficha-producto .linea strong{ color:var(--ink); }
+  .badge-estado{
+    display:inline-block;
+    font-family:var(--font-display);
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    padding:6px 14px;
+    border-radius:20px;
+    margin-top:10px;
+  }
+  .badge-estado.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
+  .badge-estado.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important;}
+  .badge-estado.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
+  /* Calificador de clientes 1-5 (JFC 2026-08-06, portado de amigable-123):
+     estrella=confiabilidad, corazon=trato. Tap acumulativo: tocar el valor N
+     enciende 1..N. Tocar el mismo N otra vez limpia (0). */
+  .oc-rate-btn{
+    background:transparent; border:none; padding:2px; cursor:pointer; line-height:1;
+    min-width:32px; min-height:32px;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .oc-rate-btn svg{ transition:transform 0.12s ease; }
+  @media (prefers-reduced-motion: reduce){ .oc-rate-btn svg{ transition:none; } }
+
+  .acciones-rapidas{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:16px;
+  }
+  .acciones-rapidas button{
+    font-size:13px;
+    padding:11px 15px;
+    border-color:var(--azul-medio);
+    color:var(--azul-medio);
+    min-height:44px;
+  }
+  .acciones-rapidas button.vender{background:var(--verde); color:var(--blanco-calido); border-color:var(--verde);}
+  .acciones-rapidas button.etiqueta{background:var(--brass); color:var(--blanco-calido); border-color:var(--brass);}
+
+  /* ================= ETIQUETAS ================= */
+  .grid-etiquetas{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:16px;
+  }
+  .etiqueta-card{
+    padding:16px;
+    text-align:center;
+    cursor:pointer;
+    border-style:dashed;
+    min-height:44px;
+  }
+  .etiqueta-card .nombre-prod{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .etiqueta-card .precio-prod{
+    color:var(--ambar);
+    font-family:var(--font-serif);
+    font-weight:400;
+    font-style:italic;
+    font-size:24px;
+    margin:4px 0;
+  }
+  .etiqueta-card .sku-prod{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  /* ================= MODAL ETIQUETA ================= */
+  .modal-fondo{
+    display:none;
+    position:fixed;
+    top:0;left:0;right:0;bottom:0;
+    background:rgba(28,48,73,0.82);
+    z-index:50;
+    overflow:auto;
+    padding:20px;
+  }
+  .modal-fondo.activo{display:flex; align-items:center; justify-content:center;}
+  .etiqueta-imprimible{
+    background:var(--blanco-calido);
+    padding:30px;
+    width:340px;
+    max-width:100%;
+    text-align:center;
+    position:relative;
+  }
+  /* X de cierre con contraste (JFC 2026-08-27): fondo blanco, borde y sombra
+     para que se vea en tablets/celulares y a pleno sol en ferias. */
+  .cerrar{
+    position:absolute;
+    top:8px; right:10px;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    color:#0F1923;
+    background:#FFFFFF;
+    border:2px solid #0F1923;
+    border-radius:50%;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+    font-family:var(--font-body);
+    width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:5;
+  }
+  .etiqueta-imprimible .cerrar{
+    position:absolute;
+    top:8px; left:10px;
+    font-size:20px;
+    cursor:pointer;
+    color:#0F1923;
+    background:#FFFFFF;
+    border:2px solid #0F1923;
+    border-radius:50%;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+    font-family:var(--font-body);
+    width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .etiqueta-imprimible h4{
+    font-family:var(--font-display);
+    font-size:20px;
+    color:var(--ink);
+    margin:14px 0 4px 0;
+  }
+  .etiqueta-imprimible .precio-grande{
+    font-family:var(--font-display);
+    font-size:34px;
+    color:var(--ambar);
+    font-weight:700;
+    margin:8px 0;
+  }
+  .etiqueta-imprimible img{
+    margin:14px 0;
+  }
+  .etiqueta-imprimible .codigo{
+    font-family:var(--font-mono);
+    font-size:15px;
+    letter-spacing:2px;
+    color:var(--ink);
+  }
+  .etiqueta-imprimible .barras{
+    /* Antes esto era un fondo CSS decorativo (rayas falsas, no escaneables).
+       Ahora aquí se inyecta un <svg> Code128 real (ver abrirEtiqueta() y
+       barcode.js) — solo centramos el contenido, el barcode dibuja sus
+       propias barras y fondo blanco. */
+    display:flex;
+    justify-content:center;
+    margin:10px 0;
+  }
+  .etiqueta-imprimible .barras svg{ max-width:100%; height:auto; }
+  .etiqueta-imprimible button.imprimir{
+    margin-top:14px;
+    font-size:14px;
+    padding:11px 20px;
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+    border-color:var(--azul-oscuro);
+    min-height:44px;
+  }
+
+  /* ================= SWITCH BILINGÜE (header) ================= */
+  .oc-lang-wrap{
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .oc-lang-pill{ display:inline-flex; border:1.5px solid var(--azul-medio,#2E6278); border-radius:999px; overflow:hidden; background:#fff; }
+  .oc-lang-btn{ font-family:var(--font-body); font-size:13px; font-weight:700; padding:5px 12px; min-height:32px; border:none; background:transparent; color:var(--azul-medio,#2E6278); cursor:pointer; letter-spacing:1px; }
+  .oc-lang-btn.activo{ background:var(--azul-medio,#2E6278); color:#fff; }
+  .oc-bilingual{ font-size:13px; font-weight:700; color:var(--rust,#E86040); letter-spacing:.3px; white-space:nowrap; }
+
+  /* ================= PRINT (red de seguridad) =================
+     Los prints reales se arman en un iframe aislado (imprimirEtiquetaCompleta /
+     imprimirSoloBarcode), así que el papel nunca lleva chrome. Este bloque es
+     un cinturón extra: si alguien hace Ctrl+P con el modal de etiqueta abierto,
+     solo sale la etiqueta — nunca el botón "Imprimir", la X ni el nav. */
+  @media print {
+    body * { visibility:hidden !important; }
+    #modalEtiqueta.activo, #modalEtiqueta.activo * { visibility:visible !important; }
+    #modalEtiqueta.activo { position:absolute; inset:0; background:#fff !important; display:block !important; padding:0; }
+    #modalEtiqueta.activo .cerrar,
+    #modalEtiqueta.activo .imprimir,
+    #modalEtiqueta.activo #oc-print-completa,
+    #modalEtiqueta.activo #barrasClicable + div,
+    #modalEtiqueta.activo .no-print { display:none !important; }
+  }
+
+  /* ================= AVANZADO ================= */
+  .avanzado-aviso{
+    background:var(--azul-op-claro);
+    color:var(--azul-op);
+    padding:14px 16px;
+    border-radius:5px;
+    margin-bottom:18px;
+    font-size:14px;
+    border-left:none;
+  }
+  .tabla-wrap{ overflow-x:auto; border-radius:6px; }
+  table.reporte{
+    width:100%;
+    min-width:420px;
+    border-collapse:collapse;
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+  }
+  table.reporte th, table.reporte td{
+    text-align:left;
+    padding:12px 14px;
+    border-bottom:1px solid rgba(33,28,20,0.13);
+    font-size:14px;
+  }
+  table.reporte th{
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+    font-family:var(--font-display);
+    font-weight:600;
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:0.04em;
+  }
+
+  /* ================= ACTIVIDAD ================= */
+  .actividad-item{
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+    padding:12px 15px;
+    border-radius:5px;
+    margin-bottom:9px;
+    font-size:14px;
+  }
+  .actividad-item .tipo{
+    font-family:var(--font-display);
+    font-weight:700;
+    color:var(--ink);
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:0.05em;
+  }
+
+  footer{
+    display:none;
+    text-align:center;
+    font-size:13px;
+    color:var(--ink-soft);
+    padding:26px 16px;
+  }
+
+  /* ================= TABLET (≥768px): riel lateral ================= */
+  @media (min-width:768px){
+    nav{
+      flex-direction:column;
+      left:0; top:0; bottom:0; right:auto;
+      width:var(--sidebar-w);
+      height:auto;
+      padding:var(--riel-top, calc(var(--header-h) + 16px)) 12px 16px;
+      border-top:none;
+      border-right:2px solid var(--ink);
+      gap:6px;
+      z-index:30;
+    }
+    nav button{
+      flex:none;
+      width:100%;            /* FIX: sin esto heredaba width:74px del movil y el
+                                texto (ESCANEAR, LIQUIDACIONES) desbordaba el boton */
+      flex-direction:row;
+      justify-content:flex-start;
+      gap:12px;
+      font-size:14px;
+      padding:13px 16px;
+      text-align:left;
+    }
+    main{
+      margin-left:var(--sidebar-w);
+      padding:28px 32px calc(28px + var(--nav-h));
+    }
+    footer{ display:block; margin-left:var(--sidebar-w); }
+    .grid-resumen{ grid-template-columns:repeat(4,1fr); gap:16px; }
+    header h1{ font-size:25px; }
+    .hero-semaforo h2{ font-size:20px; }
+    .tarjeta .valor{ font-size:26px; }
+  }
+
+  @media (min-width:768px) and (max-width:1023px){
+    main{ padding-bottom:28px; }
+  }
+
+  /* ================= DESKTOP (≥1024px) ================= */
+  @media (min-width:1024px){
+    :root{ --sidebar-w:268px; }
+    main{ max-width:1280px; }
+    .grid-resumen{ gap:18px; }
+    .tarjeta .valor{ font-size:28px; }
+    header h1{ font-size:28px; }
+    .hero-semaforo h2{ font-size:22px; }
+    .ficha-producto .titulo{ font-size:26px; }
+    .ficha-producto .precio{ font-size:30px; }
+  }
+
+  /* ================= MÓVIL: tablas navegables (JFC 2026-08-28) =============
+     Antes table.reporte forzaba min-width:420px dentro de .tabla-wrap con
+     overflow-x:auto → en el celular la tabla era imposible de recorrer (scroll
+     horizontal a ciegas). Ahora en pantallas angostas la tabla se compacta
+     (menos min-width y padding) para que quepa en el ancho del teléfono con
+     scroll mínimo. Mobile-first: en tablet/PC se mantiene la tabla con aire. */
+  @media (max-width:600px){
+    table.reporte{ min-width:0; width:100%; }
+    table.reporte th, table.reporte td{ padding:7px 8px; font-size:12px; }
+    table.reporte th{ font-size:11px; }
+  }
+
+  @media (max-width:380px){
+    header h1{font-size:18px;}
+    .hero-semaforo h2{font-size:18px;}
+    nav button{font-size:13px;}
+  }
+
+  /* ---------- SPLASH breve de arranque (marca "friendly-123" ~0.8s) ---------- */
+  #oc-splash{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--azul-oscuro);display:flex;align-items:center;justify-content:center;z-index:999;transition:opacity .45s ease;
+    /* pointer-events:none SIEMPRE: es decorativo, jamas debe bloquear taps.
+       La animacion CSS con forwards lo oculta AUNQUE el JS falle (red de
+       seguridad para Safari/iOS): no depende de nadie para quitarse. */
+    pointer-events:none;
+    animation:ocSplashOut .45s ease 1.15s forwards;}
+  @keyframes ocSplashOut{ to{ opacity:0; visibility:hidden; } }
+  #oc-splash{flex-direction:column;gap:16px;}#oc-splash img{width:min(72vw,340px);height:auto;display:block;}#oc-splash .oc-splash-tag{font-family:var(--font-display,sans-serif);font-size:17px;font-weight:700;color:#F8F9FB !important;-webkit-text-fill-color:#F8F9FB !important;margin:0;text-align:center;letter-spacing:.01em;}
+  #oc-splash.fuera{opacity:0;pointer-events:none;}
+  #vista-avanzado{overflow-x:hidden;max-width:100%;box-sizing:border-box;}
+  #oc-riel-fila{max-width:100%;min-width:0;width:100%;}
+  #oc-riel-contenido{min-width:0;max-width:100%;}
+  #oc-email-row, #oc-whatsapp-row, #oc-pins-visibles{max-width:100%;overflow-x:hidden;}
+  #oc-email-row input, #oc-whatsapp-row input, #oc-email-row button, #oc-whatsapp-row button{
+    max-width:100%;width:100%;box-sizing:border-box;
+  }
+  /* ---------- Landscape en telefonos: compactar header/hero ---------- */
+  @media (orientation:landscape) and (max-height:520px){
+    header{min-height:64px;padding:10px 20px;}
+    .hero-semaforo{padding:14px 20px;margin-bottom:12px;}
+    .hero-semaforo h2{font-size:18px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .vista.activa{animation:none;}
+    #oc-splash{transition:none;}
+    .tag-card, button, nav button svg{transition:none;}
+    .caja.rojo{animation:none;}
+  }
+</style>
+</head>
+<body>
+<noscript>
+  <p><strong>friendly-123</strong> — Stop guessing. Start seeing. Shelf, customer and commission control for small stores. Bilingual, offline, no spreadsheets. Made in Cuenca.</p>
+  <p>Enable JavaScript to open the app.</p>
+</noscript>
+
+
+<!-- Splash brevisimo de arranque: dice "friendly-123" (marca de la linea de apps
+     contables amigables). Si un cliente pide su propia marca aqui, se cambia
+     este texto; el default SIEMPRE es "friendly-123". Se desvanece a los ~0.8s. -->
+<!-- Logo embebido en base64 (JFC 2026-07-18, paridad con AMIGABLE): la splash
+     es lo PRIMERO que se ve al abrir la app, antes de que cargue ningun otro
+     recurso -- el logo va inline para que aparezca instantaneo, sin depender
+     de una segunda peticion de red a logo.png (evita el parpadeo de "sin
+     logo" un instante). -->
+<div id="oc-splash" aria-hidden="true"><img src="./logo.png" alt="friendly-123"><p class="oc-splash-tag">Stop guessing. Start seeing.</p></div>
+
+<header>
+  <div class="marca">
+    <!-- NO logoHeader aquí — logo friendly-123 va SOLO encima de Help(?), en brandWrap (help-ui.js).
+         Misma decisión que AMIGABLE (2026-07-15, JFC). NO AGREGAR sello/logoHeader de vuelta. -->
+    <div>
+      <h1><span id="oc-negocio-nombre" data-i18n="header.bizNameDefault">My store or shelf(s)</span><button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:6px;font-size:18px;line-height:1;min-width:32px;min-height:32px;background:transparent;border:none;color:var(--rust,#E86040);cursor:pointer;vertical-align:middle;padding:4px 6px;">✎</button></h1>
+      <div id="oc-header-apodo" style="display:none;margin-top:2px;font-size:13px;line-height:1.3;color:var(--ink-soft,#5d5340);">
+        <span id="oc-header-apodo-txt"></span>
+        <button type="button" id="oc-header-apodo-btn" title="Name this device" aria-label="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:13px;padding:0 2px;vertical-align:middle;">✎</button>
+      </div>
+      <div class="sub" data-i18n="brand.slogan">Manage your business, in color</div>
+      <div id="oc-offline-badge" style="display:none;font-size:13px;font-weight:700;color:#fff;background:var(--sim-naranja-dk,#C05000);padding:2px 8px;border-radius:999px;margin-top:4px;width:fit-content;">📴 <span data-i18n="offline.badge">Offline — saved locally</span></div>
+    </div>
+  </div>
+  <!-- Switch bilingüe EN/ES + sello "Truly bilingual". Va en el header, discreto
+       pero siempre visible. Inglés por defecto. Wiring en el script principal. -->
+  <div class="oc-lang-wrap" title="Language / Idioma">
+    <div class="oc-lang-pill" role="group" aria-label="Language">
+      <button type="button" class="oc-lang-btn" data-lang="en">EN</button>
+      <button type="button" class="oc-lang-btn" data-lang="es">ES</button>
+    </div>
+    <span class="oc-bilingual" data-i18n="brand.bilingual">Truly bilingual</span>
+  </div>
+  <div class="selector-ubicacion">
+    <label for="selectUbicacion" data-i18n="header.locationLabel">Store / shelf</label>
+    <select id="selectUbicacion"></select>
+  </div>
+</header>
+
+<nav>
+  <button data-vista="hoy" class="activo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="4.6" y1="4.6" x2="6.6" y2="6.6"></line><line x1="17.4" y1="17.4" x2="19.4" y2="19.4"></line><line x1="4.6" y1="19.4" x2="6.6" y2="17.4"></line><line x1="17.4" y1="6.6" x2="19.4" y2="4.6"></line></svg>
+    <span data-i18n="nav.today">Today</span>
+  </button>
+  <button data-vista="inventario">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="8" height="8"></rect><rect x="13" y="10" width="8" height="8"></rect><rect x="8" y="3" width="8" height="6"></rect></svg>
+    <span data-i18n="nav.inventory">Inventory</span>
+  </button>
+  <button data-vista="escanear">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+    <span data-i18n="nav.sell">Sold</span>
+  </button>
+  <!-- Panel de fotos de perchas con semaforo de meta (vista-perchas.js) -->
+  <button data-vista="perchas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    <span data-i18n="nav.shelves">Shelves</span>
+  </button>
+  <button data-vista="clientes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"></circle><path d="M2.8 20c0-3.4 2.8-5.6 6.2-5.6s6.2 2.2 6.2 5.6"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M15.4 14.9c2.9 0 5.8 1.8 5.8 5.1"></path></svg>
+    <span data-i18n="nav.customers">Customers</span>
+  </button>
+  <button data-vista="comisiones">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></svg>
+    <span data-i18n="nav.commissions">Commissions</span>
+  </button>
+  <!-- GASTOS (2026-08-27): registrar gastos individuales y ver gastos vs ingresos. -->
+  <button data-vista="gastos">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path><path d="M16 12h.01M3 9h18"></path></svg>
+    <span data-i18n="nav.expenses">Expenses</span>
+  </button>
+  <!-- ETIQUETAS (JFC 2026-08-28): bajado en prioridad, tras Expenses y antes de Advanced. -->
+  <button data-vista="etiquetas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.2V5a1 1 0 0 1 1-1h6.2L21 14.8 13.8 22 3 11.2z"></path><circle cx="7.6" cy="7.6" r="1.3" fill="currentColor" stroke="none"></circle></svg>
+    <span data-i18n="nav.labels">Labels</span>
+  </button>
+  <button data-vista="avanzado">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+    <span data-i18n="nav.advanced">Advanced</span>
+  </button>
+</nav>
+
+<main>
+
+  <!-- VISTA: HOY -->
+  <section id="vista-hoy" class="vista activa">
+    <div id="heroSemaforo" class="hero-semaforo verde tag-card">
+      <h2 id="heroTitulo" data-i18n="hoy.loading">Loading your business...</h2>
+      <p id="heroSubtitulo"></p>
+      <!-- Reloj (sin clima: soberanía, cero llamadas externas). Actualiza cada 20s. -->
+      <div id="heroReloj" style="position:absolute;bottom:10px;right:12px;background:rgba(0,0,0,.5);color:#fff;-webkit-text-fill-color:#fff;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;padding:4px 10px;border-radius:20px;"></div>
+    </div>
+
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.hoy.1">1. The color banner tells you the state of your business at a glance: green = healthy, yellow = needs attention, red = act now.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.hoy.2">2. “Today's alerts” lists exactly what to fix first — read it top to bottom.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.hoy.3">3. Starred products (⭐) are what the owner wants pushed today — offer these first.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.hoy.4html">4. Owner only: check <strong>In / Out / Profit today</strong> to see the day's money without opening any report.</p>
+      </div>
+    </details>
+
+    <div class="grid-resumen">
+      <!-- Plata del negocio (entra/sale/ganancia/inventario): SOLO dueño. Gated en cargarHoy() via clase fin-dueno. -->
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.moneyIn">In today</div>
+        <div class="valor" id="resEntra">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.moneyOut">Out today</div>
+        <div class="valor" id="resSale">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.profit">Profit today</div>
+        <div class="valor" id="resGanancia">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.inventoryValue">Your inventory is worth</div>
+        <div class="valor" id="resInventario">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta" data-i18n="hoy.salesToday">Sales today</div>
+        <div class="valor" id="resVentasCount">0</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta" data-i18n="hoy.avgSale">Average sale</div>
+        <div class="valor" id="resTicketProm">$0.00</div>
+      </div>
+    </div>
+
+    <h3 class="seccion" data-i18n="hoy.alertsHeading">Today's alerts</h3>
+    <ul class="lista-alertas" id="listaAlertas"></ul>
+    <!-- Para impulsar hoy: productos estrella (el dueño los marca en Inventario).
+         Visible para TODOS, sobre todo para el encargado. Debajo de Alertas. -->
+    <div id="estrellaHoy"></div>
+    <!-- Mood/flavor del día (12 posibles), SOLO dueño (clase fin-dueno la oculta
+         al encargado en cargarHoy). Va al fondo, debajo de todo. -->
+    <div id="moodHoy" class="fin-dueno"></div>
+  </section>
+
+  <!-- VISTA: INVENTARIO -->
+  <section id="vista-inventario" class="vista">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+      <h3 class="seccion" style="margin-top:0;flex:1;" data-i18n="inv.heading">My products</h3>
+      <!-- Alta libre (+): SOLO dueno. Se revela en cargarInventario() segun rol. -->
+      <button id="btnAltaProducto" class="ir" style="display:none;padding:10px 16px;flex-shrink:0;" onclick="abrirAltaProducto()" data-i18n="inv.add">+ Add</button>
+    </div>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.1">1. Tap a product to open its full record: price, supplier, and quick sell / adjust / label buttons.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.2">2. Use the +/− buttons to correct stock without opening the full record — pick a reason from the list.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.3">3. Filter by color (Urgent / Review / Opportunity…) to focus on one type of problem at a time.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.4">4. The star (★) marks products the owner wants everyone pushing today.</p>
+      </div>
+    </details>
+    <div class="filtros-estado" id="filtrosEstado">
+      <!-- Filtros alineados a la semantica Simon CONGELADA (2026-07-07):
+           amarillo=Oportunidad, naranja=Revisar, azul=Dato, negro=Dormido -->
+      <button data-estado="" class="activo" data-i18n="filter.all">All</button>
+      <button data-estado="rojo" data-i18n="filter.urgent">Urgent</button>
+      <button data-estado="naranja" data-i18n="filter.review">Review</button>
+      <button data-estado="amarillo" data-i18n="filter.opportunity">Opportunity</button>
+      <button data-estado="verde" data-i18n="filter.healthy">Healthy</button>
+      <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
+    </div>
+    <input id="inputBuscarInventario" type="search" data-i18n-attr="placeholder:inv.searchPlaceholder" placeholder="Search by name, SKU or category…" style="width:100%;padding:10px 12px;margin-bottom:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:15px;">
+    <!-- Ordenar por columna (2026-07-29): mismo dato, otra vista — no reemplaza
+         la busqueda de arriba, la complementa. Todos los roles la ven: el
+         inventario es operativo, no dato personal de cliente. -->
+    <div id="ordenInventario" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px;">
+      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
+    </div>
+    <!-- M6: resumen por familia. Vive ARRIBA del grid y no lo altera: si
+         esta seccion fallara, la cuadricula sigue igual. -->
+    <label id="invAgruparWrap" style="display:none;align-items:center;gap:9px;min-height:44px;font-size:15px;font-weight:700;cursor:pointer;margin:2px 0 6px;">
+      <input type="checkbox" id="invAgrupar" style="width:22px;height:22px;"> Agrupar por familia
+    </label>
+    <div id="invFamilias" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;"></div>
+    <div class="grid-cajas" id="gridInventario"></div>
+    <!-- Log de movimientos: SOLO dueño, anti-descuadre -->
+    <div id="seccionLogAjustes" style="display:none;">
+      <h3 class="seccion" style="margin-top:24px;" data-i18n="inv.recentMoves">Latest movements</h3>
+      <div id="logAjustes" style="max-height:300px;overflow-y:auto;"></div>
+    </div>
+    <!-- Perchas agrupadas por Sucursal (SOLO dueño). Percha = unidad operativa en UI;
+         Sucursal = agrupador backend/reporting. JFC 2026-07-02. -->
+    <div id="seccionPerchas" style="display:none;">
+      <h3 class="seccion" style="margin-top:24px;" data-i18n="shelves.heading">Shelves</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px;" data-i18n="shelves.intro">Each shelf is an operating unit. Shelves are grouped into branches for reporting and consignment settlement.</p>
+      <div id="gridPerchas"></div>
+      <!-- Crear sucursal nueva -->
+      <div class="tag-card" style="text-align:left;margin-top:14px;">
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="shelves.addBranch">Add branch</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:13px;"><span data-i18n="common.name">Name</span><br>
+            <input id="sucursalNombre" type="text" placeholder="e.g. Downtown, Holiday Market" data-i18n-attr="placeholder:shelves.branchPlaceholder" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <button id="sucursalCrear" class="ir" style="padding:10px 16px;background:var(--ink-soft,#5d5340);border-color:var(--ink,#211c14);" data-i18n="shelves.addBranchBtn">+ Add branch</button>
+        </div>
+        <p id="sucursalMsg" style="font-size:14px;margin-top:8px;"></p>
+      </div>
+      <!-- Crear percha dentro de una sucursal -->
+      <div class="tag-card" style="text-align:left;margin-top:14px;">
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="shelves.addShelf">Add shelf</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:13px;"><span data-i18n="common.name">Name</span><br>
+            <input id="perchaNombre" type="text" placeholder="e.g. Front Window Shelf" data-i18n-attr="placeholder:shelves.shelfPlaceholder" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.branch">Branch</span><br>
+            <select id="perchaSucursal" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></select></label>
+          <label style="font-size:13px;"><span data-i18n="common.type">Type</span><br>
+            <select id="perchaTipo" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
+              <option value="propio" data-i18n="type.own">Own</option>
+              <option value="socio" data-i18n="type.partner">Partner</option>
+              <option value="franquicia" data-i18n="type.franchise">Franchise</option>
+              <option value="consignacion" data-i18n="type.consignment">Consignment</option>
+            </select></label>
+          <!-- LAS DOS FORMAS DE DECIR EL MISMO TRATO (JFC 2026-08-18). El
+               vendedor piensa "me llevo el 10"; la galeria piensa "retengo el
+               15 y el artista se lleva 85". Es el mismo reparto leido al reves:
+               se escribe en el campo que uno tenga en la cabeza y el otro se
+               calcula solo, asi que es imposible dejar un reparto que no suma
+               100. Se guarda un unico numero —lo que se lleva el asociado— y
+               aparte como lo dice este negocio. -->
+          <label style="font-size:13px;"><span data-i18n="common.takesPct">Associate takes %</span><br>
+            <input id="perchaComision" type="number" min="0" max="100" step="0.5" placeholder="e.g. 25" data-i18n-attr="placeholder:common.phCommission25" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.houseKeepsPct">House keeps %</span><br>
+            <input id="perchaCasa" type="number" min="0" max="100" step="0.5" placeholder="e.g. 75" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="shelves.monthlyTarget">Monthly target $</span><br>
+            <input id="perchaMeta" type="number" min="0" placeholder="e.g. 300" data-i18n-attr="placeholder:common.phTarget300" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <!-- TRATOS MIXTOS (JFC 2026-08-19). El motor de reparto en
+               mock-backend.js YA soportaba minimoGarantizado y contribFija
+               (ver repartir(): el minimo levanta la comision cuando el % da
+               menos, y la contribucion fija se descuenta ANTES del %), pero el
+               formulario nunca los mandaba, asi que todo trato salia como %
+               puro. Estos dos campos son lo unico que faltaba para armar las
+               tres formas: % puro (dejar ambos vacios), minimo + % (llenar el
+               minimo), y aporte fijo antes del % (llenar la contribucion).
+               Vacio = 0 = se comporta exactamente como antes: cero migracion,
+               ningun trato existente cambia de valor. -->
+          <label style="font-size:13px;"><span data-i18n="shelves.guaranteedMin">Guaranteed minimum $</span><br>
+            <input id="perchaMinimo" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="shelves.fixedContrib">Fixed contribution $</span><br>
+            <input id="perchaContrib" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <button id="perchaCrear" class="ir" style="padding:10px 16px;" data-i18n="shelves.addShelfBtn">+ Add shelf</button>
+        </div>
+        <p id="perchaMsg" style="font-size:14px;margin-top:8px;"></p>
+      </div>
+      <!-- Modo Feria de fin de semana (rec 10): percha de consignación temporal.
+           Al cerrarla se archiva (conserva historial) y salta a Comisiones. -->
+      <div class="tag-card" style="text-align:left;margin-top:14px;border:2px dashed var(--rust,#E86040);">
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="fair.heading">Weekend pop-up</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="fair.intro">Create a temporary shelf for a 2-3 day event. When you close it, it is archived with its history and you see its settlement instantly.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:13px;"><span data-i18n="fair.eventName">Event name</span><br>
+            <input id="feriaNombre" type="text" placeholder="e.g. Farmers Market" data-i18n-attr="placeholder:fair.namePlaceholder" style="padding:8px;border:2px solid var(--rust);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.commissionPct">Commission %</span><br>
+            <input id="feriaComision" type="number" min="0" max="100" placeholder="e.g. 30" data-i18n-attr="placeholder:common.phCommission30" style="padding:8px;border:2px solid var(--rust);border-radius:5px;width:90px;"></label>
+          <button id="feriaAbrir" class="ir" style="padding:10px 16px;background:var(--rust,#E86040);color:#fff;border-color:var(--rust-deep,#C05000);" data-i18n="fair.open">Open pop-up</button>
+        </div>
+        <p id="feriaMsg" style="font-size:14px;margin-top:8px;"></p>
+      </div>
+    </div>
+  
+    <!-- Matriz BCG del inventario (JFC 2026-07-07): bien al fondo, solo dueno -->
+    <div id="matrizBCG" style="margin-top:26px;"></div>
+</section>
+
+  <!-- VISTA: ESCANEAR -->
+  <section id="vista-escanear" class="vista">
+    <!-- VENDER (JFC 2026-07-07): identidad = control de inventario, no POS.
+         Sin carrito ni "cobrar": un toque en la cuadricula = una salida
+         registrada (con deshacer de 5s). Debajo queda el buscador/escaner de
+         siempre, y al final el CIERRE DEL DIA para quien no registra en vivo.
+         El id vista-escanear se conserva: lo referencian el autofoco del
+         lector y el nav; solo cambia lo que el usuario ve. -->
+    <h3 class="seccion" style="margin-top:0;" data-i18n="sold.heading">Sold</h3>
+    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="sold.intro">Tap a product and you're done: one unit sold (you can undo within 5s). Scroll down to pick a customer or record the day's close.</p>
+    <!-- ¿Cómo usar Vender? Guía colapsable para el operador. -->
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="sold.howToggle">How does it work? ▸</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step0">1. Search by name or filter by category, at the top.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step1">2. Pick the customer (if any) in the selector below.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step2">2. Tap the product: one unit is deducted from stock.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step3">3. A blue notice appears below: tap it within 5s if it was a mistake.</p>
+        <p style="margin:0;font-size:14px;color:var(--ink);" data-i18n-html="sold.step4html">4. If you don't ring up live, use <strong>Day close</strong> at the end.</p>
+      </div>
+    </details>
+    <!-- Modo de venta: dos RUTAS, no una restricción. "Quick tap" (default,
+         sin cambios) para una salida suelta; "Fill a basket" para juntar
+         varios productos, ver el subtotal, y cobrar todo junto con el
+         cliente ya elegido arriba. Ninguna reemplaza a la otra. -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button id="btnModoQuick" data-modo-venta="quick" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">⚡ Quick tap</button>
+      <button id="btnModoCarrito" data-modo-venta="carrito" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">🧺 Fill a basket</button>
+    </div>
+    <!-- Buscador/filtro rapido ANTES del grid tactil (JFC 2026-07-30). Solo
+         filtra los botones ya renderizados por cargarGridVender() - no
+         toca esa logica ni el listener delegado de venta. -->
+    <div id="venderBuscador" style="margin-bottom:12px;">
+      <input id="venderBuscarInput" type="text" data-i18n-attr="placeholder:sold.searchPlaceholder" placeholder="Search by name or category..."
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;font-size:15px;margin-bottom:8px;">
+      <div id="venderCategoriaChips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <!-- CLIENTE ARRIBA (2026-08-27, bloque 1e): el selector de cliente se elige
+         ANTES de tocar los productos, no al final. Barra prominente sobre el
+         grid. Incluye el botón negro "Show customers" para ver la lista de
+         compradores de un ítem/evento. -->
+    <div class="tag-card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin-bottom:12px;">
+      <label style="font-size:16px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+        <span data-i18n="sold.customerLabel">Customer:</span>
+        <select id="ventaCliente" style="flex:1;min-width:140px;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;font-size:15px;">
+          <option value="" data-i18n="sold.counterSale">Counter sale (no customer)</option>
+        </select>
+      </label>
+      <button id="btnNuevoCliente" type="button"
+        style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;" data-i18n="sold.newCustomer">+ New customer</button>
+      <button id="btnShowCustomers" type="button" title="Show customers"
+        style="font-size:13px;font-weight:700;padding:6px 12px;border:2px solid #0F1923;border-radius:6px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17 14c2.5.4 4 2.3 4 5"/></svg>
+        <span data-i18n="sold.showCustomers" style="margin-left:4px;">Show customers</span>
+      </button>
+    </div>
+    <p style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: tap a product</p>
+    <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
+    <!-- Carrito de "Fill a basket": aparece solo en ese modo. Cada linea es
+         editable (+/- y quitar). El cobro final es UNA sola accion clara,
+         para que se sienta que la venta quedo completa y guardada. -->
+    <div id="panelCarrito" class="tag-card" style="display:none;margin-bottom:18px;padding:14px 16px;">
+      <h4 style="margin:0 0 8px;font-size:16px;">Your basket</h4>
+      <div id="listaCarrito"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid var(--linea,#D7E0E8);">
+        <strong style="font-size:15px;">Subtotal</strong>
+        <strong id="subtotalCarrito" style="font-size:20px;color:#0F1923;">$0.00</strong>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button id="btnVaciarCarrito" style="flex:0 0 auto;font-size:14px;padding:9px 14px;border-radius:8px;border:2px solid #C0392B;background:transparent;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">Empty basket</button>
+        <button id="btnSellarVenta" style="flex:1;font-size:16px;font-weight:700;padding:9px 14px;border-radius:8px;border:2px solid #006B3C;background:#006B3C;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">✓ Check out</button>
+      </div>
+      <p id="carritoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
+    </div>
+    <div class="panel-escaner tag-card">
+      <h4 style="margin:0 0 6px;font-size:17px;" data-i18n="sold.scanHeading">Scan or search by code</h4>
+      <p data-i18n="sold.scanIntro">Type or paste the barcode / SKU. (On a tablet with a camera, the reader connects right here.)</p>
+      <input id="inputEscaner" type="text" placeholder="e.g. 7501234567001 or MAR-RED-20" data-i18n-attr="placeholder:sold.scanPlaceholder" autocomplete="off">
+      <br>
+      <button class="ir" id="btnEscanear" data-i18n="sold.searchBtn">Search</button>
+      <!-- EVENTO ACTIVO (JFC 2026-08-25): mismo patron que el selector de cliente.
+           Se elige el evento UNA vez del pulldown (o se crea con "+ Nuevo evento")
+           y cada venta se le suma sola — nunca se vuelve a pedir el nombre. Al lado,
+           dos botones que SUMAN sin reordenar nada: ver invitados y exportar CSV. -->
+      <div style="margin-top:12px;" id="oc-evento-wrap">
+        <label style="font-size:16px;font-weight:700;color:var(--ink);"><span data-i18n="sold.eventLabel">Event:</span>
+          <select id="ventaEvento" style="padding:9px;border:2px solid var(--azul-medio);border-radius:6px;max-width:100%;margin-left:6px;">
+            <option value="" data-i18n="sold.noEvent">No event (regular sale)</option>
+          </select>
+        </label>
+        <button id="btnNuevoEvento" type="button"
+          style="font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;" data-i18n="sold.newEvent">+ New event</button>
+        <button id="btnEventoInvitados" type="button" title="Guests"
+          style="display:none;font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17 14c2.5.4 4 2.3 4 5"/></svg>
+          <span data-i18n="sold.eventGuests" style="margin-left:4px;">Guests</span></button>
+        <button id="btnEventoExport" type="button" title="Export CSV"
+          style="display:none;font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+          <span data-i18n="sold.eventExport" style="margin-left:4px;">Export</span></button>
+        <div id="oc-evento-nuevo" style="display:none;margin-top:8px;">
+          <input id="oc-evento-nombre" type="text" maxlength="120" autocomplete="off" placeholder="Event or class name" data-i18n-attr="placeholder:sold.eventNamePh"
+            style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;max-width:220px;">
+          <input id="oc-evento-fecha" type="date" data-i18n-attr="title:sold.eventDatePh" title="Date (optional)"
+            style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;margin-left:6px;">
+          <button id="oc-evento-fijar" type="button" class="ir" style="padding:8px 14px;margin-left:6px;" data-i18n="sold.eventSet">Set</button>
+        </div>
+        <p id="oc-evento-hint" style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin:6px 0 0;display:none;" data-i18n="sold.eventActiveHint">Every product you tap is added to this event until you set it back to “No event”. You won't be asked for the name again.</p>
+      </div>
+      <div class="ficha-resultado" id="fichaResultado"></div>
+    </div>
+
+    <!-- CIERRE DEL DIA: conciliacion en un solo paso, cero trabajo en horario
+         de venta. Genera ventas reales de hoy (split de comisiones incluido). -->
+    <details id="cierreDia" class="tag-card" style="margin-top:18px;padding:14px 16px;">
+      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.closeSummary">🌙 Day close — reconcile everything at once</summary>
+      <p style="font-size:15px;color:var(--ink-soft);" data-i18n="sold.closeIntro">The taps in the grid above are already counted for today. Note ONLY the extra you didn't record live: how many units of each product went out. It all applies together when you close.</p>
+      <div id="cierreLista"></div>
+      <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
+      <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
+    </details>
+    <!-- CIERRE DEL DIA EN MOVIL (JFC 2026-08-19): el FAB flotante tapaba el
+         menu inferior, asi que en telefono la misma pantalla de cierre se abre
+         desde aqui, dentro de SOLD, que es su sitio logico. Es EL MISMO modal
+         (#eod-modal) y el mismo handler: cero logica duplicada. Se muestra
+         solo si el rol puede verla (lo decide actualizarFAB()). -->
+    <div id="eod-inline-wrap">
+      <button type="button" id="eod-inline">Close the day</button>
+    </div>
+  </section>
+
+  <!-- VISTA: ETIQUETAS -->
+  <section id="vista-etiquetas" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="labels.viewHeading">Labels ready to print</h3>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.1">1. Tap any product card to open its printable label.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.3">2. Tap the barcode itself to print or save just the barcode, for smaller labels.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">3. The QR code links straight to the product's full record for anyone who scans it.</p>
+      </div>
+    </details>
+    <div class="grid-etiquetas" id="gridEtiquetas"></div>
+  </section>
+
+  <!-- VISTA: PERCHAS — panel de fotos con semaforo de meta (JFC 2026-07-02).
+       El grid lo renderiza vista-perchas.js; el dueño toca una foto para
+       tomarla con la camara (se guarda en localStorage, resize 640px). -->
+  <section id="vista-perchas" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="shelves.myShelvesHeading">My shelves</h3>
+    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="shelves.myShelvesIntro">Real photos of each shelf with its target status. Tap a photo to update it.</p>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.shelf.1">1. Tap a shelf's photo to update it with a new one — resized automatically, no bulky files.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.shelf.2">2. The colored ring around each photo shows how close that shelf is to its monthly target.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.shelf.3html">3. Owner only: manage shelves, branches and weekend pop-ups from <strong>Inventory → Shelves</strong>, further down.</p>
+      </div>
+    </details>
+    <div id="vp-orden" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 12px;">
+      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
+    </div>
+    <div id="vp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;"></div>
+    <!-- TRANSFERS ENTRE PERCHAS (JFC 2026-08-28). Movido de Advanced a Perchas:
+         es una operación de inventario entre ubicaciones, no configuración
+         técnica. El usuario piensa en perchas cuando mueve stock. -->
+    <div id="vp-transfers" style="margin-top:26px;"></div>
+  </section>
+
+  <!-- VISTA: COMISIONES (solo dueño) -->
+  <!-- VISTA: CLIENTES (JFC 2026-07-07) — codigo unico + estaciones RFM.
+       El encargado ve la lista y puede registrar clientes; los montos y la
+       matriz de estaciones son SOLO del dueno (cargarClientes aplica el rol). -->
+  <section id="vista-clientes" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="cust.heading">My customers</h3>
+    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="cust.intro">Your whole customer list, live and searchable. Further down, the behavior read tells you who you can count on.</p>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.1">1. Add a customer once — they get a unique code and are placed in a “season” automatically based on how they buy.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.2">2. Owner only: further down, the behavior matrix shows who you can count on and who is worth watching.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.3">3. Rate each customer's behavior — it builds a history only staff can see.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.4">4. Already have a customer list? Import it all at once from a CSV further down.</p>
+      </div>
+    </details>
+    <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <input id="cliNombre" type="text" placeholder="Customer name" data-i18n-attr="placeholder:cust.namePlaceholder" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <input id="cliTelefono" type="text" placeholder="Phone (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
+    </div>
+    <p id="cliMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
+    <div id="listaClientes" style="margin-top:14px;"></div>
+    <div id="matrizClientes" style="margin-top:26px;"></div>
+
+    <!-- Importar CSV de clientes (JFC 2026-07-07): SOLO dueno, al fondo fondo.
+         cargarClientes() lo muestra/oculta segun rol. El encargado JAMAS lo ve:
+         para el encargado solo existe el alta manual de arriba. -->
+    <div id="cliImportarBloque" style="display:none;margin-top:34px;padding-top:20px;border-top:2px solid var(--linea,#D7E0E8);">
+      <h3 class="seccion" style="margin-top:0;" data-i18n="cust.importHeading">Import your customer list from a file</h3>
+      <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n-html="cust.importIntro">If you already have your customers in Excel or on your phone, save the file as <strong>CSV</strong> with two columns, <strong>name</strong> and <strong>phone</strong>, and upload it here. Each one gets their unique code automatically; duplicates (same name) are skipped.</p>
+      <input type="file" id="cliCsvFile" accept=".csv,text/csv" style="font-size:16px;">
+      <p id="cliCsvMsg" style="font-size:15px;font-weight:700;margin:10px 0 0;"></p>
+    </div>
+  </section>
+
+  <section id="vista-comisiones" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="comm.heading">Commissions</h3>
+    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="comm.intro">What you owe each promoter this month, calculated sale by sale — no spreadsheets, no surprises.</p>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.1">1. Each partner/promoter shelf shows what they've sold this month and what you owe them.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.comm.2html">2. Tap <strong>“What if I sell more?”</strong> to simulate a bigger month and see the commission change live.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.comm.3html">3. When you pay, tap <strong>“Mark as paid”</strong> — it seals the month's sales and offers an itemized WhatsApp receipt.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.4">4. The ranking shows who's selling the most — and flags anyone who's gone quiet.</p>
+      </div>
+    </details>
+    <div id="listaComisionistas"></div>
+    <div id="listaComisiones"></div>
+  </section>
+
+  <!-- VISTA: GASTOS (2026-08-27) — registrar gastos individuales y ver gastos vs ingresos. -->
+  <section id="vista-gastos" class="vista">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2px;">
+      <div style="width:6px;height:38px;border-radius:3px;background:linear-gradient(180deg,#C0392B,#F97316);flex:none;"></div>
+      <div>
+        <h3 class="seccion" style="margin:0;" data-i18n="exp.heading">Expenses</h3>
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.1em;margin-top:1px;">Cash out · under control</div>
+      </div>
+    </div>
+    <p style="font-size:14px;color:var(--ink-soft);margin:8px 0 0;max-width:600px;" data-i18n="exp.intro">Record what you spend and see it against what you earn — no spreadsheets, no surprises.</p>
+    <details style="margin:10px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.1">1. Type what it was, the amount and the date, then tap "Add expense".</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.2">2. The summary shows this month's expenses, all-time expenses, and — for the owner — sales and net.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.3">3. Petty cash (caja chica) lives here too: record money in/out per shelf.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.4">4. Staff see only expenses; the owner sees the full picture (sales and net).</p>
+      </div>
+    </details>
+    <div id="gastosResumen" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p style="margin:0 0 8px;font-size:14px;font-weight:700;" data-i18n="exp.record">Record an expense</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="gastoConcepto" type="text" placeholder="What was it? (e.g. rent, supplies, transport)" style="flex:2;min-width:160px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <input id="gastoMonto" type="number" min="0" step="0.01" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <input id="gastoFecha" type="date" style="flex:1;min-width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <button class="ir" onclick="registrarGasto()" style="font-size:14px;padding:9px 16px;">+ Add expense</button>
+      </div>
+      <p id="gastoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
+    </div>
+    <!-- CAJA CHICA (JFC 2026-08-27): movida desde el modal de percha a la
+         pestaña Gastos. Control operativo de efectivo por percha. Solo
+         dueño/admin (gating por rol en cargarGastos). -->
+    <div id="cajaChicaBloque" class="tag-card" style="text-align:left;margin-top:14px;display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;">Petty cash (caja chica)</span>
+        <span id="cajaChicaSaldo" style="font-size:16px;font-weight:700;"></span>
+      </div>
+      <label style="display:block;margin-top:8px;font-size:14px;">Shelf:<br>
+        <select id="cajaChicaPercha" style="margin-top:4px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;max-width:100%;"></select></label>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button id="cajaChicaIngreso" style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;">+ Ingreso</button>
+        <button id="cajaChicaRetiro" style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">− Retiro</button>
+      </div>
+    </div>
+    <div id="listaGastos" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- VISTA: AVANZADO -->
+  <section id="vista-avanzado" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.heading">Advanced controls</h3>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.adv.1">1. Set your monthly expenses once — the app splits them across the real days in the month automatically.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.adv.2">2. P&L, balance sheet and valued inventory update live from your actual sales and stock — no manual entry.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.adv.3">3. This section is for the accountant or a deep review — day-to-day work happens in Today / Inventory / Sold.</p>
+      </div>
+    </details>
+    <div class="avanzado-aviso" data-i18n-html="adv.notice">This is where the technical detail of the business lives: activity, expenses, and the accounting layer (T-accounts, P&amp;L, balance sheet, and valued inventory). It's not for day-to-day — it's for the accountant, the manager, or anyone who wants to see the numbers in depth. That's why the accounting part asks for a separate passcode.</div>
+
+    <!-- Actividad ya no tiene botón propio en el nav (JFC, 2026-07-01: "eso
+         NO necesita un botón en el main") — vive aquí, es historial operativo,
+         no algo que se consulte varias veces al día como Hoy o Escanear. -->
+    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.recentActivity">Recent activity</h3>
+    <div id="listaActividad" class="tag-card" style="text-align:left;max-height:280px;overflow-y:auto;"></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.timezoneHeading">Timezone</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p data-i18n="adv.timezoneIntro">Used to decide what counts as "today" for sales, expenses, and daily close. Pick your store's timezone, or leave it on auto to use this device's timezone.</p>
+      <select id="selectTimezone" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;max-width:320px;"></select>
+      <p id="msgTimezone" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.monthlyExpenses">Monthly expenses</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p data-i18n-html="adv.expensesIntro">Rent, electricity, payroll, internet, etc. Enter the monthly total for the selected location. It's split across the real days in the month to estimate the daily operating cost in the P&amp;L.</p>
+      <div id="gastosSelectorWrap" style="display:none;margin-bottom:12px;">
+        <label style="font-size:14px;font-weight:700;"><span data-i18n="adv.pickLocation">Pick a location to edit its expenses:</span><br>
+          <select id="gastosUbicSelector" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;"></select></label>
+      </div>
+      <input id="inputGastosMensuales" type="number" min="0" step="0.01" placeholder="e.g. 350.00" data-i18n-attr="placeholder:adv.expensesPlaceholder" style="text-align:left; max-width:220px;">
+      <br>
+      <button class="ir" id="btnGuardarGastos" data-i18n="adv.save">Save</button>
+      <p id="msgGastos" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.pnlHeading">Profit &amp; loss (today)</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaPL"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.balanceHeading">Simplified balance sheet</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaBalance"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.valuedInvHeading">Valued inventory</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaValorizado"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+  </section>
+
+</main>
+
+<footer>
+  <em data-i18n="footer.tagline">friendly-123: shelf, customer, and commission control</em>
+  <br>Made in Cuenca, powered by <a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">avatiun.com</a>, 2026
+</footer>
+
+<!-- MODAL ETIQUETA -->
+<div class="modal-fondo" id="modalEtiqueta">
+  <div class="etiqueta-imprimible tag-card" id="contenidoEtiqueta">
+    <button class="cerrar" id="cerrarModal">✕</button>
+  </div>
+  <!-- Botones de acción fuera de la etiqueta imprimible: no aparecen en el preview ni en papel -->
+  <div id="oc-etiqueta-acciones" class="no-print" style="margin-top:12px;text-align:center;"></div>
+</div>
+
+<!-- Modal de ficha/edición de producto (JFC 2026-07-07): la tarjeta de
+     Inventario abre AQUÍ su editor, sin saltar a Vender. -->
+<div class="modal-fondo" id="modalFicha">
+  <div class="tag-card" style="max-width:560px;width:94%;max-height:86vh;overflow-y:auto;position:relative;padding:18px;background:var(--blanco-calido,#F8F9FB);border-radius:12px;">
+    <button class="cerrar" id="cerrarModalFicha" style="position:absolute;top:8px;right:10px;">✕</button>
+    <div id="fichaModalBody" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<script src="./app-shell.js"></script>
+
+<script src="./crypto-store.js"></script>
+<script src="./email-recovery.js"></script>
+<script src="./device-identity.js"></script>
+<script src="./storage-durabilidad.js"></script>
+  <script src="./sync-realtime.js"></script>
+  <script src="./sync-watchdog.js"></script>
+  <script src="./auth-ui.js"></script>
+  <script src="./soporte-visual.js"></script>
+  <script src="./backup-scheduler.js"></script>
+<script src="./avanzado-extra.js"></script>
+<script src="./geo-ping.js"></script>
+<!-- Novedades: experimental employee gamification (EXPERIMENTAL FEATURE,
+     JFC 2026-07-22). Separate module, ON by DEFAULT (owner can turn it off
+     in Advanced with an explicit "0").
+     See novedades.js for detail — never touches real sales/inventory. -->
+<script src="./novedades.js"></script>
+<script src="./help-ui.js"></script>
+<!-- idb-fotos.js (JFC 2026-07-18): DEBE cargar antes de vista-perchas.js —
+     expone window.OCFotos, que vista-perchas.js usa para persistir fotos de
+     percha en IndexedDB en vez de localStorage. -->
+<script src="./idb-fotos.js"></script>
+<script src="./idb-archivo.js"></script>
+<script src="./simon-config.js"></script>
+<script src="./percha-reposicion.js"></script>
+<script src="./micelio-vivo.js"></script>
+<script src="./micelio-ui.js"></script>
+<script src="./borradores.js"></script>
+<script src="./vista-perchas.js"></script>
+<script src="./welcome-ui.js"></script>
+<script src="./tutorial-ui.js"></script>
+<!-- MICELIO (homologado de AMIGABLE, 2026-07-28). El bus va primero:
+     hechos.js se engancha a el al cargar. Ver docs/reconciliacion.js. -->
+<script src="./event-bus.js"></script>
+<script src="./logger.js"></script>
+<script src="./telemetry.js"></script>
+<script src="./identity-context.js"></script>
+<script src="./audit-store.js"></script>
+<script src="./sync-queue.js"></script>
+<script src="./sync-outbox.js"></script>
+<script src="./ui-actions.js"></script>
+<script src="./feature-gate.js"></script>
+<script src="./salud-app.js"></script>
+<script src="./hechos.js"></script>
+<script src="./reconciliacion.js"></script>
+<script src="./cartera.js"></script>
+<script src="./plan-pagos.js"></script>
+<script src="./plan-pagos-ui.js"></script>
+<script src="./caja-chica.js"></script>
+<!-- uFuzzy (JFC 2026-07-30): busqueda tolerante a errores de tipeo para
+     Clientes (via lista-dinamica.js). Vendorizado localmente, MIT, sin
+     CDN, sin build step - si falta o falla, lista-dinamica.js cae sola al
+     filtro por substring de siempre (ver feedback_aislar_fallos_ui_nunca_datos). -->
+<script src="./vendor/ufuzzy.min.js"></script>
+<script src="./lista-dinamica.js"></script>
+<!-- MiniSearch (JFC 2026-07-30): busqueda tolerante + filtro por categoria
+     para el grid tactil de Sold. Mismo criterio de aislamiento: si falla,
+     el buscador cae al filtro por substring que ya existia. -->
+<script src="./vendor/minisearch.min.js"></script>
+<script src="./respaldo-empleado.js"></script>
+<script src="./edutips.js"></script>
+<script src="./mantenedor-privacidad.js"></script>
+<script src="./mantenedor-store.js"></script>
+<script src="./mantenedor-reportar.js"></script>
+<script src="./pwa-boot.js"></script>
+
+<!-- oc-toast-venta: a nivel de body para que sea visible desde cualquier vista.
+     El toast usa position:fixed pero un padre con display:none lo oculta igual.
+     Fix 2026-07-07: mover fuera de pintarFicha() y de cualquier vista. -->
+<div id="oc-toast-venta"></div>
+
+<!-- PANTALLA DE DATOS DE VENTA (portado de amigable-123, JFC 2026-08-26). Overlay
+     a nivel de body: aparece centrado al vender, sin importar desde dónde. -->
+<div id="oc-ventainfo-overlay" style="display:none;position:fixed;inset:0;z-index:10001;background:#0F141E;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">
+  <div id="oc-ventainfo-caja" style="max-width:460px;width:100%;margin:16px auto;"></div>
+</div>
+
+<!-- =====================================================================
+     FEATURE: ocConfirm()/ocAlert() — reemplazo de confirm()/alert() nativos.
+     Los diálogos nativos bloquean el hilo, se ven fuera de lugar en el
+     estilo de la app, y en el navegador interno de WhatsApp/Instagram a
+     veces ni siquiera se muestran (devuelven false/undefined al instante).
+     Estas versiones son promesas resueltas por un modal propio, con el
+     mismo lenguaje visual del resto de la app (tag-card, colores Simon).
+     Uso: if (!(await ocConfirm("¿Seguro?"))) return;   await ocAlert("Error X");
+     ===================================================================== -->
+<div id="oc-modal-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,20,30,0.55);align-items:center;justify-content:center;padding:20px;">
+  <div id="oc-modal-caja" class="tag-card" style="max-width:380px;width:100%;text-align:left;background:var(--blanco-calido,#fbf5e8);padding:22px 20px;border-radius:12px;">
+    <div id="oc-modal-msg" style="font-size:15px;color:var(--ink,#211c14);white-space:pre-line;margin-bottom:18px;"></div>
+    <div id="oc-modal-botones" style="display:flex;gap:10px;justify-content:flex-end;"></div>
+  </div>
+</div>
+<script src="./oc-modal.js"></script>
+
+<!-- =====================================================================
+     (Eliminado 2026-08-27) La vista de mostrador fullscreen "Mostrar al
+     cliente" fue reemplazada por el modal de compradores (abrirCompradores).
+     El botón 👁 de la ficha ahora abre la lista de compradores del producto.
+     ===================================================================== -->
+
+<!-- ═════════ 2026-08-19, JFC: llegar por el QR del equipo ═════════════
+     El QR del panel de sync lleva una URL con ?join=F123-XXXX-XXXX. Antes
+     llevaba texto suelto y la camara del telefono contestaba "No usable data
+     found". Aqui solo se GUARDA el codigo y se avisa: NO se activa nada solo.
+     Unirse a una sala es una decision del dueno, no algo que pase por escanear.
+     El codigo queda en sessionStorage y Avanzado -> Sync lo encuentra ya
+     escrito en el campo "Join this team". Se limpia la URL para que no quede
+     el codigo en la barra ni en el historial. -->
+<script src="./join-query.js"></script>
+
+<!-- ═════════ 2026-08-19, aprobado JFC: FAB "Close the day" ═════════════
+     Boton flotante abajo a la derecha (el hueco que dejo el pulsar).
+     Un solo click: (1) trae /api/dashboard con el resumen de hoy;
+     (2) muestra el resumen y ofrece descargar respaldo. No reimplementa
+     ninguna logica de negocio — solo llama endpoints existentes y usa el
+     mismo Blob-download que Avanzado. Si /api/dashboard falla, dice por
+     que. Solo se muestra si hay sesion de dueno o admin. -->
+<style>
+  #fab-eod{position:fixed;right:16px;bottom:16px;z-index:850;border-radius:999px;
+    background:#E86040;color:#fff;border:none;padding:14px 20px;font-size:15px;font-weight:700;
+    box-shadow:0 6px 20px rgba(232,96,64,.35);cursor:pointer;display:none;font-family:inherit;
+    -webkit-tap-highlight-color:transparent;}
+  #fab-eod:hover{background:#C05000;}
+  /* JFC 2026-08-19: en el navegador movil el FAB flotante tapaba el menu de
+     abajo. Queda SOLO en pantalla ancha (>=900px), flotando como a JFC le
+     gusta. En movil la misma accion vive dentro de SOLD (#eod-inline-wrap),
+     que es donde el usuario ya esta cerrando el dia. El !important es
+     necesario porque actualizarFAB() escribe display inline. */
+  @media (max-width:899px){ #fab-eod{display:none !important;} }
+  /* Y al reves: el boton en linea es solo de movil. */
+  #eod-inline-wrap{display:none;margin-top:14px;}
+  @media (max-width:899px){ #eod-inline-wrap.puede{display:block;} }
+  #eod-inline{width:100%;min-height:48px;border-radius:10px;background:#E86040;color:#fff;
+    border:none;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
+  #eod-inline:active{transform:scale(.99);}
+  #fab-eod:active{transform:scale(.97);}
+  #eod-modal{position:fixed;inset:0;background:rgba(15,25,35,.55);z-index:900;
+    display:none;align-items:center;justify-content:center;padding:16px;}
+  #eod-modal.visible{display:flex;}
+  #eod-modal .card{background:#fff;border-radius:14px;padding:24px 22px;max-width:440px;width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  #eod-modal h3{margin:0 0 10px;font-size:20px;color:#0F1923;}
+  #eod-modal .k{display:flex;justify-content:space-between;font-size:15px;padding:8px 0;
+    border-bottom:1px solid #e5e7eb;color:#2C3E50;}
+  #eod-modal .k:last-of-type{border-bottom:none;}
+  #eod-modal .k .v{font-family:"JetBrains Mono",monospace;font-weight:700;color:#0F1923;}
+  #eod-modal .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+  #eod-modal .btn{flex:1;min-width:130px;padding:12px;border-radius:8px;border:1.5px solid transparent;
+    font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+  #eod-modal .btn-p{background:#E86040;color:#fff;}
+  #eod-modal .btn-p:hover{background:#C05000;}
+  #eod-modal .btn-o{background:#fff;border-color:#e5e7eb;color:#0F1923;}
+  #eod-msg{font-size:13px;color:#6b7280;margin-top:10px;min-height:16px;}
+</style>
+<button type="button" id="fab-eod" aria-label="Close the day">Close the day</button>
+<div id="eod-modal" role="dialog" aria-modal="true" aria-labelledby="eod-t">
+  <div class="card">
+    <h3 id="eod-t">Close the day</h3>
+    <div id="eod-body">Loading today's summary…</div>
+    <div class="row">
+      <button type="button" class="btn btn-p" id="eod-backup">Download backup</button>
+      <button type="button" class="btn btn-o" id="eod-close">Close</button>
+    </div>
+    <p id="eod-msg"></p>
+  </div>
+</div>
+<script src="./eod-fab.js"></script>
+
+</body></html>

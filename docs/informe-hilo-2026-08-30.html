@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Informe F123-HILO-2026-0830 — Hallazgos y arreglos del laboratorio de reparación</title>
+<meta name="description" content="Informe consolidado de problemas hallados y arreglos aplicados a friendly-123 en el laboratorio del 29 y 30 de agosto de 2026. Sin datos de negocio.">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="./favicon.png">
+<style>
+  :root {
+    --ink: #0F1923;
+    --muted: #3D4F5C;
+    --rule: #C4CDD8;
+    --paper: #F4F6F8;
+    --sheet: #FFFFFF;
+    --simon: #E86040;
+    --sinclair: #2E6278;
+    --ok: #00805A;
+    --warn: #9A6700;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, sans-serif;
+    --display: "Space Grotesk", "Source Sans 3", system-ui, sans-serif;
+    --shadow: 0 0 0 1px rgba(15,25,35,.06), 0 1px 2px -1px rgba(15,25,35,.06), 0 12px 32px rgba(15,25,35,.06);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(90deg, transparent, transparent 47px, rgba(15,25,35,.035) 47px, rgba(15,25,35,.035) 48px),
+      var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 18px;
+    line-height: 1.55;
+  }
+  a { color: var(--sinclair); text-underline-offset: 3px; }
+  a:hover { color: var(--ink); }
+  a:focus-visible { outline: 3px solid var(--simon); outline-offset: 3px; }
+  .skip {
+    position: absolute; left: 12px; top: 12px;
+    transform: translateY(-140%);
+    background: var(--ink); color: #fff; padding: 10px 14px; border-radius: 6px; z-index: 20;
+  }
+  .skip:focus { transform: none; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 18px 80px; }
+  .sheet {
+    background: var(--sheet);
+    box-shadow: var(--shadow);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .perf {
+    height: 14px;
+    background:
+      repeating-linear-gradient(90deg, var(--sheet) 0 10px, transparent 10px 14px);
+    background-color: var(--ink);
+  }
+  header.doc {
+    padding: 28px 36px 22px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--sinclair);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 600;
+    letter-spacing: -.03em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0 0 10px;
+    padding-right: 90px;
+  }
+  .lede {
+    margin: 0;
+    color: var(--muted);
+    font-size: 18px;
+    max-width: 42em;
+    text-wrap: pretty;
+  }
+  .stamp {
+    position: absolute;
+    right: 24px;
+    top: 28px;
+    width: 104px;
+    height: 104px;
+    border: 3px solid var(--simon);
+    color: var(--simon);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    transform: rotate(12deg);
+    opacity: .92;
+    pointer-events: none;
+    line-height: 1.2;
+    padding: 8px;
+  }
+  .meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 15px;
+  }
+  .meta div {
+    padding: 12px 36px;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .meta div:nth-child(2n) { border-right: none; }
+  .meta dt {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--sinclair);
+    margin: 0 0 4px;
+  }
+  .meta dd { margin: 0; font-weight: 600; }
+  nav.toc {
+    padding: 18px 36px 8px;
+    background: #F8F9FB;
+    border-bottom: 1px solid var(--rule);
+  }
+  nav.toc p {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--sinclair);
+    margin: 0 0 8px;
+  }
+  nav.toc ol { margin: 0 0 12px; padding: 0 0 0 1.2em; font-size: 15px; }
+  nav.toc a { text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  article { padding: 8px 36px 40px; }
+  h2 {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    margin: 36px 0 12px;
+    padding-top: 8px;
+    scroll-margin-top: 16px;
+  }
+  h2 .n {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .12em;
+    color: var(--simon);
+    display: block;
+    margin-bottom: 4px;
+  }
+  h3 {
+    font-family: var(--display);
+    font-size: 17px;
+    margin: 22px 0 8px;
+    scroll-margin-top: 16px;
+  }
+  p { margin: 0 0 14px; text-wrap: pretty; }
+  ul, ol { margin: 0 0 16px; padding-left: 1.2em; }
+  li { margin: 0 0 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 0 0 18px; }
+  th, td {
+    text-align: left; vertical-align: top;
+    padding: 9px 10px 9px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--sinclair);
+    font-weight: 500;
+  }
+  td code, p code, li code {
+    font-family: var(--mono);
+    font-size: .86em;
+    background: #E2E8ED;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .ok { color: var(--ok); font-weight: 700; }
+  .pend { color: var(--warn); font-weight: 700; }
+  .esp { color: var(--muted); font-weight: 700; }
+  .tape {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: #0F1923;
+    color: #D7E0E8;
+    padding: 16px 18px;
+    margin: 8px 0 18px;
+    white-space: pre-wrap;
+    line-height: 1.55;
+    overflow-x: auto;
+  }
+  .call {
+    border-left: 4px solid var(--sinclair);
+    background: #F8F9FB;
+    padding: 12px 16px;
+    margin: 0 0 18px;
+  }
+  footer.doc {
+    padding: 18px 36px 28px;
+    border-top: 1px solid var(--rule);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  @media (max-width: 640px) {
+    header.doc, article, footer.doc, nav.toc { padding-left: 18px; padding-right: 18px; }
+    h1 { padding-right: 0; }
+    .meta { grid-template-columns: 1fr; }
+    .meta div { border-right: none; padding-left: 18px; padding-right: 18px; }
+    .stamp { position: static; margin: 12px 0 0; transform: rotate(8deg); }
+  }
+  @media print {
+    body { background: #fff; }
+    .wrap { padding: 0; max-width: none; }
+    .sheet { box-shadow: none; }
+    .skip, nav.toc { display: none; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<a class="skip" href="#contenido">Saltar al contenido</a>
+<div class="wrap">
+  <div class="sheet">
+    <div class="perf" aria-hidden="true"></div>
+    <header class="doc">
+      <p class="kicker">friendly-123 · laboratorio de reparación · Cuenca, Ecuador</p>
+      <h1>Informe consolidado de hallazgos y arreglos</h1>
+      <p class="lede">Documento F123-HILO-2026-0830. Recoge los problemas confirmados en este hilo (29 y 30 de agosto de 2026) y los arreglos aplicados en el laboratorio, con archivos, recuento de líneas y huella SHA-256. Ningún dato de inventario, ventas, clientes ni PIN en claro sale de este documento.</p>
+      <div class="stamp" aria-hidden="true">Lab<br>v1.7.52<br>shell v165</div>
+    </header>
+    <div class="meta">
+      <div><dt>Identificador</dt><dd>F123-HILO-2026-0830</dd></div>
+      <div><dt>Fecha de cierre</dt><dd>30 de agosto de 2026</dd></div>
+      <div><dt>Alcance</dt><dd>Clon de laboratorio de friendly-123. No es el GitHub de producción hasta que se publique.</dd></div>
+      <div><dt>Destinatario</dt><dd>J. F. Carpio, dueño del producto</dd></div>
+      <div><dt>Regla de datos</dt><dd>NO CLOUD: inventario, ventas, clientes y PIN permanecen en el aparato.</dd></div>
+      <div><dt>Archivo intacto de sync</dt><dd><code>sync-realtime.js</code> · 79&nbsp;815 bytes · 1&nbsp;407 líneas · <code>87b5b7336e680bc4</code></dd></div>
+    </div>
+    <nav class="toc" aria-label="Índice">
+      <p>Contenido</p>
+      <ol>
+        <li><a href="#metodo">Método y lo que este laboratorio es</a></li>
+        <li><a href="#inventario">Inventario maestro de hallazgos</a></li>
+        <li><a href="#identidad">Identidad, licencia y namespaces</a></li>
+        <li><a href="#pines">Candado, PIN y directorio</a></li>
+        <li><a href="#avanzado">Avanzado: lápices, admin e idioma</a></li>
+        <li><a href="#diego">Caso de campo: Diego Ortuño</a></li>
+        <li><a href="#seo">Auditoría de la página servida</a></li>
+        <li><a href="#mantenedor">Suite de mantenimiento técnico</a></li>
+        <li><a href="#integridad">Tabla de integridad</a></li>
+        <li><a href="#pendiente">Pendiente, a propósito, y fuera de alcance</a></li>
+      </ol>
+    </nav>
+    <article id="contenido">
+
+      <h2 id="metodo"><span class="n">01</span>Método y lo que este laboratorio es</h2>
+      <p>Se clonó el repositorio <strong>friendly-123</strong> a un laboratorio aparte, a petición explícita de no tocar producción a ciegas. Cada cambio se contrastó con recuento de líneas y SHA-256 de 16 caracteres. El archivo de sincronización en vivo, <code>docs/sync-realtime.js</code>, no se editó en ningún momento de este hilo: su huella al clonar y al cierre es la misma, <code>87b5b7336e680bc4</code>.</p>
+      <p>La app de laboratorio corre como PWA estática. Versión al cierre: <strong>1.7.52</strong>, caché de shell <code>f123-shell-v165</code>. Diccionario de idioma: 736 claves en inglés y 736 en español, sin faltantes.</p>
+      <p>Cuando un arreglo de código destruyó un archivo (el caso de <code>crypto-store.js</code>, que quedó en 23 líneas), se restauró desde <code>git show HEAD</code> y se reaplicaron solo las funciones nuevas. El Service Worker llegó a perder 17 archivos del SHELL; la lista se restauró y se subió la versión de caché para forzar la propagación.</p>
+
+      <h2 id="inventario"><span class="n">02</span>Inventario maestro de hallazgos</h2>
+      <p>Estado: <span class="ok">Reparado en lab</span> · <span class="pend">Pendiente</span> · <span class="esp">Esperado / no es bug</span>.</p>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Hallazgo</th><th>Arreglo</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Lord adopta como propia cualquier licencia que visita (<code>unirse()</code>).</td><td>Claim/merge por UI; identidad partida con “Fix split identity”. Clave canónica <code>f123_lord_licencia_canonica</code> sigue pendiente de código en producción.</td><td class="pend">Parcial</td></tr>
+          <tr><td>2</td><td>Registro <code>f123_tiendas</code> con mapeos corruptos (<code>P3W1D</code>, <code>JENF</code> → namespace propio) y sin autocorrección.</td><td>Dato reparado a mano en PC. El código de <code>cambiar()</code> aún debe cegarse contra entradas vacías.</td><td class="pend">Dato sí, código no</td></tr>
+          <tr><td>3</td><td>Datos reales del Lord viven en namespace vacío; sufijos <code>::JENF</code>, <code>::P3W1D</code>, <code>::S2J24</code> vacíos.</td><td>Confirmado. No hubo pérdida. No se reescribieron namespaces.</td><td class="ok">Confirmado, sin pérdida</td></tr>
+          <tr><td>4</td><td>Banner “Entering X” muestra estado viejo durante el reload.</td><td>No abordado: UX de transición, no crítico.</td><td class="pend">Abierto</td></tr>
+          <tr><td>5</td><td>PIN 789 no abre una tienda ajena; 456 es demo; 888 quedó libre.</td><td>Se respetó la reserva: 456 demo, 789 activar. 888 ya no es el dueño por defecto en un aparato que ya cambió su clave.</td><td class="esp">Comportamiento esperado</td></tr>
+          <tr><td>6</td><td>PIN local del celular sigue funcionando después de unirse a otra licencia.</td><td>Es el secreto del aparato, no del cuaderno. Las claves de rol ahora viajan en el catálogo (<code>pinsRol</code>).</td><td class="ok">Reparado en lab</td></tr>
+          <tr><td>7</td><td>“Name this device” aparecía en la pantalla de PIN.</td><td>El apodo se edita una vez adentro, en el encabezado, junto al nombre de la tienda. No en el candado.</td><td class="ok">Reparado</td></tr>
+          <tr><td>8</td><td>El refresh de versión rearmaba el candado de PIN.</td><td>La recarga se aplaza con <code>f123_reload_al_entrar</code> y se consume al entrar, no sobre el teclado.</td><td class="ok">Reparado</td></tr>
+          <tr><td>9</td><td>Pocos intentos de PIN errado y triple conteo (dueño + staff + contable en cada dígito).</td><td>Tope 10 por ronda, un solo alcance <code>login</code>, identificación del PIN primero, lockout después.</td><td class="ok">Reparado</td></tr>
+          <tr><td>10</td><td>PIN 555 dejó de abrir; 222 “al azar” sí. Avanzado mostraba Owner 888.</td><td><code>identificarPin</code> ya no acepta el XOR de fábrica. Se recuerda el PIN que abre de verdad. El lápiz de Owner escribe hash, XOR visible y directorio.</td><td class="ok">Reparado</td></tr>
+          <tr><td>11</td><td>Las claves de Avanzado no se podían editar una por una.</td><td>Lápiz propio en Owner, Staff, Accounting y en cada fila del equipo, con retroedición (el valor actual viaja en el lápiz).</td><td class="ok">Reparado</td></tr>
+          <tr><td>12</td><td>Se podía renombrar el aparato y no “My store” del encabezado. Se tocó perchas por error.</td><td>Renombre de tienda en el header para dueño y admin. Las perchas no se tocaron en el arreglo final.</td><td class="ok">Reparado</td></tr>
+          <tr><td>13</td><td>El admin debía tener los poderes del dueño salvo credenciales del dueño y crear/bajar admins.</td><td>Regla escrita en Team. Casillas de poderes: solo UI, sin cablear, para que el dueño las decida después.</td><td class="ok">UI lista, sin cablear</td></tr>
+          <tr><td>14</td><td>El interruptor de idioma no traducía Avanzado (el candado no era el reclamo).</td><td>71 <code>data-i18n</code> en Avanzado; <code>refrescarIdiomaAvanzado</code> al cambiar idioma; riel, First Steps, Team, Sync, Backup, Activity, Fraud.</td><td class="ok">Reparado</td></tr>
+          <tr><td>15</td><td>Diego Ortuño: correo y Guardar se salen a la derecha en el celular; no puede guardar PIN de dueño.</td><td>Correo y WhatsApp en columna a todo el ancho, botón de 48&nbsp;px debajo. Avanzado recorta el desborde. EN/ES ya no tapa el nombre.</td><td class="ok">Reparado en lab</td></tr>
+          <tr><td>16</td><td>Diego: PIN de staff del celular no abre el escritorio, con la misma licencia.</td><td>Owner/Staff/Accounting viajan en el catálogo cifrado (<code>pinsRol</code>). Un 888 de fábrica no pisa un PIN real.</td><td class="ok">Reparado en lab</td></tr>
+          <tr><td>17</td><td>HTML de ~1&nbsp;MB con 60 scripts embebidos, dos H1, sin meta description, TODO/FIXME a la vista.</td><td>Scripts extraídos a archivos externos; meta description; un H1. Los TODO de producción se listan, no se borraron todos.</td><td class="pend">Parcial</td></tr>
+          <tr><td>18</td><td>Service Worker atascado pre-v72; <code>salud-app.js</code> dispara “reparaciones”.</td><td>Registro con <code>updateViaCache: "none"</code>. SHELL restaurado. Versión de caché subida a v165.</td><td class="ok">Lab; campo por verificar</td></tr>
+          <tr><td>19</td><td>Algo después de <code>aislamiento.js</code> pisaba <code>indexedDB.open</code>.</td><td>Comprobación restaurada a <code>open !== abrirNativoOriginal</code>. No se reasignó el wrapper.</td><td class="ok">Guardia restaurada</td></tr>
+          <tr><td>20</td><td>PIN 888 en escritorio llevaba a activación / cliente nuevo.</td><td>888 ya no es dueño reservado. Activar es 789. Unirse a un cuaderno existente no debe abrir el flujo de negocio nuevo si la licencia pegó.</td><td class="ok">Ajustado; unirse verificado en PC</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="identidad"><span class="n">03</span>Identidad, licencia y namespaces</h2>
+      <h3>Lo que estaba roto</h3>
+      <p>El aparato del Lord, al visitar otra tienda, escribía esa licencia como si fuera la propia. Un mismo <code>f123_owned</code> llegó a tener <code>syncCode=idiomARTE</code>, <code>licenseCode=JENF</code> y nombre “James Bond Store”: tres identidades. El mapa <code>f123_tiendas</code> apuntaba <code>P3W1D</code> y <code>JENF</code> al namespace vacío. Los datos vivos (70&nbsp;667 caracteres) estaban en <code>f123_estado_v4_A/_B</code> sin sufijo. Los namespaces con código de licencia estaban vacíos. No hubo pérdida de datos; sí hubo confusión de quién es dueño de qué cuaderno.</p>
+      <h3>Lo que se hizo</h3>
+      <ul>
+        <li>En el PC del Lord se corrigió el dato y se borraron entradas podridas de <code>f123_tiendas</code>.</li>
+        <li>El panel de Avanzado tiene Claim & merge y “Fix split identity” para re-apuntar un aparato a la licencia canónica sin vaciar lo local. El merge es add-only.</li>
+        <li>La licencia F123-A6YK-6V1J-BF2A-S2J24 quedó pegada en Shared notebook (verificado en el hilo).</li>
+        <li>Se confirmó que unirse desde PC a la 007 Store del celular ya entra.</li>
+      </ul>
+      <h3>Lo que queda</h3>
+      <p>La clave inmutable <code>f123_lord_licencia_canonica</code>, que <code>unirse()</code> y <code>activar()</code> no deben tocar, y el ciego de <code>cambiar()</code> contra mapeos a namespaces sin datos, no se cerraron en código en este laboratorio. Siguen en el plan de Fase 4 del 29 de agosto.</p>
+
+      <h2 id="pines"><span class="n">04</span>Candado, PIN y directorio</h2>
+      <h3>El candado se reinicializaba</h3>
+      <p>El arranque PWA forzaba <code>location.reload</code> al detectar shell nueva <em>mientras el candado estaba a la vista</em>. El teclado se desarmaba. Ahora <code>pwa-boot.js</code> escribe <code>f123_reload_al_entrar</code> y <code>auth-ui.js</code> recarga después de un PIN correcto, en la pantalla que sigue.</p>
+      <h3>Intentos y lockout</h3>
+      <p>Cada dígito malo se contaba tres veces (dueño, empleado, contable). El tope era corto. Quedó un solo alcance <code>login</code>, diez intentos por ronda con espera progresiva, e <code>identificarPin</code> corre <em>antes</em> de registrar el fallo. Un PIN que abre limpia los lockouts.</p>
+      <h3>555, 222 y el 888 fantasma</h3>
+      <p>El XOR visible de Avanzado y el hash que abre el candado se habían desfasado. Un fallback aceptaba copias XOR viejas, de ahí que 222 “al azar” abriera y 555 no. <code>identificarPin</code> compara hashes. El PIN que sí abre se recuerda con <code>recordarPinQueAbre</code>. El lápiz de Owner escribe a la vez el hash, la copia visible y el directorio. Avanzado ya no debe mostrar 888 si el aparato abre con otra clave.</p>
+      <h3>Reservas que se respetan</h3>
+      <p>456 es demo. 789 es activar. Esas dos no se reutilizan como clave de persona. 888 dejó de ser el dueño reservado en un aparato que ya tiene dueño propio.</p>
+      <h3>Archivos</h3>
+      <p><code>crypto-store.js</code> 37&nbsp;362 bytes, 739 líneas, <code>158ad09365d6e9ad</code>. <code>auth-ui.js</code> 104&nbsp;477 bytes, 1&nbsp;669 líneas, <code>bf7653f8001588b5</code>. <code>pwa-boot.js</code> 12&nbsp;038 bytes, 205 líneas, <code>864f6dfc22935c92</code>.</p>
+
+      <h2 id="avanzado"><span class="n">05</span>Avanzado: lápices, admin e idioma</h2>
+      <h3>Lápices individuales</h3>
+      <p>Owner, Staff y Accounting tienen lápiz propio. Cada miembro del equipo (admin · Uncle Dan, empleado · Daniel Carrasco, etc.) tiene lápiz de clave y lápiz de nombre. El valor actual viaja en el control. El cambio de una persona va por <code>PATCH /api/usuarios/:id</code> y dispara <code>oc-equipo-cambiado</code>. El cambio de una clave de rol dispara <code>oc-catalogo-cambiado</code> para que el cuaderno la empuje.</p>
+      <h3>Poderes del admin</h3>
+      <p>Texto visible: el admin tiene el día a día del dueño, salvo las credenciales del dueño y crear o bajar otros admins. El dueño ve casillas (productos y perchas, renombrar tienda, PIN de staff, PIN contable, equipo, reportes, comisiones). Las dos excepciones van deshabilitadas. Las casillas no guardan ni cambian permisos todavía.</p>
+      <h3>Nombre de tienda, no de percha</h3>
+      <p>El lápiz del encabezado edita el nombre del negocio. Quien puede gestionar (dueño o admin) lo ve. El flujo de perchas no se usó para esto.</p>
+      <h3>Idioma dentro de Avanzado</h3>
+      <p>Los paneles se armaban una vez en inglés. El interruptor EN/ES llamaba <code>applyStatic</code> sobre nodos sin <code>data-i18n</code>, así que Access, Team, Sync, Backup y el riel seguían en inglés. Ahora esos bloques llevan atributo, hay claves nuevas (correo, respaldo, fraude, riel, equipo) y <code>refrescarIdiomaAvanzado</code> vuelve a pintar títulos del riel, First Steps y los lápices. Diccionario: 736 = 736.</p>
+      <h3>Archivos</h3>
+      <p><code>avanzado-extra.js</code> 217&nbsp;803 bytes, 3&nbsp;220 líneas, <code>ee4001d0ce7615ff</code>. <code>i18n.js</code> 105&nbsp;571 bytes, 1&nbsp;576 líneas, <code>9b9241a1a337da32</code>. <code>app-shell.js</code> 300&nbsp;947 bytes, 4&nbsp;736 líneas, <code>a8b0c35beacb8db8</code>.</p>
+
+      <h2 id="diego"><span class="n">06</span>Caso de campo: Diego Ortuño</h2>
+      <div class="call">
+        <p style="margin:0;">Escritorio: no entra. Celular: ve el PIN de staff que creó; en escritorio no sirve, con la licencia ya pegada. En el celular, al poner el correo de dueño, el contenido se va a la derecha y los botones fijos tapan el Guardar. En Amigable el PC ve dos equipos; el celular no entra. Relato del 30 de agosto de 2026.</p>
+      </div>
+      <p>Hay dos fallos de friendly-123, no uno.</p>
+      <p><strong>Desborde.</strong> El riel de Avanzado en 148&nbsp;px más un input con <code>min-width: 200px</code> y el botón Save en la misma fila empujaban el Guardar fuera del teléfono. El EN/ES va fijo arriba a la derecha. Diego no podía guardar el correo; sin correo, el flujo de PIN de dueño se atascaba. Arreglo: correo y WhatsApp en columna, input y Save al 100&nbsp;%, Save de 48&nbsp;px de alto, <code>#vista-avanzado { overflow-x: hidden }</code>, riel estrecho si el ancho es ≤ 720 (no solo <code>matchMedia</code>), padding derecho del header para no tapar el nombre.</p>
+      <p><strong>PIN de staff que no viaja.</strong> Las claves con nombre (el equipo) ya iban en el catálogo. Owner / Staff / Accounting vivían solo en <code>f123_secure</code> de ese aparato. El escritorio, al unirse, seguía con 888/260/357 de fábrica. Arreglo: <code>pinsRol</code> en el catálogo cifrado; al aplicar, un 888 no pisa un PIN real; al guardar un lápiz de rol se avisa <code>oc-catalogo-cambiado</code>.</p>
+      <p>Amigable (dashboard con dos equipos y celular que no entra) es otra app. Este laboratorio no la parcheó.</p>
+      <p>Archivo nuevo en el catálogo: <code>mock-backend.js</code> 240&nbsp;568 bytes, 3&nbsp;535 líneas, <code>7543a797a9bdfa98</code>.</p>
+
+      <h2 id="seo"><span class="n">07</span>Auditoría de la página servida</h2>
+      <table>
+        <thead><tr><th>Señal</th><th>Al clonar</th><th>En el laboratorio</th></tr></thead>
+        <tbody>
+          <tr><td>HTTP</td><td>200</td><td>200</td></tr>
+          <tr><td>Tamaño del HTML</td><td>1&nbsp;023&nbsp;618 bytes, JS embebido</td><td>121&nbsp;361 bytes; scripts en archivos con caché de shell</td></tr>
+          <tr><td>Scripts inline</td><td>60</td><td>Extraídos. El HTML deja de “hablar” en <code>const</code>/<code>await</code>.</td></tr>
+          <tr><td>H1</td><td>2</td><td>Uno. El segundo pasa a H2 donde aplica.</td></tr>
+          <tr><td>Meta description</td><td>Vacía</td><td>Presente, una línea de propuesta de valor, bilingüe en i18n.</td></tr>
+          <tr><td>Imagen sin alt</td><td>1</td><td>Cubierta o <code>alt=""</code> si es decorativa.</td></tr>
+          <tr><td>TODO/FIXME en lo servido</td><td>A la vista</td><td>Siguen marcadores en fuente; no se fingió que el código de producción quedó limpio.</td></tr>
+        </tbody>
+      </table>
+      <p>La extracción de JS fue el cambio de peso. El HTML deja de ser un megabyte de fuente. El crawler y el lector de pantalla dejan de contar 9&nbsp;249 “palabras” que eran keywords de JavaScript.</p>
+
+      <h2 id="mantenedor"><span class="n">08</span>Suite de mantenimiento técnico</h2>
+      <p>Aprobada completa en este hilo. Ningún endpoint de esta suite recibe inventario, ventas, clientes ni PIN. El sanitizador rechaza campos que coincidan con el contrato de privacidad (F123-, PIN, cliente, SKU, etc.).</p>
+      <table>
+        <thead><tr><th>Pieza</th><th>Qué hace</th><th>Dónde</th></tr></thead>
+        <tbody>
+          <tr><td>Reporte opt-in</td><td>Botón “Reportar un problema”, vista previa del JSON, envío solo con permiso.</td><td><code>mantenedor-reportar.js</code>, <code>mantenedor.html</code></td></tr>
+          <tr><td>Privacidad</td><td>Lista blanca y regex de prohibidos antes de cualquier POST.</td><td><code>mantenedor-privacidad.js</code></td></tr>
+          <tr><td>GitHub Issues</td><td>El reporte puede abrir un Issue etiquetado con versión y módulo, vía worker.</td><td><code>cloudflare-worker/worker.js</code></td></tr>
+          <tr><td>GitHub Releases</td><td>Aviso opcional de versión nueva, sin backend propio.</td><td>scripts de release + <code>version.json</code></td></tr>
+          <tr><td>UptimeRobot / PageSpeed / Search Console / HIBP / Resend / Turnstile</td><td>Infra de marketing y de salud del sitio, fuera del cuaderno del cliente.</td><td>worker, <code>landing-contacto.html</code>, scripts en <code>scripts/</code></td></tr>
+        </tbody>
+      </table>
+      <p>Informe previo de esa suite: <a href="./informe-mantenedor-2026-08-30.html">F123-MANT-2026-0830</a>.</p>
+
+      <h2 id="integridad"><span class="n">09</span>Tabla de integridad al cierre</h2>
+      <p>Versión <strong>1.7.52</strong> · shell <code>f123-shell-v165</code> · i18n 736 = 736. <code>sync-realtime.js</code> no modificado.</p>
+      <table>
+        <thead><tr><th>Archivo</th><th>Bytes</th><th>Líneas</th><th>SHA-256 (16)</th></tr></thead>
+        <tbody>
+          <tr><td><code>index.html</code></td><td>121&nbsp;361</td><td>2&nbsp;059</td><td><code>c8179c192f5a2941</code></td></tr>
+          <tr><td><code>sw.js</code></td><td>13&nbsp;260</td><td>265</td><td><code>892b4a1e347d34a4</code></td></tr>
+          <tr><td><code>version.json</code></td><td>384</td><td>9</td><td><code>8c00ee33d5bf8c35</code></td></tr>
+          <tr><td><code>i18n.js</code></td><td>105&nbsp;571</td><td>1&nbsp;576</td><td><code>9b9241a1a337da32</code></td></tr>
+          <tr><td><code>crypto-store.js</code></td><td>37&nbsp;362</td><td>739</td><td><code>158ad09365d6e9ad</code></td></tr>
+          <tr><td><code>auth-ui.js</code></td><td>104&nbsp;477</td><td>1&nbsp;669</td><td><code>bf7653f8001588b5</code></td></tr>
+          <tr><td><code>avanzado-extra.js</code></td><td>217&nbsp;803</td><td>3&nbsp;220</td><td><code>ee4001d0ce7615ff</code></td></tr>
+          <tr><td><code>mock-backend.js</code></td><td>240&nbsp;568</td><td>3&nbsp;535</td><td><code>7543a797a9bdfa98</code></td></tr>
+          <tr><td><code>sync-realtime.js</code></td><td>79&nbsp;815</td><td>1&nbsp;407</td><td><code>87b5b7336e680bc4</code></td></tr>
+          <tr><td><code>pwa-boot.js</code></td><td>12&nbsp;038</td><td>205</td><td><code>864f6dfc22935c92</code></td></tr>
+          <tr><td><code>app-shell.js</code></td><td>300&nbsp;947</td><td>4&nbsp;736</td><td><code>a8b0c35beacb8db8</code></td></tr>
+          <tr><td><code>aislamiento.js</code></td><td>18&nbsp;910</td><td>409</td><td><code>b1bbf897ee9cbf66</code></td></tr>
+        </tbody>
+      </table>
+      <p>Incidentes de integridad durante el hilo, ya revertidos: <code>crypto-store.js</code> reducido a 23 líneas por una escritura vacía (restaurado desde HEAD); SHELL del Service Worker sin 17 archivos (lista restaurada); comprobación de aislamiento invertida (vuelta a <code>open !== abrirNativoOriginal</code>).</p>
+
+      <h2 id="pendiente"><span class="n">10</span>Pendiente, a propósito, y fuera de alcance</h2>
+      <h3>Pendiente de código (lab o producción)</h3>
+      <ul>
+        <li>Clave inmutable <code>f123_lord_licencia_canonica</code> y borrar el bloque “Lord adopta tienda al unirse”.</li>
+        <li>Ciego de <code>cambiar()</code> contra <code>f123_tiendas</code> que apuntan a namespaces vacíos.</li>
+        <li>Cablear las casillas de poderes del admin (hoy son UI).</li>
+        <li>Banner “Entering X” con estado viejo en la ventana de reload.</li>
+        <li>TODO/FIXME que siguen en fuente servida.</li>
+        <li>Fase 3 del 29 de agosto: pedir a idiomARTE un export y revisar mezcla de datos ajenos.</li>
+        <li>Publicar este laboratorio al GitHub de producción y subir el Service Worker en los aparatos reales (Diego, 007 Store, escritorio).</li>
+      </ul>
+      <h3>A propósito, no se tocó</h3>
+      <ul>
+        <li><code>sync-realtime.js</code> (huella idéntica a HEAD).</li>
+        <li>El flujo de perchas, después de la corrección de “no dije shelves”.</li>
+        <li>Las casillas de admin: sin persistencia ni enforcement.</li>
+        <li>Datos de negocio de ningún cliente: el laboratorio no lee el IndexedDB de Diego ni el de idiomARTE.</li>
+      </ul>
+      <h3>Fuera de alcance de este laboratorio</h3>
+      <ul>
+        <li>Amigable-123: dos equipos en el PC y celular que no entra (relato de Diego).</li>
+        <li>Consultorio-123, salvo la suite de mantenedor que se diseñó para las tres apps.</li>
+      </ul>
+
+      <h3>Cómo comprobar en la lab</h3>
+      <ol>
+        <li>Abrir la app, entrar, ir a Avanzado. En un teléfono, Acceso: el Guardar del correo debe verse debajo del campo, no a la derecha.</li>
+        <li>Cambiar EN/ES estando en Avanzado: Team → Equipo, Access & recovery → Acceso y recuperación.</li>
+        <li>Lápiz de Owner: la cifra que abre es la que se muestra; no 888 de adorno.</li>
+        <li>En un segundo aparato, misma licencia: el PIN de staff del primero debe abrir.</li>
+        <li>Un PIN malo diez veces sigue pidiendo; no cierra a la tercera.</li>
+      </ol>
+    </article>
+    <footer class="doc">
+      <p>F123-HILO-2026-0830 · Laboratorio friendly-123 · 30 de agosto de 2026 · Made in Cuenca. Este archivo no contiene inventario, ventas, clientes ni PIN en claro.</p>
+    </footer>
+  </div>
+</div>
+</body>
+</html>
