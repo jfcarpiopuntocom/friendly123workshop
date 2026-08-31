@@ -1,0 +1,38 @@
+friendly-123 laboratorio — integridad 1.7.53 / shell v166
+Fecha: 2026-08-31
+i18n: EN 736 = ES 736
+SHELL: 73 entradas, 0 faltantes
+node --check: help-ui, auth-ui, app-shell, crypto-store, avanzado-extra, mock-backend, sw, i18n, pwa-boot → OK
+
+archivo                                 bytes  lineas  sha256[:16]
+docs/index.html                        121343    2058  c0210e91433df9d7
+docs/sw.js                              13254     265  561b5bb9e0072d28
+docs/version.json                         352       9  31ed03bb567b995e
+docs/i18n.js                           105571    1576  9b9241a1a337da32
+docs/crypto-store.js                    37362     739  158ad09365d6e9ad
+docs/auth-ui.js                        104914    1675  4ce104a060561795
+docs/avanzado-extra.js                 217803    3220  ee4001d0ce7615ff
+docs/mock-backend.js                   240568    3535  7543a797a9bdfa98
+docs/sync-realtime.js                   79815    1407  87b5b7336e680bc4
+docs/pwa-boot.js                        12038     205  864f6dfc22935c92
+docs/app-shell.js                      301092    4741  fe4faca991b068f0
+docs/aislamiento.js                     18910     409  b1bbf897ee9cbf66
+docs/help-ui.js                         24570     392  d5c8c518951468bd
+
+UI restaurada vs RAR:
+- Help (?) en header, color azul-medio (visible sobre case plateado)
+- Lápiz ✎ junto a My store or shelf(s)
+- EN/ES otra vez en flujo del header (no position:fixed)
+- EN/ES también en el candado de PIN
+
+Arreglos del laboratorio que siguen:
+- identificarPin, INTENTOS_MAX=10, recordarPinQueAbre
+- pinsRol viaja en el catálogo
+- f123_reload_al_entrar (el candado no se rearma)
+- lápices individuales + casillas admin (UI)
+- i18n Avanzado (refrescarIdiomaAvanzado)
+- correo/WhatsApp en columna 100% + #vista-avanzado overflow-x:hidden
+
+Nota: el RAR trae docs/sync-realtime.js de 41 686 bytes (71d98f1a211976a1).
+El laboratorio usa el del clon GitHub, 79 815 bytes (87b5b7336e680bc4), sin editar.
+No se sustituyó uno por el otro.
