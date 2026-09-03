@@ -1,9 +1,9 @@
 {
-  "version": "1.7.84",
+  "version": "1.7.86",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.84 — Fix de textos (dejaban de traducirse y mostraban la clave cruda): 'exp.record' (encabezado 'Record an expense' de Expenses, que se veia como 'exp.record') y 'newcust.emailPlaceholder' (placeholder de email en Nuevo cliente). Auditado: 0 claves i18n faltantes en toda la app.",
+  "changelog": "v1.7.86 — El encargado tambien puede corregir errores en ventas (editar/cancelar); la defensa es el log con usuario+rol+dispositivo (tracking de tampering), no capar al encargado. Y el toggle EN/ES del candado vuelve a funcionar (sus botones se atan por delegacion en el gate; se habian quedado sin listener).",
   "requerida": false,
-  "shell": "f123-shell-v197",
+  "shell": "f123-shell-v199",
   "apagar": [],
-  "releaseName": "v1.7.84"
+  "releaseName": "v1.7.86"
 }

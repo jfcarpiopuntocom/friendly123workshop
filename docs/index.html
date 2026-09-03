@@ -1937,6 +1937,12 @@
     <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
   </section>
 
+  <!-- JFC 2026-09-03: acceso de PRUEBAS al workshop (mismo relay, UI paralela).
+       Belén puede ver ahí las mejoras en vivo sin arriesgar la UX principal. -->
+  <div style="text-align:center;margin:28px 0 90px;">
+    <a href="https://jfcarpiopuntocom.github.io/friendly123workshop/" target="_blank" rel="noopener"
+       style="display:inline-block;font-size:13px;font-weight:700;padding:8px 16px;border:2px dashed var(--azul-medio,#2c4a68);border-radius:8px;color:var(--azul-medio,#2c4a68);text-decoration:none;">Pruebas / Testing</a>
+  </div>
 </main>
 
 <footer>
@@ -5732,7 +5738,7 @@ async function cargarVentasSold(){
   // #8 (JFC 2026-09-02): editar/cancelar una venta asentada es solo dueño/admin
   // (el backend también lo exige). El encargado ve el registro, no lo altera.
   const _rolVS = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
-  const _puedeGestionarVenta = _rolVS === "dueno" || _rolVS === "admin";
+  const _puedeGestionarVenta = _rolVS === "dueno" || _rolVS === "admin" || _rolVS === "empleado";
   const money = (v) => { try { return new Intl.NumberFormat((window.OCI18n && window.OCI18n.locale()) || "en-US", { style: "currency", currency: "USD" }).format(v || 0); } catch (_) { return "$" + Number(v || 0).toFixed(2); } };
   const fmtFecha = (iso) => { try { return new Date(iso).toLocaleString((window.OCI18n && window.OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return iso; } };
   cont.innerHTML = rows.map((v) => {
