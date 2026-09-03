@@ -5,6 +5,15 @@ crítico está aquí y no repartido en apuntes que nadie abre.
 
 ---
 
+## MENTALIDAD (JFC, 2026-09-03) — CIRUJANO DE SOFTWARE, IKIGAI
+
+Actuar como el mejor cirujano de software del mundo: brillante, delicado, riguroso,
+**quirúrgico**. Regla dura sobre todas: **ante todo, NO matar al paciente — no
+arruinar lo que ya funciona.** Cambios mínimos, precisos, verificados antes de
+tocar producción; sin quemar tokens. Cada corte cuenta.
+
+---
+
 ## PRIME DIRECTIVE 1A — NUNCA ROMPER A UN DUEÑO DE LICENCIA (JFC, 2026-09-02, la más alta)
 
 **Jamás romper la experiencia, los datos ni la confianza de un dueño de licencia
@@ -367,6 +376,22 @@ hasta hashes parciales"
 - **NO se retienen los contenidos de las tiendas** (productos, ventas, datos).
   Solo **hashes parciales** (huellas) para verificar integridad sin guardar el
   contenido.
+
+### REGLA 8b — TODO USO DE LA APP AL RADAR DE INSPECTOR (JFC, 2026-09-03, 1A)
+
+"si alguien usa la app debe estar en nuestro radar de inventarios, PUNTO, aunque
+lo de las licencias siga sin estar totalmente resuelto ... la prioridad 1A es que
+esté en nuestro radar todo uso de la app o nunca vamos a tener control de esto."
+
+- **Cada instancia que usa la app entra al radar de Inspector™** (panel privado
+  del lord). El radar reusa el roster de micelio (zero-knowledge, sobre el relay
+  ya existente): apodo, rol, estado y última señal de cada instancia — **huellas,
+  nunca contenido** (respeta REGLA 8 y el límite sin-nube).
+- Esto es prioridad **1A**; va por delante de resolver licencias y de "peso"
+  (dedup/absorción de instancias extraviadas), que son prioridad 2.
+- LÍMITE HONESTO (no-nube): el radar ve lo que alcanza por el relay (las tiendas/
+  salas donde el aparato del lord está presente). No se agrega un servidor central
+  que guarde estado de todas las tiendas — eso rompería la regla sin-nube.
 
 ---
 
