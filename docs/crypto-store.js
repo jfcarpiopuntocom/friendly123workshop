@@ -149,7 +149,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     if (!localStorage.getItem("f123_secure")) {
       let viejo = null;
       try { viejo = JSON.parse(localStorage.getItem("f123_auth") || "null"); } catch {}
-      const DEF = { owner: "888", encargados: ["260"], acct: "357", email: "" };
+      const DEF = { owner: "789", encargados: ["260"], acct: "357", email: "" };
       const base = viejo || DEF;
       await guardarSecreto(base.owner, base.encargados || [], base.acct, base.email || "");
       localStorage.removeItem("f123_auth"); // ya no queda nada en texto plano
@@ -162,19 +162,35 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       let _apropiado = false;
       try { _apropiado = !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; } catch (_) {}
       if (!_apropiado) {
-        await guardarSecreto("888", ["260"], "357", "");
+        await guardarSecreto("789", ["260"], "357", "");
       }
     }
-    // AMIGABLE (JFC 2026-07-02): el PIN de dueño pasó de 159 a 888. Si un
-    // navegador ya tenía guardado el default viejo (159), lo subimos a 888 sin
-    // tocar encargado/contable/correo. No-op si el dueño ya no es 159.
-    // Fix-5: flag de un-solo-run — sin esto verificarOwner("159") corre en CADA
-    // pageload y acumula registrarFallo("owner") hasta lockout del dueño.
+    // Viejo default 159 (AMIGABLE) → 789 (dueño actual). NUNCA pasar por 888:
+    // 888 es PIN libre, no fábrica. coincidePin no suma fallos al candado.
     if (!localStorage.getItem("f123_migrado_159_888")) {
-      if (await verificarOwner("159") && !(await verificarOwner("888"))) {
-        await fijarOwnerPin("888");
-      }
-      localStorage.setItem("f123_migrado_159_888", "1");
+      try {
+        if (await coincidePin("159", "owner")) await fijarOwnerPin("789");
+      } catch (_) {}
+      try { localStorage.setItem("f123_migrado_159_888", "1"); } catch (_) {}
+    }
+    /* 2026-08-31: 888 dejó de ser el default de dueño. Default = 789.
+       456 demo. 888 queda libre para que cada dueño lo asigne si quiere.
+       Solo se migra si el hash actual SIGUE siendo 888 (fábrica). Un 555/222
+       propio no se toca. coincidePin no suma fallos al candado. */
+    if (!localStorage.getItem("f123_migrado_888_a_789_default")) {
+      try {
+        if (await coincidePin("888", "owner")) {
+          await fijarOwnerPin("789");
+          try {
+            const cur = leerPinQueAbre();
+            if (!cur.owner || cur.owner === "888") {
+              cur.owner = "789";
+              localStorage.setItem("f123_pin_que_abre", JSON.stringify(cur));
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+      try { localStorage.setItem("f123_migrado_888_a_789_default", "1"); } catch (_) {}
     }
   }
 
@@ -347,7 +363,21 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
        licencia de un cliente, entre como INVITADO/observador y NO adopte esa
        licencia (ver _esLord() en sync-realtime.js). Un usuario normal jamás pasa
        por aquí, así que nunca queda marcado. Solo se ESCRIBE en éxito. */
-    if (ok) { try { localStorage.setItem("f123_lord", "1"); } catch (_) {} }
+    if (ok) {
+      try { localStorage.setItem("f123_lord", "1"); } catch (_) {}
+      /* Identidad canónica del Lord: UNA sola escritura, aquí, al verificar
+         el código maestro. unirse()/activar() jamás la tocan. Si ya existe,
+         no se pisa aunque f123_owned ya esté corrupto. */
+      try {
+        if (!localStorage.getItem("f123_lord_licencia_canonica")) {
+          var o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          var cand = String(o.syncCode || o.licenseCode || "").trim().toUpperCase().replace(/\s+/g, "");
+          if (cand && /^F123-/i.test(cand)) {
+            localStorage.setItem("f123_lord_licencia_canonica", cand);
+          }
+        }
+      } catch (_) {}
+    }
     return ok;
   }
   // Permite fijar un código maestro propio por negocio (JFC, no el dueño).
@@ -660,13 +690,25 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     } catch (_) {}
     try {
       const vis = leerPinsVisibles();
-      if (vis && vis.owner === p && p !== "888") return "dueno";
+      if (vis && vis.owner === p) return "dueno";
     } catch (_) {}
     try {
       const abre = leerPinQueAbre();
       if (abre.owner === p) return "dueno";
       if (abre.emp === p) return "empleado";
       if (abre.acct === p) return "contador";
+    } catch (_) {}
+    try {
+      const dir = directorioNormalizado();
+      if (dir.owner && String(dir.owner.pin) === p) return "dueno";
+      if (dir.acct && String(dir.acct.pin) === p) return "contador";
+      if ((dir.empleados || []).some(function (e) { return e && String(e.pin) === p; })) return "empleado";
+    } catch (_) {}
+    try {
+      const eq = leerPinsEquipo();
+      if (eq.owner === p) return "dueno";
+      if (eq.acct === p) return "contador";
+      if (eq.emp === p || (Array.isArray(eq.emps) && eq.emps.indexOf(p) >= 0)) return "empleado";
     } catch (_) {}
     return null;
   }
@@ -708,12 +750,25 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   }
   function recordarPinQueAbre(pin, rol) {
     const p = String(pin || "");
-    if (!/^\d{3}$/.test(p) || p === "456" || p === "789") return;
+    if (!/^\d{3}$/.test(p) || p === "456") return;
     const cur = leerPinQueAbre();
     if (rol === "dueno" || rol === "admin") cur.owner = p;
     else if (rol === "empleado") cur.emp = p;
     else if (rol === "contador") cur.acct = p;
     try { localStorage.setItem(PIN_ABRE_KEY, JSON.stringify(cur)); } catch (_) {}
+  }
+  function clavePinsEquipo() {
+    let suf = "";
+    try { suf = localStorage.getItem("f123_tienda_activa") || ""; } catch (_) {}
+    return "f123_pins_equipo" + suf;
+  }
+  function leerPinsEquipo() {
+    try { return JSON.parse(localStorage.getItem(clavePinsEquipo()) || "{}") || {}; }
+    catch (_) { return {}; }
+  }
+  function guardarPinsEquipo(obj) {
+    try { localStorage.setItem(clavePinsEquipo(), JSON.stringify(obj || {})); return true; }
+    catch (_) { return false; }
   }
 
   window.OCSecure = {
@@ -735,5 +790,6 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     anotarExitoLogin: function () { limpiarLockouts(); },
     limpiarLockouts,
     leerPinQueAbre, recordarPinQueAbre,
+    leerPinsEquipo, guardarPinsEquipo,
   };
 })();

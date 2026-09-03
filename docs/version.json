@@ -1,9 +1,9 @@
 {
-  "version": "1.7.53",
-  "fecha": "2026-08-31",
-  "changelog": "v1.7.53 — Help (?) and the My store pencil are back in the header. Language switch lives in the header again (and also on the PIN gate). Lab PIN, i18n, overflow and pinsRol fixes kept.",
+  "version": "1.7.83",
+  "fecha": "2026-09-02",
+  "changelog": "v1.7.83 — En el Sales log ahora se puede corregir el PRECIO/monto de una venta con lapicito (antes solo cantidad/pago/factura/notas). Belen (idiomARTE) pidio corregir 'puse $150 y no 115': ahora dueno/admin edita 'Unit price' y se recalcula la comision. La cantidad ('20 en vez de 10') ya era editable; reasignar parte a otra persona se hace en Commissions (Apply fix). Ademas: el boton Record credit abre el modal de credito a favor con item+expiracion (v1.7.82).",
   "requerida": false,
-  "shell": "f123-shell-v166",
+  "shell": "f123-shell-v196",
   "apagar": [],
-  "releaseName": "v1.7.53"
+  "releaseName": "v1.7.83"
 }

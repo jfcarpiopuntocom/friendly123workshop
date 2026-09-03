@@ -36,17 +36,10 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v166"; // v166: restore Help + store-name pencil; lang switch back in header flow
+const CACHE = "f123-shell-v196"; // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
 const SHELL = [
   "./",
   "./index.html",
-  "./app-shell.js",
-  "./boot-sw-nuke.js",
-  "./boot-demo.js",
-  "./pwa-boot.js",
-  "./oc-modal.js",
-  "./join-query.js",
-  "./eod-fab.js",
   "./logo.png",
   "./aislamiento.js",
   "./404.html",
@@ -79,8 +72,6 @@ const SHELL = [
   "./welcome-ui.js",
   "./tutorial-ui.js",
   "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./feature-gate.js", "./audit-store.js", "./sync-queue.js", "./sync-outbox.js", "./ui-actions.js", "./salud-app.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./edutips.js", "./manifest.json",
-  "./mantenedor-privacidad.js", "./mantenedor-store.js", "./mantenedor-reportar.js",
-  "./mantenedor.html", "./landing-contacto.html",
   "./version-manifest.json",
 ];
 

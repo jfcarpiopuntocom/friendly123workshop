@@ -152,28 +152,16 @@
      deja rastro de auditoría (best-practice de acceso privilegiado: identidad
      distinta + registro de todo acceso). Un usuario normal nunca es lord. */
   const LORD_KEY = "f123_lord";
-  const ACCESOS_KEY = "f123_accesos"; // bitácora local de accesos del lord a tiendas ajenas
-  /* Identidad inmutable del Lord (JFC 2026-08-30). Se escribe UNA vez.
-     unirse()/activar() NUNCA la tocan. Evita que visitar un cliente pise
-     la licencia canónica (el bug S2J24 ← idiomARTE / JENF / James Bond). */
   const LORD_LIC_KEY = "f123_lord_licencia_canonica";
+  const ACCESOS_KEY = "f123_accesos"; // bitácora local de accesos del lord a tiendas ajenas
   function _esLord() { try { return localStorage.getItem(LORD_KEY) === "1"; } catch (_) { return false; } }
-  function _normLicLocal(c) { return String(c || "").trim().toUpperCase().replace(/\s+/g, ""); }
   function _licenciaCanonicaLord() {
-    if (!_esLord()) return "";
     try {
-      var ya = _normLicLocal(localStorage.getItem(LORD_LIC_KEY) || "");
-      if (ya && /^F123-/i.test(ya)) return ya;
-      var o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      var cand = _normLicLocal(o.syncCode || o.licenseCode || "");
-      if (cand && /^F123-/i.test(cand)) {
-        localStorage.setItem(LORD_LIC_KEY, cand);
-        return cand;
-      }
-    } catch (_) {}
-    return "";
+      if (!_esLord()) return null;
+      var c = localStorage.getItem(LORD_LIC_KEY);
+      return c ? String(c).trim().toUpperCase().replace(/\s+/g, "") : null;
+    } catch (_) { return null; }
   }
-  try { _licenciaCanonicaLord(); } catch (_) {}
   function _registrarAcceso(licencia) {
     try {
       var log = [];
@@ -1207,12 +1195,6 @@
           var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
           if (_esLord()) {
             _registrarAcceso(codigoNorm);
-            var _canAct = _licenciaCanonicaLord();
-            if (_canAct) {
-              _ow.licenseCode = _canAct;
-              _ow.syncCode = _canAct;
-              localStorage.setItem("f123_owned", JSON.stringify(_ow));
-            }
           } else {
             /* Se actualizan AMBOS (JFC 2026-08-27, refuerzo P1): licenseCode y
                syncCode. Al entrar una licencia, la sala ES esa licencia, así
@@ -1285,12 +1267,13 @@
           var _codNorm = normalizarCodigo(codigo);
           if (_esLord()) {
             _registrarAcceso(_codNorm);
-            /* LORD NUNCA ADOPTA (JFC 2026-08-30). Restaura f123_owned a la
-               canónica en cada join (visita o vuelta a casa). El guard
-               /^F123-/ de 2026-08-28 pisaba la identidad con CUALQUIER
-               licencia válida. */
+            /* LORD NUNCA ADOPTA (JFC 2026-08-31). Join a una licencia ajena
+               solo registra el acceso. La identidad canónica se escribió UNA
+               vez al verificar el código maestro (f123_lord_licencia_canonica)
+               y aquí se RESTAURA, no se pisa. Si no hay canónica, no se toca
+               licenseCode/syncCode. */
             var _can = _licenciaCanonicaLord();
-            if (_can) {
+            if (_can && /^F123-/i.test(_can)) {
               _ow.licenseCode = _can;
               _ow.syncCode = _can;
             }
@@ -1327,7 +1310,10 @@
       try {
         if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
           const sala = leerSala();
-          const cod = sala && sala.codigo ? sala.codigo : codigo;
+          if (!sala || !sala.codigo) {
+            return { ok: false, error: "Failed to set sync room. Try again." };
+          }
+          const cod = sala.codigo;
           const c = window.OCTienda.cambiar(cod, { desde: _desde }); // recarga la página si cambia de tienda
           /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
              tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
@@ -1340,7 +1326,10 @@
             return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
           }
         }
-      } catch (_) {}
+      } catch (err) {
+        try { console.error("[unirse] error:", err); } catch (_) {}
+        return { ok: false, error: "Unexpected error. Try again." };
+      }
       return r;
     },
     desactivar() {

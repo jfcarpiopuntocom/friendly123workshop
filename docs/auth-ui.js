@@ -300,11 +300,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // ---------------------------------------------------------------------------
   // BLOQUEO POR FUERZA BRUTA (tronco 1 del árbol de problemas, JFC 2026-06-30)
   // ---------------------------------------------------------------------------
-  // Al 10º intento fallido seguido, el teclado se pausa 30s (luego 1 min, 2, 4…
-  // hasta 15 min, alineado con crypto-store). NIST 800-63B + hábito de iOS:
-  // limitar la tasa, no encerrar al cajero a la quinta. sessionStorage sobrevive
+  // Al 10º intento fallido seguido, el teclado se bloquea 60s con cuenta
+  // regresiva visible. Se guarda en sessionStorage (no localStorage) a
+  // propósito: sobrevive a una recarga de página DURANTE el bloqueo (no es
+  // una forma de saltárselo — recargar no libera el candado antes de tiempo),
+  // pero se limpia solo si se cierra la pestaña, lo cual es aceptable porque
+  // reabrir la pestaña no es un vector de fuerza bruta realista en un POS
+  // físico. La ÚNICA forma de destrabarlo es que pasen los 60s de verdad; NO
+  // hay botón de "reintentar" que lo salte.
   const BLOQUEO_TRAS_INTENTOS = 10;
-  const BLOQUEO_DURACION_MS = 30 * 1000;
+  const BLOQUEO_DURACION_MS = 60 * 1000;
   function leerIntentos() {
     try { return JSON.parse(sessionStorage.getItem("oc_intentos")) || { fallos: 0, bloqueadoHasta: 0 }; }
     catch { return { fallos: 0, bloqueadoHasta: 0 }; }
@@ -345,9 +350,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   .oc-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
   .oc-pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     padding:8px 4px;border:2px solid var(--ink,#211c14);border-radius:6px;background:var(--crema,#f3e8cd);
-    cursor:pointer;min-height:54px;}
+    cursor:pointer;min-height:54px;
+    /* Hundimiento de tecla (JFC 2026-09-01): canto/relieve inferior en reposo;
+       al presionar la tecla baja hasta el canto y la sombra colapsa, dando la
+       sensacion de que se hunde en el panel (mismo idioma que header/metal-tecla).
+       Solo sombra rgba de la tinta existente — cero colores nuevos. */
+    box-shadow:0 2px 0 rgba(15,25,35,.55);
+    transition:transform .07s ease, box-shadow .07s ease;}
   .oc-pad button .dig{font-family:var(--font-display,sans-serif);font-weight:700;font-size:20px;color:var(--ink,#211c14);line-height:1;}
-  .oc-pad button:active{transform:translateY(1px);}
+  .oc-pad button:active{transform:translateY(2px); box-shadow:0 0 0 rgba(15,25,35,0);}
+  /* La casilla llena se ve presionada hacia adentro (sombra interior sutil). */
+  .oc-slots .slot.lleno{box-shadow:inset 0 2px 3px rgba(15,25,35,.22);}
+  @media (prefers-reduced-motion: reduce){ .oc-pad button{transition:none;} }
   /* FIX 2026-07-07 (JFC: "se agrandan y arruinan todo"): digitar rapido el PIN
      disparaba el double-tap zoom de iOS. touch-action:manipulation lo elimina
      sin tocar el pinch-zoom de accesibilidad. */
@@ -491,11 +505,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         <h2 style="display:none;">friendly-123</h2>
       </div>
       <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">${window.t("auth.gate.tagline")}</p>
-      <div style="text-align:center;margin:0 0 10px;">
-        <div class="oc-lang-pill" role="group" aria-label="Language" style="display:inline-flex;border:1.5px solid var(--azul-medio,#2E6278);border-radius:999px;overflow:hidden;background:#fff;">
-          <button type="button" class="oc-lang-btn" data-lang="en">EN</button>
-          <button type="button" class="oc-lang-btn" data-lang="es">ES</button>
-        </div>
+      <div class="oc-lang-pill" role="group" aria-label="Language" style="display:inline-flex;border:1.5px solid var(--azul-medio,#2E6278);border-radius:999px;overflow:hidden;background:#fff;margin:0 auto 10px;">
+        <button type="button" class="oc-lang-btn" data-lang="en">EN</button>
+        <button type="button" class="oc-lang-btn" data-lang="es">ES</button>
       </div>
       <div class="sub">${window.t("auth.gate.subtitle")}</div>
       <!-- CLARIDAD DE NEGOCIO (JFC 2026-08-25): "antes de entrar debiera decirme
@@ -538,19 +550,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if (rec) rec.textContent = tt("auth.gate.forgot", "Forgot?");
       const join = document.getElementById("oc-unirse-equipo");
       if (join) join.textContent = tt("auth.gate.joinTeam", "Join a notebook");
-      const demo = document.getElementById("oc-gate-demo-pins");
-      if (demo) {
-        demo.innerHTML =
-          '<p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;">' + tt("auth.gate.demoTitle") + "</p>"
-          + '<p style="margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">' + tt("auth.gate.demoBody") + "</p>"
-          + '<p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">' + tt("auth.gate.demoNote") + "</p>";
-      }
-      const landing = document.getElementById("oc-gate-landing");
-      if (landing) {
-        landing.innerHTML = tt("auth.gate.landing") + ' <a href="./save.html" style="color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-weight:700;">' + tt("auth.gate.landingLink") + "</a>.";
-      }
-      const info = document.getElementById("oc-gate-info");
-      if (info) info.textContent = tt("auth.gate.info");
     } catch (_) {}
   }
   try { window.addEventListener("oc-lang-change", pintarGateIdioma); } catch (_) {}
@@ -565,6 +564,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const _ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null");
     if (_ses && _ses.rol) { gate.style.display = "none"; document.body.style.overflow = ""; }
   } catch (_) {}
+
+  /* Name this device NO va en el candado (JFC): va una sola vez, ya dentro
+     de la app (header / Advanced). El markup y el bind del gate se retiraron. */
 
   /* Rotula el negocio al que se entra ANTES de teclear el PIN. Solo en un
      dispositivo ya activado/unido (dispositivoApropiado): en un dispositivo de
@@ -620,15 +622,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          uno debe saber siempre a qué cuaderno está entrando (best practice:
          "you are entering: X"). JFC lo pidió de vuelta explícitamente. */
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      try {
-        const ent = JSON.parse(sessionStorage.getItem("f123_entering") || "null");
-        if (ent && ent.lic && (Date.now() - Number(ent.ts || 0)) < 20000) {
-          const lic = String(ent.lic);
-          _pintar("Team · ..." + lic.slice(-6));
-          try { sessionStorage.removeItem("f123_entering"); } catch (_) {}
-          return;
-        }
-      } catch (_) {}
       const nombre = (owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "";
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
       _pintar(nombre);
@@ -691,18 +684,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     $("oc-msg").textContent = txt;
     gate.classList.add("err");
     setTimeout(() => gate.classList.remove("err"), 400);
-    // No remount del candado: el refresh de versión es para la pantalla que
-    // viene DESPUÉS del PIN. Aquí solo se vacían las casillas, salvo lockout.
-    if (msRestantesBloqueo() > 0) nuevoTeclado();
-    else if (teclado && typeof teclado.reset === "function") teclado.reset();
-    else nuevoTeclado();
+    nuevoTeclado(); // limpia y re-baraja (o muestra el bloqueo, si ya se cumplió)
   }
   async function alinearYEntrar(code, rolEntrada) {
     try {
       if (window.OCSecure && window.OCSecure.recordarPinQueAbre) {
-        window.OCSecure.recordarPinQueAbre(code, rolEntrada === "admin" ? "dueno" : rolEntrada);
+        if (rolEntrada === "dueno" || rolEntrada === "empleado" || rolEntrada === "contador") {
+          window.OCSecure.recordarPinQueAbre(code, rolEntrada);
+        }
       }
-      if ((rolEntrada === "dueno" || rolEntrada === "admin") && window.OCSecure && window.OCSecure.fijarOwnerPin) {
+      if (rolEntrada === "dueno" && window.OCSecure && window.OCSecure.fijarOwnerPin) {
         await window.OCSecure.fijarOwnerPin(code);
       }
     } catch (_) {}
@@ -710,35 +701,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
   async function validar(code) {
     await listo;
-    // Apropiacion 789: en un dispositivo AUN no apropiado, 789 arranca la
-    // secuencia de instancia propia (elige vaciar/conservar + correo). En un
-    // dispositivo YA apropiado, este codigo no reactiva nada (no se puede
-    // redundar) — cae al flujo normal y solo entra si es el PIN de dueno.
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
-    /* 888 es PIN LIBRE. 456 demo. 789 activar. El PIN que el dueño puso
-       (555 tras un join, etc.) se identifica ABAJO, antes de cualquier lockout:
-       un PIN correcto siempre abre. El candado viejo de owner+emp (un fallo
-       contaba por 3) no puede dejar fuera un 555 que ya existía. */
-    const rolHash = (window.OCSecure.identificarPin)
-      ? await window.OCSecure.identificarPin(code)
-      : null;
-    if (rolHash === "dueno") { registrarExito(); try { if (window.OCSecure.anotarExitoLogin) window.OCSecure.anotarExitoLogin(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
+    /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
+       al candado). Un PIN bueno no puede quedar fuera por el XOR viejo. */
+    const rolHash = (window.OCSecure.identificarPin) ? await window.OCSecure.identificarPin(code) : null;
+    if (rolHash === "dueno") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
     if (rolHash === "empleado") {
       registrarExito();
-      try { if (window.OCSecure.anotarExitoLogin) window.OCSecure.anotarExitoLogin(); } catch (_) {}
+      try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       try {
         const uNom = await verificarUsuarioNombrado(code);
-        if (uNom) {
-          window.OCCurrentUser = uNom;
-          return alinearYEntrar(code, uNom.rol === "admin" ? "admin" : "empleado");
-        }
+        if (uNom) { window.OCCurrentUser = uNom; return alinearYEntrar(code, uNom.rol === "admin" ? "admin" : "empleado"); }
       } catch (_) {}
       return alinearYEntrar(code, "empleado");
     }
-    if (rolHash === "contador") { registrarExito(); try { if (window.OCSecure.anotarExitoLogin) window.OCSecure.anotarExitoLogin(); } catch (_) {} return alinearYEntrar(code, "contador"); }
+    if (rolHash === "contador") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "contador"); }
     if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return entrar("demo"); }
     const uNombrado = await verificarUsuarioNombrado(code);
-    if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); try { if (window.OCSecure.anotarExitoLogin) window.OCSecure.anotarExitoLogin(); } catch (_) {} return alinearYEntrar(code, uNombrado.rol === "admin" ? "admin" : "empleado"); }
+    if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, uNombrado.rol === "admin" ? "admin" : "empleado"); }
     const sb = window.OCSecure.segundosBloqueo ? (window.OCSecure.segundosBloqueo("login") || 0) : 0;
     if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
     registrarFallo();
@@ -774,20 +754,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       return;
     }
     const nFallos = leerIntentos().fallos;
-    const quedan = (window.OCSecure.intentosRestantes)
-      ? window.OCSecure.intentosRestantes("login")
-      : Math.max(0, BLOQUEO_TRAS_INTENTOS - nFallos);
-    var _esPin = false;
-    try { _esPin = window.OCI18n && window.OCI18n.getLang() === "es"; } catch (_) {}
-    if (quedan > 0 && nFallos >= 2) {
-      error(window.t("auth.gate.wrongPin") + " " + (_esPin
-        ? ("Quedan " + quedan + " intentos.")
-        : (quedan + " tries left.")) + " " + window.t("auth.gate.forgotHint"));
-      return;
-    }
-    error(window.t("auth.gate.wrongPin") + (quedan > 0 && nFallos >= 1
-      ? (" " + (_esPin ? ("Quedan " + quedan + " intentos.") : (quedan + " tries left.")))
-      : ""));
+    if (nFallos >= 2) { error(window.t("auth.gate.wrongPin") + " " + window.t("auth.gate.forgotHint")); return; }
+    error(window.t("auth.gate.wrongPin"));
   }
   // Aviso post-caida-a-demo: nunca deja al usuario preguntandose por que ve
   // datos de muestra en vez de esperar una pantalla de error. Reutiliza el
@@ -915,10 +883,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     var msgEl = wrap.querySelector("#oc-act-msg");
     function setMsg(t, ok) { msgEl.textContent = t; msgEl.className = ok ? "msg ok" : "msg"; }
 
-    wrap.querySelector("#oc-act-cancelar").addEventListener("click", function () {
-      wrap.style.display = "none";
-      try { gate.style.display = ""; document.body.style.overflow = "hidden"; } catch (_) {}
-    });
+    wrap.querySelector("#oc-act-cancelar").addEventListener("click", function () { wrap.style.display = "none"; });
 
     wrap.querySelector("#oc-act-confirmar").addEventListener("click", async function () {
       var nombreIn = wrap.querySelector("#oc-act-nombre");
@@ -1030,10 +995,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      No se pregunta si el dispositivo ya esta apropiado: ahi 789 ya no es el
      codigo de activacion (ver ACTIVATION_PIN). */
   function iniciarActivacion() {
-    try {
-      var leftover = document.getElementById("oc-act-bifurcacion");
-      if (leftover) leftover.remove();
-    } catch (_) {}
+    if (document.getElementById("oc-act-bifurcacion")) return;
     var b = document.createElement("div");
     b.id = "oc-act-bifurcacion";
     b.style.cssText = "position:fixed;inset:0;z-index:10005;background:#0F1923EE;display:flex;align-items:center;justify-content:center;padding:20px;";
@@ -1048,18 +1010,14 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       '<button type="button" id="oc-act-nada" style="width:100%;min-height:44px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">Never mind</button>' +
       "</div>";
     document.body.appendChild(b);
-    try { gate.style.display = "none"; } catch (_) {}
-    var restaurarGate = function () {
-      try { gate.style.display = ""; document.body.style.overflow = "hidden"; } catch (_) {}
-    };
-    var cerrar = function () { try { b.remove(); } catch (_) {} restaurarGate(); };
+    var cerrar = function () { try { b.remove(); } catch (_) {} };
     document.getElementById("oc-act-nada").addEventListener("click", cerrar);
     document.getElementById("oc-act-unirme").addEventListener("click", function () {
       cerrar();
       try { abrirUnirseEquipo(); } catch (_) {}
     });
     document.getElementById("oc-act-nuevo").addEventListener("click", function () {
-      try { b.remove(); } catch (_) {}
+      cerrar();
       _activacionRealmente();
     });
   }
@@ -1075,6 +1033,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   function entrar(nuevoRol) {
+    try {
+      if (sessionStorage.getItem("f123_reload_al_entrar") === "1") {
+        sessionStorage.removeItem("f123_reload_al_entrar");
+        /* BUG (JFC 2026-09-02): aquí se mapeaba demo→"dueno" en la sesión diferida,
+           así que tras el reload forzado de versión el auto-login entraba como
+           dueño real y NUNCA llegaba al demo (456 "no lleva al demo"). Se preserva
+           el rol tal cual: tras el reload, entrar("demo") corre con el flag ya
+           limpio y hace la entrada demo correcta. */
+        try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol, demo: nuevoRol === "demo" })); } catch (_) {}
+        location.reload();
+        return;
+      }
+    } catch (_) {}
     const esDemo = nuevoRol === "demo";
     if (!esDemo) {
       try {
@@ -1096,13 +1067,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
        arrancar. El timeout de inactividad (30 min) y el logout manual la
        limpian, así que no es un bypass de seguridad. */
     try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol, demo: esDemo })); } catch (_) {}
-    try {
-      if (sessionStorage.getItem("f123_reload_al_entrar") === "1") {
-        sessionStorage.removeItem("f123_reload_al_entrar");
-        location.reload();
-        return;
-      }
-    } catch (_) {}
     document.body.classList.toggle("rol-empleado", rol === "empleado");
     document.body.classList.toggle("rol-dueno", rol === "dueno");
     document.body.classList.toggle("rol-demo", esDemo);
@@ -1644,8 +1608,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           else {
             cont.querySelector("#oc-msg2").textContent = window.t("auth.gate.wrongSubPin");
             cont.classList.add("err"); setTimeout(() => cont.classList.remove("err"), 400);
-            if (tec && typeof tec.reset === "function") tec.reset();
-            else tec = montarTeclado(cont.querySelector("#oc-pad2"), cont.querySelector("#oc-slots2"), alCompletar);
+            tec = montarTeclado(cont.querySelector("#oc-pad2"), cont.querySelector("#oc-slots2"), alCompletar); // re-baraja
           }
         }
         tec = montarTeclado(cont.querySelector("#oc-pad2"), cont.querySelector("#oc-slots2"), alCompletar);

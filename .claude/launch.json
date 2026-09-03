@@ -1,0 +1,97 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "poscuenca",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "server.js"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "amigable-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8734",
+        "--directory",
+        "public"
+      ],
+      "port": 8734
+    },
+    {
+      "name": "amigable-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8736",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\docs"
+      ],
+      "port": 8736
+    },
+    {
+      "name": "consultorio-123-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8737",
+        "--directory",
+        "C:\\00 Projects\\Consultorio-123\\docs"
+      ],
+      "port": 8737
+    },
+    {
+      "name": "amigable-real-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8740",
+        "--directory",
+        "C:\\00 Projects\\AMIGABLE\\docs"
+      ],
+      "port": 8740
+    },
+    {
+      "name": "f123-fresh",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8961",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\docs"
+      ],
+      "port": 8961
+    },
+    {
+      "name": "f123-v1-verificacion",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8971",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\.claude\\worktrees\\busy-meitner-1d44d3\\docs"
+      ],
+      "port": 8971
+    },
+    {
+      "name": "f123-worktree-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8962",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\.claude\\worktrees\\manual-maestro-repo-content-f52f7e\\docs"
+      ],
+      "port": 8962
+    }
+  ]
+}

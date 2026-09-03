@@ -5,6 +5,26 @@ crítico está aquí y no repartido en apuntes que nadie abre.
 
 ---
 
+## PRIME DIRECTIVE 1A — NUNCA ROMPER A UN DUEÑO DE LICENCIA (JFC, 2026-09-02, la más alta)
+
+**Jamás romper la experiencia, los datos ni la confianza de un dueño de licencia
+que YA está usando la app.** El 2026-09-02 a idiomARTE (nuestro PRIMER cliente
+pagado) le salió un error de "límite de licencia mínima" por un cambio nuestro:
+eso NO puede volver a pasar NUNCA.
+
+- **Los tweaks son SOLO al margen.** A JFC le gusta la app como está. Se hacen
+  tweaks o adiciones ENANAS, aditivas, que no tocan lo que ya funciona ni lo que
+  un cliente ya usa. Nada de refactors, nada de gates nuevos sobre flujos vivos,
+  nada que pueda capar, bloquear o degradar a una instancia activada/pagada.
+- **Regla de oro del gating:** una instancia ya activada (con `instanceId`, o un
+  cliente pagado) NUNCA debe caer al tope del plan gratis ni ver un límite. Ante
+  cualquier duda sobre si un cambio puede afectar a un cliente activo: **no se
+  hace**, se pregunta.
+- Esto está por ENCIMA de todo lo demás (solo debajo de REGLA –1, la palabra de
+  JFC). Si un cambio "mejora" algo pero arriesga romperle a un dueño: no va.
+
+---
+
 ## REGLA –1 — EL PROMPT DE JFC ES PALABRA SAGRADA (directiva suprema)
 
 Lo que JFC dice **es lo que va**, y **prevalece siempre** sobre mis asunciones,
@@ -28,6 +48,15 @@ El detalle completo y portátil a TODOS los proyectos está en
 `.claude/commands/modus-operandi.md`. Es el estándar por defecto de JFC.
 
 ---
+
+## REGLA 0-bis — ESTADO MUTABLE PRIMERO (patrón SKILL.state, JFC 2026-09-01)
+
+Antes que nada, leer **`.claude/ESTADO.md`**: el estado de ejecución vivo, compacto
+y mutable (implementa arXiv:2608.26263 aplicado a este trabajo). Da contexto
+suficiente sin re-derivar del chat gigante → menos tokens, menos errores
+evitables. **Al terminar cada trabajo se SOBRESCRIBE** (estado, no log); el
+detalle narrativo va al `DIARIO-*.md`. Orden de lectura al abrir sesión:
+`.claude/ESTADO.md` → `CLAUDE.md` → `DIARIO-*.md` más reciente.
 
 ## REGLA 0 — LEER LOS APUNTES ANTES DE PLANIFICAR
 

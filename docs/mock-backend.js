@@ -61,178 +61,62 @@
 
   // Perchas (unidades operativas). sucursalId -> agrupador backend.
   const ubicaciones = [
-      {
-          "id": "smokeshop",
-          "nombre": "Cornerstone Local Souvenirs",
-          "activa": true,
-          "tipo": "propio",
-          "sucursalId": "suc01"
-      },
-      {
-          "id": "bookshelf",
-          "nombre": "Ink & Pages",
-          "activa": true,
-          "tipo": "socio",
-          "sucursalId": "suc02",
-          "promotoraId": "pr01",
-          "comisionSocio": 25,
-          "metaMensual": 300,
-          "escalasComision": [
-              {
-                  "hasta": 80,
-                  "comision": 25
-              },
-              {
-                  "hasta": 100,
-                  "comision": 30
-              },
-              {
-                  "hasta": 120,
-                  "comision": 35
-              },
-              {
-                  "hasta": 999,
-                  "comision": 40
-              }
-          ]
-      },
-      {
-          "id": "fairbooth",
-          "nombre": "Weekend Vendor Fair Booth",
-          "activa": true,
-          "tipo": "consignacion",
-          "sucursalId": "suc03",
-          "promotoraId": "pr02",
-          "comisionSocio": 30,
-          "metaMensual": 200,
-          "escalasComision": []
-      }
+    { "id": "galeria",  "nombre": "Galería idiomARTE",        "activa": true, "tipo": "propio",        "sucursalId": "suc01" },
+    { "id": "consigna", "nombre": "Consignación de artistas", "activa": true, "tipo": "consignacion",  "sucursalId": "suc01", "promotoraId": "pr01", "comisionSocio": 85, "metaMensual": 800, "lecturaPreferida": "asociado", "escalasComision": [ {"hasta":80,"comision":85}, {"hasta":120,"comision":88}, {"hasta":999,"comision":90} ] },
+    { "id": "bar",      "nombre": "Bar & Café",               "activa": true, "tipo": "propio",        "sucursalId": "suc02" },
+    { "id": "eventos",  "nombre": "Eventos culturales",       "activa": true, "tipo": "socio",         "sucursalId": "suc03", "promotoraId": "pr02", "comisionSocio": 10, "metaMensual": 500, "escalasComision": [] }
   ];
-  // Sucursales: agrupadores backend de perchas. En la UI el usuario ve PERCHAS;
-  // la sucursal es el encabezado de sección en el gestor de perchas (Inventario).
-  // Asociados/as: personas que traen gente (turistas, recomendados,
-  // familiares) y llevan comision. Se asignan por percha (promotoraId).
+  // Sucursales: agrupadores backend de perchas (encabezados de sección en Inventario).
+  // Asociados/as: artistas en consignación (modalidad artista 85/15) y quien trae público.
   const promotoras = [
-    { id: "pr01", nombre: "Jamie Ortiz", comision: 10 },
-    { id: "pr02", nombre: "Casey Nguyen", comision: 8 },
+    { id: "pr01", nombre: "María Auquilla",  comisionBase: 85, comision: 85 },
+    { id: "pr02", nombre: "Carlos Mendoza",  comisionBase: 10, comision: 10 },
   ];
   const sucursales = [
-    { id: "suc01", nombre: "Downtown",                  activa: true },
-    { id: "suc02", nombre: "Vendor Row",                activa: true },
-    { id: "suc03", nombre: "Riverside Market",          activa: true },
+    { id: "suc01", nombre: "Galería",    activa: true },
+    { id: "suc02", nombre: "Bar & Café", activa: true },
+    { id: "suc03", nombre: "Eventos",    activa: true },
   ];
 
   const productos = [
-    {"id":"p01","nombre":"Butane Torch Lighter","categoria":"Smoke Accessories","sku":"CAM-PF-DSM","barcode":"7861000030019","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Coastal Wholesale Co."},
-    {"id":"p02","nombre":"Souvenir Shot Glass","categoria":"Gifts & Souvenirs","sku":"CAM-MET-MOP","estrella":true,"barcode":"7861000030026","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":8,"umbralRojo":10,"umbralAmarillo":18,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p03","nombre":"Local History Zine Vol. 3","categoria":"Books","sku":"CAM-ACDC-BIB","estrella":true,"barcode":"7861000030033","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":25,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Indie Press Collective"},
-    {"id":"p04","nombre":"Souvenir Keychain 3-Pack","categoria":"Gifts & Souvenirs","sku":"CAM-NIR-NVM","barcode":"7861000030040","ubicacionId":"smokeshop","precio":21,"costo":9,"stockActual":15,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p05","nombre":"Graphic Tee — Skyline Print","categoria":"Apparel","sku":"CAM-IM-TRP","barcode":"7861000030057","ubicacionId":"fairbooth","precio":23,"costo":10,"stockActual":4,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Textiles"},
-    {"id":"p06","nombre":"Poetry Chapbook — Late Bloom","categoria":"Books","sku":"CAM-RS-TON","barcode":"7861000030064","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":18,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
-    {"id":"p07","nombre":"Postcard Rack Set","categoria":"Gifts & Souvenirs","sku":"CAM-LZ-ICA","barcode":"7861000030071","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":12,"umbralRojo":5,"umbralAmarillo":13,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p08","nombre":"Graphic Tee — Retro Sunset","categoria":"Apparel","sku":"CAM-RAM-PRS","barcode":"7861000030088","ubicacionId":"fairbooth","precio":19,"costo":8,"stockActual":9,"umbralRojo":5,"umbralAmarillo":11,"proveedor":"Riverside Textiles"},
-    {"id":"p09","nombre":"Fridge Magnet Set","categoria":"Gifts & Souvenirs","sku":"CAM-GNR-APP","barcode":"7861000030095","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":20,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p10","nombre":"Short Story Collection — Night Shift","categoria":"Books","sku":"CAM-QUE-CRS","barcode":"7861000030101","ubicacionId":"bookshelf","precio":21,"costo":9,"stockActual":3,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
-    {"id":"p11","nombre":"Handmade Beaded Bracelet","categoria":"Handmade Crafts","sku":"SOU-TAZ-001","estrella":true,"barcode":"7861000030118","ubicacionId":"fairbooth","precio":8,"costo":3,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
-    {"id":"p12","nombre":"Bookmark Set — Pressed Flowers","categoria":"Stationery & Gifts","sku":"SOU-LLA-001","barcode":"7861000030125","ubicacionId":"bookshelf","precio":3.5,"costo":1.2,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Paper & Bind Co."},
-    {"id":"p13","nombre":"Incense Sticks — Sandalwood","categoria":"Smoke Accessories","sku":"ACC-PIN-001","barcode":"7861000030132","ubicacionId":"smokeshop","precio":4,"costo":1.5,"stockActual":50,"umbralRojo":12,"umbralAmarillo":25,"proveedor":"Coastal Wholesale Co."},
-    {"id":"p14","nombre":"Embroidered Patch — Mountain Range","categoria":"Handmade Crafts","sku":"ACC-PAR-001","barcode":"7861000030149","ubicacionId":"fairbooth","precio":5,"costo":2,"stockActual":35,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
-    {"id":"p15","nombre":"Snapback Cap — Logo","categoria":"Apparel","sku":"SOU-GOR-001","barcode":"7861000030156","ubicacionId":"smokeshop","precio":15,"costo":6.5,"stockActual":6,"umbralRojo":5,"umbralAmarillo":9,"proveedor":"Coastal Wholesale Co."},
-    {"id":"p16","nombre":"Reading Journal — Lined","categoria":"Stationery & Gifts","sku":"ACC-PUA-006","barcode":"7861000030163","ubicacionId":"bookshelf","precio":6,"costo":2.2,"stockActual":22,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Paper & Bind Co."},
-    /* Novela latinoamericana contemporánea — 8 títulos cultos, selección JFC 2026-07-03 */
-    {"id":"p17","nombre":"Hand-Painted Ceramic Ornament","categoria":"Gifts & Souvenirs","sku":"LIB-ENR-NPN","barcode":"9789584293152","ubicacionId":"smokeshop","precio":22,"costo":9.5,"stockActual":3,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p18","nombre":"Novel — The Long Season","categoria":"Books","sku":"LIB-MEL-TDH","barcode":"9786071653697","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":6,"umbralRojo":3,"umbralAmarillo":7,"proveedor":"Indie Press Collective"},
-    {"id":"p19","nombre":"Local Scene Art Print","categoria":"Home & Decor","sku":"LIB-SCH-KEN","barcode":"9788439735564","ubicacionId":"smokeshop","precio":19,"costo":7.5,"stockActual":11,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p20","nombre":"Novel — Ash and Amber","categoria":"Books","sku":"LIB-REY-COM","barcode":"9789878358154","ubicacionId":"fairbooth","precio":21,"costo":6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p21","nombre":"Poetry — Salt Water Letters","categoria":"Books","sku":"LIB-TRI-MGR","barcode":"9789974723146","ubicacionId":"fairbooth","precio":18,"costo":8,"stockActual":2,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p22","nombre":"Engraved Wood Coaster Set","categoria":"Gifts & Souvenirs","sku":"LIB-AMP-PDG","estrella":true,"barcode":"9788417125400","ubicacionId":"smokeshop","precio":18,"costo":7.5,"stockActual":9,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p23","nombre":"Novel — Low Tide","categoria":"Books","sku":"LIB-MEL-PAR","barcode":"9786071677129","ubicacionId":"bookshelf","precio":17,"costo":7,"stockActual":5,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p24","nombre":"Souvenir Snow Globe","categoria":"Gifts & Souvenirs","sku":"LIB-CAB-CIA","estrella":true,"barcode":"9789877383652","ubicacionId":"smokeshop","precio":20,"costo":7.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* ---- VITRINAS SIMON: productos diseñados para exhibir los 6 estados del semáforo ---- */
-    /* ROJO intensidad 1 — sin stock (inventario muerto, cero unidades) */
-    {"id":"p25","nombre":"Woven Friendship Bracelet Pack","categoria":"Gifts & Souvenirs","sku":"VIN-LZ-PGR","barcode":"7861000030170","ubicacionId":"smokeshop","precio":45,"costo":28,"stockActual":0,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* ROJO intensidad 2 — quedan 1 (critico, reponer urgente) */
-    {"id":"p26","nombre":"Vinyl Record — Midnight Radio","categoria":"Vinyl Records","sku":"VIN-PF-ANM","barcode":"7861000030187","ubicacionId":"bookshelf","precio":42,"costo":25,"stockActual":1,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
-    /* ROJO intensidad 3 — exactamente en el umbral rojo (limite de emergencia) */
-    {"id":"p27","nombre":"Graphic Tee — Vintage Fade","categoria":"Apparel","sku":"CAM-BOW-ZIG","barcode":"7861000030194","ubicacionId":"fairbooth","precio":24,"costo":10,"stockActual":5,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Riverside Textiles"},
-    /* NARANJA encendido 3 — a 1 unidad del umbral rojo (revisar hoy) */
-    {"id":"p28","nombre":"Metal Poster — Neon City","categoria":"Home & Decor","sku":"ACC-POS-001","barcode":"7861000030200","ubicacionId":"smokeshop","precio":12,"costo":7,"stockActual":6,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
-    /* NARANJA encendido 1 — recién entrando a la zona de revisar */
-    {"id":"p29","nombre":"Novel — Static Line","categoria":"Books","sku":"CAM-CUR-DIS","barcode":"7861000030217","ubicacionId":"bookshelf","precio":22,"costo":13,"stockActual":9,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"Indie Press Collective"},
-    /* NARANJA encendido 1 — tope del rango, sin apuro todavía */
-    {"id":"p30","nombre":"Ceramic Mug — Hand Painted","categoria":"Handmade Crafts","sku":"SOU-TAZ-002","barcode":"7861000030224","ubicacionId":"fairbooth","precio":9,"costo":5.5,"stockActual":13,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"River Valley Artisans"},
-    /* VERDE — stock saludable, margen moderado (< 0.50, no es azul) */
-    {"id":"p31","nombre":"Planner 2026 — Hardcover","categoria":"Stationery & Gifts","sku":"PAP-AGE-001","barcode":"7861000030231","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":25,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Paper & Bind Co."},
-    /* VERDE — margen bajo, volumen alto (artículo de bajo costo) */
-    {"id":"p32","nombre":"Canvas Tote Bag — Screen Print","categoria":"Stationery & Gifts","sku":"ACC-BOL-001","barcode":"7861000030248","ubicacionId":"bookshelf","precio":8,"costo":5,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Paper & Bind Co."},
-    /* VERDE — producto de volumen, margen ajustado */
-    {"id":"p33","nombre":"Notebook — Kraft Cover","categoria":"Handmade Crafts","sku":"PAP-LIB-001","barcode":"7861000030255","ubicacionId":"fairbooth","precio":11,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"River Valley Artisans"},
-    /* AMARILLO (oportunidad) encendido 2 — margen 62%: hay dinero esperándote */
-    {"id":"p34","nombre":"Hand-Blown Glass Ornament","categoria":"Gifts & Souvenirs","sku":"VIN-CLA-LON","barcode":"7861000030262","ubicacionId":"smokeshop","precio":48,"costo":18,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* AMARILLO (oportunidad) encendido 2 — margen 64% */
-    {"id":"p35","nombre":"Vinyl Record — Signal Lost","categoria":"Vinyl Records","sku":"VIN-RAD-OKC","barcode":"7861000030279","ubicacionId":"bookshelf","precio":50,"costo":18,"stockActual":8,"umbralRojo":2,"umbralAmarillo":5,"proveedor":"Second Spin Records"},
-    /* AMARILLO (oportunidad) encendido 3 — margen 72%, pieza estrella */
-    {"id":"p36","nombre":"Collectible Figure — Limited Run","categoria":"Collectibles","sku":"COL-IM-EDI","estrella":true,"barcode":"7861000030286","ubicacionId":"fairbooth","precio":65,"costo":18,"stockActual":5,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Second Spin Records"},
-    /* PERECIBLES — 3 grados de urgencia por vencimiento */
-    /* Rojo por vencimiento: vence en 2 dias (retiralo ya aunque el stock sea bueno) */
-    {"id":"p37","nombre":"Homemade Strawberry Jam 8oz","categoria":"Local Foods","sku":"ALI-CAF-001","barcode":"7861000030293","ubicacionId":"smokeshop","precio":7,"costo":3,"stockActual":15,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-05","proveedor":"Grandma's Kitchen Preserves"},
-    /* Amarillo por vencimiento: vence en 5 dias (vendelo primero) */
-    {"id":"p38","nombre":"Chocolate Bar — Dark 70%","categoria":"Snacks & Drinks","sku":"ALI-CHO-001","barcode":"7861000030309","ubicacionId":"bookshelf","precio":4,"costo":1.8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-08","proveedor":"Coastal Wholesale Co."},
-    /* Rojo extremo: ya vencio hace 3 dias (retirar inmediatamente) */
-    {"id":"p39","nombre":"Trail Mix Bag","categoria":"Local Foods","sku":"ALI-GRA-001","barcode":"7861000030316","ubicacionId":"fairbooth","precio":9,"costo":4.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-06-30","proveedor":"Coastal Wholesale Co."},
-
-    /* ---- VITRINA GRADOS DE ENCENDIDO (JFC 2026-07-07): completa los niveles
-       1-3 de cada color que faltaban, para que el visitante VEA la Escala
-       semaforo de colores en acción sin tener que operar nada. ---- */
-    /* VERDE encendido 1 — sano pero con poco fondo (stock < 7) */
-    {"id":"p40","nombre":"Keychain — Bottle Opener","categoria":"Gifts & Souvenirs","sku":"ACC-LLA-001","barcode":"7861000030323","ubicacionId":"smokeshop","precio":12,"costo":8,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Coastal Wholesale Co."},
-    /* VERDE encendido 2 — sano, fondo medio (7-14) */
-    {"id":"p41","nombre":"Embroidered Patch — Wave","categoria":"Stationery & Gifts","sku":"ACC-PAR-001","barcode":"7861000030330","ubicacionId":"bookshelf","precio":14,"costo":9,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Paper & Bind Co."},
-    /* AMARILLO (oportunidad) encendido 1 — margen 52%, recién cruza el umbral */
-    {"id":"p42","nombre":"Local Landmark Puzzle","categoria":"Gifts & Souvenirs","sku":"VIN-SOD-CAN","barcode":"7861000030347","ubicacionId":"smokeshop","precio":40,"costo":19,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* NARANJA encendido 2 — a 3 unidades del umbral rojo */
-    {"id":"p43","nombre":"Knit Beanie — Charcoal","categoria":"Apparel","sku":"ACC-GOR-002","barcode":"7861000030354","ubicacionId":"fairbooth","precio":10,"costo":6,"stockActual":7,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Riverside Textiles"},
-    /* AZUL (dato) encendido 1 — margen 22%: revisa precio o costo */
-    {"id":"p44","nombre":"AA Batteries 4-Pack","categoria":"Counter Basics","sku":"BAS-PIL-001","barcode":"7861000030361","ubicacionId":"smokeshop","precio":4.5,"costo":3.5,"stockActual":30,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Metro Distribution"},
-    /* AZUL (dato) encendido 2 — margen 15% */
-    {"id":"p45","nombre":"Kraft Gift Bag","categoria":"Stationery & Gifts","sku":"BAS-FUN-001","barcode":"7861000030378","ubicacionId":"bookshelf","precio":2,"costo":1.7,"stockActual":50,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Paper & Bind Co."},
-    /* AZUL (dato) encendido 3 — margen 8%: casi trabajas gratis en este */
-    {"id":"p46","nombre":"Clear Packing Tape","categoria":"Counter Basics","sku":"BAS-CIN-001","barcode":"7861000030385","ubicacionId":"fairbooth","precio":1.3,"costo":1.2,"stockActual":24,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Metro Distribution"},
-    /* NEGRO encendido 1 — ~50 dias dormido (dormidoDesde: solo vitrina/carga manual) */
-    {"id":"p47","nombre":"Vintage-Style Tin Sign","categoria":"Home & Decor","sku":"CD-QUE-WEM","barcode":"7861000030392","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"dormidoDesde":"2026-05-16","proveedor":"Riverside Gift & Souvenir Co."},
-    /* NEGRO encendido 2 — ~80 dias dormido */
-    {"id":"p48","nombre":"Used VHS — Director's Cut","categoria":"Collectibles","sku":"COL-VHS-WAL","barcode":"7861000030408","ubicacionId":"bookshelf","precio":25,"costo":15,"stockActual":8,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-04-18","proveedor":"Second Spin Records"},
-    /* NEGRO encendido 3 — ~180 dias dormido: capital bien dormido */
-    {"id":"p49","nombre":"Oversized Tour Poster","categoria":"Collectibles","sku":"ACC-POS-WOO","barcode":"7861000030415","ubicacionId":"fairbooth","precio":18,"costo":11,"stockActual":9,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-01-08","proveedor":"Second Spin Records"},
-
-    /* ---- VARIEDAD DE MOSTRADOR (JFC 2026-07-07): categorías de tienda real
-       (artesanía, dulces, hogar, ropa, papelería) repartidas por las 3
-       perchas, para que el tablero luzca los 6 colores con encendidos
-       mezclados — no solo merch rockero. ---- */
-    /* VERDE n3 — el caballito de batalla: mucho stock, margen sano */
-    {"id":"p50","nombre":"Woven Sun Hat","categoria":"Handmade Crafts","sku":"ART-SOM-001","barcode":"7861000030422","ubicacionId":"smokeshop","precio":30,"costo":19,"stockActual":22,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"River Valley Artisans"},
-    /* VERDE n2 — estable, sin drama */
-    {"id":"p51","nombre":"Beaded Charm Bracelet","categoria":"Handmade Crafts","sku":"ART-PUL-001","barcode":"7861000030439","ubicacionId":"fairbooth","precio":6,"costo":3.8,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"River Valley Artisans"},
-    /* VERDE n1 — sano pero justito de fondo */
-    {"id":"p52","nombre":"Wool Blend Scarf — Grey","categoria":"Apparel","sku":"ROP-BUF-001","barcode":"7861000030446","ubicacionId":"bookshelf","precio":25,"costo":16,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Riverside Textiles"},
-    /* AMARILLO n3 — margen 73%: la mina de oro del mostrador */
-    {"id":"p53","nombre":"Filigree Drop Earrings","categoria":"Handmade Crafts","sku":"ART-ARE-001","estrella":true,"barcode":"7861000030453","ubicacionId":"smokeshop","precio":22,"costo":6,"stockActual":15,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Jewelry Co."},
-    /* AMARILLO n1 — margen 52%: buena oportunidad, sin ser la joya */
-    {"id":"p54","nombre":"Local Honey 10oz","categoria":"Local Foods","sku":"ALI-MIE-001","barcode":"7861000030460","ubicacionId":"fairbooth","precio":8.5,"costo":4,"stockActual":18,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Blue Ridge Apiary"},
-    /* NARANJA n2 — quedan 6 con umbral rojo 4: reponer esta semana */
-    {"id":"p55","nombre":"Embroidered Shawl","categoria":"Apparel","sku":"ROP-CHA-001","barcode":"7861000030477","ubicacionId":"bookshelf","precio":35,"costo":21,"stockActual":6,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Riverside Textiles"},
-    /* NARANJA n1 por vencimiento — vence en 7 dias, sin apuro pero primero en salir */
-    {"id":"p56","nombre":"Fresh Farmstead Cheese 1lb","categoria":"Local Foods","sku":"ALI-QUE-001","barcode":"7861000030484","ubicacionId":"smokeshop","precio":5.5,"costo":3.6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-07-14","proveedor":"Blue Ridge Creamery"},
-    /* ROJO n1 — recien tocando el umbral: urgente pero encendido suave */
-    {"id":"p57","nombre":"Eucalyptus Candle 3-Pack","categoria":"Handmade Crafts","sku":"HOG-VEL-001","barcode":"7861000030491","ubicacionId":"fairbooth","precio":9,"costo":5.4,"stockActual":4,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"River Valley Artisans"},
-    /* AZUL n2 — margen 12%: dato contable, este casi no deja nada */
-    {"id":"p58","nombre":"Bottled Water 20oz","categoria":"Counter Basics","sku":"BAS-AGU-001","barcode":"7861000030507","ubicacionId":"smokeshop","precio":0.8,"costo":0.7,"stockActual":48,"umbralRojo":12,"umbralAmarillo":24,"proveedor":"Metro Distribution"},
-    /* AZUL n1 — margen 20%: revisable, no critico */
-    {"id":"p59","nombre":"Mint Gum — Counter Box","categoria":"Counter Basics","sku":"BAS-CHI-001","barcode":"7861000030514","ubicacionId":"bookshelf","precio":15,"costo":12,"stockActual":20,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Metro Distribution"},
-    /* NEGRO n2 — 3 meses dormido: plata parada en la vitrina */
-    {"id":"p60","nombre":"Carved Wooden Chess Set","categoria":"Collectibles","sku":"HOG-AJE-001","barcode":"7861000030521","ubicacionId":"smokeshop","precio":45,"costo":27,"stockActual":5,"umbralRojo":1,"umbralAmarillo":3,"dormidoDesde":"2026-04-05","proveedor":"River Valley Artisans"},
-    /* NEGRO n3 — dormido desde el año pasado: el ejemplo perfecto de capital congelado */
-    {"id":"p61","nombre":"Antique Cuckoo Clock","categoria":"Collectibles","sku":"HOG-REL-001","barcode":"7861000030538","ubicacionId":"bookshelf","precio":120,"costo":75,"stockActual":2,"umbralRojo":0,"umbralAmarillo":1,"dormidoDesde":"2025-11-20","proveedor":"Heritage Imports"}
+    {"id":"p01","nombre":"Óleo original — Tejados de Cuenca","categoria":"Paintings","sku":"ART-OIL-001","barcode":"7862000010011","ubicacionId":"galeria","precio":420,"costo":180,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Taller propio"},
+    {"id":"p02","nombre":"Acuarela original — Río Tomebamba","categoria":"Paintings","sku":"ART-WAT-002","estrella":true,"barcode":"7862000010028","ubicacionId":"galeria","precio":260,"costo":110,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Taller propio"},
+    {"id":"p03","nombre":"Lámina — Serie Andes I","categoria":"Art & prints","sku":"ART-PRN-003","barcode":"7862000010035","ubicacionId":"galeria","precio":45,"costo":16,"stockActual":24,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Imprenta Fine Art"},
+    {"id":"p04","nombre":"Lámina — Puertas coloniales","categoria":"Art & prints","sku":"ART-PRN-004","barcode":"7862000010042","ubicacionId":"galeria","precio":38,"costo":14,"stockActual":30,"umbralRojo":8,"umbralAmarillo":15,"proveedor":"Imprenta Fine Art"},
+    {"id":"p05","nombre":"Consignación — Tejedora (óleo)","categoria":"Paintings","sku":"CON-OIL-005","barcode":"7862000010059","ubicacionId":"consigna","precio":520,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"María Auquilla"},
+    {"id":"p06","nombre":"Consignación — Mañana de mercado","categoria":"Paintings","sku":"CON-OIL-006","estrella":true,"barcode":"7862000010066","ubicacionId":"consigna","precio":380,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"María Auquilla"},
+    {"id":"p07","nombre":"Consignación — Lámina Laguna del Cajas","categoria":"Art & prints","sku":"CON-PRN-007","barcode":"7862000010073","ubicacionId":"consigna","precio":60,"costo":0,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"María Auquilla"},
+    {"id":"p08","nombre":"Brújula de latón antigua","categoria":"Antiques","sku":"ANT-BRS-008","barcode":"7862000010080","ubicacionId":"galeria","precio":145,"costo":70,"stockActual":3,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Anticuario del Centro"},
+    {"id":"p09","nombre":"Máquina de escribir vintage","categoria":"Antiques","sku":"ANT-TYP-009","estrella":true,"barcode":"7862000010097","ubicacionId":"galeria","precio":320,"costo":160,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Anticuario del Centro"},
+    {"id":"p10","nombre":"Reloj de pared antiguo","categoria":"Antiques","sku":"ANT-CLK-010","barcode":"7862000010103","ubicacionId":"galeria","precio":180,"costo":90,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"dormidoDesde":"2026-06-10","proveedor":"Anticuario del Centro"},
+    {"id":"p11","nombre":"Manchego curado 200g","categoria":"Cheese & deli","sku":"CHE-MAN-011","barcode":"7862000010110","ubicacionId":"bar","precio":14,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-09-24","proveedor":"Quesos del Austro"},
+    {"id":"p12","nombre":"Rueda de Brie","categoria":"Cheese & deli","sku":"CHE-BRI-012","barcode":"7862000010127","ubicacionId":"bar","precio":12,"costo":6,"stockActual":12,"umbralRojo":4,"umbralAmarillo":8,"perecible":true,"fechaCaducidad":"2026-09-18","proveedor":"Quesos del Austro"},
+    {"id":"p13","nombre":"Queso azul 150g","categoria":"Cheese & deli","sku":"CHE-BLU-013","estrella":true,"barcode":"7862000010134","ubicacionId":"bar","precio":16,"costo":8.5,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-09-16","proveedor":"Quesos del Austro"},
+    {"id":"p14","nombre":"Tabla de quesos y embutidos","categoria":"Cheese & deli","sku":"CHE-BRD-014","barcode":"7862000010141","ubicacionId":"bar","precio":18,"costo":8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-09-14","proveedor":"Cocina propia"},
+    {"id":"p15","nombre":"Queso fresco local 250g","categoria":"Cheese & deli","sku":"CHE-FRE-015","barcode":"7862000010158","ubicacionId":"bar","precio":6,"costo":3,"stockActual":24,"umbralRojo":6,"umbralAmarillo":12,"perecible":true,"fechaCaducidad":"2026-09-12","proveedor":"Hacienda El Valle"},
+    {"id":"p16","nombre":"Malbec Reserva (botella)","categoria":"Wine","sku":"WIN-MAL-016","estrella":true,"barcode":"7862000010165","ubicacionId":"bar","precio":28,"costo":14,"stockActual":48,"umbralRojo":12,"umbralAmarillo":24,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p17","nombre":"Cabernet Sauvignon (botella)","categoria":"Wine","sku":"WIN-CAB-017","barcode":"7862000010172","ubicacionId":"bar","precio":24,"costo":12,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p18","nombre":"Sauvignon Blanc (botella)","categoria":"Wine","sku":"WIN-SAU-018","barcode":"7862000010189","ubicacionId":"bar","precio":22,"costo":11,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p19","nombre":"Espumante Brut (botella)","categoria":"Wine","sku":"WIN-BRU-019","barcode":"7862000010196","ubicacionId":"bar","precio":32,"costo":17,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p20","nombre":"Copa de vino de la casa","categoria":"Bar","sku":"BAR-HRE-020","barcode":"7862000010202","ubicacionId":"bar","precio":6,"costo":2.2,"stockActual":90,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p21","nombre":"Rosé (botella)","categoria":"Wine","sku":"WIN-ROS-021","barcode":"7862000010219","ubicacionId":"bar","precio":19,"costo":9,"stockActual":36,"umbralRojo":9,"umbralAmarillo":18,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p22","nombre":"Espresso","categoria":"Bar","sku":"BAR-ESP-022","barcode":"7862000010226","ubicacionId":"bar","precio":2.5,"costo":0.6,"stockActual":200,"umbralRojo":40,"umbralAmarillo":80,"proveedor":"Café del Austro"},
+    {"id":"p23","nombre":"Cappuccino","categoria":"Bar","sku":"BAR-CAP-023","estrella":true,"barcode":"7862000010233","ubicacionId":"bar","precio":3.5,"costo":0.9,"stockActual":200,"umbralRojo":40,"umbralAmarillo":80,"proveedor":"Café del Austro"},
+    {"id":"p24","nombre":"Cerveza artesanal (pinta)","categoria":"Bar","sku":"BAR-BEE-024","barcode":"7862000010240","ubicacionId":"bar","precio":6,"costo":2.5,"stockActual":80,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Cervecería Local"},
+    {"id":"p25","nombre":"Spritz aperitivo","categoria":"Bar","sku":"BAR-SPR-025","barcode":"7862000010257","ubicacionId":"bar","precio":8,"costo":3,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Bar propio"},
+    {"id":"p26","nombre":"Agua con gas","categoria":"Bar","sku":"BAR-WAT-026","barcode":"7862000010264","ubicacionId":"bar","precio":2.5,"costo":0.8,"stockActual":120,"umbralRojo":24,"umbralAmarillo":48,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p27","nombre":"Plato de tapas","categoria":"Kitchen","sku":"KIT-TAP-027","estrella":true,"barcode":"7862000010271","ubicacionId":"bar","precio":9,"costo":3.5,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"perecible":true,"fechaCaducidad":"2026-09-05","proveedor":"Cocina propia"},
+    {"id":"p28","nombre":"Sándwich tostado","categoria":"Kitchen","sku":"KIT-SAN-028","barcode":"7862000010288","ubicacionId":"bar","precio":7,"costo":2.8,"stockActual":50,"umbralRojo":12,"umbralAmarillo":24,"perecible":true,"fechaCaducidad":"2026-09-04","proveedor":"Cocina propia"},
+    {"id":"p29","nombre":"Empanadas (2u)","categoria":"Kitchen","sku":"KIT-EMP-029","barcode":"7862000010295","ubicacionId":"bar","precio":5,"costo":1.8,"stockActual":70,"umbralRojo":18,"umbralAmarillo":36,"perecible":true,"fechaCaducidad":"2026-09-03","proveedor":"Cocina propia"},
+    {"id":"p30","nombre":"Bowl de aceitunas y frutos secos","categoria":"Kitchen","sku":"KIT-OLV-030","barcode":"7862000010301","ubicacionId":"bar","precio":4.5,"costo":1.5,"stockActual":80,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Cocina propia"},
+    {"id":"p31","nombre":"Antología de poesía","categoria":"Books","sku":"LIB-POE-031","barcode":"7862000010318","ubicacionId":"galeria","precio":18,"costo":8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Editorial Independiente"},
+    {"id":"p32","nombre":"Historia del arte local (libro)","categoria":"Books","sku":"LIB-ART-032","estrella":true,"barcode":"7862000010325","ubicacionId":"galeria","precio":24,"costo":11,"stockActual":15,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Editorial Independiente"},
+    {"id":"p33","nombre":"Cata de vinos y quesos (entrada)","categoria":"Tickets & events","sku":"EVT-CAT-033","estrella":true,"barcode":"7862000010332","ubicacionId":"eventos","precio":22,"costo":6,"stockActual":40,"umbralRojo":8,"umbralAmarillo":20,"proveedor":"Evento propio"},
+    {"id":"p34","nombre":"Noche de jazz en vivo (entrada)","categoria":"Tickets & events","sku":"EVT-JAZ-034","barcode":"7862000010349","ubicacionId":"eventos","precio":18,"costo":5,"stockActual":60,"umbralRojo":12,"umbralAmarillo":30,"proveedor":"Evento propio"},
+    {"id":"p35","nombre":"Taller de acuarela (cupo)","categoria":"Tickets & events","sku":"EVT-ACU-035","barcode":"7862000010356","ubicacionId":"eventos","precio":25,"costo":9,"stockActual":20,"umbralRojo":4,"umbralAmarillo":10,"proveedor":"Evento propio"},
+    {"id":"p36","nombre":"Noche de tango (entrada)","categoria":"Tickets & events","sku":"EVT-TAN-036","barcode":"7862000010363","ubicacionId":"eventos","precio":15,"costo":4,"stockActual":50,"umbralRojo":10,"umbralAmarillo":25,"proveedor":"Evento propio"},
+    {"id":"p37","nombre":"Exposición fotográfica (entrada)","categoria":"Tickets & events","sku":"EVT-FOT-037","barcode":"7862000010370","ubicacionId":"eventos","precio":8,"costo":2,"stockActual":80,"umbralRojo":16,"umbralAmarillo":40,"proveedor":"Evento propio"},
+    {"id":"p38","nombre":"Recital de poesía (entrada)","categoria":"Tickets & events","sku":"EVT-POE-038","barcode":"7862000010387","ubicacionId":"eventos","precio":12,"costo":3,"stockActual":40,"umbralRojo":8,"umbralAmarillo":20,"dormidoDesde":"2026-07-01","proveedor":"Evento propio"}
   ];
 
   const ventas = [];
@@ -284,25 +168,36 @@
         ventas.push({ id: "vs-" + pid + "-" + d + "-" + i, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant || 1, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date(Date.now() - d * 86400000).toISOString(), split: null, liquidada: true, clienteId: cli || null });
       });
     };
-    gen("p34", [3, 12, 20, 33], "c01");        // Rosa: verano (frecuente, vinilos caros) + p34 estrella BCG
-    gen("p36", [8], "c01");
-    gen("p01", [2, 6, 14, 19, 28, 40], "c02"); // Marco: verano (muy frecuente)
-    gen("p51", [4], "c03");                     // Lucia: primavera (recien germina)
-    gen("p54", [7, 15], "c04");                 // Ivan: primavera
-    gen("p50", [32, 40, 52], "c05");            // Maria Belen: otoño (valia mucho, se enfria)
-    gen("p22", [24, 35, 48], "c06");            // Pedro: otoño
-    gen("p53", [30], "c06");                    // Pedro compraba fino: refuerza su valor
-    gen("p01", [95, 105], "c07");               // Carmen: invierno (ultima compra hace 3 meses)
-    // c08 Andres: nunca ha comprado -> invierno profundo
-    gen("p32", [31, 34, 38, 41, 44], null, 3);  // vaca lechera BCG: vendia fuerte, se estabiliza
-    gen("p32", [8], null, 2);
-    gen("p42", [5], null);                      // interrogante BCG: recien empieza a moverse
+    // Bar & café: alto volumen, tickets chicos (lo que sostiene el día a día).
+    gen("p22", [0,0,1,1,2,3,4,6,8,11,14], null, 1);      // espressos
+    gen("p23", [0,1,1,2,3,5,7,9,12], "c01", 1);           // cappuccinos (c01 cliente frecuente reciente)
+    gen("p24", [0,1,2,4,6,9], "c02", 1);                  // cervezas (c02 muy frecuente)
+    gen("p20", [0,2,3,5,8], null, 2);                     // copas de vino de la casa
+    gen("p27", [1,3,6,10], "c02", 1);                     // tapas
+    gen("p29", [0,2,4,7], null, 2);                       // empanadas
+    // Vinos y quesos por botella/tabla: ticket medio, menos frecuente.
+    gen("p16", [3,12,20], "c01", 1);                      // Malbec (c01 valioso)
+    gen("p11", [5,15], "c04", 1);                         // Manchego (c04 primavera)
+    gen("p14", [7], "c03", 1);                            // tabla de quesos (c03 recién germina)
+    // Galería y antigüedades: raro, ticket alto.
+    gen("p02", [22], "c05", 1);                           // acuarela (c05 otoño, valía mucho)
+    gen("p09", [30], "c06", 1);                           // máquina de escribir (c06 otoño)
+    gen("p32", [40], "c06", 1);                           // libro de arte
+    // Consignación de artista (comisión 85/15): dispara el cálculo de comisiones.
+    gen("p06", [10], "c04", 1);                           // óleo en consignación
+    gen("p07", [6, 18], null, 1);                         // láminas en consignación
+    // Eventos culturales: por tandas.
+    gen("p33", [4, 32], "c01", 2);                        // cata de vinos y quesos
+    gen("p34", [11], null, 3);                            // jazz
+    gen("p35", [8], "c03", 1);                            // taller de acuarela
+    // c07 invierno (última compra vieja), c08 nunca compró.
+    gen("p16", [95, 110], "c07", 1);
   }
   // Microcirugia 1 (2026-07-07): el arranque JAMAS puede tumbar el
   // interceptor — sin el, la app abre sin backend (pantallas vacias). Si la
   // siembra falla, se arranca sin historial; el error queda en consola.
   try { sembrarVentasDemo(); } catch (e) { console.error("Seed de ventas fallo (la app arranca sin historial):", e); }
-  const gastosMensuales = {"smokeshop":0,"bookshelf":0,"fairbooth":0};
+  const gastosMensuales = {"galeria":900,"consigna":0,"bar":1500,"eventos":350};
   // Usuarios nombrados (encargados): hasta 49.
   // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
   // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }
@@ -324,6 +219,25 @@
   // dispositivo NUNCA se hubiera activado: vuelve a los topes free (25/100/1).
   function licenciaLimitada() {
     try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseEstado === "limitada"; } catch (_) { return false; }
+  }
+  /* PRIME DIRECTIVE 1A (JFC 2026-09-02): JAMÁS capar a un dueño de licencia ya
+     activado. A idiomARTE (primer cliente pagado) le salió el límite del plan
+     gratis por un `instanceId` transitoriamente null tras un reload. Este helper
+     falla ABIERTO: re-lee f123_owned EN VIVO en cada chequeo (no solo la
+     hidratación de arranque, que pudo correr antes que localStorage) y trata como
+     licenciado a cualquier dispositivo con instanceId o código de licencia, salvo
+     que JFC lo haya bajado a "limitada" a mano desde el panel. Solo AFLOJA topes;
+     nunca puede romperle a un cliente. La demo (sin f123_owned) sigue con su tope. */
+  function estaLicenciado() {
+    try {
+      const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (o.licenseEstado === "limitada") return false; // baja deliberada desde el panel
+      if (o.instanceId || o.licenseCode) {
+        if (!instanceId && o.instanceId) instanceId = o.instanceId; // re-hidrata si el arranque quedó null
+        return true;
+      }
+    } catch (_) {}
+    return !!instanceId;
   }
   // Nombre editable del negocio (identidad de instancia, 2026-07-08). Viaja en
   // respaldos/sync. El header lo muestra; vacío = usa el título por defecto.
@@ -1283,6 +1197,7 @@
     // evaluacion: retrocompat con backups sin el campo (default neutro 0,0)
     const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
     return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "",
+      rangoEdad: c.rangoEdad || "", pais: c.pais || "",
       ...rfm, estacion: estacionDe(rfm, mediana == null ? medianaMontos() : mediana),
       evaluacion: { trato: Number(ev.trato)||0, confiabilidad: Number(ev.confiabilidad)||0, historial: ev.historial||[] },
       despedido: !!c.despedido };
@@ -1412,10 +1327,24 @@
 
   function mov(tipo, detalle) {
     const usr = window.OCCurrentUser;
+    // JFC 2026-09-02: cada acción va al log con el responsable (usuario que entró
+    // con su PIN — el PIN nunca se guarda en claro, REGLA 8) Y el dispositivo
+    // (apodo + id del micelio), para defender al negocio de quejas injustas.
+    let dispApodo = "", dispId = "";
+    try {
+      if (window.OCMicelio) {
+        dispApodo = window.OCMicelio.miApodo() || "";
+        const _yo = window.OCMicelio.yo && window.OCMicelio.yo();
+        dispId = (_yo && _yo.id) || "";
+      }
+    } catch (_) {}
     const m = {
       id: uuid("m"), tipo, detalle, fecha: new Date().toISOString(),
       usuarioId:     usr ? usr.id     : "sistema",
       usuarioNombre: usr ? usr.nombre : "Sistema",
+      usuarioRol:    usr ? (usr.rol || "") : "",
+      dispositivoApodo: dispApodo,
+      dispositivoId:    dispId,
     };
     m.prevSello = selloUltimo;
     m.sello = selloHash(movHuella(m));
@@ -1633,11 +1562,11 @@
   function _rolLocal() {
     try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
   }
-  /* PIN RESERVADO (JFC 2026-08-27). Esquema de PINs acordado:
-       456 = demo · 789 = activador de instancia propia · 260 = empleado/encargado
-       357 = capa contable/Accounting. 888 queda LIBRE como PIN de dueño inicial
-     (junto con 789, indistintamente). Un encargado no puede fijar como PIN suyo
-     ninguno de los códigos de sistema, o colisionaría con un rol o con la demo. */
+  /* PIN RESERVADO (JFC 2026-08-31). Esquema de PINs acordado:
+       456 = demo · 789 = dueño de fábrica Y activador de instancia propia
+       260 = empleado/encargado · 357 = contable/Accounting.
+       888 queda LIBRE (no es dueño de fábrica). Un encargado no puede fijar
+       como PIN suyo ninguno de los códigos de sistema. */
   const PINS_RESERVADOS = ["456", "789", "260", "357"];
   function _pinReservado(pin) { return PINS_RESERVADOS.indexOf(String(pin || "")) !== -1; }
 
@@ -1833,22 +1762,34 @@
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
     }
-    /* PINs DE ROL VIAJAN CON EL CUADERNO (Diego Ortuño, 2026-08-30).
-       Owner/Staff/Accounting en crypto-store eran solo de ESTE aparato, así
-       que el PIN de staff del celular no abría el escritorio. Van por el
-       mismo catálogo cifrado que el equipo (usuarios.pin). Un PIN de fábrica
-       888 no pisa uno real. */
     try {
       const pr = remoto && remoto.pinsRol;
       if (pr && window.OCSecure) {
-        const fabrica = { owner: "888", emp: "260", acct: "357" };
+        const fabrica = { owner: "789", emp: "260", acct: "357" };
         const vis = (window.OCSecure.leerPinsVisibles && window.OCSecure.leerPinsVisibles()) || {};
         const take = function (remotoPin, localPin, fijar, rolAbre) {
           const p = String(remotoPin || "");
-          if (!/^\d{3}$/.test(p) || p === "456" || p === "789") return;
-          if (p === fabrica[rolAbre === "dueno" ? "owner" : (rolAbre === "empleado" ? "emp" : "acct")] && localPin && localPin !== p) return;
-          if (localPin === p) return;
-          if (!mandaElOtro && localPin && localPin !== "888" && localPin !== "260" && localPin !== "357") return;
+          if (!/^\d{3}$/.test(p) || p === "456") return;
+          const fab = fabrica[rolAbre === "dueno" ? "owner" : (rolAbre === "empleado" ? "emp" : "acct")];
+          let abrePin = "";
+          try {
+            const abre = (window.OCSecure.leerPinQueAbre && window.OCSecure.leerPinQueAbre()) || {};
+            abrePin = rolAbre === "dueno" ? (abre.owner || "") : (rolAbre === "empleado" ? (abre.emp || "") : (abre.acct || ""));
+          } catch (_) {}
+          const local = String(localPin || abrePin || "");
+          const localEsCustom = !!(local && local !== fab && local !== "888" && local !== "456");
+          const remotoEsFabrica = (p === fab || p === "888");
+          /* Sidecar: el PIN del cuaderno TAMBIEN abre, sin borrar el de este aparato. */
+          try {
+            const eq = (window.OCSecure.leerPinsEquipo && window.OCSecure.leerPinsEquipo()) || {};
+            if (rolAbre === "dueno") eq.owner = p;
+            else if (rolAbre === "empleado") eq.emp = p;
+            else eq.acct = p;
+            if (window.OCSecure.guardarPinsEquipo) window.OCSecure.guardarPinsEquipo(eq);
+          } catch (_) {}
+          if (localEsCustom) return;
+          if (local === p) return;
+          if (remotoEsFabrica) return;
           Promise.resolve(fijar(p)).then(function (ok) {
             if (ok && window.OCSecure.recordarPinQueAbre) window.OCSecure.recordarPinQueAbre(p, rolAbre);
           }).catch(function () {});
@@ -1877,20 +1818,11 @@
   function _licenciaPropia() {
     try {
       if (localStorage.getItem("f123_lord") === "1") {
-        const can = _normLic(localStorage.getItem("f123_lord_licencia_canonica") || "");
-        if (can && /^F123-/i.test(can)) return can;
+        const can = localStorage.getItem("f123_lord_licencia_canonica");
+        if (can) return _normLic(can);
       }
-      const o = JSON.parse(localStorage.getItem("f123_owned") || "null");
-      return o && o.licenseCode ? _normLic(o.licenseCode) : "";
-    } catch (_) { return ""; }
-  }
-  function _namespaceTieneDatos(suf) {
-    try {
-      const s = (suf == null) ? "" : String(suf);
-      const a = localStorage.getItem("f123_estado_v4" + s + "_A");
-      const b = localStorage.getItem("f123_estado_v4" + s + "_B");
-      return !!(a && a.length > 40) || !!(b && b.length > 40);
-    } catch (_) { return false; }
+    } catch (_) {}
+    try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
   }
   function _licenciaActual() {
     // La licencia de la tienda activa: si hay sufijo "::L", es L; si no, la propia.
@@ -1926,6 +1858,13 @@
       // Registro licencia -> sufijo.
       let reg = {};
       try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      /* Guest licenses must not map to the own-store suffix "". That was the
+         f123_tiendas corruption (P3W1D/JENF → ""). Own license MAY be "". */
+      try {
+        Object.keys(reg).forEach(function (k) {
+          if (reg[k] === "" && _normLic(k) !== _licenciaPropia()) delete reg[k];
+        });
+      } catch (_) {}
       // Asegurar que la tienda ACTUAL esté registrada (para poder volver a ella).
       const licAct = desde;
       if (licAct && !(licAct in reg)) reg[licAct] = OC_STATE_SUFIJO;
@@ -1955,27 +1894,7 @@
          devuelve el código NUEVO), sufDest siempre caería a "" y el switch de
          tienda nunca ocurriría. Con `desde`, unirse a una licencia distinta
          cambia a "::<lic>" (namespace aparte, sin pisar la tienda propia). */
-      /* CASA PROPIA PRIMERO (JFC 2026-08-30). El comentario de 2026-08-26
-         decía esto; el código NO lo hacía. Una entrada vieja en
-         f123_tiendas (P3W1D:"", JENF:"") mandaba al namespace equivocado.
-         Orden: (1) licencia canónica/propia → siempre "";
-         (2) misma que `desde` → quedarse;
-         (3) registro SOLO si ese sufijo tiene datos reales;
-         (4) si no, "::" + licencia (tienda unida nueva). */
-      const propia = _licenciaPropia();
-      let sufDest;
-      if (propia && norm === propia) {
-        sufDest = "";
-      } else if (norm === desde) {
-        sufDest = OC_STATE_SUFIJO;
-      } else if (norm in reg && _namespaceTieneDatos(reg[norm])) {
-        sufDest = reg[norm];
-      } else {
-        if (norm in reg && !_namespaceTieneDatos(reg[norm])) {
-          try { delete reg[norm]; } catch (_) {}
-        }
-        sufDest = "::" + norm;
-      }
+      let sufDest = (norm === desde) ? OC_STATE_SUFIJO : ((norm in reg) ? reg[norm] : ("::" + norm));
       reg[norm] = sufDest;
       try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
       if (sufDest === OC_STATE_SUFIJO) {
@@ -1999,12 +1918,7 @@
         }
       } catch (_) {}
       // Recargar: en el boot el sufijo ya será el de la tienda destino.
-      if (!sinRecargar) {
-        try {
-          sessionStorage.setItem("f123_entering", JSON.stringify({ lic: norm, ts: Date.now() }));
-        } catch (_) {}
-        try { location.reload(); } catch (_) {}
-      }
+      if (!sinRecargar) { try { location.reload(); } catch (_) {} }
       return { ok: true, cambiado: true };
     },
     /* CLAIM / MERGE DE DISPOSITIVOS PROPIOS (JFC 2026-08-27). Deja los TRES
@@ -2082,15 +1996,14 @@
         nombreNegocio: nombreNegocio || "",
         pinsRol: (function () {
           try {
-            const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? window.OCSecure.leerPinsVisibles() : null;
-            const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? window.OCSecure.leerPinQueAbre() : {};
-            if (!vis && !abre) return null;
+            const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
+            const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
             return {
-              owner: (abre && abre.owner) || (vis && vis.owner) || "",
-              emp: (abre && abre.emp) || ((vis && vis.empleados && vis.empleados[0]) || ""),
-              acct: (abre && abre.acct) || (vis && vis.acct) || "",
+              owner: abre.owner || vis.owner || "",
+              emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""),
+              acct: abre.acct || vis.acct || ""
             };
-          } catch (_) { return null; }
+          } catch (_) { return {}; }
         })(),
         huella: huellaCatalogo(),
       };
@@ -2352,7 +2265,7 @@
       let body = {};
       if (opts && opts.body) { try { body = (function () { try { return JSON.parse(opts.body); } catch (_) { return {}; } })(); } catch (_) { body = {}; } }
       const method = (opts && opts.method ? opts.method : "GET").toUpperCase();
-      debePersistir = ["POST", "PUT", "PATCH", "DELETE"].includes(method) && !path.startsWith("/api/sync") && path !== "/api/respaldo/exportar" && !path.startsWith("/api/mantenedor");
+      debePersistir = ["POST", "PUT", "PATCH", "DELETE"].includes(method) && !path.startsWith("/api/sync") && path !== "/api/respaldo/exportar";
       const uid = q.get("ubicacionId");
 
       let m;
@@ -2388,40 +2301,6 @@
         return J({ ok: true });
       }
       if (path === "/api/modo") return J({ modo: "demo-estatico" });
-      /* Mantenedor APIs (lab). Nunca aceptan campos fuera del contrato Fase 0.
-         En producción el Worker vuelve a sanitizar y, con secretos, abre Issue
-         o escribe Sheet. Aquí el inbox es localStorage f123_mantenedor_lab. */
-      if (path.indexOf("/api/mantenedor/") === 0) {
-        const P = window.OCMantenedorPrivacidad;
-        const S = window.OCMantenedorStore;
-        const limpio = P ? P.sanitizar(body || {}) : (body || {});
-        if (path === "/api/mantenedor/reporte" && method === "POST") {
-          const row = S ? S.push("reportes", Object.assign({ destino: "github+sheets" }, limpio)) : limpio;
-          return J({ ok: true, id: row.id, url: "./mantenedor.html", lab: true });
-        }
-        if (path === "/api/mantenedor/silencio" && method === "POST") {
-          if (!(P && P.optIn())) return J({ ok: false, error: "opt-in off" }, 403);
-          const row = S ? S.push("silencio", limpio) : limpio;
-          return J({ ok: true, id: row.id });
-        }
-        if (path === "/api/mantenedor/nps" && method === "POST") {
-          const row = S ? S.push("nps", { kind: "nps", app: limpio.app || "friendly-123", mensaje: limpio.mensaje || "" }) : limpio;
-          return J({ ok: true, id: row.id });
-        }
-        if (path === "/api/mantenedor/contacto" && method === "POST") {
-          const row = S ? S.push("contactos", {
-            kind: "contacto",
-            nombre: String((body && body.nombre) || "").slice(0, 80),
-            email: String((body && body.email) || "").slice(0, 120),
-            mensaje: limpio.mensaje || ""
-          }) : limpio;
-          return J({ ok: true, id: row.id, mail: "resend-stub" });
-        }
-        if (path === "/api/mantenedor/inbox" && method === "GET") {
-          return J(S ? S.leer() : { reportes: [], nps: [], contactos: [], silencio: [] });
-        }
-        return J({ error: "Unknown maintainer route" }, 404);
-      }
       if (path === "/api/ubicaciones" && (!opts || opts.method !== "POST")) {
         const soloActivas = q.get("todas") !== "1";
         return J(soloActivas ? ubicaciones.filter((u) => u.activa !== false) : ubicaciones);
@@ -2550,13 +2429,20 @@
            2026-08-25): antes solo se guardaba nombre + %, muy por detras de lo
            que ya se pide para clientes. Todo opcional salvo el nombre. */
         const _s = (x) => String(x || "").trim().slice(0, 160);
-        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comision: Number(body.comision) || 0,
+        /* Base % en `comisionBase` (JFC 2026-09-01): el editor de comisionista
+           (portado de amigable) usa comisionBase y resolverTrato lo lee primero.
+           Se acepta `comision` como alias de entrada y se guarda `comision`
+           espejo para compatibilidad con datos/lectores viejos. */
+        const _base = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
+        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comisionBase: _base, comision: _base,
           telefono: _s(body.telefono), cedula: _s(body.cedula), banco: _s(body.banco), cuenta: _s(body.cuenta),
           direccion: _s(body.direccion), notas: _s(body.notas), activa: true, creadoEn: new Date().toISOString(),
           /* JFC 2026-08-27 (portado de amigable-123): meta mensual y tramos/escalas
-             propios del comisionista. Si se definen, mandan sobre los de la percha. */
+             propios del comisionista. Formato {hasta,comision} — el MISMO que lee
+             pctDeLaVenta/resolverTrato y el editor de barra (antes {desde,pct}: los
+             tramos del comisionista se perdían en silencio). */
           metaMensual: Math.max(0, Number(body.metaMensual) || 0),
-          escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ desde: Math.max(0, Number(e.desde) || 0), pct: Math.max(0, Number(e.pct) || 0) })).filter((e) => e.pct > 0) : [] };
+          escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [] };
         promotoras.push(nuevaProm);
         mov("promotora-alta", { promotora: nuevaProm.nombre });
         return J(nuevaProm);
@@ -2566,9 +2452,14 @@
         const pr = promotoras.find((x) => x.id === mProm[1]);
         if (!pr) return J({ error: "Associate not found." }, 404);
         if (body.nombre !== undefined) pr.nombre = String(body.nombre).trim().slice(0, 80) || pr.nombre;
-        if (body.comision !== undefined) pr.comision = Math.max(0, Number(body.comision) || 0);
+        // Base % en comisionBase (con comision espejo) — acepta ambos nombres de entrada.
+        if (body.comisionBase !== undefined || body.comision !== undefined) {
+          const b = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
+          pr.comisionBase = b; pr.comision = b;
+        }
         if (body.metaMensual !== undefined) pr.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
-        if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ desde: Math.max(0, Number(e.desde) || 0), pct: Math.max(0, Number(e.pct) || 0) })).filter((e) => e.pct > 0) : [];
+        // Escalas {hasta,comision} — el mismo formato que lee pctDeLaVenta (antes {desde,pct}).
+        if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [];
         ["telefono", "cedula", "banco", "cuenta", "direccion", "notas"].forEach((k) => { if (body[k] !== undefined) pr[k] = String(body[k] || "").trim().slice(0, 160); });
         mov("promotora-edicion", { promotora: pr.nombre });
         return J(pr);
@@ -2668,7 +2559,7 @@
         const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
-        if ((!instanceId || licenciaLimitada()) && productos.length >= 25) {
+        if (!estaLicenciado() && productos.length >= 25) {
           return J({ error: "You've reached the 25-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
         }
         const nuevo = {
@@ -2706,7 +2597,7 @@
         const cant = Number.isInteger(body.cantidad) && body.cantidad > 0 ? body.cantidad : 1;
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
-        if ((!instanceId || licenciaLimitada()) && ventasCountMesGlobal() >= 100) {
+        if (!estaLicenciado() && ventasCountMesGlobal() >= 100) {
           return J({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" }, 403);
         }
         /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
@@ -2755,6 +2646,7 @@
           email: String(infoBody.email || "").trim().slice(0, 120),
           whatsapp: String(infoBody.whatsapp || "").trim().slice(0, 40),
           formaPago: String(infoBody.formaPago || "").trim().slice(0, 20), // JFC 2026-08-26: forma de pago (portado de amigable)
+          factura: String(infoBody.factura || "").trim().slice(0, 60), // JFC 2026-09-02: número de factura opcional
           montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
           notas: String(infoBody.notas || "").trim().slice(0, 500), // JFC 2026-08-27: notas de la venta
           /* Bar (JFC 2026-08-27): servings vendidos y su equivalente en botellas. */
@@ -2790,6 +2682,120 @@
         mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) });
         emitirOpStock("anulacion", { productoId: p.id, delta: venta.cantidad });
         return J({ producto: ficha(p) });
+      }
+      /* CANCELAR EX-POST (JFC 2026-09-02): "sobre todo en Sales/Sold debe haber
+         cancelar ex post tambien". A diferencia de /anular (ventana de 30s para
+         deshacer un toque recién hecho), esto permite cancelar una venta pasada
+         cuando hubo un error. Protege la plata ya liquidada a un socio: si la
+         venta ya se pagó a la casa/artista, NO se puede cancelar aquí (habría que
+         corregir la liquidación). Todo queda en el log con usuario + dispositivo. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/cancelar$/)) && opts && opts.method === "POST") {
+        // #8 (JFC 2026-09-02): cancelar una venta asentada es sensible → solo
+        // dueño/admin. Un encargado no revierte ventas en silencio.
+        const _rC = _rolLocal();
+        if (_rC !== "dueno" && _rC !== "admin") return J({ error: "Only the owner or an admin can cancel a recorded sale." }, 403);
+        const idx = ventas.findIndex((v) => v.id === m[1]);
+        if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
+        const venta = ventas[idx];
+        if (venta.liquidada) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
+        p.stockActual += venta.cantidad;
+        ventas.splice(idx, 1);
+        mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha });
+        emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
+        return J({ producto: ficha(p), ok: true });
+      }
+      /* EDITAR UNA VENTA (JFC 2026-09-02): la lista de Sold es editable con
+         lapicitos "por si hubo errores". Se puede corregir cantidad, forma de
+         pago, notas, número de factura y el cliente. Si cambia la cantidad se
+         ajusta stock y se recalcula el split de comisión. Bloqueado si la venta
+         ya fue liquidada (la plata ya se repartió). Todo va al log. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)$/)) && opts && opts.method === "PATCH") {
+        // #8: editar una venta asentada = solo dueño/admin.
+        const _rE = _rolLocal();
+        if (_rE !== "dueno" && _rE !== "admin") return J({ error: "Only the owner or an admin can edit a recorded sale." }, 403);
+        const venta = ventas.find((v) => v.id === m[1]);
+        if (!venta) return J({ error: "Sale not found." }, 404);
+        if (venta.liquidada) return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const cambios = {};
+        // Cantidad: ajusta stock (delta) y recalcula split.
+        if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
+          const nueva = Math.max(1, Math.floor(Number(body.cantidad) || 1));
+          const delta = nueva - venta.cantidad; // >0 = vender más (baja stock)
+          if (delta > 0 && p.stockActual < delta) return J({ error: `Not enough stock to raise the quantity (only ${p.stockActual} left).` }, 400);
+          if (delta !== 0) {
+            p.stockActual -= delta;
+            emitirOpStock("venta-editada", { productoId: p.id, delta: -delta });
+            cambios.cantidad = { antes: venta.cantidad, ahora: nueva };
+            venta.cantidad = nueva;
+            const ubicP = ubicaciones.find((x) => x.id === venta.ubicacionId);
+            if (ubicP && venta.split) {
+              const montoBruto = (venta.precioUnit || 0) * nueva;
+              const acumuladoPrevio = ventasMesAcumuladas(ubicP.id);
+              venta.split = calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio);
+            }
+          }
+        }
+        // Precio unitario: corregir un monto mal tecleado (JFC/Belén 2026-09-02:
+        // "puse $150 y no 115"). Recalcula el split de comisión con el precio nuevo.
+        if (body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "") {
+          const nuevoPrecio = Number(body.precioUnit);
+          if (!Number.isFinite(nuevoPrecio) || nuevoPrecio < 0) return J({ error: "Enter a valid unit price." }, 400);
+          const precioRedondo = +nuevoPrecio.toFixed(2);
+          if (precioRedondo !== venta.precioUnit) {
+            cambios.precioUnit = { antes: venta.precioUnit, ahora: precioRedondo };
+            venta.precioUnit = precioRedondo;
+            const ubicP2 = ubicaciones.find((x) => x.id === venta.ubicacionId);
+            if (ubicP2 && venta.split) {
+              const montoBruto2 = precioRedondo * (venta.cantidad || 1);
+              venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladas(ubicP2.id));
+            }
+          }
+        }
+        if (body.clienteId !== undefined) {
+          if (body.clienteId) { const c = clientes.find((x) => x.id === body.clienteId); if (!c) return J({ error: "Customer not found." }, 404); venta.clienteId = c.id; }
+          else venta.clienteId = null;
+          cambios.clienteId = venta.clienteId;
+        }
+        if (body.info && typeof body.info === "object") {
+          venta.info = venta.info || {};
+          const iv = body.info;
+          if (iv.formaPago !== undefined) venta.info.formaPago = String(iv.formaPago || "").slice(0, 20);
+          if (iv.notas !== undefined) venta.info.notas = String(iv.notas || "").slice(0, 500);
+          if (iv.factura !== undefined) venta.info.factura = String(iv.factura || "").slice(0, 60);
+          if (iv.nombrePagador !== undefined) venta.info.nombrePagador = String(iv.nombrePagador || "").slice(0, 120);
+          cambios.info = true;
+        }
+        mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios });
+        return J({ producto: ficha(p), venta, ok: true });
+      }
+      /* EDITAR UN EVENTO (JFC 2026-09-02, micromejora #10): dueño/admin puede
+         renombrar el evento y cambiar su fecha. Como el "evento" es el nombre que
+         llevan las ventas (info.nombreEvento), se actualizan TODAS las ventas de
+         ese evento de una sola vez. Todo al log. */
+      if (path === "/api/eventos" && opts && opts.method === "PATCH") {
+        const _rEv = _rolLocal();
+        if (_rEv !== "dueno" && _rEv !== "admin") return J({ error: "Only the owner or an admin can edit an event." }, 403);
+        const antes = String(body.nombreAnterior || "").trim();
+        const nuevo = String(body.nombreNuevo || "").trim().slice(0, 120);
+        const fechaNueva = body.fechaNueva !== undefined ? String(body.fechaNueva || "").trim().slice(0, 20) : null;
+        if (!antes) return J({ error: "Missing the event to edit." }, 400);
+        if (!nuevo) return J({ error: "Enter a name for the event." }, 400);
+        let n = 0;
+        ventas.forEach((v) => {
+          if (v.info && v.info.nombreEvento === antes) {
+            v.info.nombreEvento = nuevo;
+            if (fechaNueva !== null) v.info.fechaEvento = fechaNueva;
+            n++;
+          }
+        });
+        mov("evento-editado", { antes, ahora: nuevo, fecha: fechaNueva || "", ventasAfectadas: n });
+        guardarEstadoLocal();
+        return J({ ok: true, ventasAfectadas: n, nombre: nuevo, fecha: fechaNueva });
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
@@ -2848,22 +2854,31 @@
       if (path === "/api/gastos" && (!opts || opts.method === "GET")) {
         const lista = gastos.slice().reverse();
         const total = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
-        return J({ gastos: lista, total });
+        // JFC 2026-09-02: totales por categoría para el tablero y el resumen.
+        const porCategoria = {};
+        gastos.forEach((g) => { const k = g.categoria || "other"; porCategoria[k] = (porCategoria[k] || 0) + (Number(g.monto) || 0); });
+        Object.keys(porCategoria).forEach((k) => { porCategoria[k] = +porCategoria[k].toFixed(2); });
+        return J({ gastos: lista, total, porCategoria });
       }
       if (path === "/api/gastos" && opts && opts.method === "POST") {
         const concepto = String(body.concepto || "").trim();
         const monto = Number(body.monto);
         if (!concepto) return J({ error: "Enter a description for the expense." }, 400);
         if (!Number.isFinite(monto) || monto <= 0) return J({ error: "Enter a valid amount." }, 400);
+        // JFC 2026-09-02: categoría de gasto (best-practice sirve en USA y Ecuador).
+        // Claves canónicas neutrales; la etiqueta visible la traduce la UI.
+        const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
+        const categoria = CATS_GASTO.includes(String(body.categoria || "")) ? String(body.categoria) : "other";
         const g = {
           id: uuid("g"), concepto, monto: +monto.toFixed(2),
+          categoria,
           fecha: body.fecha || new Date().toISOString(),
           ubicacionId: body.ubicacionId || "todas",
           usuarioId: (window.OCCurrentUser && window.OCCurrentUser.id) || "sistema",
           usuarioNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || "Sistema",
         };
         gastos.push(g);
-        mov("gasto", { concepto, monto: g.monto, ubicacionId: g.ubicacionId });
+        mov("gasto", { concepto, monto: g.monto, categoria, ubicacionId: g.ubicacionId });
         guardarEstadoLocal();
         return J(g);
       }
@@ -2896,7 +2911,11 @@
           g.monto = +m.toFixed(2);
         }
         if (body.fecha !== undefined) g.fecha = body.fecha;
-        mov("gasto-editado", { concepto: g.concepto, monto: g.monto });
+        if (body.categoria !== undefined) {
+          const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
+          g.categoria = CATS_GASTO.includes(String(body.categoria)) ? String(body.categoria) : (g.categoria || "other");
+        }
+        mov("gasto-editado", { concepto: g.concepto, monto: g.monto, categoria: g.categoria });
         guardarEstadoLocal();
         return J(g);
       }
@@ -3091,6 +3110,10 @@
           eventoFecha: (v.info && v.info.fechaEvento) || "",
           eventoPersonas: (v.info && v.info.numPersonas) || null,
           pagador: (v.info && v.info.nombrePagador) || "",
+          formaPago: (v.info && v.info.formaPago) || "",
+          factura: (v.info && v.info.factura) || "",
+          notas: (v.info && v.info.notas) || "",
+          clienteId: v.clienteId || "",
           servings: (v.info && v.info.servings) || null,
           botellas: (v.info && v.info.botellas) || null,
           comisionPct: v.split ? v.split.comisionPct : null,
@@ -3114,7 +3137,7 @@
       // una sola vez (misma logica de split/comisiones que la venta normal).
       // Se aplican los items validos y se reportan los que no calzan.
       if (path === "/api/ventas/cierre" && opts && opts.method === "POST") {
-        if (!instanceId || licenciaLimitada()) return J({ error: "Activate this device (PIN 789) to use day close." }, 403);
+        if (!estaLicenciado()) return J({ error: "Activate this device (PIN 789) to use day close." }, 403);
         const items = Array.isArray(body.items) ? body.items : [];
         if (!items.length) return J({ error: "There are no quantities to apply." }, 400);
         const errores = [];
@@ -3235,6 +3258,9 @@
         if (body.telefono !== undefined) c.telefono = String(body.telefono).trim();
         if (body.email !== undefined) c.email = String(body.email).trim();
         if (body.notas !== undefined) c.notas = String(body.notas).trim();
+        // JFC 2026-09-02: rango de edad y país (pulldowns en My customers).
+        if (body.rangoEdad !== undefined) c.rangoEdad = String(body.rangoEdad).trim().slice(0, 12);
+        if (body.pais !== undefined) c.pais = String(body.pais).trim().slice(0, 60);
         mov("cliente-contacto", { cliente: c.nombre });
         guardarEstadoLocal();
         return J(fichaCliente(c));
@@ -3305,14 +3331,19 @@
       // (esos hashes viven en crypto-store, no en este mock). Se pide al dueno
       // que elija PINs que no coincidan con los suyos.
 
-      // GET /api/usuarios — lista usuarios del equipo (sin PIN; id/nombre/rol/email/activo)
-      if (path === "/api/usuarios" && (!opts || opts.method === "GET")) {
-        const caller = _rolLocal();
-        const verPin = (caller === "dueno" || caller === "admin");
-        return J(usuarios.filter((u) => !u.borrado).map((u) => ({
-          id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn,
-          pin: verPin ? (u.pin || "") : undefined
-        })));
+      // GET /api/usuarios — lista usuarios del equipo (id/nombre/rol/email/activo).
+      // ?pins=1 (JFC 2026-09-01): incluye el PIN en claro para que el owner/admin
+      // vea la lista unificada del Team y no repita PINs al crear otros. Es LOCAL
+      // (este fetch lo intercepta el mock en el dispositivo) — el PIN nunca sale
+      // del aparato: el relay sigue zero-knowledge. El gating por rol lo hace el
+      // frontend (solo pide ?pins=1 si isDueno()/isAdmin()).
+      if (path === "/api/usuarios" && (!opts || !opts.method || opts.method === "GET")) {
+        const conPin = q.get("pins") === "1";
+        return J(usuarios.filter((u) => !u.borrado).map((u) => {
+          const base = { id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn };
+          if (conPin) base.pin = u.pin || "";
+          return base;
+        }));
       }
       // POST /api/usuarios — crear miembro del equipo (encargado o admin); desde Avanzado = solo dueno.
       //
@@ -3347,7 +3378,7 @@
            esta creado no se le toca ni se le desactiva nada, asi que ningun
            equipo existente se rompe con este cambio. */
         const staffActual = usuarios.filter((u) => !u.borrado && (u.rol === "empleado" || u.rol === "admin")).length;
-        if (staffActual >= 1 && (!instanceId || licenciaLimitada()))
+        if (staffActual >= 1 && !estaLicenciado())
           return J({ error: "The free plan includes 1 team member besides you, and that counts admins too. Activate this device (PIN 789) for an unlimited team.", codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
         const _ahoraU = new Date().toISOString();
@@ -3496,8 +3527,6 @@
       if (path === "/api/instancia/nombre" && opts && opts.method === "POST") {
         nombreNegocio = String(body.nombre || "").trim().slice(0, 80);
         guardarEstadoLocal();
-        avisarCatalogoCambiado();
-        try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
         return J({ ok: true, nombreNegocio: nombreNegocio });
       }
       // GET /api/integridad — verifica la cadena anti-tamper del historial.
