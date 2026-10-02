@@ -151,6 +151,7 @@ input:focus,select:focus{outline:3px solid rgba(36,95,168,.18);border-color:var(
   </div>
   <div class="card">
     <h2 id="product-list-title">Workshop products</h2>
+    <input id="product-search" autocomplete="off" placeholder="Search products" style="margin-bottom:12px">
     <div id="product-list" class="products"></div>
   </div>
 </section>
@@ -255,7 +256,7 @@ const dict={
   kSales:"Sales today",kAverage:"Average sale",kRevenue:"Revenue today",kProducts:"Products",
   productTitle:"New product",requiredNote:"Required fields are labeled before you save. Your draft stays in this browser tab if you accidentally refresh.",
   name:"Product name",required:"(required)",code:"Barcode / internal code (required)",category:"Category",price:"Price",quantity:"Quantity",shelf:"Shelf / location",commissionOverride:"Product commission override",
-  commission:"Leave blank to use shelf commission.",zeroTitle:"Confirm $0.00 price?",zeroCopy:"This product will record $0 revenue when sold.",zeroYes:"Save at $0",cancel:"Cancel",saveProduct:"Save product",list:"Workshop products",
+  commission:"Leave blank to use shelf commission.",zeroTitle:"Confirm $0.00 price?",zeroCopy:"This product will record $0 revenue when sold.",zeroYes:"Save at $0",cancel:"Cancel",saveProduct:"Save product",list:"Workshop products",productSearch:"Search products",
   moveTitle:"Move an item between shelves",moveCopy:"Choose the source shelf first. Then the Item list becomes available.",from:"From shelf",item:"Item",to:"To shelf",chooseShelf:"Choose a shelf",chooseFirst:"Choose a shelf first.",chooseDest:"Choose destination",noProducts:"No products on this shelf.",move:"Move",moved:"Item moved.",
   sellTitle:"Sell",sellCopy:"Oversell is blocked, rapid double-submit is guarded, and risky sale types require explicit confirmation.",product:"Product",customer:"Customer",saleType:"Sale type",paid:"Paid sale",debt:"Record debt",courtesy:"Courtesy sale",payment:"Payment method",cash:"Cash",card:"Card",transfer:"Bank transfer",recordSale:"Record sale",try9999:"Try 9999",
   notEnough:"Not enough quantity. Available: {n}.",saleSaved:"Sale recorded.",debtNeedsCustomer:"Debt requires a named customer.",logTitle:"Sales log",logCopy:"Undo becomes available after 5 seconds so an accidental tap is not immediate.",undoWait:"Undo in {n}s",undo:"Undo sale",undone:"Sale undone.",none:"No sales recorded in this workshop.",
@@ -270,7 +271,7 @@ const dict={
   kSales:"Ventas hoy",kAverage:"Venta promedio",kRevenue:"Ingresos hoy",kProducts:"Productos",
   productTitle:"Nuevo producto",requiredNote:"Los campos obligatorios se indican antes de guardar. El borrador queda en esta pestaña si recargas por accidente.",
   name:"Nombre del producto",required:"(obligatorio)",code:"Código de barras / código interno (obligatorio)",category:"Categoría",price:"Precio",quantity:"Cantidad",shelf:"Percha / ubicación",commissionOverride:"Comisión especial del producto",
-  commission:"Deja vacío para usar la comisión de la percha.",zeroTitle:"¿Confirmar precio $0.00?",zeroCopy:"Este producto registrará $0 de ingreso al venderse.",zeroYes:"Guardar en $0",cancel:"Cancelar",saveProduct:"Guardar producto",list:"Productos del taller",
+  commission:"Deja vacío para usar la comisión de la percha.",zeroTitle:"¿Confirmar precio $0.00?",zeroCopy:"Este producto registrará $0 de ingreso al venderse.",zeroYes:"Guardar en $0",cancel:"Cancelar",saveProduct:"Guardar producto",list:"Productos del taller",productSearch:"Buscar productos",
   moveTitle:"Mover un producto entre perchas",moveCopy:"Elige primero la percha de origen. Después se habilita la lista de productos.",from:"Desde la percha",item:"Producto",to:"Hacia la percha",chooseShelf:"Elige una percha",chooseFirst:"Elige primero una percha.",chooseDest:"Elige destino",noProducts:"No hay productos en esta percha.",move:"Mover",moved:"Producto movido.",
   sellTitle:"Vender",sellCopy:"Se bloquea la sobreventa, se evita el doble envío rápido y las ventas de riesgo piden confirmación.",product:"Producto",customer:"Cliente",saleType:"Tipo de venta",paid:"Venta pagada",debt:"Registrar deuda",courtesy:"Cortesía",payment:"Forma de pago",cash:"Efectivo",card:"Tarjeta",transfer:"Transferencia",recordSale:"Registrar venta",try9999:"Probar 9999",
   notEnough:"No hay cantidad suficiente. Disponible: {n}.",saleSaved:"Venta registrada.",debtNeedsCustomer:"La deuda requiere un cliente identificado.",logTitle:"Registro de ventas",logCopy:"Deshacer se habilita después de 5 segundos para evitar un toque accidental inmediato.",undoWait:"Deshacer en {n}s",undo:"Deshacer venta",undone:"Venta deshecha.",none:"No hay ventas registradas en este taller.",
@@ -303,7 +304,7 @@ function refreshMetrics(){const a=activeSales(),revenue=a.reduce((n,s)=>n+s.pric
 function fillShelfSelects(){["p-shelf","move-from","move-to"].forEach(id=>{const s=document.getElementById(id),cur=s.value;s.innerHTML="";if(id!=="p-shelf"){const o=document.createElement("option");o.value="";o.textContent=id==="move-from"?t("chooseShelf"):t("chooseDest");s.appendChild(o)}shelves.forEach(sh=>{const o=document.createElement("option");o.value=sh.id;o.textContent=shelfName(sh.id);s.appendChild(o)});if([...s.options].some(o=>o.value===cur))s.value=cur})}
 function renderProducts(){
  const wrap=document.getElementById("product-list");wrap.innerHTML="";
- products.forEach(p=>{const d=document.createElement("div");d.className="product";d.innerHTML="<strong>"+escapeHtml(p.name)+"</strong><small>"+escapeHtml(p.code)+" · "+escapeHtml(p.category||"—")+" · "+escapeHtml(shelfName(p.shelf))+"</small><div class='qty'>"+p.stock+"</div><div class='product-actions'><button class='btn secondary' data-delete-product='"+escapeHtml(p.id)+"'>"+escapeHtml(t("deleteProduct"))+"</button></div>";wrap.appendChild(d)});
+ const needle=val("product-search").trim().toLowerCase();products.filter(p=>!needle||p.name.toLowerCase().includes(needle)||p.code.toLowerCase().includes(needle)||String(p.category||"").toLowerCase().includes(needle)).forEach(p=>{const d=document.createElement("div");d.className="product";d.innerHTML="<strong>"+escapeHtml(p.name)+"</strong><small>"+escapeHtml(p.code)+" · "+escapeHtml(p.category||"—")+" · "+escapeHtml(shelfName(p.shelf))+"</small><div class='qty'>"+p.stock+"</div><div class='product-actions'><button class='btn secondary' data-delete-product='"+escapeHtml(p.id)+"'>"+escapeHtml(t("deleteProduct"))+"</button></div>";wrap.appendChild(d)});
  const sell=document.getElementById("sell-product"),cur=sell.value;sell.innerHTML="";products.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.name+" · "+p.stock;sell.appendChild(o)});if(products.some(p=>p.id===cur))sell.value=cur;
  refreshMoveItems();refreshMetrics()
 }
@@ -343,7 +344,7 @@ function repaint(){
  "expenses-title":"expensesTitle","expenses-copy":"expensesCopy","expense-name-label":"expense","expense-amount-label":"amount","add-expense":"addExpense",
  "log-title":"logTitle","log-copy":"logCopy"};
  Object.entries(pairs).forEach(([id,k])=>document.getElementById(id).textContent=t(k));
- document.getElementById("label-name").innerHTML=t("name")+" <span class='req'>"+t("required")+"</span>";document.getElementById("label-code").textContent=t("code");
+ document.getElementById("label-name").innerHTML=t("name")+" <span class='req'>"+t("required")+"</span>";document.getElementById("label-code").textContent=t("code");document.getElementById("product-search").placeholder=t("productSearch");
  const st=document.getElementById("sale-type"),sv=st.value;st.options[0].textContent=t("paid");st.options[1].textContent=t("debt");st.options[2].textContent=t("courtesy");st.value=sv;
  const pm=document.getElementById("payment-method"),pv=pm.value;pm.options[0].textContent=t("cash");pm.options[1].textContent=t("card");pm.options[2].textContent=t("transfer");pm.value=pv;
  fillShelfSelects();renderProducts();renderCustomers();renderExpenses();renderLog()
@@ -359,6 +360,7 @@ document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>{
 document.getElementById("lang-toggle").addEventListener("click",()=>{lang=lang==="en"?"es":"en";repaint()});
 document.getElementById("reset-demo").addEventListener("click",()=>{products=structuredClone(seedProducts);customers=structuredClone(seedCustomers);expenses=[];sales=sales.slice(0,6).map((s,i)=>({...s,id:"s"+(i+1),undone:false,undoReady:true}));clearDraft();["product-status","move-status","sell-status","customer-status","expense-status"].forEach(id=>setStatus(id,"",""));repaint()});
 ["p-name","p-code","p-category","p-price","p-stock","p-shelf","p-commission"].forEach(id=>document.getElementById(id).addEventListener("input",saveDraft));
+document.getElementById("product-search").addEventListener("input",renderProducts);
 document.getElementById("save-product").addEventListener("click",()=>saveProduct(false));document.getElementById("zero-yes").addEventListener("click",()=>saveProduct(true));document.getElementById("zero-no").addEventListener("click",()=>document.getElementById("zero-price-confirm").classList.remove("show"));
 document.getElementById("product-list").addEventListener("click",e=>{const b=e.target.closest("[data-delete-product]");if(!b)return;const id=b.dataset.deleteProduct;if(confirm(t("deleteConfirm"))){products=products.filter(p=>p.id!==id);renderProducts()}});
 document.getElementById("move-from").addEventListener("change",()=>{refreshMoveItems();setStatus("move-status","","")});document.getElementById("move-item").addEventListener("change",()=>{document.getElementById("move-go").disabled=!val("move-item")});document.getElementById("move-go").addEventListener("click",()=>{const id=val("move-item"),to=val("move-to"),from=val("move-from");if(!to||to===from){setStatus("move-status",t("differentShelf"),"bad");return}const p=products.find(x=>x.id===id);if(!p)return;p.shelf=to;setStatus("move-status",t("moved"),"good");renderProducts()});
