@@ -107,3 +107,9 @@ test('HTML-like product names are rendered as text, not injected markup', () => 
   assert.match(src, /escapeHtml/);
   assert.match(src, /escapeHtml\(p\.name\)/);
 });
+
+
+test('product list supports search and product form is rendered once', () => {
+  assert.match(src, /id="product-search"/);
+  assert.equal((src.match(/id="product-form"/g) || []).length, 1);
+});
