@@ -1,0 +1,12 @@
+{
+  "shell": "vEXP001",
+  "revision": "stress-coverage-2",
+  "experimental": true,
+  "repo": "jfcarpiopuntocom/friendly123workshop",
+  "date": "2026-10-02",
+  "source": "Notion stress test Paco + Luis + Hugo",
+  "purpose": "Test usability and safety fixes before touching friendly-123 production",
+  "data": "in-memory demo only",
+  "networkWrites": false,
+  "productionFilesTouched": false
+}
