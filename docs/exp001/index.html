@@ -7,55 +7,77 @@
 <meta name="theme-color" content="#0F1923">
 <style>
 :root{
-  --navy:#0F1923;--paper:#F6F8FA;--card:#fff;--ink:#14202B;--muted:#5D6B77;
-  --green:#0D8A62;--green2:#DDF6EC;--amber:#B56A00;--amber2:#FFF2D8;
-  --red:#B6382E;--red2:#FDE7E5;--line:#D8E0E6;--blue:#1F5FB8;--black:#182026;
-  --shadow:0 12px 32px rgba(15,25,35,.12);
+  --navy:#0F1923;--paper:#F4F7F9;--card:#FFFFFF;--ink:#14202B;--muted:#60717E;
+  --green:#0A805B;--green-bg:#DFF4EA;--amber:#A86400;--amber-bg:#FFF1D3;
+  --red:#B13B33;--red-bg:#FCE8E6;--blue:#245FA8;--line:#D6E0E6;--shadow:0 14px 36px rgba(15,25,35,.12);
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-button,input,select{font:inherit}
-header{position:sticky;top:0;z-index:10;background:var(--navy);color:#fff;padding:12px 16px;border-bottom:3px solid #E7A318}
-.top{max-width:1180px;margin:auto;display:flex;gap:12px;align-items:center;justify-content:space-between}
-.brand{display:flex;gap:10px;align-items:center}.mark{font-weight:900;font-size:20px;letter-spacing:-.04em}.badge{font:800 11px/1 ui-monospace,monospace;background:#E7A318;color:#171717;padding:6px 8px;border-radius:999px;letter-spacing:.05em}
-.actions{display:flex;gap:8px;align-items:center}.tiny{border:1px solid #51606C;background:#172532;color:#fff;border-radius:8px;padding:8px 10px;cursor:pointer}
-main{max-width:1180px;margin:18px auto;padding:0 16px 56px;display:grid;grid-template-columns:220px 1fr;gap:18px}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%} body{background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit} button{cursor:pointer}
+#gate{min-height:100vh;display:grid;place-items:center;background:linear-gradient(145deg,#0F1923,#17344A);padding:20px}
+.gate-card{width:min(480px,100%);background:#fff;border-radius:22px;padding:26px;box-shadow:0 25px 70px rgba(0,0,0,.35)}
+.gate-brand{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.mark{font-weight:950;font-size:24px;letter-spacing:-.05em}.badge{font:900 11px/1 ui-monospace,monospace;background:#E7A318;color:#111;padding:7px 9px;border-radius:999px;letter-spacing:.06em}
+.gate-card h1{font-size:28px;margin:6px 0 8px;letter-spacing:-.04em}.gate-card p{color:var(--muted);line-height:1.5}
+.pin-row{display:grid;grid-template-columns:1fr auto;gap:10px}.pin-row input{font-size:26px;letter-spacing:.22em;text-align:center}
+.pin-help{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+#app{display:none}
+header{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;border-bottom:3px solid #E7A318;padding:11px 16px}
+.top{max-width:1240px;margin:auto;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.brand{display:flex;gap:10px;align-items:center}.head-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.role{font:800 12px/1.3 ui-monospace,monospace;color:#D9E3E9}
+.tiny{border:1px solid #526675;background:#182A38;color:#fff;border-radius:8px;padding:8px 10px;font-weight:800}
+main{max-width:1240px;margin:18px auto;padding:0 16px 60px;display:grid;grid-template-columns:220px 1fr;gap:18px}
 nav{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;height:max-content;position:sticky;top:82px;box-shadow:var(--shadow)}
-.navbtn{width:100%;border:0;background:transparent;text-align:left;padding:11px 12px;border-radius:10px;font-weight:800;color:var(--ink);cursor:pointer}.navbtn.active{background:#EAF5F1;color:#086947}
+.navbtn{width:100%;border:0;background:transparent;text-align:left;padding:11px 12px;border-radius:10px;font-weight:850;color:var(--ink);cursor:pointer}.navbtn.active{background:#E7F4EF;color:#086548}
 .workshop{font-size:12px;color:var(--muted);padding:8px 12px 4px;line-height:1.4}
-section.view{display:none}.view.active{display:block}
-h1{font-size:30px;letter-spacing:-.04em;margin:0 0 8px}h2{font-size:20px;margin:0 0 12px}p{line-height:1.5}
-.demo-banner{background:#2A1514;color:#fff;border-left:6px solid #E86040;padding:13px 15px;border-radius:12px;margin-bottom:14px}
-.demo-banner strong{color:#FFB2AA;letter-spacing:.04em}.demo-banner span{display:block;margin-top:3px}
-.alert{background:var(--red2);border:1px solid #F0B9B4;color:#7C221B;padding:14px;border-radius:12px;margin:12px 0}.alert h2{color:var(--red);margin-bottom:4px}
-.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}.metric .n{font-size:28px;font-weight:900;letter-spacing:-.04em}.metric .k{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.view{display:none}.view.active{display:block}
+h1{font-size:31px;letter-spacing:-.045em;margin:0 0 8px}h2{font-size:20px;margin:0 0 10px}p{line-height:1.5}
+.demo-banner{background:#2A1514;color:#fff;border-left:6px solid #E86040;padding:13px 15px;border-radius:12px;margin-bottom:14px}.demo-banner strong{color:#FFB1A9;letter-spacing:.05em}.demo-banner span{display:block;margin-top:3px}
+.alert{background:var(--red-bg);border:1px solid #F1B9B4;color:#79221D;padding:14px;border-radius:12px;margin:12px 0}.alert h2{color:var(--red)}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}.metric .n{font-size:28px;font-weight:950;letter-spacing:-.04em}.metric .k{font-size:12px;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.05em}
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 label{display:block;font-size:13px;font-weight:900;margin:0 0 6px}.req{color:var(--red)}
 input,select{width:100%;min-height:44px;border:1px solid #AEBBC5;border-radius:9px;padding:9px 10px;background:#fff;color:var(--ink)}
-input:focus,select:focus{outline:3px solid rgba(31,95,184,.18);border-color:var(--blue)}
-.help{font-size:12px;color:var(--muted);margin-top:6px}
-.btn{border:0;border-radius:10px;padding:11px 15px;font-weight:900;cursor:pointer;min-height:44px}.primary{background:#0A7A55;color:#fff}.secondary{background:#E8EEF3;color:#183142}.danger{background:#A63A32;color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}
-.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.status{min-height:22px;font-weight:800;font-size:13px}
-.good{color:#087452}.bad{color:#A52D25}.warn{color:#A15C00}
-.toast{position:fixed;right:18px;bottom:18px;z-index:30;background:#083F31;color:#fff;padding:13px 16px;border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.25);font-weight:900;transform:translateY(100px);opacity:0;transition:.2s}.toast.show{transform:translateY(0);opacity:1}
-.products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.product{border:1px solid var(--line);border-radius:12px;padding:13px}.product strong{display:block}.product small{color:var(--muted)}.qty{font-size:20px;font-weight:900;margin-top:5px}
-.logitem{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);padding:10px 0}.pill{font:800 11px/1 ui-monospace,monospace;padding:5px 7px;border-radius:999px;background:#EEF3F6;color:#3C4B57}
-.zero-confirm{display:none;background:var(--amber2);border:1px solid #ECC88A;padding:12px;border-radius:10px;margin-top:10px}.zero-confirm.show{display:block}
-.code-note{background:#EEF5FF;border:1px solid #B9CFF4;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
-.lang-state{font-size:12px;color:#CBD5DC}
-@media(max-width:820px){main{grid-template-columns:1fr}nav{position:static;display:flex;overflow:auto;gap:4px}.navbtn{min-width:max-content}.workshop{display:none}.grid4{grid-template-columns:1fr 1fr}.row,.row3{grid-template-columns:1fr}.products{grid-template-columns:1fr}}
-@media(max-width:480px){.grid4{grid-template-columns:1fr}.mark{font-size:17px}.badge{font-size:10px}}
+input:focus,select:focus{outline:3px solid rgba(36,95,168,.18);border-color:var(--blue)}
+.help{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}.note{background:#EFF5FB;border:1px solid #BED0E3;border-radius:10px;padding:10px 12px;font-size:13px;margin:10px 0}
+.btn{border:0;border-radius:10px;padding:11px 15px;font-weight:900;min-height:44px}.primary{background:#0A7653;color:#fff}.secondary{background:#E8EEF3;color:#173041}.danger{background:#A43B32;color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.status{min-height:22px;font-weight:850;font-size:13px}.good{color:#08724F}.bad{color:#A12C25}.warn{color:#985700}
+.toast{position:fixed;right:18px;bottom:18px;z-index:40;background:#083F31;color:#fff;padding:13px 16px;border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.25);font-weight:900;transform:translateY(100px);opacity:0;transition:.2s}.toast.show{transform:translateY(0);opacity:1}
+.products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.product{border:1px solid var(--line);border-radius:12px;padding:13px}.product strong{display:block}.product small{color:var(--muted)}.qty{font-size:20px;font-weight:950;margin-top:5px}.product-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.logitem,.customer-row,.expense-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);padding:10px 0}.pill{font:800 11px/1 ui-monospace,monospace;padding:5px 7px;border-radius:999px;background:#EEF3F6;color:#3C4B57}
+.zero-confirm,.courtesy-confirm{display:none;background:var(--amber-bg);border:1px solid #E8C481;padding:12px;border-radius:10px;margin-top:10px}.zero-confirm.show,.courtesy-confirm.show{display:block}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.insight{padding:8px 10px;border-radius:999px;font-size:12px;font-weight:850;background:#EAF1F7;color:#214765}.insight.high-margin{background:#E5F5EC;color:#0B6A4A}
+.screenreader{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:860px){main{grid-template-columns:1fr}nav{position:static;display:flex;overflow:auto;gap:4px}.navbtn{min-width:max-content}.workshop{display:none}.grid4{grid-template-columns:1fr 1fr}.row,.row3{grid-template-columns:1fr}.products{grid-template-columns:1fr}}
+@media(max-width:500px){.grid4{grid-template-columns:1fr}.mark{font-size:18px}.badge{font-size:10px}.top{align-items:flex-start}}
 </style>
 </head>
 <body>
+
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-brand"><div class="mark">friendly-123</div><div class="badge">WORKSHOP · vEXP001</div></div>
+    <h1>Enter a 3-digit demo PIN</h1>
+    <p>This is a local-only experimental shell. No customer data, license, sync, or network write is used here.</p>
+    <div class="pin-row">
+      <input id="pin-input" inputmode="numeric" maxlength="3" aria-label="3-digit demo PIN" placeholder="•••">
+      <button class="btn primary" id="pin-enter" type="button">Enter</button>
+    </div>
+    <div id="pin-status" class="status bad" role="status" aria-live="polite"></div>
+    <div class="pin-help">Demo PINs: <strong>456</strong> Owner · 260 Staff · 357 Accountant · 789 Full-access demo. Press Enter or tap Enter.</div>
+  </div>
+</div>
+
+<div id="app">
 <header>
   <div class="top">
     <div class="brand"><div class="mark">friendly-123</div><div class="badge">WORKSHOP · vEXP001</div></div>
-    <div class="actions">
-      <span class="lang-state" id="lang-state">English</span>
+    <div class="head-meta">
+      <span class="role" id="active-role">Active role: Owner</span>
+      <span class="role" id="lang-state">English</span>
       <button class="tiny" id="lang-toggle" type="button">ES</button>
       <button class="tiny" id="reset-demo" type="button">Reset demo</button>
+      <button class="tiny" id="logout" type="button">Exit</button>
     </div>
   </div>
 </header>
@@ -66,8 +88,10 @@ input:focus,select:focus{outline:3px solid rgba(31,95,184,.18);border-color:var(
   <button class="navbtn" data-view="product" type="button">New product</button>
   <button class="navbtn" data-view="move" type="button">Move shelves</button>
   <button class="navbtn" data-view="sell" type="button">Sell</button>
+  <button class="navbtn" data-view="customers" type="button">Customers</button>
+  <button class="navbtn" data-view="expenses" type="button">Expenses</button>
   <button class="navbtn" data-view="log" type="button">Sales log</button>
-  <div class="workshop">Experimental shell only. No customer data, sync, licenses or network writes.</div>
+  <div class="workshop">Experimental shell only. No production data, sync, licenses, or remote calls.</div>
 </nav>
 
 <div>
@@ -79,6 +103,11 @@ input:focus,select:focus{outline:3px solid rgba(31,95,184,.18);border-color:var(
     <h2 id="health-title">Business health: review sample alerts</h2>
     <div id="health-copy">Some sample products are expired or low so you can see how red alerts work.</div>
   </div>
+  <div class="badge-row">
+    <span class="insight high-margin">High margin · strong unit economics</span>
+    <span class="insight">Low stock · review replenishment</span>
+    <span class="insight">Expired sample · remove from sale</span>
+  </div>
   <div class="grid4">
     <div class="metric"><div class="k" id="k-sales">Sales today</div><div class="n" id="m-sales">6</div></div>
     <div class="metric"><div class="k" id="k-average">Average sale</div><div class="n" id="m-average">$18.50</div></div>
@@ -89,24 +118,27 @@ input:focus,select:focus{outline:3px solid rgba(31,95,184,.18);border-color:var(
 
 <section class="view" id="view-product">
   <h1 id="product-title">New product</h1>
-  <div class="code-note" id="required-note">Required fields are labeled before you save.</div>
-  <div class="card">
+  <div class="note" id="required-note">Required fields are labeled before you save. Your draft stays in this browser tab if you accidentally refresh.</div>
+  <div class="card" id="product-form">
     <div class="row">
       <div>
         <label for="p-name" id="label-name">Product name <span class="req">(required)</span></label>
-        <input id="p-name" autocomplete="off" placeholder="e.g. Ceramic mug">
+        <input id="p-name" maxlength="120" autocomplete="off" placeholder="e.g. Ceramic mug">
       </div>
       <div>
         <label for="p-code" id="label-code">Barcode / internal code (required)</label>
-        <input id="p-code" autocomplete="off" placeholder="e.g. MUG-BLU-01">
+        <input id="p-code" maxlength="80" autocomplete="off" placeholder="e.g. MUG-BLU-01">
       </div>
     </div>
     <div class="row3" style="margin-top:12px">
+      <div><label for="p-category" id="label-category">Category</label><input id="p-category" maxlength="60" placeholder="e.g. Coffee, Art prints, Accessories"></div>
       <div><label for="p-price" id="label-price">Price</label><input id="p-price" inputmode="decimal" value="12"></div>
       <div><label for="p-stock" id="label-stock">Quantity</label><input id="p-stock" inputmode="numeric" value="10"></div>
-      <div><label for="p-shelf" id="label-shelf">Shelf</label><select id="p-shelf"><option value="main">Main shelf</option><option value="popup">Weekend pop-up</option><option value="consign">Consignment shelf</option></select></div>
     </div>
-    <div class="help" id="commission-help">Commission override: leave blank to use shelf commission.</div>
+    <div class="row" style="margin-top:12px">
+      <div><label for="p-shelf" id="label-shelf">Shelf / location</label><select id="p-shelf"></select></div>
+      <div><label for="p-commission" id="label-commission">Product commission override</label><input id="p-commission" inputmode="decimal" placeholder="optional"><div class="help" id="commission-help">Leave blank to use shelf commission.</div></div>
+    </div>
     <div class="zero-confirm" id="zero-price-confirm">
       <strong id="zero-title">Confirm $0.00 price?</strong>
       <div id="zero-copy">This product will record $0 revenue when sold.</div>
@@ -119,6 +151,7 @@ input:focus,select:focus{outline:3px solid rgba(31,95,184,.18);border-color:var(
   </div>
   <div class="card">
     <h2 id="product-list-title">Workshop products</h2>
+    <input id="product-search" autocomplete="off" placeholder="Search products" style="margin-bottom:12px">
     <div id="product-list" class="products"></div>
   </div>
 </section>
@@ -138,209 +171,205 @@ input:focus,select:focus{outline:3px solid rgba(31,95,184,.18);border-color:var(
 
 <section class="view" id="view-sell">
   <h1 id="sell-title">Sell</h1>
-  <p id="sell-copy">This workshop keeps the existing safety behaviors: oversell block, clear quantity, and reversible sales.</p>
+  <p id="sell-copy">Oversell is blocked, rapid double-submit is guarded, and risky sale types require explicit confirmation.</p>
   <div class="card">
     <div class="row3">
       <div><label for="sell-product" id="sell-product-label">Product</label><select id="sell-product"></select></div>
       <div><label for="sell-qty" id="sell-qty-label">Quantity</label><input id="sell-qty" inputmode="numeric" value="1"></div>
-      <div><label for="sale-type" id="sale-type-label">Payment</label><select id="sale-type"><option value="paid">Paid</option><option value="debt">Record debt</option></select></div>
+      <div><label for="sell-customer" id="sell-customer-label">Customer</label><select id="sell-customer"></select></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div><label for="sale-type" id="sale-type-label">Sale type</label><select id="sale-type"><option value="paid">Paid sale</option><option value="debt">Record debt</option><option value="courtesy">Courtesy sale</option></select></div>
+      <div><label for="payment-method" id="payment-method-label">Payment method</label><select id="payment-method"><option value="cash">Cash</option><option value="card">Card</option><option value="transfer">Bank transfer</option></select></div>
+    </div>
+    <div class="note" id="debt-note">Debt requires a named customer. This experimental shell does not invent a credit limit; it only makes the risk and customer link explicit.</div>
+    <div class="courtesy-confirm" id="courtesy-confirm">
+      <strong>Courtesy sale: revenue will be $0.</strong>
+      <div>This still reduces stock. Confirm only when you intend to give the item away.</div>
+      <div class="bar" style="margin-top:8px"><button class="btn danger" id="courtesy-yes" type="button">Confirm courtesy</button><button class="btn secondary" id="courtesy-no" type="button">Cancel</button></div>
     </div>
     <div class="bar" style="margin-top:14px"><button class="btn primary" id="sell-go" type="button">Record sale</button><button class="btn secondary" id="oversell-demo" type="button">Try 9999</button><div id="sell-status" class="status" role="status" aria-live="polite"></div></div>
   </div>
 </section>
 
+<section class="view" id="view-customers">
+  <h1 id="customers-title">Customers</h1>
+  <p id="customers-copy">Add a named customer for debt tracking. Walk-in remains available for ordinary paid sales.</p>
+  <div class="card">
+    <div class="row">
+      <div><label for="customer-name" id="customer-name-label">Customer name (required)</label><input id="customer-name" maxlength="80" placeholder="e.g. Ana Torres"></div>
+      <div><label for="customer-note" id="customer-note-label">Note</label><input id="customer-note" maxlength="120" placeholder="optional"></div>
+    </div>
+    <div class="bar" style="margin-top:12px"><button class="btn primary" id="add-customer" type="button">Add customer</button><div id="customer-status" class="status" role="status" aria-live="polite"></div></div>
+  </div>
+  <div class="card"><div id="customer-list"></div></div>
+</section>
+
+<section class="view" id="view-expenses">
+  <h1 id="expenses-title">Expenses</h1>
+  <p id="expenses-copy">Money inputs must be positive and use no more than two decimal places.</p>
+  <div class="card">
+    <div class="row">
+      <div><label for="expense-name" id="expense-name-label">Expense</label><input id="expense-name" maxlength="80" placeholder="e.g. Packaging"></div>
+      <div><label for="expense-amount" id="expense-amount-label">Amount</label><input id="expense-amount" inputmode="decimal" placeholder="12.34"></div>
+    </div>
+    <div class="bar" style="margin-top:12px"><button class="btn primary" id="add-expense" type="button">Add expense</button><div id="expense-status" class="status" role="status" aria-live="polite"></div></div>
+  </div>
+  <div class="card"><div id="expense-list"></div></div>
+</section>
+
 <section class="view" id="view-log">
   <h1 id="log-title">Sales log</h1>
   <p id="log-copy">Undo becomes available after 5 seconds so an accidental tap is not immediate.</p>
-  <div class="card">
-    <div id="sales-log"></div>
-  </div>
+  <div class="card"><div id="sales-log"></div></div>
 </section>
 </div>
 </main>
 
 <div class="toast" id="toast" role="status" aria-live="polite">Product saved.</div>
+</div>
 
 <script>
 (function(){
-  "use strict";
-  const SHELL="vEXP001";
-  const shelves=[
-    {id:"main",en:"Main shelf",es:"Percha principal"},
-    {id:"popup",en:"Weekend pop-up",es:"Feria de fin de semana"},
-    {id:"consign",en:"Consignment shelf",es:"Percha de consignación"},
-    {id:"empty",en:"Empty sample shelf",es:"Percha de ejemplo vacía"}
-  ];
-  const seedProducts=[
-    {id:"p1",name:"Espresso",code:"BAR-ESP-022",price:2.5,stock:200,shelf:"main"},
-    {id:"p2",name:"Blue scarf",code:"SCF-BLU-04",price:28,stock:8,shelf:"main"},
-    {id:"p3",name:"Market print",code:"ART-PRN-003",price:45,stock:24,shelf:"popup"},
-    {id:"p4",name:"Ceramic bird",code:"CER-BRD-07",price:32,stock:3,shelf:"consign"}
-  ];
-  const dict={
-    en:{
-      lang:"English",toggle:"ES",today:"Today",productNav:"New product",moveNav:"Move shelves",sellNav:"Sell",logNav:"Sales log",
-      todayTitle:"Sample business needs attention today.",todayCopy:"The red status below is teaching data, not an alert about your real business.",
-      healthTitle:"Business health: review sample alerts",healthCopy:"Some sample products are expired or low so you can see how red alerts work.",
-      kSales:"Sales today",kAverage:"Average sale",kRevenue:"Revenue today",kProducts:"Products",
-      productTitle:"New product",requiredNote:"Required fields are labeled before you save.",name:"Product name",required:"(required)",
-      code:"Barcode / internal code (required)",price:"Price",quantity:"Quantity",shelf:"Shelf",
-      commission:"Commission override: leave blank to use shelf commission.",zeroTitle:"Confirm $0.00 price?",zeroCopy:"This product will record $0 revenue when sold.",
-      zeroYes:"Save at $0",cancel:"Cancel",saveProduct:"Save product",list:"Workshop products",
-      moveTitle:"Move an item between shelves",moveCopy:"Choose the source shelf first. Then the Item list becomes available.",
-      from:"From shelf",item:"Item",to:"To shelf",chooseShelf:"Choose a shelf",chooseFirst:"Choose a shelf first.",chooseDest:"Choose destination",
-      noProducts:"No products on this shelf.",move:"Move",moved:"Item moved.",
-      sellTitle:"Sell",sellCopy:"This workshop keeps the existing safety behaviors: oversell block, clear quantity, and reversible sales.",
-      product:"Product",payment:"Payment",paid:"Paid",debt:"Record debt",recordSale:"Record sale",try9999:"Try 9999",
-      notEnough:"Not enough quantity. Available: {n}.",saleSaved:"Sale recorded.",logTitle:"Sales log",
-      logCopy:"Undo becomes available after 5 seconds so an accidental tap is not immediate.",undoWait:"Undo in {n}s",undo:"Undo sale",
-      undone:"Sale undone.",none:"No sales recorded in this workshop.",saved:"Product saved.",needName:"Name is required.",needCode:"Code is required.",
-      validQty:"Enter a quantity of 1 or more.",differentShelf:"Choose a different destination shelf.",reset:"Reset demo"
-    },
-    es:{
-      lang:"Español",toggle:"EN",today:"Hoy",productNav:"Nuevo producto",moveNav:"Mover entre perchas",sellNav:"Vender",logNav:"Registro de ventas",
-      todayTitle:"El negocio de ejemplo necesita atención hoy.",todayCopy:"El estado rojo es parte de los datos de enseñanza, no una alerta sobre tu negocio real.",
-      healthTitle:"Salud del negocio: revisa alertas de ejemplo",healthCopy:"Algunos productos de ejemplo están vencidos o bajos para mostrar cómo funcionan las alertas rojas.",
-      kSales:"Ventas hoy",kAverage:"Venta promedio",kRevenue:"Ingresos hoy",kProducts:"Productos",
-      productTitle:"Nuevo producto",requiredNote:"Los campos obligatorios se indican antes de guardar.",name:"Nombre del producto",required:"(obligatorio)",
-      code:"Código de barras / código interno (obligatorio)",price:"Precio",quantity:"Cantidad",shelf:"Percha",
-      commission:"Comisión especial: deja vacío para usar la comisión de la percha.",zeroTitle:"¿Confirmar precio $0.00?",zeroCopy:"Este producto registrará $0 de ingreso al venderse.",
-      zeroYes:"Guardar en $0",cancel:"Cancelar",saveProduct:"Guardar producto",list:"Productos del taller",
-      moveTitle:"Mover un producto entre perchas",moveCopy:"Elige primero la percha de origen. Después se habilita la lista de productos.",
-      from:"Desde la percha",item:"Producto",to:"Hacia la percha",chooseShelf:"Elige una percha",chooseFirst:"Elige primero una percha.",chooseDest:"Elige destino",
-      noProducts:"No hay productos en esta percha.",move:"Mover",moved:"Producto movido.",
-      sellTitle:"Vender",sellCopy:"Este taller conserva los seguros actuales: bloqueo de sobreventa, cantidad clara y ventas reversibles.",
-      product:"Producto",payment:"Pago",paid:"Pagado",debt:"Registrar deuda",recordSale:"Registrar venta",try9999:"Probar 9999",
-      notEnough:"No hay cantidad suficiente. Disponible: {n}.",saleSaved:"Venta registrada.",logTitle:"Registro de ventas",
-      logCopy:"Deshacer se habilita después de 5 segundos para evitar un toque accidental inmediato.",undoWait:"Deshacer en {n}s",undo:"Deshacer venta",
-      undone:"Venta deshecha.",none:"No hay ventas registradas en este taller.",saved:"Producto guardado.",needName:"El nombre es obligatorio.",needCode:"El código es obligatorio.",
-      validQty:"Escribe una cantidad de 1 o más.",differentShelf:"Elige una percha de destino diferente.",reset:"Reiniciar demo"
-    }
-  };
-  let lang="en";
-  let products=structuredClone(seedProducts);
-  let sales=[
-    {id:"s1",productId:"p2",name:"Blue scarf",qty:1,price:28,at:Date.now()-3600000,undoReady:true,undone:false},
-    {id:"s2",productId:"p1",name:"Espresso",qty:1,price:2.5,at:Date.now()-2800000,undoReady:true,undone:false},
-    {id:"s3",productId:"p3",name:"Market print",qty:1,price:45,at:Date.now()-2200000,undoReady:true,undone:false},
-    {id:"s4",productId:"p1",name:"Espresso",qty:4,price:2.5,at:Date.now()-1700000,undoReady:true,undone:false},
-    {id:"s5",productId:"p4",name:"Ceramic bird",qty:1,price:32,at:Date.now()-900000,undoReady:true,undone:false},
-    {id:"s6",productId:"p1",name:"Espresso",qty:1,price:2.5,at:Date.now()-500000,undoReady:true,undone:false}
-  ];
-  function t(k){return dict[lang][k]||dict.en[k]||k}
-  function money(n){return "$"+Number(n||0).toFixed(2)}
-  function activeSales(){return sales.filter(s=>!s.undone)}
-  function showToast(msg){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2300)}
-  function setStatus(id,msg,kind){const el=document.getElementById(id);el.textContent=msg;el.className="status "+(kind||"")}
-  function shelfName(id){const s=shelves.find(x=>x.id===id);return s?(lang==="en"?s.en:s.es):id}
-  function refreshMetrics(){
-    const a=activeSales(); const revenue=a.reduce((n,s)=>n+s.price*s.qty,0); const avg=a.length?revenue/a.length:0;
-    document.getElementById("m-sales").textContent=a.length;
-    document.getElementById("m-revenue").textContent=money(revenue);
-    document.getElementById("m-average").textContent=money(avg);
-    document.getElementById("m-products").textContent=products.length;
-  }
-  function fillShelfSelects(){
-    for(const id of ["p-shelf","move-from","move-to"]){
-      const sel=document.getElementById(id), current=sel.value;
-      sel.innerHTML="";
-      if(id!=="p-shelf"){const o=document.createElement("option");o.value="";o.textContent=id==="move-from"?t("chooseShelf"):t("chooseDest");sel.appendChild(o)}
-      shelves.forEach(s=>{const o=document.createElement("option");o.value=s.id;o.textContent=shelfName(s.id);sel.appendChild(o)});
-      if([...sel.options].some(o=>o.value===current)) sel.value=current;
-    }
-  }
-  function renderProducts(){
-    const wrap=document.getElementById("product-list");wrap.innerHTML="";
-    products.forEach(p=>{const d=document.createElement("div");d.className="product";d.innerHTML="<strong>"+escapeHtml(p.name)+"</strong><small>"+escapeHtml(p.code)+" · "+escapeHtml(shelfName(p.shelf))+"</small><div class='qty'>"+p.stock+"</div>";wrap.appendChild(d)});
-    const sell=document.getElementById("sell-product"),cur=sell.value;sell.innerHTML="";
-    products.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.name+" · "+p.stock;sell.appendChild(o)}); if(products.some(p=>p.id===cur))sell.value=cur;
-    refreshMoveItems(); refreshMetrics();
-  }
-  function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-  function refreshMoveItems(){
-    const from=document.getElementById("move-from").value,item=document.getElementById("move-item"),go=document.getElementById("move-go");
-    item.innerHTML=""; go.disabled=true;
-    if(!from){item.disabled=true;const o=document.createElement("option");o.textContent=t("chooseFirst");item.appendChild(o);return}
-    const list=products.filter(p=>p.shelf===from);item.disabled=false;
-    if(!list.length){item.disabled=true;const o=document.createElement("option");o.textContent=t("noProducts");item.appendChild(o);return}
-    const first=document.createElement("option");first.value="";first.textContent="—";item.appendChild(first);
-    list.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.name;item.appendChild(o)});
-  }
-  function renderLog(){
-    const wrap=document.getElementById("sales-log");wrap.innerHTML="";
-    const list=[...activeSales()].reverse();
-    if(!list.length){wrap.textContent=t("none");return}
-    list.forEach(s=>{
-      const row=document.createElement("div");row.className="logitem";
-      const left=document.createElement("div");left.innerHTML="<strong>"+escapeHtml(s.name)+"</strong><div class='help'>"+s.qty+" × "+money(s.price)+"</div>";
-      const b=document.createElement("button");b.className="btn secondary";b.id="undo-sale-"+s.id;b.dataset.sale=s.id;
-      if(s.undoReady){b.textContent=t("undo")} else {b.disabled=true;b.textContent=t("undoWait").replace("{n}",s.wait||5)}
-      row.append(left,b);wrap.appendChild(row);
-    });
-  }
-  function repaint(){
-    document.documentElement.lang=lang;
-    document.getElementById("lang-state").textContent=t("lang");document.getElementById("lang-toggle").textContent=t("toggle");document.getElementById("reset-demo").textContent=t("reset");
-    const nav=document.querySelectorAll(".navbtn");[t("today"),t("productNav"),t("moveNav"),t("sellNav"),t("logNav")].forEach((v,i)=>nav[i].textContent=v);
-    const pairs={
-      "today-title":"todayTitle","today-copy":"todayCopy","health-title":"healthTitle","health-copy":"healthCopy",
-      "k-sales":"kSales","k-average":"kAverage","k-revenue":"kRevenue","k-products":"kProducts",
-      "product-title":"productTitle","required-note":"requiredNote","label-price":"price","label-stock":"quantity","label-shelf":"shelf",
-      "commission-help":"commission","zero-title":"zeroTitle","zero-copy":"zeroCopy","zero-yes":"zeroYes","zero-no":"cancel","save-product":"saveProduct","product-list-title":"list",
-      "move-title":"moveTitle","move-copy":"moveCopy","move-from-label":"from","move-item-label":"item","move-to-label":"to","move-go":"move",
-      "sell-title":"sellTitle","sell-copy":"sellCopy","sell-product-label":"product","sell-qty-label":"quantity","sale-type-label":"payment","sell-go":"recordSale","oversell-demo":"try9999",
-      "log-title":"logTitle","log-copy":"logCopy"
-    };
-    Object.entries(pairs).forEach(([id,k])=>document.getElementById(id).textContent=t(k));
-    document.getElementById("label-name").innerHTML=t("name")+" <span class='req'>"+t("required")+"</span>";
-    document.getElementById("label-code").textContent=t("code");
-    const st=document.getElementById("sale-type"),v=st.value;st.options[0].textContent=t("paid");st.options[1].textContent=t("debt");st.value=v;
-    fillShelfSelects();renderProducts();renderLog();
-  }
-  function saveProduct(forceZero){
-    const name=document.getElementById("p-name").value.trim(),code=document.getElementById("p-code").value.trim();
-    const price=Number(document.getElementById("p-price").value),stock=Math.max(0,parseInt(document.getElementById("p-stock").value,10)||0),shelf=document.getElementById("p-shelf").value;
-    if(!name){setStatus("product-status",t("needName"),"bad");document.getElementById("p-name").focus();return}
-    if(!code){setStatus("product-status",t("needCode"),"bad");document.getElementById("p-code").focus();return}
-    if(price===0&&!forceZero){document.getElementById("zero-price-confirm").classList.add("show");return}
-    document.getElementById("zero-price-confirm").classList.remove("show");
-    products.push({id:"px"+Date.now(),name,code,price:isFinite(price)?price:0,stock,shelf});
-    document.getElementById("p-name").value="";document.getElementById("p-code").value="";document.getElementById("p-price").value="12";document.getElementById("p-stock").value="10";
-    setStatus("product-status",t("saved"),"good");showToast(t("saved"));renderProducts();
-  }
-  document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>{
-    document.querySelectorAll(".navbtn").forEach(x=>x.classList.toggle("active",x===b));
-    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-    document.getElementById("view-"+b.dataset.view).classList.add("active"); if(b.dataset.view==="log")renderLog();
-  }));
-  document.getElementById("lang-toggle").addEventListener("click",()=>{lang=lang==="en"?"es":"en";repaint()});
-  document.getElementById("reset-demo").addEventListener("click",()=>{products=structuredClone(seedProducts);sales=sales.slice(0,6).map((s,i)=>({...s,id:"s"+(i+1),undone:false,undoReady:true}));setStatus("product-status","","");setStatus("move-status","","");setStatus("sell-status","","");repaint()});
-  document.getElementById("save-product").addEventListener("click",()=>saveProduct(false));
-  document.getElementById("zero-yes").addEventListener("click",()=>saveProduct(true));
-  document.getElementById("zero-no").addEventListener("click",()=>document.getElementById("zero-price-confirm").classList.remove("show"));
-  document.getElementById("move-from").addEventListener("change",()=>{refreshMoveItems();setStatus("move-status","","")});
-  document.getElementById("move-item").addEventListener("change",()=>{document.getElementById("move-go").disabled=!document.getElementById("move-item").value});
-  document.getElementById("move-go").addEventListener("click",()=>{
-    const id=document.getElementById("move-item").value,to=document.getElementById("move-to").value,from=document.getElementById("move-from").value;
-    if(!to||to===from){setStatus("move-status",t("differentShelf"),"bad");return}
-    const p=products.find(x=>x.id===id);if(!p)return;p.shelf=to;setStatus("move-status",t("moved"),"good");renderProducts();
-  });
-  function recordSale(qOverride){
-    const id=document.getElementById("sell-product").value,p=products.find(x=>x.id===id);let qty=qOverride==null?parseInt(document.getElementById("sell-qty").value,10):qOverride;
-    if(!p)return;if(!Number.isInteger(qty)||qty<1){setStatus("sell-status",t("validQty"),"bad");return}
-    if(qty>p.stock){setStatus("sell-status",t("notEnough").replace("{n}",p.stock),"bad");return}
-    p.stock-=qty; const s={id:"sx"+Date.now(),productId:p.id,name:p.name,qty,price:p.price,at:Date.now(),undoReady:false,wait:5,undone:false};sales.push(s);
-    setStatus("sell-status",t("saleSaved"),"good");renderProducts();renderLog();
-    const timer=setInterval(()=>{if(s.undone){clearInterval(timer);return}s.wait-=1;if(s.wait<=0){s.undoReady=true;clearInterval(timer)}renderLog()},1000);
-  }
-  document.getElementById("sell-go").addEventListener("click",()=>recordSale(null));
-  document.getElementById("oversell-demo").addEventListener("click",()=>recordSale(9999));
-  document.getElementById("sales-log").addEventListener("click",e=>{
-    const b=e.target.closest("[data-sale]");if(!b)return;const s=sales.find(x=>x.id===b.dataset.sale);if(!s||!s.undoReady||s.undone)return;
-    const p=products.find(x=>x.id===s.productId);if(p)p.stock+=s.qty;s.undone=true;setStatus("sell-status",t("undone"),"good");renderProducts();renderLog();
-  });
-  repaint();
-  window.__EXP001={shell:SHELL,get products(){return products},get sales(){return sales},recordSale};
+"use strict";
+const SHELL="vEXP001";
+const DRAFT_KEY="exp001_product_draft";
+const rolePins={"456":"Owner","260":"Staff","357":"Accountant","789":"Full-access demo"};
+const shelves=[
+ {id:"main",en:"Main shelf",es:"Percha principal"},
+ {id:"popup",en:"Weekend pop-up",es:"Feria de fin de semana"},
+ {id:"partner",en:"Partner shelf",es:"Percha de asociado"},
+ {id:"empty",en:"Empty sample shelf",es:"Percha de ejemplo vacía"}
+];
+const seedProducts=[
+ {id:"p1",name:"Espresso",code:"BAR-ESP-022",category:"Coffee",price:2.5,stock:200,shelf:"main"},
+ {id:"p2",name:"Blue scarf",code:"SCF-BLU-04",category:"Accessories",price:28,stock:8,shelf:"main"},
+ {id:"p3",name:"Market print",code:"ART-PRN-003",category:"Art prints",price:45,stock:24,shelf:"popup"},
+ {id:"p4",name:"Ceramic bird",code:"CER-BRD-07",category:"Decor",price:32,stock:3,shelf:"partner"}
+];
+const seedCustomers=[{id:"walkin",name:"Walk-in customer"},{id:"c1",name:"Maya Lee"},{id:"c2",name:"Evan Cross"}];
+const dict={
+ en:{
+  lang:"English",toggle:"ES",today:"Today",productNav:"New product",moveNav:"Move shelves",sellNav:"Sell",customersNav:"Customers",expensesNav:"Expenses",logNav:"Sales log",
+  todayTitle:"Sample business needs attention today.",todayCopy:"The red status below is teaching data, not an alert about your real business.",
+  healthTitle:"Business health: review sample alerts",healthCopy:"Some sample products are expired or low so you can see how red alerts work.",
+  kSales:"Sales today",kAverage:"Average sale",kRevenue:"Revenue today",kProducts:"Products",
+  productTitle:"New product",requiredNote:"Required fields are labeled before you save. Your draft stays in this browser tab if you accidentally refresh.",
+  name:"Product name",required:"(required)",code:"Barcode / internal code (required)",category:"Category",price:"Price",quantity:"Quantity",shelf:"Shelf / location",commissionOverride:"Product commission override",
+  commission:"Leave blank to use shelf commission.",zeroTitle:"Confirm $0.00 price?",zeroCopy:"This product will record $0 revenue when sold.",zeroYes:"Save at $0",cancel:"Cancel",saveProduct:"Save product",list:"Workshop products",productSearch:"Search products",
+  moveTitle:"Move an item between shelves",moveCopy:"Choose the source shelf first. Then the Item list becomes available.",from:"From shelf",item:"Item",to:"To shelf",chooseShelf:"Choose a shelf",chooseFirst:"Choose a shelf first.",chooseDest:"Choose destination",noProducts:"No products on this shelf.",move:"Move",moved:"Item moved.",
+  sellTitle:"Sell",sellCopy:"Oversell is blocked, rapid double-submit is guarded, and risky sale types require explicit confirmation.",product:"Product",customer:"Customer",saleType:"Sale type",paid:"Paid sale",debt:"Record debt",courtesy:"Courtesy sale",payment:"Payment method",cash:"Cash",card:"Card",transfer:"Bank transfer",recordSale:"Record sale",try9999:"Try 9999",
+  notEnough:"Not enough quantity. Available: {n}.",saleSaved:"Sale recorded.",debtNeedsCustomer:"Debt requires a named customer.",logTitle:"Sales log",logCopy:"Undo becomes available after 5 seconds so an accidental tap is not immediate.",undoWait:"Undo in {n}s",undo:"Undo sale",undone:"Sale undone.",none:"No sales recorded in this workshop.",
+  saved:"Product saved.",needName:"Name is required.",needCode:"Code is required.",dupCode:"That code is already in use.",validQty:"Enter a quantity of 1 or more.",validStock:"Quantity cannot be negative.",validPrice:"Enter a valid price.",differentShelf:"Choose a different destination shelf.",
+  deleteProduct:"Delete product",deleteConfirm:"Delete this product?",customersTitle:"Customers",customersCopy:"Add a named customer for debt tracking. Walk-in remains available for ordinary paid sales.",customerName:"Customer name (required)",customerNote:"Note",addCustomer:"Add customer",customerNameRequired:"Customer name is required.",customerAdded:"Customer added.",
+  expensesTitle:"Expenses",expensesCopy:"Money inputs must be positive and use no more than two decimal places.",expense:"Expense",amount:"Amount",addExpense:"Add expense",amountPositive:"Amount must be greater than 0.",amountDecimals:"Use no more than 2 decimal places.",expenseAdded:"Expense added.",reset:"Reset demo",exit:"Exit"
+ },
+ es:{
+  lang:"Español",toggle:"EN",today:"Hoy",productNav:"Nuevo producto",moveNav:"Mover entre perchas",sellNav:"Vender",customersNav:"Clientes",expensesNav:"Gastos",logNav:"Registro de ventas",
+  todayTitle:"El negocio de ejemplo necesita atención hoy.",todayCopy:"El estado rojo es parte de los datos de enseñanza, no una alerta sobre tu negocio real.",
+  healthTitle:"Salud del negocio: revisa alertas de ejemplo",healthCopy:"Algunos productos de ejemplo están vencidos o bajos para mostrar cómo funcionan las alertas rojas.",
+  kSales:"Ventas hoy",kAverage:"Venta promedio",kRevenue:"Ingresos hoy",kProducts:"Productos",
+  productTitle:"Nuevo producto",requiredNote:"Los campos obligatorios se indican antes de guardar. El borrador queda en esta pestaña si recargas por accidente.",
+  name:"Nombre del producto",required:"(obligatorio)",code:"Código de barras / código interno (obligatorio)",category:"Categoría",price:"Precio",quantity:"Cantidad",shelf:"Percha / ubicación",commissionOverride:"Comisión especial del producto",
+  commission:"Deja vacío para usar la comisión de la percha.",zeroTitle:"¿Confirmar precio $0.00?",zeroCopy:"Este producto registrará $0 de ingreso al venderse.",zeroYes:"Guardar en $0",cancel:"Cancelar",saveProduct:"Guardar producto",list:"Productos del taller",productSearch:"Buscar productos",
+  moveTitle:"Mover un producto entre perchas",moveCopy:"Elige primero la percha de origen. Después se habilita la lista de productos.",from:"Desde la percha",item:"Producto",to:"Hacia la percha",chooseShelf:"Elige una percha",chooseFirst:"Elige primero una percha.",chooseDest:"Elige destino",noProducts:"No hay productos en esta percha.",move:"Mover",moved:"Producto movido.",
+  sellTitle:"Vender",sellCopy:"Se bloquea la sobreventa, se evita el doble envío rápido y las ventas de riesgo piden confirmación.",product:"Producto",customer:"Cliente",saleType:"Tipo de venta",paid:"Venta pagada",debt:"Registrar deuda",courtesy:"Cortesía",payment:"Forma de pago",cash:"Efectivo",card:"Tarjeta",transfer:"Transferencia",recordSale:"Registrar venta",try9999:"Probar 9999",
+  notEnough:"No hay cantidad suficiente. Disponible: {n}.",saleSaved:"Venta registrada.",debtNeedsCustomer:"La deuda requiere un cliente identificado.",logTitle:"Registro de ventas",logCopy:"Deshacer se habilita después de 5 segundos para evitar un toque accidental inmediato.",undoWait:"Deshacer en {n}s",undo:"Deshacer venta",undone:"Venta deshecha.",none:"No hay ventas registradas en este taller.",
+  saved:"Producto guardado.",needName:"El nombre es obligatorio.",needCode:"El código es obligatorio.",dupCode:"Ese código ya está en uso.",validQty:"Escribe una cantidad de 1 o más.",validStock:"La cantidad no puede ser negativa.",validPrice:"Escribe un precio válido.",differentShelf:"Elige una percha de destino diferente.",
+  deleteProduct:"Eliminar producto",deleteConfirm:"¿Eliminar este producto?",customersTitle:"Clientes",customersCopy:"Agrega un cliente identificado para registrar deuda. Cliente ocasional sigue disponible para ventas pagadas.",customerName:"Nombre del cliente (obligatorio)",customerNote:"Nota",addCustomer:"Agregar cliente",customerNameRequired:"El nombre del cliente es obligatorio.",customerAdded:"Cliente agregado.",
+  expensesTitle:"Gastos",expensesCopy:"Los montos deben ser positivos y usar máximo dos decimales.",expense:"Gasto",amount:"Monto",addExpense:"Agregar gasto",amountPositive:"El monto debe ser mayor que 0.",amountDecimals:"Usa máximo 2 decimales.",expenseAdded:"Gasto agregado.",reset:"Reiniciar demo",exit:"Salir"
+ }
+};
+let lang="en",activeRole="Owner",products=structuredClone(seedProducts),customers=structuredClone(seedCustomers),expenses=[],saleBusy=false,pendingCourtesy=null;
+let sales=[
+ {id:"s1",productId:"p2",name:"Blue scarf",qty:1,price:28,at:Date.now()-3600000,undoReady:true,undone:false},
+ {id:"s2",productId:"p1",name:"Espresso",qty:1,price:2.5,at:Date.now()-2800000,undoReady:true,undone:false},
+ {id:"s3",productId:"p3",name:"Market print",qty:1,price:45,at:Date.now()-2200000,undoReady:true,undone:false},
+ {id:"s4",productId:"p1",name:"Espresso",qty:4,price:2.5,at:Date.now()-1700000,undoReady:true,undone:false},
+ {id:"s5",productId:"p4",name:"Ceramic bird",qty:1,price:32,at:Date.now()-900000,undoReady:true,undone:false},
+ {id:"s6",productId:"p1",name:"Espresso",qty:1,price:2.5,at:Date.now()-500000,undoReady:true,undone:false}
+];
+function t(k){return dict[lang][k]||dict.en[k]||k}
+function money(n){return "$"+Number(n||0).toFixed(2)}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function setStatus(id,msg,kind){const e=document.getElementById(id);e.textContent=msg;e.className="status "+(kind||"")}
+function showToast(msg){const e=document.getElementById("toast");e.textContent=msg;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2200)}
+function shelfName(id){const s=shelves.find(x=>x.id===id);return s?(lang==="en"?s.en:s.es):id}
+function activeSales(){return sales.filter(s=>!s.undone)}
+function saveDraft(){const d={name:val("p-name"),code:val("p-code"),category:val("p-category"),price:val("p-price"),stock:val("p-stock"),shelf:val("p-shelf"),commission:val("p-commission")};sessionStorage.setItem(DRAFT_KEY,JSON.stringify(d))}
+function restoreDraft(){try{const d=JSON.parse(sessionStorage.getItem(DRAFT_KEY)||"null");if(!d)return;Object.entries({name:"p-name",code:"p-code",category:"p-category",price:"p-price",stock:"p-stock",shelf:"p-shelf",commission:"p-commission"}).forEach(([k,id])=>{if(d[k]!=null)document.getElementById(id).value=d[k]})}catch(_){}}
+function clearDraft(){sessionStorage.removeItem(DRAFT_KEY)}
+function val(id){return document.getElementById(id).value}
+function refreshMetrics(){const a=activeSales(),revenue=a.reduce((n,s)=>n+s.price*s.qty,0),avg=a.length?revenue/a.length:0;document.getElementById("m-sales").textContent=a.length;document.getElementById("m-revenue").textContent=money(revenue);document.getElementById("m-average").textContent=money(avg);document.getElementById("m-products").textContent=products.length}
+function fillShelfSelects(){["p-shelf","move-from","move-to"].forEach(id=>{const s=document.getElementById(id),cur=s.value;s.innerHTML="";if(id!=="p-shelf"){const o=document.createElement("option");o.value="";o.textContent=id==="move-from"?t("chooseShelf"):t("chooseDest");s.appendChild(o)}shelves.forEach(sh=>{const o=document.createElement("option");o.value=sh.id;o.textContent=shelfName(sh.id);s.appendChild(o)});if([...s.options].some(o=>o.value===cur))s.value=cur})}
+function renderProducts(){
+ const wrap=document.getElementById("product-list");wrap.innerHTML="";
+ const needle=val("product-search").trim().toLowerCase();products.filter(p=>!needle||p.name.toLowerCase().includes(needle)||p.code.toLowerCase().includes(needle)||String(p.category||"").toLowerCase().includes(needle)).forEach(p=>{const d=document.createElement("div");d.className="product";d.innerHTML="<strong>"+escapeHtml(p.name)+"</strong><small>"+escapeHtml(p.code)+" · "+escapeHtml(p.category||"—")+" · "+escapeHtml(shelfName(p.shelf))+"</small><div class='qty'>"+p.stock+"</div><div class='product-actions'><button class='btn secondary' data-delete-product='"+escapeHtml(p.id)+"'>"+escapeHtml(t("deleteProduct"))+"</button></div>";wrap.appendChild(d)});
+ const sell=document.getElementById("sell-product"),cur=sell.value;sell.innerHTML="";products.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.name+" · "+p.stock;sell.appendChild(o)});if(products.some(p=>p.id===cur))sell.value=cur;
+ refreshMoveItems();refreshMetrics()
+}
+function renderCustomers(){const wrap=document.getElementById("customer-list");wrap.innerHTML="";customers.filter(c=>c.id!=="walkin").forEach(c=>{const r=document.createElement("div");r.className="customer-row";r.innerHTML="<strong>"+escapeHtml(c.name)+"</strong><span class='help'>"+escapeHtml(c.note||"")+"</span>";wrap.appendChild(r)});const s=document.getElementById("sell-customer"),cur=s.value;s.innerHTML="";customers.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.name;s.appendChild(o)});if(customers.some(c=>c.id===cur))s.value=cur}
+function renderExpenses(){const w=document.getElementById("expense-list");w.innerHTML="";if(!expenses.length){w.innerHTML="<span class='help'>No workshop expenses yet.</span>";return}expenses.forEach(x=>{const r=document.createElement("div");r.className="expense-row";r.innerHTML="<strong>"+escapeHtml(x.name)+"</strong><span>"+money(x.amount)+"</span>";w.appendChild(r)})}
+function refreshMoveItems(){const from=val("move-from"),item=document.getElementById("move-item"),go=document.getElementById("move-go");item.innerHTML="";go.disabled=true;if(!from){item.disabled=true;const o=document.createElement("option");o.textContent=t("chooseFirst");item.appendChild(o);return}const list=products.filter(p=>p.shelf===from);item.disabled=false;if(!list.length){item.disabled=true;const o=document.createElement("option");o.textContent=t("noProducts");item.appendChild(o);return}const first=document.createElement("option");first.value="";first.textContent="—";item.appendChild(first);list.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.name;item.appendChild(o)})}
+function renderLog(){const wrap=document.getElementById("sales-log");wrap.innerHTML="";const list=[...activeSales()].reverse();if(!list.length){wrap.textContent=t("none");return}list.forEach(s=>{const r=document.createElement("div");r.className="logitem";const l=document.createElement("div");l.innerHTML="<strong>"+escapeHtml(s.name)+"</strong><div class='help'>"+s.qty+" × "+money(s.price)+"</div>";const b=document.createElement("button");b.className="btn secondary";b.id="undo-sale-"+s.id;b.dataset.sale=s.id;if(s.undoReady)b.textContent=t("undo");else{b.disabled=true;b.textContent=t("undoWait").replace("{n}",s.wait||5)}r.append(l,b);wrap.appendChild(r)})}
+function saveProduct(forceZero){
+ const name=val("p-name").trim(),code=val("p-code").trim(),category=val("p-category").trim(),price=Number(val("p-price")),stock=Number(val("p-stock")),shelf=val("p-shelf");
+ if(!name){setStatus("product-status",t("needName"),"bad");document.getElementById("p-name").focus();return}
+ if(!code){setStatus("product-status",t("needCode"),"bad");document.getElementById("p-code").focus();return}
+ if(products.some(p=>p.code.trim().toLowerCase()===code.toLowerCase())){setStatus("product-status",t("dupCode"),"bad");document.getElementById("p-code").focus();return}
+ if(!Number.isFinite(price)||price<0){setStatus("product-status",t("validPrice"),"bad");return}
+ if(!Number.isInteger(stock)||stock<0){setStatus("product-status",t("validStock"),"bad");return}
+ if(price===0&&!forceZero){document.getElementById("zero-price-confirm").classList.add("show");return}
+ products.push({id:"px"+Date.now(),name,code,category,price,stock,shelf});document.getElementById("zero-price-confirm").classList.remove("show");["p-name","p-code","p-category","p-commission"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-price").value="12";document.getElementById("p-stock").value="10";clearDraft();setStatus("product-status",t("saved"),"good");showToast(t("saved"));renderProducts()
+}
+function createSale(qty,forceCourtesy){
+ if(saleBusy)return;
+ const id=val("sell-product"),p=products.find(x=>x.id===id),type=val("sale-type"),customerId=val("sell-customer");qty=qty==null?parseInt(val("sell-qty"),10):qty;
+ if(!p)return;if(!Number.isInteger(qty)||qty<1){setStatus("sell-status",t("validQty"),"bad");return}
+ if(qty>p.stock){setStatus("sell-status",t("notEnough").replace("{n}",p.stock),"bad");return}
+ if(type==="debt"&&customerId==="walkin"){setStatus("sell-status",t("debtNeedsCustomer"),"bad");return}
+ if(type==="courtesy"&&!forceCourtesy){pendingCourtesy={qty};document.getElementById("courtesy-confirm").classList.add("show");return}
+ saleBusy=true;document.getElementById("sell-go").disabled = true;
+ try{p.stock-=qty;const price=type==="courtesy"?0:p.price,s={id:"sx"+Date.now(),productId:p.id,name:p.name,qty,price,at:Date.now(),undoReady:false,wait:5,undone:false,type,customerId};sales.push(s);setStatus("sell-status",t("saleSaved"),"good");renderProducts();renderLog();const timer=setInterval(()=>{if(s.undone){clearInterval(timer);return}s.wait-=1;if(s.wait<=0){s.undoReady=true;clearInterval(timer)}renderLog()},1000)}
+ finally{saleBusy=false;document.getElementById("sell-go").disabled=false}
+}
+function repaint(){
+ document.documentElement.lang=lang;document.getElementById("lang-state").textContent=t("lang");document.getElementById("lang-toggle").textContent=t("toggle");document.getElementById("reset-demo").textContent=t("reset");document.getElementById("logout").textContent=t("exit");document.getElementById("active-role").textContent="Active role: "+activeRole;
+ const nav=document.querySelectorAll(".navbtn");[t("today"),t("productNav"),t("moveNav"),t("sellNav"),t("customersNav"),t("expensesNav"),t("logNav")].forEach((v,i)=>nav[i].textContent=v);
+ const pairs={"today-title":"todayTitle","today-copy":"todayCopy","health-title":"healthTitle","health-copy":"healthCopy","k-sales":"kSales","k-average":"kAverage","k-revenue":"kRevenue","k-products":"kProducts",
+ "product-title":"productTitle","required-note":"requiredNote","label-category":"category","label-price":"price","label-stock":"quantity","label-shelf":"shelf","label-commission":"commissionOverride","commission-help":"commission","zero-title":"zeroTitle","zero-copy":"zeroCopy","zero-yes":"zeroYes","zero-no":"cancel","save-product":"saveProduct","product-list-title":"list",
+ "move-title":"moveTitle","move-copy":"moveCopy","move-from-label":"from","move-item-label":"item","move-to-label":"to","move-go":"move",
+ "sell-title":"sellTitle","sell-copy":"sellCopy","sell-product-label":"product","sell-qty-label":"quantity","sell-customer-label":"customer","sale-type-label":"saleType","payment-method-label":"payment","sell-go":"recordSale","oversell-demo":"try9999",
+ "customers-title":"customersTitle","customers-copy":"customersCopy","customer-name-label":"customerName","customer-note-label":"customerNote","add-customer":"addCustomer",
+ "expenses-title":"expensesTitle","expenses-copy":"expensesCopy","expense-name-label":"expense","expense-amount-label":"amount","add-expense":"addExpense",
+ "log-title":"logTitle","log-copy":"logCopy"};
+ Object.entries(pairs).forEach(([id,k])=>document.getElementById(id).textContent=t(k));
+ document.getElementById("label-name").innerHTML=t("name")+" <span class='req'>"+t("required")+"</span>";document.getElementById("label-code").textContent=t("code");document.getElementById("product-search").placeholder=t("productSearch");
+ const st=document.getElementById("sale-type"),sv=st.value;st.options[0].textContent=t("paid");st.options[1].textContent=t("debt");st.options[2].textContent=t("courtesy");st.value=sv;
+ const pm=document.getElementById("payment-method"),pv=pm.value;pm.options[0].textContent=t("cash");pm.options[1].textContent=t("card");pm.options[2].textContent=t("transfer");pm.value=pv;
+ fillShelfSelects();renderProducts();renderCustomers();renderExpenses();renderLog()
+}
+function enterPin(){
+ const p=val("pin-input").trim();if(!/^\d{3}$/.test(p)){setStatus("pin-status","Enter exactly 3 digits.","bad");return}
+ if(!rolePins[p]){setStatus("pin-status","Demo PIN not recognized.","bad");return}
+ activeRole=rolePins[p];document.getElementById("gate").style.display="none";document.getElementById("app").style.display="block";repaint();restoreDraft()
+}
+document.getElementById("pin-enter").addEventListener("click",enterPin);document.getElementById("pin-input").addEventListener("keydown",e=>{if(e.key==="Enter")enterPin()});
+document.getElementById("logout").addEventListener("click",()=>{document.getElementById("app").style.display="none";document.getElementById("gate").style.display="grid";document.getElementById("pin-input").value="";setStatus("pin-status","","")});
+document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".navbtn").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));document.getElementById("view-"+b.dataset.view).classList.add("active");if(b.dataset.view==="log")renderLog()}));
+document.getElementById("lang-toggle").addEventListener("click",()=>{lang=lang==="en"?"es":"en";repaint()});
+document.getElementById("reset-demo").addEventListener("click",()=>{products=structuredClone(seedProducts);customers=structuredClone(seedCustomers);expenses=[];sales=sales.slice(0,6).map((s,i)=>({...s,id:"s"+(i+1),undone:false,undoReady:true}));clearDraft();["product-status","move-status","sell-status","customer-status","expense-status"].forEach(id=>setStatus(id,"",""));repaint()});
+["p-name","p-code","p-category","p-price","p-stock","p-shelf","p-commission"].forEach(id=>document.getElementById(id).addEventListener("input",saveDraft));
+document.getElementById("product-search").addEventListener("input",renderProducts);
+document.getElementById("save-product").addEventListener("click",()=>saveProduct(false));document.getElementById("zero-yes").addEventListener("click",()=>saveProduct(true));document.getElementById("zero-no").addEventListener("click",()=>document.getElementById("zero-price-confirm").classList.remove("show"));
+document.getElementById("product-list").addEventListener("click",e=>{const b=e.target.closest("[data-delete-product]");if(!b)return;const id=b.dataset.deleteProduct;if(confirm(t("deleteConfirm"))){products=products.filter(p=>p.id!==id);renderProducts()}});
+document.getElementById("move-from").addEventListener("change",()=>{refreshMoveItems();setStatus("move-status","","")});document.getElementById("move-item").addEventListener("change",()=>{document.getElementById("move-go").disabled=!val("move-item")});document.getElementById("move-go").addEventListener("click",()=>{const id=val("move-item"),to=val("move-to"),from=val("move-from");if(!to||to===from){setStatus("move-status",t("differentShelf"),"bad");return}const p=products.find(x=>x.id===id);if(!p)return;p.shelf=to;setStatus("move-status",t("moved"),"good");renderProducts()});
+document.getElementById("sell-go").addEventListener("click",()=>createSale(null,false));document.getElementById("oversell-demo").addEventListener("click",()=>createSale(9999,false));document.getElementById("courtesy-yes").addEventListener("click",()=>{document.getElementById("courtesy-confirm").classList.remove("show");const q=pendingCourtesy&&pendingCourtesy.qty;pendingCourtesy=null;createSale(q,true)});document.getElementById("courtesy-no").addEventListener("click",()=>{pendingCourtesy=null;document.getElementById("courtesy-confirm").classList.remove("show")});
+document.getElementById("sales-log").addEventListener("click",e=>{const b=e.target.closest("[data-sale]");if(!b)return;const s=sales.find(x=>x.id===b.dataset.sale);if(!s||!s.undoReady||s.undone)return;const p=products.find(x=>x.id===s.productId);if(p)p.stock+=s.qty;s.undone=true;setStatus("sell-status",t("undone"),"good");renderProducts();renderLog()});
+document.getElementById("add-customer").addEventListener("click",()=>{const name=val("customer-name").trim(),note=val("customer-note").trim();if(!name){setStatus("customer-status",t("customerNameRequired"),"bad");return}customers.push({id:"c"+Date.now(),name,note});document.getElementById("customer-name").value="";document.getElementById("customer-note").value="";setStatus("customer-status",t("customerAdded"),"good");renderCustomers()});
+document.getElementById("add-expense").addEventListener("click",()=>{const name=val("expense-name").trim()||"Expense",raw=val("expense-amount").trim(),amount=Number(raw);if(!Number.isFinite(amount)||amount<=0){setStatus("expense-status",t("amountPositive"),"bad");return}if(!/^\d+(?:\.\d{1,2})?$/.test(raw)){setStatus("expense-status",t("amountDecimals"),"bad");return}expenses.push({id:"e"+Date.now(),name,amount});document.getElementById("expense-name").value="";document.getElementById("expense-amount").value="";setStatus("expense-status",t("expenseAdded"),"good");renderExpenses()});
+repaint();
+window.__EXP001={shell:SHELL,get products(){return products},get sales(){return sales},get customers(){return customers},get expenses(){return expenses},createSale};
 })();
 </script>
 </body>
