@@ -1,0 +1,9 @@
+{
+  "shell": "vEXP001",
+  "experimental": true,
+  "repo": "jfcarpiopuntocom/friendly123workshop",
+  "date": "2026-10-02",
+  "purpose": "Paco + Luis usability fixes workshop",
+  "data": "in-memory demo only",
+  "networkWrites": false
+}
