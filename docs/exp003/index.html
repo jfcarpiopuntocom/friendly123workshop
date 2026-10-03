@@ -9976,6 +9976,9 @@ window.addEventListener("oc-datos-importados", async () => {
       lista.push({ fecha: new Date().toISOString(), msg: String(e.message || ""), src: String(e.filename || "").split("/").pop() + ":" + (e.lineno || 0) });
       localStorage.setItem("f123_errores", JSON.stringify(lista.slice(-20)));
     } catch (_) {}
+    /* vEXP003 workshop: keep the error in the isolated black-box log, but
+       do not interrupt UX testing with the production reload banner. */
+    if (window.OC_EXP003) return;
     if (avisado) return;
     avisado = true;
     try {
