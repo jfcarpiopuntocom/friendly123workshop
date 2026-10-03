@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#F8F9FB">
+<title>Would a shared digital notebook help your business? 12 questions</title>
+<meta name="description" content="12 questions, 2 minutes. At the end you know whether a shared digital notebook helps your business, or whether you are fine as you are.">
+<!-- OG: la imagen DEBE ser URL hospedada. El crawler de WhatsApp no lee data: URIs
+     (regla dura de JFC). Todo lo demas del archivo si es autocontenido, para que
+     el mismo .html funcione igual servido por URL o enviado como adjunto. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="friendly-123">
+<meta property="og:title" content="Would a shared digital notebook help your business?">
+<meta property="og:description" content="12 questions, 2 minutes. At the end you know whether it helps you, or whether you are fine as you are.">
+<meta property="og:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+<meta property="og:url" content="https://jfcarpiopuntocom.github.io/friendly-123/checklist.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Would a shared digital notebook help your business?">
+<meta name="twitter:description" content="12 questions, 2 minutes. At the end you know whether it helps you, or whether you are fine as you are.">
+<meta name="twitter:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+<style>
+  :root{
+    color-scheme: light only;
+    forced-color-adjust: none;
+    --verde:#00C87A;
+    --verde-dk:#00975C;
+    --amarillo-dk:#8A5A00;
+    --naranja:#F97316;
+    --naranja-dk:#B54E0A;
+    --rojo:#E8365D;
+    --rojo-dk:#A8123A;
+    --azul-dk:#2E6278;
+    --ink:#0F1923;
+    --body-c:#2C3E50;
+    --canvas:#F8F9FB;
+    --card:#FFFFFF;
+    --hairline:#E8ECF2;
+    --font-display:'Space Grotesk',Inter,-apple-system,'Helvetica Neue',sans-serif;
+    --font-body:Inter,-apple-system,'Helvetica Neue',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html{-webkit-text-size-adjust:100%;}
+  html,body{
+    min-height:100vh; min-height:100svh;
+    background:var(--canvas) !important;
+    color:var(--body-c) !important;
+    -webkit-text-fill-color:var(--body-c) !important;
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  img{max-width:100%;display:block;}
+  button{font-family:inherit;cursor:pointer;}
+
+  h1,h2,h3,p,li,a,span,strong,label,button{ -webkit-text-fill-color: currentColor !important; }
+  h1,h2,h3{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; font-family:var(--font-display); font-weight:700; }
+  p,li,label{ color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+
+  @media (prefers-color-scheme: dark){
+    html,body{ background:var(--canvas) !important; color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+    h1,h2,h3{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+    p,li,label{ color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+    .card,.pregunta{ background:var(--card) !important; }
+    .pregunta-txt{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}
+  }
+
+  .wrap{max-width:640px;margin:0 auto;padding:0 18px;}
+
+  header.top{ padding:22px 0 6px; text-align:center; }
+  header.top img{ height:34px; width:auto; margin:0 auto; }
+
+  .hero{ text-align:center; padding:18px 0 26px; }
+  .hero h1{ font-size:26px; font-size:clamp(24px,6vw,34px); line-height:1.15; letter-spacing:-.02em; margin-bottom:14px; }
+  .hero p{ font-size:17px; line-height:1.5; }
+
+  .bloque{ margin-bottom:26px; }
+  .bloque-tit{
+    font-size:.82rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important;
+    padding-bottom:8px; margin-bottom:12px; border-bottom:2px solid var(--hairline);
+  }
+  .pregunta{
+    background:var(--card); border:1px solid var(--hairline); border-radius:12px;
+    padding:16px; margin-bottom:10px;
+  }
+  .pregunta-txt{ font-size:16px; line-height:1.45; margin-bottom:12px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  .opciones{ display:flex; gap:10px; }
+  .opciones button{
+    flex:1; min-height:48px; padding:12px;
+    border:2px solid var(--hairline); border-radius:10px; background:var(--canvas);
+    font-size:16px; font-weight:700;
+    color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important;
+    transition:transform .12s ease;
+  }
+  .opciones button:active{ transform:scale(.97); }
+  .opciones button.sel-si{
+    background:var(--ink) !important; border-color:var(--ink);
+    color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+  }
+  .opciones button.sel-no{
+    background:#E4E9EE !important; border-color:#B8C2CC;
+    color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important;
+  }
+
+  .barra-prog{ position:sticky; top:0; z-index:20; background:var(--canvas); padding:12px 0 10px; }
+  .barra-prog .riel{ height:10px; background:var(--hairline); border-radius:999px; overflow:hidden; }
+  .barra-prog .fill{ height:100%; width:0%; background:var(--verde); border-radius:999px; transition:width .3s ease; }
+  .barra-prog .cuenta{ font-size:14px; font-weight:700; text-align:center; margin-top:7px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+
+  #resultado{ display:none; margin:8px 0 34px; }
+  .res-card{ border-radius:16px; padding:24px; text-align:center; border:2px solid var(--hairline); background:var(--card); }
+  .res-puntaje{ font-family:var(--font-display); font-weight:700; font-size:46px; line-height:1; margin-bottom:6px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  .res-de{ font-size:15px; margin-bottom:16px; }
+  .res-tit{ font-size:22px; font-size:clamp(20px,5vw,26px); margin-bottom:10px; }
+  .res-txt{ font-size:16px; line-height:1.55; margin-bottom:20px; text-align:left; }
+  .res-bajo{ border-color:var(--verde); }
+  .res-medio{ border-color:var(--naranja); }
+  .res-alto{ border-color:var(--rojo); }
+
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    min-height:50px; padding:14px 22px; border-radius:12px;
+    font-weight:700; font-size:16px; text-decoration:none; border:2px solid transparent;
+    margin-bottom:10px;
+  }
+  .btn-primary{ background:var(--verde) !important; color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .btn-ghost{ background:transparent !important; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; border-color:var(--hairline); }
+  .btn-wa{ background:#25D366 !important; color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+
+  .salida-demo{
+    text-align:center; margin:30px 0 8px; padding:22px 18px;
+    background:var(--card); border:2px dashed var(--verde); border-radius:16px;
+  }
+  .salida-demo-txt{ font-size:16px; margin-bottom:14px; }
+  .salida-demo-pins{ font-size:14px; margin-top:12px; }
+  .salida-demo-pins strong{ font-family:var(--font-mono); color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+
+  .barra-demo{
+    position:fixed; left:0; right:0; bottom:0; z-index:60;
+    display:none; align-items:center; justify-content:space-between; gap:12px;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:var(--ink); border-top:2px solid var(--verde);
+  }
+  .barra-demo.visible{ display:flex; }
+  .barra-demo-txt{
+    font-size:14px; line-height:1.3; text-align:left;
+    color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+  }
+  .barra-demo-btn{
+    flex-shrink:0; min-height:44px; display:inline-flex; align-items:center;
+    padding:11px 18px; border-radius:10px; font-size:15px; font-weight:700; text-decoration:none;
+    background:var(--verde) !important; color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+  }
+  @media (prefers-color-scheme: dark){
+    .barra-demo-txt{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+    .barra-demo-btn{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+    .salida-demo{ background:var(--card) !important; }
+  }
+  /* La barra fija tapa el pie; se compensa solo cuando esta visible. */
+  body.con-barra-demo{ padding-bottom:78px; }
+
+  /* Mision y vision, version corta. Mobile-first: los tamanos base son los de
+     320px y crecen con min-width. Colores solidos, cero opacidad. */
+  .mision-corta{ margin:32px 0 6px; padding:22px 20px; background:var(--card);
+    border:1px solid var(--hairline); border-radius:16px; }
+  .mision-et{ font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:#B54E0A !important; -webkit-text-fill-color:#B54E0A !important; margin:0 0 14px; }
+  .mision-frase{ font-family:var(--font-display); font-size:19px; line-height:1.4; font-weight:700;
+    color:#0F1923 !important; -webkit-text-fill-color:#0F1923 !important;
+    border-left:4px solid #F97316; padding-left:14px; margin:0 0 16px; }
+  .mision-frase-v{ border-left-color:#00C87A; margin-bottom:0; }
+  @media (min-width:600px){ .mision-frase{ font-size:22px; } }
+  /* iOS Safari y los navegadores de WhatsApp/Telegram reinterpretan los colores
+     en modo oscuro aunque el CSS diga otra cosa. Repetir cada regla de texto con
+     !important es lo unico que gana. NO borrar este bloque. */
+  @media (prefers-color-scheme: dark){
+    .mision-corta{ background:var(--card) !important; }
+    .mision-et{ color:#B54E0A !important; -webkit-text-fill-color:#B54E0A !important; }
+    .mision-frase{ color:#0F1923 !important; -webkit-text-fill-color:#0F1923 !important; }
+  }
+  .pie{ text-align:center; font-size:14px; padding:6px 0 40px; }
+  .pie a{ color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+
+  @media print{
+    .barra-prog,.opciones,.btn{ display:none !important; }
+    .pregunta{ break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <img src="./img/logo-720.png" alt="friendly-123">
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Would a shared digital notebook help your business?</h1>
+    <p>12 questions, 2 minutes. At the end you know whether it helps you, or whether you are fine as you are.</p>
+  </section>
+
+  <div class="barra-prog">
+    <div class="riel"><div class="fill" id="prog-fill"></div></div>
+    <div class="cuenta" id="prog-cuenta">0 of 12 answered</div>
+  </div>
+
+  <div id="preguntas"></div>
+
+  <section id="resultado" aria-live="polite"></section>
+
+  <!-- Salida siempre disponible (JFC 2026-08-11): antes, quien no terminaba
+       las 12 preguntas no tenia ningun camino a la app — momento de venta
+       perdido. Esto vive fuera del resultado, asi que existe desde el
+       segundo cero y no depende de completar nada. -->
+  <section class="salida-demo" id="salida-demo">
+    <p class="salida-demo-txt">Would you rather see it before answering anything?</p>
+    <a href="https://jfcarpiopuntocom.github.io/friendly-123/index.html" class="btn btn-primary">Open the demo now</a>
+    <p class="salida-demo-pins">Codes: <strong>456</strong> demo &middot; <strong>260</strong> employee &middot; <strong>357</strong> bookkeeper</p>
+  </section>
+
+  <!-- MISION Y VISION (version corta)
+       Fuente unica: MISION-VISION.md en la raiz del repo. Aqui va SIN los parrafos
+       de desarrollo: este archivo se manda por WhatsApp y tiene que seguir siendo
+       corto. Si cambia el texto en MISION-VISION.md, cambia aqui, en manifiesto.html
+       y en manual-maestro.html. -->
+  <section class="mision-corta">
+    <p class="mision-et">Why it exists</p>
+    <p class="mision-frase">No small business should depend on one person remembering everything.</p>
+    <p class="mision-frase mision-frase-v">A business of your own that does not cost you your own life.</p>
+  </section>
+
+  <p class="pie">Built by <a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> · <a href="https://jfcarpiopuntocom.github.io/friendly-123/save.html">friendly-123</a></p>
+</main>
+
+<!-- Barra fija: aparece al hacer scroll sin terminar, desaparece al completar
+     (ahi manda el resultado, que ya tiene sus propios botones). -->
+<div class="barra-demo" id="barra-demo">
+  <span class="barra-demo-txt">You can try it without finishing the quiz</span>
+  <a href="https://jfcarpiopuntocom.github.io/friendly-123/index.html" class="barra-demo-btn">See the demo</a>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var BLOQUES = [
+    { titulo: "What you carry in your head", preguntas: [
+      "Does someone have to be there in person to know for sure what is in the stockroom?",
+      "Has someone asked about a product and you had to go look before answering?",
+      "If you were out sick for a week, could someone else run the inventory without calling you?"
+    ], invertida: [false, false, true] },
+    { titulo: "The time nobody sees", preguntas: [
+      "Did you recount something this month because the paper or the notebook did not add up?",
+      "Do you spend part of your Sunday or your evenings squaring the numbers?",
+      "Has stock expired or spoiled without you noticing in time?"
+    ], invertida: [false, false, false] },
+    { titulo: "The money that slips away", preguntas: [
+      "Could you say right now, without checking anything, which product gave you the best margin last month?",
+      "Have you lost a sale because you did not know whether you had the item?",
+      "Do you have stock sitting untouched for months that you have not noticed?"
+    ], invertida: [true, false, false] },
+    { titulo: "You and your team", preguntas: [
+      "Do people text you things they could look up on their own?",
+      "Have you had a discrepancy and could not tell who did it or when?",
+      "Do you trust the closing numbers you are given without checking them?"
+    ], invertida: [false, false, true] }
+  ];
+
+  var TOTAL = 12;
+  var respuestas = {};
+  var cont = document.getElementById("preguntas");
+  var progFill = document.getElementById("prog-fill");
+  var progCuenta = document.getElementById("prog-cuenta");
+  var resultado = document.getElementById("resultado");
+
+  // Pinta las 12 preguntas. Cada una suma 1 punto "de dolor": normalmente el
+  // Si suma, pero en las preguntas invertidas (redactadas en positivo) suma el No.
+  var idx = 0;
+  BLOQUES.forEach(function(b){
+    var wrapB = document.createElement("div");
+    wrapB.className = "bloque";
+    var h = document.createElement("div");
+    h.className = "bloque-tit";
+    h.textContent = b.titulo;
+    wrapB.appendChild(h);
+
+    b.preguntas.forEach(function(txt, i){
+      var id = idx++;
+      var inv = b.invertida[i];
+      var p = document.createElement("div");
+      p.className = "pregunta";
+      p.innerHTML = '<p class="pregunta-txt">' + txt + '</p>'
+        + '<div class="opciones">'
+        + '<button type="button" data-q="' + id + '" data-v="si">Yes</button>'
+        + '<button type="button" data-q="' + id + '" data-v="no">No</button>'
+        + '</div>';
+      p.dataset.invertida = inv ? "1" : "0";
+      wrapB.appendChild(p);
+    });
+    cont.appendChild(wrapB);
+  });
+
+  cont.addEventListener("click", function(ev){
+    var b = ev.target.closest("button[data-q]");
+    if (!b) return;
+    var q = b.getAttribute("data-q");
+    var v = b.getAttribute("data-v");
+    var caja = b.closest(".pregunta");
+    var inv = caja.dataset.invertida === "1";
+
+    Array.prototype.forEach.call(caja.querySelectorAll("button[data-q]"), function(o){
+      o.classList.remove("sel-si", "sel-no");
+    });
+    b.classList.add(v === "si" ? "sel-si" : "sel-no");
+
+    // punto de dolor: Si normalmente, No en las invertidas
+    respuestas[q] = (inv ? (v === "no") : (v === "si")) ? 1 : 0;
+    actualizar();
+  });
+
+  function actualizar(){
+    var contestadas = Object.keys(respuestas).length;
+    progFill.style.width = (contestadas / TOTAL * 100) + "%";
+    progCuenta.textContent = contestadas + " of " + TOTAL + " answered";
+    if (contestadas === TOTAL) mostrarResultado();
+    evaluarBarra();
+  }
+
+  // Barra fija hacia la demo: aparece al bajar un poco sin haber terminado.
+  // Al completar las 12 se retira, porque ahi ya manda el resultado con sus
+  // propios botones y dos CTA compitiendo restan en vez de sumar.
+  var barra = document.getElementById("barra-demo");
+  function evaluarBarra(){
+    if (!barra) return;
+    var completo = Object.keys(respuestas).length === TOTAL;
+    var bajoAlgo = window.scrollY > 260;
+    var mostrar = bajoAlgo && !completo;
+    barra.classList.toggle("visible", mostrar);
+    document.body.classList.toggle("con-barra-demo", mostrar);
+  }
+  window.addEventListener("scroll", evaluarBarra, { passive: true });
+  evaluarBarra();
+
+  function mostrarResultado(){
+    var puntos = 0;
+    Object.keys(respuestas).forEach(function(k){ puntos += respuestas[k]; });
+
+    var clase, titulo, texto, acciones;
+    if (puntos <= 3) {
+      clase = "res-bajo";
+      titulo = "You are fine as you are";
+      texto = "Your business still fits in your head and on paper, and there is nothing wrong with that. "
+            + "Switching systems now would cost you more time than it saves. "
+            + "Save this link: the day you add products, people or a second location, take the quiz again.";
+      acciones = '<a href="https://jfcarpiopuntocom.github.io/friendly-123/save.html" class="btn btn-ghost">See what this is about, out of curiosity</a>';
+    } else if (puntos <= 7) {
+      clase = "res-medio";
+      titulo = "You are losing time without noticing";
+      texto = "This is not a crisis yet, but hours are already going into recounting, remembering and answering questions "
+            + "the business should be able to answer on its own. That time has a price and it can be calculated: "
+            + "put in your own numbers and see what it comes to in a year.";
+      acciones = '<a href="https://jfcarpiopuntocom.github.io/friendly-123/save.html#calculadora" class="btn btn-primary">Calculate how much time that is</a>'
+               + '<a href="https://jfcarpiopuntocom.github.io/friendly-123/index.html" class="btn btn-ghost">Try the demo, no signup</a>';
+    } else {
+      clase = "res-alto";
+      titulo = "This is already costing you money";
+      texto = "This is not disorder: the business outgrew the method. Lost sales, stock sitting still "
+            + "and discrepancies with no trail do not get fixed with more effort. They get fixed by changing where the information lives. "
+            + "You can start today, free, with your real products.";
+      acciones = '<a href="https://jfcarpiopuntocom.github.io/friendly-123/index.html" class="btn btn-primary">Start your 30-day trial with code 789</a>'
+               + '<a href="https://jfcarpiopuntocom.github.io/friendly-123/save.html#calculadora" class="btn btn-ghost">See how much I would save first</a>';
+    }
+
+    var textoWa = "I took this 12-question check for my business and got " + puntos + " of 12: \"" + titulo + "\". "
+                + "Take a look yourself: https://jfcarpiopuntocom.github.io/friendly-123/checklist.html";
+
+    resultado.innerHTML =
+      '<div class="res-card ' + clase + '">'
+      + '<div class="res-puntaje">' + puntos + '</div>'
+      + '<div class="res-de">of 12 signals present</div>'
+      + '<h2 class="res-tit">' + titulo + '</h2>'
+      + '<p class="res-txt">' + texto + '</p>'
+      + acciones
+      + '<a href="https://wa.me/?text=' + encodeURIComponent(textoWa) + '" target="_blank" rel="noopener" class="btn btn-wa">Send it to my partner</a>'
+      + '</div>';
+    resultado.style.display = "block";
+    resultado.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>friendly-123 · User Manual / Manual de uso</title>
+<meta name="description" content="Manual bilingüe de friendly-123: colores, inventario, ventas, clientes, comisiones, contabilidad y ejemplos para pequeños negocios.">
+
+<!-- WhatsApp / iMessage / Telegram preview (OG) -->
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="friendly-123">
+<meta property="og:title"       content="friendly-123 · User Manual / Manual de uso">
+<meta property="og:description" content="Guía bilingüe de friendly-123: inventario en colores, ventas, clientes y el cuaderno compartido de tu negocio.">
+<meta property="og:url"         content="https://jfcarpiopuntocom.github.io/friendly-123/manual.html">
+<meta property="og:image"       content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+<meta property="og:image:width" content="2088">
+<meta property="og:image:height" content="427">
+<meta property="og:locale"      content="es_EC">
+
+<!-- Twitter Card (también lo lee WhatsApp como fallback) -->
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="friendly-123 · User Manual">
+<meta name="twitter:description" content="Todo lo que necesitas para dominar friendly-123: colores, inventario, perchas, clientes y contabilidad.">
+<meta name="twitter:image"       content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+
+<!-- iOS dark-mode guard -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="canonical" href="https://jfcarpiopuntocom.github.io/friendly-123/manual.html">
+<style>
+  :root{
+    /* Paleta oficial friendly-123 (paleta oficial) — mismos valores del app, cero gris */
+    --papel:#FFFFFF;
+    --crema:#F8F9FB;
+    --ink:#0F1923;
+    --ink-soft:#2C3E50;
+    --brass:#5294AC;
+    --brass-dk:#2E6278;
+    --rust:#E86040;
+    --rust-deep:#C05000;
+
+    --sim-verde:#00C87A;   --sim-verde-bg:#C0F5E0;  --sim-verde-dk:#009A5A;
+    --sim-amarillo:#FFC700; --sim-amarillo-bg:#FFF3C2; --sim-amarillo-dk:#B8860B;
+    --sim-plata:#C4CDD8;  --sim-plata-bg:#E8ECF2;  --sim-plata-dk:#8A9AAA;
+    --sim-naranja:#F97316; --sim-naranja-bg:#FDD9BE;--sim-naranja-dk:#C05000;
+    --sim-rojo:#E8365D;    --sim-rojo-bg:#FAD5DE;   --sim-rojo-dk:#B0183E;
+    --sim-azul:#5294AC;    --sim-azul-bg:#D4ECF5;   --sim-azul-dk:#2E6278;
+    --sim-negro:#0A0A0F;   --sim-negro-bg:#17171D;  --sim-negro-dk:#000000;
+
+    /* Tipografia unificada con ahorra.html (el gold standard de estetica,
+       JFC 2026-08-11) y con la app real: Space Grotesk + Inter + JetBrains
+       Mono. Antes era Georgia italic serif, un lenguaje editorial que no
+       tenia nada que ver con el producto que describe. */
+    --font-display:'Space Grotesk',Inter,-apple-system,'Helvetica Neue',sans-serif;
+    --font-body:Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+    --font-mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+
+    --nav-h:74px;
+    --sidebar-w:266px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth; color-scheme:light only;}
+  body{
+    margin:0;
+    background:var(--papel);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:var(--font-display); color:var(--ink); font-weight:700; line-height:1.12; letter-spacing:-.01em; margin:0 0 12px;}
+  p{margin:0 0 14px; font-size:17px;}
+  a{color:var(--brass-dk); text-decoration-thickness:2px;}
+  img,svg{max-width:100%;}
+  ::selection{background:var(--sim-amarillo); color:var(--ink);}
+  :focus-visible{outline:3px solid var(--rust); outline-offset:2px;}
+
+  /* ---------- Barra de progreso de lectura (Efecto dinámico 1) ----------
+     FIX (JFC 2026-07-21): tenia glow de color — la regla es CERO glow en
+     TODO el documento, sin excepciones. Plano. */
+  #barraProgreso{
+    position:fixed; top:0; left:0; height:5px; width:0%;
+    background:var(--sim-amarillo);
+    z-index:999; transition:width .12s linear;
+  }
+
+  /* ---------- Header fijo ---------- */
+  header.top{
+    position:sticky; top:0; z-index:80;
+    background:var(--ink); color:var(--papel);
+    padding:14px 20px 14px 20px;
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    border-bottom:5px solid var(--sim-amarillo);
+    margin-top:5px;
+  }
+  header.top{min-width:0;}
+  header.top .marca{display:flex; align-items:center; gap:12px; min-width:0; flex-wrap:wrap;}
+  header.top .marca-logo-col{display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0;}
+  /* FIX (JFC 2026-07-21): el header del manual maestro no mostraba el logo
+     real en ningun lado — solo un circulo de texto "123" generico. Distinto
+     del header de la app operativa (index.html), donde JFC decidio a
+     proposito NO poner logo — esa decision era sobre la UI de trabajo
+     diario, no sobre documentos de marketing/ayuda como este manual, donde
+     SI corresponde mostrar la marca. */
+  header.top .marca-logo-col img.marca-logo{height:40px; width:auto; display:block;}
+  /* Responsive (mobile-first): en pantallas angostas el logo ancho +
+     titulo + reloj no caben en una fila — se reduce el logo y se permite
+     wrap antes de que el titulo quede atropellado por encima del logo. */
+  @media (max-width:600px){
+    header.top{flex-wrap:wrap; row-gap:8px;}
+    header.top .marca-logo-col img.marca-logo{height:26px;}
+    header.top h1{font-size:17px; white-space:normal;}
+    header.top .tagline{font-size:13px; max-width:160px;}
+  }
+  header.top h1{font-size:20px; color:#FFFFFF; margin:0; white-space:nowrap;}
+  header.top .tagline{font-size:13px; color:var(--sim-amarillo); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.06em; margin-top:2px; white-space:normal; max-width:220px;}
+  #relojManual{
+    font-family:var(--font-mono); font-size:14px; font-weight:700; color:#FFFFFF; font-variant-numeric:tabular-nums;
+    background:var(--brass-dk); padding:8px 12px; border-radius:20px; white-space:nowrap;
+  }
+
+  /* ---------- Nav de secciones: riel lateral en desktop, barra horizontal scrollable en móvil ---------- */
+  nav.toc{
+    position:fixed; left:0; top:calc(var(--nav-h) + 5px); bottom:0; width:var(--sidebar-w);
+    overflow-y:auto; padding:20px 14px 40px;
+    background:var(--crema); border-right:2px solid var(--ink);
+    display:none;
+  }
+  nav.toc a{
+    display:block; padding:9px 12px; margin-bottom:3px; border-radius:6px;
+    font-size:14px; font-weight:600; color:var(--ink-soft); text-decoration:none;
+    border-left:4px solid transparent;
+  }
+  nav.toc a:hover{background:var(--sim-azul-bg); color:var(--brass-dk);}
+  nav.toc a.activo{background:var(--sim-amarillo-bg); color:var(--ink); border-left-color:var(--sim-amarillo-dk); font-weight:700;}
+  nav.toc .grupo-titulo{font-family:var(--font-mono); font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin:16px 0 6px 12px;}
+
+  nav.tocMovil{
+    display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+    background:var(--crema); border-bottom:2px solid var(--ink);
+    padding:10px 12px; position:sticky; top:calc(var(--nav-h) + 5px); z-index:70;
+    scrollbar-width:none;
+  }
+  nav.tocMovil::-webkit-scrollbar{display:none;}
+  nav.tocMovil a{
+    flex:0 0 auto; font-size:13px; font-weight:700; padding:9px 14px; border-radius:20px;
+    background:#FFFFFF; border:2px solid var(--ink); color:var(--ink); text-decoration:none; white-space:nowrap;
+  }
+  nav.tocMovil a.activo{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk);}
+
+  main{padding:0 20px 60px;}
+  @media (min-width:980px){
+    nav.toc{display:block;}
+    nav.tocMovil{display:none;}
+    main{margin-left:var(--sidebar-w); max-width:1040px; padding:0 40px 80px;}
+  }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    padding:56px 22px 46px; text-align:center; position:relative; overflow:hidden;
+    background:var(--ink); color:#FFFFFF; border-bottom:6px solid var(--sim-amarillo);
+  }
+  .hero::before{
+    /* Efecto dinámico 2: gradiente semáforo en movimiento continuo (sin opacity) */
+    content:""; position:absolute; inset:-40%;
+    background:conic-gradient(from 0deg, var(--sim-verde), var(--sim-amarillo), var(--sim-naranja), var(--sim-rojo), var(--sim-negro), var(--sim-verde));
+    animation:girarSemaforo 18s linear infinite;
+    -webkit-mask:radial-gradient(circle, #000 0%, transparent 62%);
+    mask:radial-gradient(circle, #000 0%, transparent 62%);
+  }
+  @keyframes girarSemaforo{ to{ transform:rotate(360deg); } }
+  .hero .contenido{position:relative; z-index:2;}
+  .hero .kicker{
+    font-family:var(--font-mono); font-size:14px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--sim-amarillo); margin-bottom:14px; font-weight:700;
+  }
+  .hero h2{
+    font-size:clamp(34px,7.5vw,58px); color:#FFFFFF; font-weight:700; letter-spacing:-.02em; margin:0 0 14px;
+  }
+  .hero p.sub{font-size:19px; color:#F0F2F5; max-width:640px; margin:0 auto 26px;}
+  .hero .cta{
+    display:inline-flex; gap:12px; flex-wrap:wrap; justify-content:center;
+  }
+  .hero .cta a{
+    font-family:var(--font-display); font-weight:700; font-size:17px;
+    padding:14px 24px; border-radius:6px; text-decoration:none; border:2px solid #FFFFFF; color:#FFFFFF;
+    transition:transform .15s ease;
+  }
+  .hero .cta a.principal{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk); color:var(--ink);}
+  .hero .cta a:hover{transform:translateY(-3px);}
+
+  /* ---------- Secciones ---------- */
+  section.bloque{padding:54px 0 10px; border-bottom:1.5px solid var(--sim-plata-bg); scroll-margin-top:calc(var(--nav-h) + 80px);}
+  section.bloque:last-of-type{border-bottom:none;}
+  .eyebrow{
+    font-family:var(--font-mono); font-size:13px; text-transform:uppercase; letter-spacing:.1em;
+    color:var(--brass-dk); font-weight:700; margin-bottom:8px;
+  }
+  section.bloque h2{font-size:clamp(26px,4vw,36px); border-bottom:4px solid var(--sim-amarillo); padding-bottom:12px; margin-bottom:20px;}
+  section.bloque h3{font-size:21px; margin-top:28px; color:var(--brass-dk);}
+  .lead{font-size:19px; color:var(--ink-soft); max-width:760px;}
+
+  /* Revelado al hacer scroll (Efecto dinámico 3): translateY, nunca opacity */
+  .revela{ transform:translateY(26px); transition:transform .6s cubic-bezier(.22,.9,.3,1); }
+  .revela.visto{ transform:translateY(0); }
+
+  /* ---------- Tarjetas base ---------- */
+  .tarjeta{
+    background:#FFFFFF; border:1.5px solid var(--sim-plata); border-radius:16px;
+    padding:22px; box-shadow:0 1px 2px rgba(15,25,35,.06), 0 10px 22px -14px rgba(15,25,35,.35);
+  }
+  .grid2{display:grid; grid-template-columns:1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:1fr; gap:16px;}
+  @media (min-width:680px){ .grid2{grid-template-columns:1fr 1fr;} .grid3{grid-template-columns:repeat(3,1fr);} }
+
+  /* Tilt 3D al pasar el mouse (Efecto dinámico 4) */
+  .tilt{ transition:transform .12s ease, box-shadow .12s ease; will-change:transform; }
+  .tilt:hover{ box-shadow:0 18px 30px -16px rgba(15,25,35,.45); }
+
+  .tip{
+    border-left:6px solid var(--sim-azul); background:var(--sim-azul-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 12px 12px 0; margin:18px 0; font-size:16px;
+  }
+  .tip strong{color:var(--sim-azul-dk);}
+  .alerta{
+    border-left:6px solid var(--sim-rojo); background:var(--sim-rojo-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:16px;
+  }
+  .alerta strong{color:var(--sim-rojo-dk);}
+  .exito{
+    border-left:6px solid var(--sim-verde); background:var(--sim-verde-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:16px;
+  }
+  .exito strong{color:var(--sim-verde-dk);}
+  .oportunidad{
+    border-left:6px solid var(--sim-amarillo); background:var(--sim-amarillo-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:16px;
+  }
+  .oportunidad strong{color:var(--sim-amarillo-dk);}
+
+  table.datos{width:100%; border-collapse:collapse; margin:18px 0; font-size:15px;}
+  table.datos th, table.datos td{padding:11px 12px; border-bottom:1px solid var(--sim-plata); text-align:left;}
+  table.datos th{background:var(--ink); color:#FFFFFF; font-family:var(--font-mono); font-size:13px; text-transform:uppercase; letter-spacing:.04em;}
+  table.datos tr:nth-child(even) td{background:var(--crema);}
+  .tabla-wrap{overflow-x:auto; border-radius:8px; border:1.5px solid var(--sim-plata);}
+
+  code, .codigo{font-family:var(--font-mono); background:var(--crema); border:1px solid var(--sim-plata); border-radius:4px; padding:2px 7px; font-size:15px;}
+  pre.codebox{
+    font-family:var(--font-mono); font-size:14px; background:var(--ink); color:#F8F9FB;
+    padding:18px; border-radius:8px; overflow-x:auto; line-height:1.55;
+  }
+  pre.codebox .csv-tit{color:var(--sim-amarillo);}
+  pre.codebox .csv-num{color:var(--sim-verde);}
+
+  ul.lista, ol.lista{padding-left:22px;}
+  ul.lista li, ol.lista li{margin-bottom:8px; font-size:17px;}
+
+  .paso{display:flex; gap:16px; margin-bottom:20px; align-items:flex-start;}
+  .paso .num{
+    flex-shrink:0; width:40px; height:40px; border-radius:50%; background:var(--ink); color:#FFFFFF;
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:18px;
+  }
+  .paso .txt h4{margin:0 0 4px; font-size:17px;}
+  .paso .txt p{margin:0; font-size:16px; color:var(--ink-soft);}
+
+  /* ---------- Simulador de semáforo interactivo (Efecto dinámico 5) ---------- */
+  .simulador{background:var(--crema); border:2px solid var(--ink); border-radius:12px; padding:22px; margin:22px 0;}
+  .simulador .botones{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
+  .simulador button.estado-btn{
+    font-family:var(--font-display); font-weight:700; font-size:14px;
+    padding:10px 16px; border-radius:20px; border:2px solid var(--ink); background:#FFFFFF; color:var(--ink);
+    cursor:pointer; transition:transform .12s ease;
+  }
+  .simulador button.estado-btn:hover{transform:translateY(-2px);}
+  .simulador button.estado-btn.activo{color:#FFFFFF; border-color:transparent;}
+  /* FIX (JFC 2026-07-21): fallback plano (sin degrade) — coincide con el
+     estado inicial real que pinta pintarDemo() (verde, nivel 1 = -bg claro,
+     tinta oscura), para que nunca se vea ni un flash de gradiente viejo
+     antes de que el JS corra. */
+  .demo-caja{
+    max-width:280px; border-radius:12px; padding:20px; border:3px solid var(--sim-verde);
+    background:var(--sim-verde-bg);
+    transition:background .25s ease, border-color .25s ease;
+    color:#0F1923;
+  }
+  .demo-caja .dnombre{font-family:var(--font-display); font-weight:700; font-size:18px;}
+  .demo-caja .dstock{font-family:var(--font-display); font-size:36px; font-weight:700; margin-top:6px; font-variant-numeric:tabular-nums;}
+  .demo-caja .dmsg{font-size:14px; margin-top:6px;}
+  .demo-nivel{display:flex; gap:10px; margin-top:16px;}
+  .demo-nivel button{
+    font-family:var(--font-mono); font-size:13px; font-weight:700; padding:6px 12px; border-radius:6px;
+    border:2px solid var(--ink); background:#FFFFFF; color:var(--ink); cursor:pointer;
+  }
+  .demo-nivel button.activo{background:var(--ink); color:#FFFFFF;}
+
+  /* ---------- Código de barras animado (Efecto dinámico 6) ---------- */
+  .barcode-demo{display:flex; align-items:flex-end; gap:2px; height:70px; margin:18px 0; justify-content:center;}
+  .barcode-demo span{
+    display:block; width:4px; background:var(--ink); transform:scaleY(0); transform-origin:bottom;
+    animation:crecerBarra .9s cubic-bezier(.2,.9,.3,1) forwards;
+  }
+  @keyframes crecerBarra{ to{ transform:scaleY(1); } }
+
+  /* ---------- Contadores animados (Efecto dinámico 7) ---------- */
+  .stat-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin:22px 0;}
+  @media (min-width:680px){ .stat-grid{grid-template-columns:repeat(4,1fr);} }
+  .stat{background:var(--ink); color:#FFFFFF; border-radius:10px; padding:18px 14px; text-align:center;}
+  .stat .n{font-family:var(--font-display); font-size:34px; font-weight:700; color:var(--sim-amarillo); font-variant-numeric:tabular-nums;}
+  .stat .l{font-family:var(--font-mono); font-size:13px; text-transform:uppercase; letter-spacing:.05em; margin-top:4px;}
+
+  /* ---------- Pestañas de casos de uso (Efecto dinámico 8) ---------- */
+  .tabs{margin:24px 0;}
+  .tabs .tab-botones{display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px;}
+  .tabs .tab-botones button{
+    flex:0 0 auto; font-family:var(--font-display); font-weight:700; font-size:15px;
+    padding:11px 18px; border-radius:8px 8px 0 0; border:2px solid var(--ink); border-bottom:none;
+    background:var(--crema); color:var(--ink-soft); cursor:pointer;
+  }
+  .tabs .tab-botones button.activo{background:var(--ink); color:#FFFFFF;}
+  .tab-panel-wrap{border:2px solid var(--ink); border-radius:0 8px 8px 8px; overflow:hidden; background:#FFFFFF;}
+  .tab-panels{display:flex; transition:transform .38s cubic-bezier(.22,.9,.3,1);}
+  .tab-panel{flex:0 0 100%; padding:24px; box-sizing:border-box;}
+
+  /* ---------- Acordeón FAQ (sin opacity, con max-height) ---------- */
+  .acordeon-item{border:1.5px solid var(--sim-plata); border-radius:8px; margin-bottom:10px; overflow:hidden;}
+  .acordeon-item button.preg{
+    width:100%; text-align:left; background:var(--crema); border:none; padding:16px 18px;
+    font-family:var(--font-display); font-weight:700; font-size:17px; color:var(--ink); cursor:pointer;
+    /* fuera itálica, ver nota de tipografia arriba */
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  .acordeon-item .flecha{font-size:20px; transition:transform .25s ease; flex-shrink:0;}
+  .acordeon-item.abierto .flecha{transform:rotate(180deg);}
+  .acordeon-item .resp{max-height:0; overflow:hidden; transition:max-height .3s ease;}
+  .acordeon-item .resp .inner{padding:4px 18px 18px;}
+  .acordeon-item.abierto .resp{max-height:600px;}
+
+  /* ---------- Matriz interactiva (RFM / BCG) ---------- */
+  .matriz2x2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0;}
+  .celda-matriz{
+    border-radius:10px; padding:16px; border:2px solid var(--ink); cursor:default;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .celda-matriz:hover{transform:scale(1.03); box-shadow:0 14px 26px -14px rgba(15,25,35,.4); z-index:2;}
+  .celda-matriz h4{margin:0 0 4px; font-size:16px;}
+  .celda-matriz p{margin:0; font-size:14px;}
+
+  .escala-bloom{display:flex; align-items:flex-end; gap:6px; margin:10px 0;}
+  .escala-bloom .barra{width:22px; border-radius:3px 3px 0 0; border:1.5px solid var(--ink);}
+
+  footer.pie{
+    background:var(--ink); color:#FFFFFF; text-align:center; padding:40px 20px 50px; margin-top:20px;
+  }
+  footer.pie p{color:#E8ECF2; font-size:15px;}
+  footer.pie a{color:var(--sim-amarillo);}
+
+  .glosario dt{font-family:var(--font-display); font-weight:700; font-size:17px; color:var(--brass-dk); margin-top:14px;}
+  .glosario dd{margin:4px 0 0; font-size:16px; color:var(--ink-soft);}
+
+  .checklist{list-style:none; padding:0; margin:18px 0;}
+  .checklist li{
+    display:flex; gap:10px; align-items:flex-start; margin-bottom:10px; font-size:16px;
+    padding:12px 14px; background:var(--crema); border-radius:8px; border:1.5px solid var(--sim-plata);
+  }
+  .checklist li::before{content:"☐"; font-size:20px; color:var(--brass-dk); flex-shrink:0;}
+
+  @media (prefers-reduced-motion:reduce){
+    .hero::before{animation:none;}
+    .revela{transition:none;}
+    .barcode-demo span{animation:none; transform:scaleY(1);}
+    html{scroll-behavior:auto;}
+  }
+
+  @media print{
+    nav.toc, nav.tocMovil, #barraProgreso, header.top{display:none;}
+    main{margin-left:0;}
+  }
+
+  /* FORZAR LIGHT MODE (regla del proyecto - sin excepciones) */
+  @media (prefers-color-scheme: dark){
+    html, body{ background-color:var(--papel) !important; color:var(--ink) !important; }
+    html{ color-scheme:light only !important; }
+  }
+</style>
+<style>
+  /* Manual bilingüe (JFC 2026-09-22). display:contents deja el layout igual
+     que si el bloque no existiera. Por defecto (sin JS) se ve el español. */
+  .idioma{display:contents;}
+  .idioma[data-lang="en"]{display:none;}
+  html[data-idioma="en"] .idioma[data-lang="en"]{display:contents;}
+  html[data-idioma="en"] .idioma[data-lang="es"]{display:none;}
+  header.top h1 span[lang="en"]{display:none;}
+  html[data-idioma="en"] header.top h1 span[lang="en"]{display:inline;}
+  html[data-idioma="en"] header.top h1 span[lang="es"]{display:none;}
+  #btnIdioma{min-height:44px;min-width:44px;padding:8px 14px;border-radius:8px;border:2px solid #E8A020;
+    background:#E8A020;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-size:15px;font-weight:800;cursor:pointer;flex-shrink:0;}
+</style>
+<script>
+  // Idioma antes de pintar: lo guardado, o el del navegador (en si no es español).
+  (function(){try{var l=localStorage.getItem("f123_manual_idioma");
+    if(!l){l=/^es/i.test(navigator.language||"")?"es":"en";}
+    document.documentElement.setAttribute("data-idioma",l);document.documentElement.lang=l;}catch(_){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* PIEL DE LA APP (JFC 2026-09-23): "debe parecerse parte de la misma cosa".
+   Mismas piezas que el candado del PIN y la UI de friendly: fondo navy #0F1923,
+   tarjeta blanca con borde acero #5294AC, Space Grotesk / Source Sans 3 /
+   JetBrains Mono, encabezado de metal plateado, títulos subrayados en acero,
+   etiquetas mono en mayúsculas, botones-tecla con sombra desplazada y el recuadro
+   punteado óxido de "First time? Try these codes". Tinta sólida siempre. */
+:root{
+  --font-display:"Space Grotesk","Avenir Next Condensed",sans-serif;
+  --font-body:"Source Sans 3","Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono",monospace;
+  --ink:#0F1923; --ink-soft:#0F1923; --acero:#5294AC; --acero-dk:#2E6278; --oxido:#E86040; --oxido-dk:#A83D1F;
+}
+body{font-family:var(--font-body) !important;color:#0F1923 !important;background:#FFFFFF !important;}
+p,li,td,dd,.lead{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}
+/* Encabezado: el metal plateado del encabezado de la app */
+header.top{background:linear-gradient(#FCFDFC 0%,#EDEFEC 18%,#D8DBD6 52%,#BFC3BD 82%,#9DA29B 100%) !important;
+  color:#14181C !important;border-bottom:3px solid var(--acero) !important;
+  box-shadow:inset 0 1px 0 #FCFDFC,0 2px 6px rgba(0,0,0,.22) !important;}
+header.top h1,header.top h1 span{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-family:var(--font-display) !important;}
+header.top .tagline,header.top .tagline span{color:var(--oxido-dk) !important;-webkit-text-fill-color:var(--oxido-dk) !important;font-family:var(--font-mono) !important;font-size:13px !important;letter-spacing:0 !important;text-transform:none !important;}
+header.top .tagline span[lang="en"]{display:none;}
+html[data-idioma="en"] header.top .tagline span[lang="en"]{display:inline;}
+html[data-idioma="en"] header.top .tagline span[lang="es"]{display:none;}
+#relojManual{background:#0F1923 !important;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-family:var(--font-mono) !important;border-radius:999px;}
+/* Botón EN / ES: la misma píldora del candado */
+#btnIdioma{background:#FFFFFF !important;border:2px solid var(--acero-dk) !important;border-radius:999px !important;
+  color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-family:var(--font-mono) !important;letter-spacing:.08em;}
+/* Portada: el fondo navy del candado con su tarjeta blanca de borde acero */
+.hero{background:#0F1923 !important;border-bottom:none !important;padding:34px 16px 38px !important;}
+.hero::before,.hero::after{display:none !important;}
+.hero .contenido{background:#FFFFFF;border:3px solid var(--acero);border-radius:8px;max-width:620px;margin:0 auto;padding:26px 20px 24px;}
+.hero-logo{display:block;width:100%;max-width:360px;height:auto;margin:0 auto 10px;}
+.hero-tagline{font-family:var(--font-mono);font-size:14px;color:var(--oxido-dk);margin:0 0 14px;}
+.hero .kicker{color:var(--acero-dk) !important;-webkit-text-fill-color:var(--acero-dk) !important;font-size:13px !important;}
+.hero h2{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-family:var(--font-display) !important;}
+.hero .sub,.hero p{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}
+/* Botones: las teclas del candado (borde grueso + sombra desplazada) */
+.hero .cta a,.cta a{background:#F8F9FB !important;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;
+  border:2px solid #0F1923 !important;border-radius:6px !important;box-shadow:0 2px 0 rgba(15,25,35,.55) !important;
+  font-family:var(--font-display) !important;min-height:44px;display:inline-flex;align-items:center;}
+.hero .cta a.principal,.cta a.principal{border-color:var(--oxido) !important;}
+/* Secciones y títulos: como "Today's alerts" en la app */
+.bloque h2{font-family:var(--font-display) !important;color:#0F1923 !important;border-bottom:3px solid var(--acero);padding-bottom:6px;}
+.bloque h3,.bloque h4{font-family:var(--font-display) !important;}
+.eyebrow{font-family:var(--font-mono) !important;color:var(--acero-dk) !important;-webkit-text-fill-color:var(--acero-dk) !important;}
+/* Tarjetas: las tarjetas de la app */
+.tarjeta{background:#F8F9FB !important;border:1px solid #C9CFC7 !important;border-radius:8px !important;
+  box-shadow:0 1px 2px rgba(33,28,20,.06),0 6px 16px -8px rgba(33,28,20,.28) !important;}
+/* Consejos: el recuadro punteado óxido del candado */
+.tip{background:#FFFFFF !important;border:2px dashed var(--oxido) !important;border-radius:6px !important;color:#0F1923 !important;}
+table.datos th{font-family:var(--font-mono);text-transform:uppercase;font-size:13px;background:#E2E8ED;color:#0F1923 !important;}
+.toc,.tocMovil{background:#F8F9FB !important;}
+.toc a,.tocMovil a{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}
+.pie{background:#0F1923 !important;}
+section.bloque h2{border-bottom:3px solid var(--acero) !important;}
+nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-color:#0F1923 !important;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}
+::selection{background:#E2E8ED;}
+/* Celular: encabezado compacto de una fila (como la app), sin perder idioma */
+@media (max-width:600px){
+  header.top{padding:8px 12px !important;flex-wrap:nowrap !important;gap:8px !important;align-items:center !important;}
+  header.top .marca{flex-wrap:nowrap !important;gap:8px !important;min-width:0;}
+  header.top .tagline,#relojManual{display:none !important;}
+  header.top .marca-logo-col img.marca-logo{height:24px !important;}
+  header.top h1{font-size:16px !important;white-space:nowrap !important;}
+  #btnIdioma{min-height:44px;padding:6px 10px !important;font-size:13px !important;margin-left:auto;}
+}
+/* CONSISTENCIA VISUAL (JFC 2026-09-26: "no hay consistencia en emojis, iconos y colores").
+   1) UNA sola forma de recuadro: la caja punteada del candado (.tip, 2026-09-23). Antes
+      .alerta/.oportunidad/.exito seguian con barra lateral y fondo de color: 4 formas.
+      Ahora cambia solo el COLOR del borde segun el significado.
+   2) Estados: punto de color + nombre, igual para los cinco (antes solo Naranja tenia emoji
+      y Negro era una etiqueta negra).
+   3) Estrella: el icono dorado de la app, no el emoji. Sin emojis decorativos; se quedan
+      solo glifos que son la etiqueta real de un boton (el lapiz de Edit). */
+.alerta,.oportunidad,.exito{background:#FFFFFF !important;border:2px dashed var(--sim-rojo-dk) !important;border-left-width:2px !important;border-radius:6px !important;color:#0F1923 !important;}
+.oportunidad{border-color:var(--sim-amarillo-dk) !important;}
+.exito{border-color:var(--sim-verde-dk) !important;}
+/* Contraste >= 4.5 sobre blanco (regla de legibilidad de JFC): el amarillo y el verde oscuros
+   de la paleta (#B8860B 3.3:1, #009A5A 3.6:1) no alcanzaban; mismos tonos que ya usa la app. */
+.oportunidad{border-color:#8A5A00 !important;} .oportunidad strong{color:#8A5A00 !important;}
+.exito{border-color:#006B3C !important;} .exito strong{color:#006B3C !important;}
+.tip strong{color:var(--oxido-dk) !important;}
+td.estado{font-weight:700;color:#0F1923;white-space:nowrap;}
+.punto{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;border:1.5px solid #0F1923;}
+.p-verde{background:var(--sim-verde);} .p-amarillo{background:var(--sim-amarillo);} .p-naranja{background:var(--sim-naranja);}
+.p-rojo{background:var(--sim-rojo);} .p-negro{background:var(--sim-negro);}
+.ico-estrella{display:inline-block;width:1em;height:1em;vertical-align:-2px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z' fill='%23FFC700' stroke='%238A5A00' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E");}
+@media (prefers-reduced-motion: reduce){.revela{transform:none !important;transition:none !important;}}
+</style>
+</head>
+<body>
+
+<div id="barraProgreso"></div>
+
+<header class="top">
+  <div class="marca">
+    <div class="marca-logo-col">
+      <img class="marca-logo" src="manual-logo.png" alt="friendly-123" onerror="this.style.display='none';">
+      <div class="tagline"><span lang="es">Deja de adivinar. Empieza a ver.</span><span lang="en">Stop guessing. Start seeing.</span></div>
+    </div>
+    <h1><span lang="es">Manual de uso</span><span lang="en">User Manual</span></h1>
+  </div>
+  <!-- Idioma (JFC 2026-09-22: manual bilingüe). Un solo archivo; el botón
+       alterna qué bloque .idioma se ve. Sin JS se ve el español. -->
+  <button type="button" id="btnIdioma" aria-label="Language / Idioma">EN / ES</button>
+  <div id="relojManual">--:--</div>
+</header>
+
+<div class="idioma" data-lang="es" lang="es">
+<nav class="toc" id="tocDesktop">
+  <div class="grupo-titulo">Empezar</div>
+  <a href="#mision">Misión y visión</a>
+  <a href="#que-es">1. Qué es friendly-123</a>
+  <a href="#primeros-pasos">2. Primeros pasos</a>
+  <a href="#colores">3. El lenguaje de colores</a>
+  <div class="grupo-titulo">Las vistas</div>
+  <a href="#vista-hoy">4. Vista Hoy</a>
+  <a href="#inventario">5. Inventario</a>
+  <a href="#perchas">6. Perchas y sucursales</a>
+  <a href="#vender">7. Vendido</a>
+  <a href="#etiquetas">8. Etiquetas</a>
+  <a href="#clientes">9. Clientes y estaciones</a>
+  <a href="#comisiones">10. Comisiones</a>
+  <a href="#bcg">11. Matriz BCG</a>
+  <a href="#avanzado">12. Modo Avanzado</a>
+  <div class="grupo-titulo">Datos y respaldo</div>
+  <a href="#csv-respaldo">13. CSV y respaldo</a>
+  <a href="#transferencias">14. Transferencias</a>
+  <a href="#seguridad">15. Seguridad</a>
+  <a href="#instancia-equipo">16. Tu equipo y anti fraude</a>
+  <div class="grupo-titulo">Práctica</div>
+  <a href="#casos">17. Casos reales</a>
+  <a href="#faq">18. Preguntas frecuentes</a>
+  <a href="#glosario">19. Glosario</a>
+</nav>
+
+<nav class="tocMovil" id="tocMovil">
+  <a href="#mision">Misión</a>
+  <a href="#que-es">Qué es</a>
+  <a href="#primeros-pasos">Inicio</a>
+  <a href="#colores">Colores</a>
+  <a href="#vista-hoy">Hoy</a>
+  <a href="#inventario">Inventario</a>
+  <a href="#perchas">Perchas</a>
+  <a href="#vender">Vendido</a>
+  <a href="#etiquetas">Etiquetas</a>
+  <a href="#clientes">Clientes</a>
+  <a href="#comisiones">Comisiones</a>
+  <a href="#bcg">Matriz BCG</a>
+  <a href="#avanzado">Avanzado</a>
+  <a href="#csv-respaldo">CSV/Respaldo</a>
+  <a href="#transferencias">Transferencias</a>
+  <a href="#seguridad">Seguridad</a>
+  <a href="#instancia-equipo">Equipo/Anti fraude</a>
+  <a href="#casos">Casos reales</a>
+  <a href="#faq">FAQ</a>
+  <a href="#glosario">Glosario</a>
+</nav>
+
+<div class="hero" id="inicio">
+  <div class="contenido">
+    <img class="hero-logo" src="manual-logo.png" alt="friendly-123">
+    <div class="hero-tagline">Deja de adivinar. Empieza a ver.</div>
+    <div class="kicker">Manual de uso · v1.0 · septiembre 2026</div>
+    <h2>friendly-123</h2>
+    <p class="sub">La app de inventario, ventas, clientes y contabilidad ligera para pequeños negocios de EE. UU. y del mundo: explicada de principio a fin, con casos reales en dólares y el manual completo de su lenguaje de colores.</p>
+    <div class="cta">
+      <a href="#que-es" class="principal">Empezar a leer</a>
+      <a href="#colores">Ir directo a los colores</a>
+      <a href="#casos">Ver casos reales</a>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<!-- MISION Y VISION
+     Fuente unica: MISION-VISION.md en la raiz del repo. Si cambia alli, cambia aqui
+     y en manifiesto.html y checklist.html. Va SIN numero de seccion a proposito: la
+     numeracion del manual arranca en "1. Que es friendly-123" y no se debe correr. -->
+<section class="bloque revela" id="mision">
+  <div class="eyebrow">Por qué existe</div>
+  <h2>Misión y visión</h2>
+
+  <div style="border-left:5px solid var(--rust);padding:6px 0 6px 24px;margin:26px 0 30px;max-width:780px;">
+    <p style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--rust-deep);margin:0 0 10px;">Misión</p>
+    <p style="font-family:var(--font-display);font-size:26px;line-height:1.35;font-weight:700;color:var(--ink);margin:0 0 14px;">Que ningún negocio pequeño dependa de que una sola persona lo recuerde todo.</p>
+    <p style="font-size:17px;line-height:1.65;color:var(--ink-soft);margin:0;">Sacamos lo que un negocio sabe de la cabeza de su dueño y lo ponemos donde su gente lo pueda ver, todos los días, sin pedir permiso.</p>
+  </div>
+
+  <div style="border-left:5px solid var(--sim-verde);padding:6px 0 6px 24px;max-width:780px;">
+    <p style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sim-verde-dk);margin:0 0 10px;">Visión</p>
+    <p style="font-family:var(--font-display);font-size:26px;line-height:1.35;font-weight:700;color:var(--ink);margin:0 0 14px;">Un negocio propio que no cueste la vida propia.</p>
+    <p style="font-size:17px;line-height:1.65;color:var(--ink-soft);margin:0;">Locales pequeños donde el dueño cierra la puerta a las seis, se va, y el negocio sigue sabiendo lo que sabe. Donde el equipo no espera instrucciones porque ya está mirando lo mismo. Donde quien emprende tiene tiempo y cabeza para cultivarse en algo más que su propio inventario.</p>
+  </div>
+</section>
+
+<section class="bloque revela" id="que-es">
+  <div class="eyebrow">Sección 1</div>
+  <h2>Qué es friendly-123</h2>
+  <p class="lead">friendly-123 es una aplicación de control de inventario, ventas y clientes pensada para el pequeño negocio: la tienda de barrio, el local de ropa, la libería boutique, el puesto en el mercado, el stand de feria de fin de semana. Un solo archivo, funciona sin internet, y le dice a golpe de vista qué necesita tu negocio hoy — sin manuales de contabilidad, sin Excel, sin depender de que el dueño esté siempre presente.</p>
+
+  <div class="grid3">
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-verde-dk);">Para quién es</h4>
+      <p style="margin:0;font-size:16px;">Dueños de 1 a 6 puntos de venta (locales, stands, perchas de consignación) que necesitan control real de inventario y plata sin contratar un sistema corporativo.</p>
+    </div>
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-amarillo-dk);">Su filosofía</h4>
+      <p style="margin:0;font-size:16px;">Cada producto tiene un color. Tú no memorizas reportes: el color ya te dice si vender, reponer, promover o dejar dormir.</p>
+    </div>
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-azul-dk);">Funciona sin internet</h4>
+      <p style="margin:0;font-size:16px;">Es una PWA local-first: se instala en el celular o tablet, guarda todo en el dispositivo y sincroniza cuando hay señal.</p>
+    </div>
+  </div>
+
+  <h3>Los ocho subsistemas de la app</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Vista</th><th>Qué resuelve</th><th>Quién la ve</th></tr>
+      <tr><td><strong>Hoy</strong></td><td>Semáforo general del negocio, alertas, ganancia del día, producto estrella</td><td>Dueño (plata) / Empleado (conteos)</td></tr>
+      <tr><td><strong>Inventario</strong></td><td>Todas las tarjetas de producto, filtros por color, ajustes rápidos, alta de producto</td><td>Ambos (alta y perchas solo dueño)</td></tr>
+      <tr><td><strong>Vendido</strong></td><td>Cuadrícula táctil de venta, escáner de código de barras, cierre del día</td><td>Ambos</td></tr>
+      <tr><td><strong>Etiquetas</strong></td><td>Código de barras Code128 y QR listos para imprimir</td><td>Ambos</td></tr>
+      <tr><td><strong>Perchas</strong></td><td>Fotos de cada percha con semáforo de cumplimiento de meta</td><td>Ambos (fotos) / Dueño (gestión)</td></tr>
+      <tr><td><strong>Clientes</strong></td><td>Fichas con código único y matriz de estaciones (RFM)</td><td>Ambos</td></tr>
+      <tr><td><strong>Comisiones</strong></td><td>Liquidación de perchas de socio, franquicia y consignación</td><td>Dueño</td></tr>
+      <tr><td><strong>Avanzado</strong></td><td>Actividad, gastos, P&amp;G, balance, inventario valorizado, respaldo</td><td>Dueño (contador con subclave)</td></tr>
+    </table>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Colores de estado</div></div>
+    <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Colores del semáforo</div></div>
+    <div class="stat"><div class="n" data-contar="8">0</div><div class="l">Vistas principales</div></div>
+    <div class="stat"><div class="n" data-contar="0">0</div><div class="l">impuesto fijo: tú lo configuras</div></div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);">Los contadores arrancan al llegar a esta sección — así se ve en acción uno de los efectos dinámicos del manual.</p>
+</section>
+
+<section class="bloque revela" id="primeros-pasos">
+  <div class="eyebrow">Sección 2</div>
+  <h2>Primeros pasos</h2>
+  <p class="lead">Instalar friendly-123 toma menos de dos minutos. Estos son los pasos, en orden, para tener el local funcionando hoy mismo.</p>
+
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Abre el enlace de tu negocio en Chrome o Safari</h4><p>Nunca en el navegador interno de WhatsApp o Instagram — ahí los diálogos de confirmación pueden bloquearse. Si te llega por WhatsApp, toca "Abrir en el navegador".</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Instálala como app (opcional pero recomendado)</h4><p>En Android: menú ⋮ → "Instalar app" o "Agregar a pantalla de inicio". En iPhone: botón compartir → "Agregar a inicio". Queda con su ícono "123" propio y abre sin barra de navegador.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Define tus tres códigos de acceso</h4><p>Cada rol tiene un código de 3 dígitos (000–999) que se guarda cifrado en el dispositivo: <strong>código de dueño</strong> (ve la plata y la configuración), <strong>código de empleado</strong> (vende y cuenta stock, no ve ganancias) y <strong>código de contador</strong> (una subclave aparte que protege la capa contable dentro de Avanzado). Regístralos en Avanzado → Acceso, junto con un correo de recuperación.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">4</div>
+    <div class="txt"><h4>Crea tus sucursales y perchas</h4><p>Una <strong>sucursal</strong> agrupa perchas para reportes (ej. "Downtown"). Una <strong>percha</strong> es la unidad operativa real donde vendes (el mostrador, el stand, la mesa de feria). Puedes tener varias perchas por sucursal.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">5</div>
+    <div class="txt"><h4>Da de alta tus primeros productos</h4><p>A mano desde Inventario → "+ Agregar", o escaneando el código de barras en Vendido y llenando la ficha nueva. Define nombre, categoría, precio, costo, proveedor, stock inicial y los umbrales rojo/amarillo (de cuántas unidades para abajo se enciende cada alerta).</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">6</div>
+    <div class="txt"><h4>Haz tu primer respaldo</h4><p>Avanzado → Exportar respaldo, protegido con una clave. Guárdalo en tu WhatsApp o Drive. Repite esto cada semana como mínimo — la app te lo recuerda si pasa mucho tiempo.</p></div>
+  </div>
+
+  <div class="tip"><strong>Recomendación JFC:</strong> el primer día, entra a la tienda de muestra (PIN 456) y practica vender, ajustar stock y cerrar el día antes de cargar tu inventario real. Así aprendes sin miedo a "romper" nada.</div>
+
+  <h3>Checklist de arranque</h3>
+  <ul class="checklist">
+    <li>App instalada en el celular o tablet del local</li>
+    <li>3 códigos de acceso definidos (dueño, empleado, contador) + correo de recuperación registrado en Avanzado → Acceso (si EmailJS está configurado, llega por correo; si no, el código aparece en pantalla)</li>
+    <li>Sucursales y perchas creadas con su tipo (propio, socio, franquicia, consignación)</li>
+    <li>Al menos 10 productos reales cargados con precio, costo y umbrales</li>
+    <li>Gastos mensuales de cada ubicación registrados en Avanzado</li>
+    <li>Primer respaldo cifrado descargado y guardado fuera del celular</li>
+    <li>Empleado capacitado en Vendido + ajuste rápido de stock</li>
+  </ul>
+
+  <div class="tip"><strong>Idioma:</strong> la app está en inglés y puedes cambiarla a español con el selector de idioma de arriba. Este manual también: usa el botón EN / ES.</div>
+</section>
+
+<section class="bloque revela" id="colores">
+  <div class="eyebrow">Sección 3 — el corazón de la app</div>
+  <h2>El lenguaje de colores: Sistema Simon</h2>
+  <p class="lead">Cada producto en friendly-123 está en uno de cinco colores. El color nunca es decorativo: es un diagnóstico automático que combina tu stock, tus umbrales, tu margen y tus días sin vender. Aprende esta tabla una sola vez y ya sabrás leer cualquier percha de un vistazo, para siempre.</p>
+
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Color</th><th>Significa</th><th>Se enciende cuando…</th><th>Acción del dueño</th></tr>
+      <tr><td class="estado"><span class="punto p-verde" aria-hidden="true"></span>Verde</td><td>Saludable</td><td>Stock por encima del umbral amarillo, margen normal, se ha vendido recientemente</td><td>Sigue así, no requiere atención</td></tr>
+      <tr><td class="estado"><span class="punto p-amarillo" aria-hidden="true"></span>Amarillo</td><td>Oportunidad</td><td>Stock sano y no dormido (menos de 45 días sin ventas), y margen ≥ 50%</td><td>Empújalo: está dejando plata sobre la mesa</td></tr>
+      <tr><td class="estado"><span class="punto p-naranja" aria-hidden="true"></span>Naranja</td><td>Urgente-pronto</td><td>Stock entre el umbral rojo y el amarillo, o vence en 4–7 días</td><td>Véndelo primero / prográmalo para reposición esta semana</td></tr>
+      <tr><td class="estado"><span class="punto p-rojo" aria-hidden="true"></span>Rojo</td><td>Emergencia</td><td>Stock en cero o por debajo del umbral rojo, vencido o vence en ≤3 días</td><td>Actúa hoy: repón, transfiere o retira</td></tr>
+      <tr><td class="estado"><span class="punto p-negro" aria-hidden="true"></span>Negro</td><td>Capital dormido</td><td>45 días o más sin ninguna venta, con stock sano</td><td>Libera ese dinero: descuento, combo o retíralo del catálogo</td></tr>
+    </table>
+  </div>
+
+  <div class="tip"><strong>Nota importante:</strong> cuando un producto perecible está por vencer y además tiene poco stock, la app se queda siempre con la señal <em>más grave</em> de las dos. Un producto con stock sano pero que vence mañana se pinta rojo igual que uno sin stock.</div>
+
+  <h3>Pruébalo tú mismo: simulador de estado</h3>
+  <p>Elige un color: así se ve una tarjeta real de Inventario.</p>
+  <div class="simulador">
+    <div class="botones" id="simBotones">
+      <button class="estado-btn activo" data-estado="verde" style="background:var(--sim-verde);border-color:var(--sim-verde-dk);color:#fff;">Verde</button>
+      <button class="estado-btn" data-estado="amarillo" style="background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);">Amarillo</button>
+      <button class="estado-btn" data-estado="naranja" style="background:var(--sim-naranja);border-color:var(--sim-naranja-dk);color:#fff;">Naranja</button>
+      <button class="estado-btn" data-estado="rojo" style="background:var(--sim-rojo);border-color:var(--sim-rojo-dk);color:#fff;">Rojo</button>
+      <button class="estado-btn" data-estado="negro" style="background:var(--sim-negro);border-color:#000;color:#fff;">Negro</button>
+    </div>
+    <div class="demo-caja" id="demoCaja">
+      <div class="dnombre" id="demoNombre">Camiseta Metallica — Master of Puppets</div>
+      <div class="dstock" id="demoStock">8</div>
+      <div class="dmsg" id="demoMsg">Stock saludable</div>
+    </div>
+  </div>
+
+  <h3>Un color, un significado</h3>
+  <p>Cada estado tiene <strong>un solo color plano</strong>. No hay grados ni intensidades: una tarjeta está en verde, en amarillo, en naranja, en rojo o en negro, y eso es todo lo que hay que leer. Antes existía una escala de tres niveles dentro de cada color; se retiró porque obligaba a interpretar matices en vez de reconocer un estado de un vistazo, que es justamente lo que este sistema viene a evitar.</p>
+  <p>El azul quedó fuera del semáforo a propósito: <strong>nunca</strong> es una señal de inventario. Si aparece, es parte de la interfaz, no un estado de tus productos.</p>
+
+  <div class="alerta"><strong>El rojo es distinto:</strong> además del degradé, el rojo pulsa suavemente (una animación de urgencia) para que ningún producto en emergencia pase desapercibido, incluso si el dueño solo mira la pantalla de reojo.</div>
+
+  <h3>La regla de oro: nunca memorices, solo mira el color</h3>
+  <p>Todo el diseño de friendly-123 parte de una convicción de Juan Fernando Carpio: el dueño de un pequeño negocio no tiene tiempo de leer reportes de 12 columnas cada mañana. Sí tiene tiempo de mirar una pantalla 8 segundos y saber, sin pensar, qué hacer primero. Por eso cada color tiene siempre la misma pregunta implícita:</p>
+  <ul class="lista">
+    <li><strong><span class="punto p-rojo" aria-hidden="true"></span>Rojo</strong> pregunta: "¿qué se me acaba o se me vence HOY?"</li>
+    <li><strong><span class="punto p-naranja" aria-hidden="true"></span>Naranja</strong> pregunta: "¿qué debo vender primero esta semana?"</li>
+    <li><strong><span class="punto p-amarillo" aria-hidden="true"></span>Amarillo</strong> pregunta: "¿qué producto me está dejando más plata y debería empujar?"</li>
+    <li><strong><span class="punto p-negro" aria-hidden="true"></span>Negro</strong> pregunta: "¿qué plata tengo enterrada en una percha sin moverse?"</li>
+    <li><strong><span class="punto p-verde" aria-hidden="true"></span>Verde</strong> no pregunta nada — es la ausencia de problema, y eso también es información.</li>
+  </ul>
+</section>
+
+<section class="bloque revela" id="vista-hoy">
+  <div class="eyebrow">Sección 4</div>
+  <h2>Vista Hoy: el semáforo general del negocio</h2>
+  <p class="lead">Es la primera pantalla que ve cualquiera al abrir la app. Resume, en 3 segundos, si el negocio necesita atención hoy.</p>
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">Qué ve el dueño</h4>
+      <ul class="lista" style="margin:0;">
+        <li>Hero tri-estado del negocio: <strong>Verde</strong> = sin urgencias. <strong>Amarillo</strong> = hay productos naranja (revisar esta semana). <strong>Rojo</strong> = hay productos en emergencia. Productos negro y amarillo-oportunidad no afectan el hero</li>
+        <li>Entró hoy / Salió hoy / Ganancia de hoy / Valor de tu inventario</li>
+        <li>Ventas del día y venta promedio (ticket promedio)</li>
+        <li>Lista de alertas rojas y naranjas ordenadas por urgencia</li>
+        <li>El "apunte del día": una frase de gestión distinta cada día del año</li>
+      </ul>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">Qué ve el empleado</h4>
+      <ul class="lista" style="margin:0;">
+        <li>El mismo semáforo y las mismas alertas de stock</li>
+        <li>Cantidad de ventas del día (sin montos de plata ni ganancia)</li>
+        <li>Los productos <strong>estrella <span class="ico-estrella" role="img" aria-label="estrella"></span></strong> que el dueño marcó para impulsar hoy</li>
+      </ul>
+      <p style="font-size:14px;margin:10px 0 0;color:var(--ink-soft);">Esta separación es intencional: el empleado sabe qué vender y cuánto se ha vendido, pero la rentabilidad queda solo para el dueño.</p>
+    </div>
+  </div>
+  <div class="tip"><strong>Caso:</strong> una tienda de camisetas de rock en el centro de Austin vendió hoy $312 en 14 tickets (promedio $22.30). El hero está en amarillo porque hay 3 productos naranja (quedan pocas unidades) pero ninguno en rojo — "manejable, no urgente".</div>
+</section>
+
+<section class="bloque revela" id="inventario">
+  <div class="eyebrow">Sección 5</div>
+  <h2>Inventario: la cuadrícula de tarjetas</h2>
+  <p class="lead">Cada producto es una tarjeta con su color. Puedes filtrar por estado, ajustar stock sin escanear, marcar estrellas y dar de alta productos nuevos.</p>
+
+  <h3>Los campos de un producto</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Campo</th><th>Ejemplo real (USD)</th><th>Para qué sirve</th></tr>
+      <tr><td>Nombre</td><td>Camiseta AC/DC — Back in Black</td><td>Se ve en tarjetas, etiquetas y reportes</td></tr>
+      <tr><td>Categoría</td><td>Camisetas</td><td>Agrupa en Etiquetas y en reportes</td></tr>
+      <tr><td>SKU</td><td>CAM-ACDC-BIB</td><td>Código interno legible, no cambia al renombrar el producto</td></tr>
+      <tr><td>Código de barras</td><td>7861000030033</td><td>Lo que lee el escáner en Vendido</td></tr>
+      <tr><td>Precio de venta</td><td>$20.00</td><td>Lo que paga el cliente</td></tr>
+      <tr><td>Costo</td><td>$8.50</td><td>Define el margen y por tanto si el producto puede ser amarillo (oportunidad)</td></tr>
+      <tr><td>Umbral rojo / amarillo</td><td>8 / 16 unidades</td><td>Debajo de 8 se enciende rojo; entre 8 y 16, naranja</td></tr>
+      <tr><td>Proveedor</td><td>Rock Import EC</td><td>Referencia para reposición</td></tr>
+      <tr><td>Perecible + fecha de caducidad</td><td>Sí — vence 2026-07-08</td><td>Activa las alertas de vencimiento (rojo/naranja) sobre las de stock</td></tr>
+      <tr><td>Método de costeo</td><td>FIFO (recomendado)</td><td>Orden de venta sugerido para perecibles: primero lo que vence antes</td></tr>
+      <tr><td>Comisionista</td><td>María Auquilla</td><td>Asocia el producto a un comisionista/promotor (opcional). Se elige en un desplegable al dar de alta o editar el producto</td></tr>
+    </table>
+  </div>
+
+  <div class="oportunidad"><strong>Recomendación de umbrales:</strong> como regla práctica en pequeños negocios, pon el umbral rojo en el equivalente a 3–5 días de venta normal, y el amarillo al doble de ese número. Un producto que se mueve rápido (una camiseta estrella) necesita umbrales más altos que uno de rotación lenta (un vinilo de colección).</div>
+
+  <h3>Ajuste rápido de stock (sin escanear)</h3>
+  <p>Cada tarjeta tiene botones <strong>−</strong> y <strong>+</strong> para mover 1 unidad sin pasar por el escáner — perfecto para conteos físicos, mermas o ingresos de mercadería. La app siempre pide un motivo corto ("Merma", "Conteo físico", "Regalo a cliente") y lo guarda en el log de movimientos, visible solo para el dueño — el candado natural contra descuadres.</p>
+
+  <h3>La estrella <span class="ico-estrella" role="img" aria-label="estrella"></span>: el producto que quieres empujar hoy</h3>
+  <p>El dueño puede marcar cualquier producto con una estrella. Ese producto aparece automáticamente en la sección "Para impulsar hoy" de la Vista Hoy y arriba del todo en la cuadrícula de Vendido — así el empleado sabe exactamente qué recomendar sin que el dueño tenga que estar presente.</p>
+
+  <div class="tip"><strong>Filtros de Inventario:</strong> Todos · Urgente (rojo) · Revisar (naranja) · Oportunidad (amarillo) · Sano (verde) · Dormido (negro). Úsalos cada mañana en este orden: primero Urgente, luego Revisar, y una vez a la semana revisa Dormido para liberar capital.</div>
+
+  <h3>Crear variantes sin repetir trabajo</h3>
+  <p>Abre la ficha de un producto y toca <strong>Crear variante</strong>. Elige qué cambia (color, talla, material, estilo, sabor u otro) y escribe el valor. La app precarga precios y configuración, exige un código propio y deja el stock nuevo en cero. Revisa la información antes de guardar y añade una foto que corresponda a esa variante.</p>
+</section>
+
+<section class="bloque revela" id="perchas">
+  <div class="eyebrow">Sección 6</div>
+  <h2>Perchas y sucursales</h2>
+  <p class="lead">Una <strong>percha</strong> es tu unidad operativa: el mostrador, un stand, una mesa de feria. Una <strong>sucursal</strong> agrupa perchas para reportes y liquidación. Cada percha tiene un tipo de negocio que determina cómo se reparte la plata.</p>
+
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Tipo de percha</th><th>Cómo se reparte la venta</th><th>Ejemplo</th></tr>
+      <tr><td><strong>Propio</strong></td><td>100% para el dueño, sin comisión</td><td>Mostrador principal del local</td></tr>
+      <tr><td><strong>Socio</strong></td><td>% de comisión fijo o por escalas de cumplimiento de meta</td><td>Stand en el Farmers Market: 25% base, sube a 40% si supera $120/mes</td></tr>
+      <tr><td><strong>Franquicia</strong></td><td>% de comisión pactado, reporta a su propia sucursal</td><td>Punto de venta operado por un tercero bajo tu marca</td></tr>
+      <tr><td><strong>Consignación</strong></td><td>% de comisión al consignatario, el resto es neto para el dueño</td><td>Makers Fair: 30% para la promotora</td></tr>
+    </table>
+  </div>
+
+  <h3>Escalas de comisión: premia el esfuerzo</h3>
+  <p>En vez de un porcentaje fijo, puedes definir <strong>escalas</strong> que suben la comisión mientras más vende la percha. Ejemplo real de una promotora en el mercado, con meta mensual de $300:</p>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Ventas del mes hasta…</th><th>Comisión</th></tr>
+      <tr><td>$80</td><td>25%</td></tr>
+      <tr><td>$100</td><td>30%</td></tr>
+      <tr><td>$120</td><td>35%</td></tr>
+      <tr><td>$999+</td><td>40%</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;color:var(--ink-soft);">Así la promotora tiene un incentivo directo: mientras más venda, mayor porcentaje se lleva sobre el total — no solo sobre el excedente.</p>
+
+  <p>En cada percha de tipo socio, franquicia o consignación hay un botón <strong>Commission</strong> que abre el editor del trato: % del asociado, meta mensual, tramos/escalas, contribución fija, mínimo garantizado, lectura preferida (asociado/casa) y el interruptor <strong>"usar la comisión propia de esta percha"</strong> (para ignorar el trato del comisionista cuando quieras que mande el de la percha).</p>
+
+  <h3>Feria de fin de semana: percha temporal</h3>
+  <p>Para eventos de 2–3 días (una feria artesanal, un bazar navideño) crea una percha marcada como <strong>Feria</strong> con su propia comisión. Al cerrarla queda archivada con todo su historial y saltas directo a Comisiones para ver su liquidación — sin mezclar sus números con el resto del año.</p>
+
+  <h3>Fotos de percha con semáforo de meta</h3>
+  <p>La vista Perchas muestra una foto real de cada punto de venta (tomada con la cámara del celular) junto a un semáforo de cuánto lleva cumplido de su meta mensual. Es la forma más rápida de saber, sin abrir números, si una percha va bien.</p>
+</section>
+
+<section class="bloque revela" id="vender">
+  <div class="eyebrow">Sección 7</div>
+  <h2>Vendido: cuadrícula táctil + escáner + cierre del día</h2>
+  <p class="lead">Vendido no es un carrito de compras: es control de inventario en tiempo real. Cada toque es una unidad menos en stock, con 5 segundos para deshacer.</p>
+
+  <h3>Tres formas de registrar una venta</h3>
+  <div class="grid3">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">1. Toque directo</h4>
+      <p style="font-size:15px;margin:0;">Cuadrícula con todos los productos de la percha activa, estrellas primero. Un toque = una unidad vendida. El cliente elegido en el selector aplica a todos los toques.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">2. Escaneo o búsqueda</h4>
+      <p style="font-size:15px;margin:0;">Escribe o escanea el código de barras / SKU. La app suena un beep de confirmación y muestra la ficha completa con precio, stock y estado.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">3. Cierre del día</h4>
+      <p style="font-size:15px;margin:0;">Para quien no registra en vivo: apunta cuántas unidades salieron de cada producto y aplica todo junto al final del día. Descuenta stock y calcula comisiones igual que una venta normal.</p>
+    </div>
+  </div>
+
+  <div class="exito"><strong>Deshacer venta:</strong> tras cada toque aparece un aviso de 5 segundos — "Venta registrada, toca aquí para anular". Perfecto para cuando el cliente cambia de opinión o hubo un toque accidental.</div>
+
+  <div class="tip"><strong>Cliente arriba o abajo:</strong> puedes elegir el cliente en el selector superior de Vendido, o dentro del panel de venta (botón "Vender con info"). En el panel también hay un botón <strong>+ New</strong> para registrar un cliente nuevo al vuelo — se crea y queda seleccionado en la venta y en tu lista de clientes. Además puedes anotar <strong>notas</strong> de la venta (por ejemplo, "cliente pidió factura" o "se llevó el último en talla M"), que quedan guardadas con la venta.</div>
+
+  <h3>Ejemplo de cierre del día — tienda de libros latinoamericanos</h3>
+  <p>La librería del centro no registra venta por venta durante el día. Al cerrar, el dueño cuenta lo que falta en la mesa y apunta:</p>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Producto</th><th>Unidades vendidas hoy</th><th>Precio</th><th>Subtotal</th></tr>
+      <tr><td>Kentukis — Samanta Schweblin</td><td>2</td><td>$19.00</td><td>$38.00</td></tr>
+      <tr><td>Pelea de gallos — M. F. Ampuero <span class="ico-estrella" role="img" aria-label="estrella"></span></td><td>1</td><td>$18.00</td><td>$18.00</td></tr>
+      <tr><td>Cometierra — Dolores Reyes</td><td>1</td><td>$21.00</td><td>$21.00</td></tr>
+      <tr><td colspan="3" style="text-align:right;font-weight:700;">Total del cierre</td><td style="font-weight:700;">$77.00</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;">Al aplicar, la app descuenta el stock de las 3 obras y suma esas ventas al resumen del día — como si se hubiera registrado en vivo.</p>
+
+  <h3>Venta de la casa, cortesía y fiado</h3>
+  <p><strong><em>Venta de la casa</em></strong> es una venta pura de la casa: no se asigna comisión a nadie y no cambia al comisionista de la percha. Se elige venta por venta; nunca es obligatorio escoger comisionista.</p>
+  <p><strong>Cortesía</strong>: el cliente no paga (ingreso $0), pero el costo sí cuenta. <strong>Fiado</strong>: la venta se suma a la deuda del cliente en Clientes; necesita un cliente elegido.</p>
+</section>
+
+<section class="bloque revela" id="etiquetas">
+  <div class="eyebrow">Sección 8</div>
+  <h2>Etiquetas: código de barras y QR listos para imprimir</h2>
+  <p class="lead">Cada producto genera su propia etiqueta con código de barras Code128 real (escaneable) y un QR opcional que contiene el código del producto. No abre una ficha web ni publica datos del negocio. Todo se dibuja localmente — sin depender de ningún servicio externo.</p>
+
+  <div class="barcode-demo" id="barcodeDemo" aria-hidden="true"></div>
+  <p style="text-align:center;font-family:var(--font-mono);font-size:13px;color:var(--ink-soft);">7861000030033 — así se "dibuja" el código de barras al abrir una etiqueta (efecto de trazo animado)</p>
+
+  <h3>Qué trae la etiqueta imprimible</h3>
+  <ul class="lista">
+    <li>Nombre del producto y precio grande (fácil de leer desde lejos en un mostrador)</li>
+    <li>Fecha de vencimiento si el producto es perecible</li>
+    <li>Código de barras Code128 escaneable por cualquier lector</li>
+    <li>Código QR con el código del producto, para lectores compatibles. No abre otra aplicación ni publica una ficha del negocio.</li>
+    <li>Puedes tocar el código de barras para imprimir <em>solo</em> el código, o guardarlo como imagen PNG — ideal para pegatinas hechas por fuera</li>
+  </ul>
+  <div class="tip"><strong>Recomendación:</strong> imprime etiquetas en lote una vez por semana para todo lo que llegó nuevo. Una hoja de 20 etiquetas autoadhesivas cuesta entre $0.50 y $1.20 en una papelería — rentabilízalo etiquetando solo lo que realmente rota.</div>
+
+  <p><strong>En iPhone:</strong> al tocar Imprimir aparece la hoja de impresión de Safari. Desde allí eliges una impresora AirPrint o guardas/compartes el resultado.</p>
+</section>
+
+<section class="bloque revela" id="clientes">
+  <div class="eyebrow">Sección 9</div>
+  <h2>Clientes y la matriz de estaciones (RFM)</h2>
+  <p class="lead">Cada cliente recibe un código único al registrarse. La app clasifica automáticamente a cada uno en una "estación" según qué tan seguido compra y cuánto gasta — la misma lógica que usan las grandes cadenas (RFM: Recencia, Frecuencia, Monto) pero contada con metáforas de siembra, fáciles de recordar sin cursos de marketing.</p>
+
+  <div class="matriz2x2">
+    <div class="celda-matriz" style="background:var(--sim-naranja-bg);border-color:var(--sim-naranja);">
+      <h4 style="color:var(--sim-naranja-dk);">Otoño — enfriándose</h4>
+      <p>Eran de tus mejores clientes y hace rato no vienen. Búscalos hoy: son la esquina donde se recupera plata perdida.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
+      <h4 style="color:var(--sim-amarillo-dk);">Verano — en plena cosecha</h4>
+      <p>Compran seguido y fuerte. Cuídalos como oro: son tu ingreso más estable.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
+      <h4 style="color:var(--sim-azul-dk);">Invierno — dormidos</h4>
+      <p>Sin señales de vida. Un mensaje personalizado puede despertarlos.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
+      <h4 style="color:var(--sim-verde-dk);">Primavera — creciendo</h4>
+      <p>Recién germinan. Riégalos: una atención pequeña y vuelven.</p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);text-align:center;margin-top:-6px;">Derecha: compran hace poco. Arriba: dejan más dinero. (Pasa el mouse sobre cada cuadrante.)</p>
+
+  <h3>Cómo se usa en la práctica</h3>
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Registra al cliente en el mostrador</h4><p>Nombre y teléfono (opcional). La app genera un código único al instante — se lo puedes mostrar o anotar en su recibo.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Selecciónalo al vender</h4><p>En Vendido, el selector "Cliente" aplica ese código a la venta. Así la app arma su historial sin trabajo extra.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Revisa la matriz una vez por semana</h4><p>El cuadrante Otoño es tu lista de reactivación prioritaria: son clientes que ya demostraron que compran fuerte, solo hace falta un empujón.</p></div>
+  </div>
+
+  <div class="oportunidad"><strong>Caso real:</strong> en la boutique de ropa andina, "Doña Carmen" compró 4 veces en 60 días por un total de $145 (verano), pero "Sr. Andrade" compró 3 veces por $210 hace más de 70 días — cayó a otoño. Un mensaje de WhatsApp con la nueva colección de bufandas de alpaca ($25–35) puede recuperarlo antes de que llegue a invierno.</div>
+
+  <h3>Importar tu cartera de golpe (CSV)</h3>
+  <p>Si ya tienes una lista de clientes, el dueño puede subirla toda de una vez desde el bloque <strong>"Importar tu cartera desde un archivo"</strong>, al fondo de esta misma sección. Necesita un CSV con dos columnas —nombre y teléfono— y cada cliente recibe su código único automáticamente. El formato exacto, con ejemplo y reglas, está en la <a href="#csv-respaldo">Sección 13</a>. <strong>El empleado no ve este botón:</strong> para él existe solo el registro manual de arriba.</p>
+
+  <div class="tip"><strong>Editar y borrar clientes:</strong> el dueño y el admin pueden editar el contacto y las notas de cualquier cliente (botón ✎) y también <strong>borrarlo por completo</strong> (botón <strong>Delete</strong>). El borrado es definitivo — el cliente sale de la lista y del selector de ventas — pero <strong>siempre queda constancia en el registro de actividad</strong>: quién lo borró, a quién y cuándo. El empleado no ve el botón de borrar.</div>
+
+  <h3>Fiado, abono y pago pendiente</h3>
+  <p><strong>Fiado</strong> es lo que el cliente te debe. <strong>Abono</strong> es crédito a su favor: puede ser para un producto o «sin determinar». El saldo de cada cliente se calcula siempre de su historial, nunca se escribe a mano.</p>
+  <p>El botón <strong>Pago pendiente</strong> muestra con un toque solo a los clientes que te deben. Si la app no pudo verificar el saldo de alguno, te lo dice en vez de esconderlo.</p>
+</section>
+
+<section class="bloque revela" id="comisiones">
+  <div class="eyebrow">Sección 10</div>
+  <h2>Comisiones: lo que le debes a cada promotor/a</h2>
+  <p class="lead">Calculado venta por venta, sin Excel y sin sorpresas. Cada percha de tipo socio, franquicia o consignación aparece aquí con su liquidación del mes.</p>
+
+  <h3>Qué muestra cada tarjeta de liquidación</h3>
+  <ul class="lista">
+    <li>Ventas brutas del mes de esa percha</li>
+    <li>Comisión de la promotora (según su % fijo o su escala)</li>
+    <li>Neto que queda para el dueño</li>
+    <li>Cumplimiento de meta mensual, si la percha tiene una definida</li>
+    <li>Alerta si la percha lleva 7+ días sin ninguna venta ("percha dormida")</li>
+    <li>Botón "Marcar como pagado" una vez que le transfieres o entregas su comisión</li>
+    <li>De dónde sale el %: si el comisionista tiene su propio trato, la tarjeta lo indica ("usando el trato propio del comisionista"); si no, usa el estándar de la percha</li>
+    <li>Contribución fija y avisos del trato (por ejemplo, si la contribución fija se ignora porque la percha usa escalas por meta)</li>
+  </ul>
+
+  <h3>Editar un comisionista (✎)</h3>
+  <p>Toca el botón <strong>✎ Edit</strong> en la tarjeta de un comisionista (o el nombre del promotor dentro de una liquidación) para abrir su editor. Ahí puedes cambiar su nombre, su % base, su <strong>meta mensual</strong>, sus <strong>tramos/escalas</strong>, sus datos de pago (teléfono, cédula, banco, cuenta) y <strong>notas</strong>. Si el comisionista tiene meta y escalas propias, estas mandan sobre las de la percha.</p>
+
+  <h3>Escalas de comisión por meta</h3>
+  <p>En el editor del comisionista (o en el botón <strong>Commission</strong> de una percha) puedes definir tramos: el % sube mientras más vende en el mes. Ejemplo con meta de $300: hasta $80 → 25%, hasta $100 → 30%, hasta $120 → 35%, $999+ → 40%. El % se aplica sobre el total vendido, no solo sobre el excedente.</p>
+
+  <h3>Matriz RFM de promotores/as</h3>
+  <p>Al final de Comisiones, una matriz de 4 cuadrantes clasifica a cada promotor según su valor (ventas del mes) y su recencia (días sin vender): <strong>Campeones</strong> (alto valor y activos), <strong>En riesgo</strong> (alto valor pero dormidos), <strong>Promesa</strong> (activos pero de bajo valor) y <strong>Dormidos</strong>. Es la misma lógica de la matriz de clientes, aplicada a tu equipo de ventas.</p>
+
+  <h3>Ranking de promotores/as</h3>
+  <p>Un medallero automático que muestra unidades vendidas, ventas brutas, su SKU más fuerte y una alerta si algún promotor lleva más de 7 días sin vender nada — útil para detectar a tiempo si alguien necesita apoyo o capacitación.</p>
+
+  <div class="tip"><strong>Enviar resumen por WhatsApp:</strong> un botón arma automáticamente el resumen del día (ventas, comisiones pendientes, stock crítico) y abre WhatsApp listo para enviarlo a quien tú elijas — sin copiar y pegar números a mano.</div>
+</section>
+
+<section class="bloque revela" id="bcg">
+  <div class="eyebrow">Sección 11</div>
+  <h2>Matriz BCG de tu inventario</h2>
+  <p class="lead">Basada en ventas de los últimos 60 días, clasifica automáticamente cada producto en uno de cuatro cuadrantes clásicos de gestión de portafolio — sin que tengas que calcular nada.</p>
+
+  <div class="matriz2x2">
+    <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
+      <h4 style="color:var(--sim-azul-dk);">Promesas</h4>
+      <p>Venden poco pero van subiendo. Dales vitrina y espacio para crecer.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
+      <h4 style="color:var(--sim-verde-dk);">Estrellas</h4>
+      <p>Venden mucho y van subiendo. Protege su stock — son tu futuro inmediato.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-plata-bg);border-color:var(--sim-plata-dk);">
+      <h4 style="color:var(--ink-soft);">Pesos muertos</h4>
+      <p>Sin movimiento en 60 días. Libera ese capital con descuentos o combos.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
+      <h4 style="color:var(--sim-amarillo-dk);">Vacas lecheras</h4>
+      <p>Venden mucho, estables. Financian todo lo demás del negocio.</p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);text-align:center;margin-top:-6px;">Derecha: venden más que el promedio. Arriba: van creciendo. (Pasa el mouse sobre cada cuadrante.)</p>
+
+  <div class="oportunidad"><strong>Cómo usarla cada mes:</strong> revisa <em>vacas lecheras</em> para asegurar que nunca les falte stock (son tu flujo de caja), revisa <em>promesas</em> para decidir a cuáles darles más espacio de percha o etiqueta de "novedad", y revisa <em>pesos muertos</em> junto con el filtro negro de Inventario para planear una liquidación conjunta.</div>
+</section>
+
+<section class="bloque revela" id="avanzado">
+  <div class="eyebrow">Sección 12</div>
+  <h2>Modo Avanzado: la capa contable</h2>
+  <p class="lead">Aquí vive el detalle técnico del negocio — actividad, gastos, y la contabilidad ligera (P&amp;G, balance e inventario valorizado). No es para el día a día; es para el contador, el administrador, o el dueño que quiere ver los números a fondo. Por eso pide su propia subclave.</p>
+
+  <h3>Gastos mensuales</h3>
+  <p>Arriendo, luz, sueldos, internet, etc. Ingresas el total mensual de cada ubicación y la app lo reparte entre los días reales del mes (28 a 31) para estimar el gasto operativo del día dentro del P&amp;G.</p>
+  <div class="tip"><strong>Ejemplo:</strong> un local del centro con arriendo $280, luz $35, internet $25 y un ayudante a medio tiempo $180 suma $520/mes. Entre 31 días de julio, eso son $16.77/día de gasto operativo que la app resta automáticamente de la utilidad bruta de hoy.</div>
+
+  <h3>Caja chica (en la pestaña Gastos)</h3>
+  <p>El control de efectivo de cada percha vive ahora en la pestaña <strong>Gastos</strong> (antes estaba dentro de la carpeta de la percha). Elige la percha, ves su saldo y registras <strong>+ Ingreso</strong> o <strong>− Retiro</strong> con su motivo. Solo lo ven el dueño y el admin; es un control operativo de efectivo en el punto físico, no reemplaza el P&amp;L ni las comisiones.</p>
+
+  <h3>Pérdidas y ganancias (del día) — ejemplo con impuesto encendido al 15%</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Concepto</th><th>Ejemplo</th></tr>
+      <tr><td>Ventas cobradas (con IVA 15%)</td><td>$312.00</td></tr>
+      <tr><td>IVA cobrado (se entrega a la autoridad tributaria)</td><td>$40.70</td></tr>
+      <tr><td>Ingresos netos (sin IVA)</td><td>$271.30</td></tr>
+      <tr><td>Costo de ventas</td><td>$118.40</td></tr>
+      <tr><td>Utilidad bruta</td><td>$152.90</td></tr>
+      <tr><td>Gastos operativos (del día)</td><td>$16.77</td></tr>
+      <tr><td><strong>Utilidad neta del día</strong></td><td><strong>$136.13</strong></td></tr>
+    </table>
+  </div>
+  <div class="tip"><strong>Impuesto (IVA, VAT, GST, sales tax):</strong> arriba del P&amp;G eliges el impuesto de tu negocio: tasa, nombre y cómo se aplica. <strong>Incluido en el precio</strong> (IVA/VAT) o <strong>sumado al cobrar</strong> (sales tax de EE. UU.). Un selector de país sugiere valores, y ahí mismo eliges tu moneda. Cada venta guarda el impuesto que tenía al hacerse, y los productos exentos se marcan en su ficha. Es un ajuste del cuaderno: vale para todos tus aparatos y va en el respaldo. Solo el dueño o un admin lo cambian. En cualquier caso, <strong>esto es un insumo para tu contador, no una declaración ante la autoridad tributaria</strong>.</div>
+
+  <h3>Balance simplificado e inventario valorizado</h3>
+  <p>El balance suma el efectivo estimado del día más el valor de todo tu inventario a precio de venta. El inventario valorizado desglosa, producto por producto, cuánto vale a costo, cuánto vale a precio de venta, y cuál es tu utilidad potencial si vendieras todo hoy — útil para saber cuánto capital tienes realmente "parado" en la percha.</p>
+
+  <h3>Actividad reciente</h3>
+  <p>Un historial cronológico de todo lo que pasó: ventas, ajustes de stock con su motivo, altas de producto, anulaciones, cambios de estrella, transferencias entre perchas y liquidaciones de comisión. Es tu bitácora anti-descuadre — si algo no cuadra al final del mes, aquí está el rastro completo.</p>
+</section>
+
+<section class="bloque revela" id="csv-respaldo">
+  <div class="eyebrow">Sección 13</div>
+  <h2>Exportar CSV contable y hacer respaldo</h2>
+  <p class="lead">friendly-123 nunca depende de un servidor externo para tus datos. Se guardan en tu dispositivo (y, si activas el cuaderno compartido, viajan cifrados entre tus dispositivos), y tú decides cuándo sacarlo en dos formatos distintos según lo que necesites.</p>
+
+  <h3>Formato A — Reporte contable en CSV (para tu contador)</h3>
+  <p>Desde Avanzado → "Descargar reporte contable (.csv)". Es un archivo de texto separado por comillas que Excel o Google Sheets abren directamente, con acentos correctos (incluye BOM UTF-8). Esta es la estructura exacta que genera:</p>
+  <pre class="codebox">"<span class="csv-tit">Reporte contable — friendly-123</span>","07/07/2026, 09:14"
+"AVISO","Insumo para el contador. No es una declaración ante la autoridad tributaria."
+
+"<span class="csv-tit">PÉRDIDAS Y GANANCIAS (hoy)</span>",""
+"Ventas cobradas (con IVA)","<span class="csv-num">$312.00</span>"
+"IVA cobrado (15%, se entrega a la autoridad tributaria)","<span class="csv-num">$40.70</span>"
+"Ingresos netos (sin IVA)","<span class="csv-num">$271.30</span>"
+"Costo de ventas","<span class="csv-num">$118.40</span>"
+"Utilidad bruta","<span class="csv-num">$152.90</span>"
+"Gastos operativos","<span class="csv-num">$16.77</span>"
+"Utilidad neta","<span class="csv-num">$136.13</span>"
+
+"<span class="csv-tit">BALANCE SIMPLIFICADO</span>",""
+"Ingresos del día estimados","<span class="csv-num">$312.00</span>"
+"Inventario valorizado","<span class="csv-num">$3,540.00</span>"
+"Total activos","<span class="csv-num">$3,852.00</span>"
+
+"<span class="csv-tit">INVENTARIO VALORIZADO POR PRODUCTO</span>",""
+"Producto","Stock,Costo,Venta,Utilidad potencial"
+"Camiseta AC/DC - Back in Black","25,<span class="csv-num">$212.50</span>,<span class="csv-num">$500.00</span>,<span class="csv-num">$287.50</span>"
+"Taza Ceramica Rock Austin","40,<span class="csv-num">$120.00</span>,<span class="csv-num">$320.00</span>,<span class="csv-num">$200.00</span>"</pre>
+  <p style="font-size:15px;">El archivo se descarga con el nombre <span class="codigo">reporte-contable-friendly-2026-09-22.csv</span> — la fecha de descarga queda siempre en el nombre para no confundir versiones.</p>
+
+  <div class="tip"><strong>Recomendaciones para el CSV:</strong>
+    <ul class="lista" style="margin:10px 0 0;">
+      <li>Descárgalo el mismo día que se lo envías al contador — es un corte del día en curso, no acumulado histórico.</li>
+      <li>Ábrelo en Google Sheets si vas a compartirlo por enlace en vez de adjunto; conserva las tildes gracias al BOM.</li>
+      <li>Si manejas varias ubicaciones, descárgalo una vez por cada percha/sucursal (selecciona la ubicación arriba antes de exportar) — el reporte siempre corresponde a la ubicación activa en pantalla.</li>
+      <li>Guarda una copia mensual en una carpeta con el nombre del mes; con 12 archivos al año tienes tu historial contable completo sin depender de la nube de nadie.</li>
+    </ul>
+  </div>
+
+  <h3>Formato B — Respaldo completo cifrado (.json)</h3>
+  <p>Este es el respaldo real de <strong>todo</strong> el negocio: productos, ventas, clientes, perchas, comisiones y tus códigos de acceso. Está en Avanzado, debajo de la subclave contable, porque es una acción sensible.</p>
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Exportar respaldo</h4><p>La app te pide una clave de al menos 8 caracteres para proteger el archivo (puedes dejarla en blanco, pero no se recomienda). Se descarga como <span class="codigo">respaldo-friendly-2026-09-22.json</span>.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Guárdalo fuera del celular</h4><p>Envíatelo por WhatsApp a ti mismo, súbelo a Google Drive, o mándalo por correo. Si el celular se pierde o se daña, este archivo es la única forma de recuperar el negocio completo.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Importar respaldo (si hace falta restaurar)</h4><p>Avanzado → Importar respaldo → selecciona el archivo → ingresa la clave. <strong>Esto reemplaza todos los datos actuales</strong> — la app siempre pide confirmación explícita antes de proceder.</p></div>
+  </div>
+  <div class="alerta"><strong>Importante:</strong> si pierdes la clave de un respaldo cifrado, ese archivo no se puede recuperar — no existe una puerta trasera. Anota la clave en un lugar distinto al archivo mismo.</div>
+
+  <h3>Formato C — Importar tu cartera de clientes (CSV)</h3>
+  <p>Si ya tienes tus clientes en Excel, en el celular o en otra app, no hace falta teclearlos uno por uno. Guarda tu lista como CSV y súbela desde <strong>Clientes → (al fondo) "Importar tu cartera desde un archivo"</strong>. Solo el dueño ve este botón; el empleado únicamente registra clientes a mano.</p>
+  <p>El archivo necesita <strong>dos columnas, nombre y teléfono</strong>, en ese orden. La primera fila puede ser un encabezado (la app lo detecta y lo salta). Así se ve un archivo válido:</p>
+  <pre class="codebox"><span class="csv-tit">nombre,telefono</span>
+Rosa Quinde,0991111001
+Marco Sarmiento,0991111002
+"Pérez, Juan Andrés",0987654321
+Carmen Ulloa,</pre>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Regla del archivo</th><th>Detalle</th></tr>
+      <tr><td>Columnas</td><td>Nombre en la primera, teléfono en la segunda (el teléfono puede ir vacío)</td></tr>
+      <tr><td>Encabezado</td><td>Opcional — si la primera fila dice "nombre" o "teléfono", se salta sola</td></tr>
+      <tr><td>Nombres con coma</td><td>Enciérralos entre comillas dobles: <span class="codigo">"Pérez, Juan"</span></td></tr>
+      <tr><td>Repetidos</td><td>Si un nombre ya existe (o se repite dentro del archivo) se salta, sin crear duplicados</td></tr>
+      <tr><td>Código único</td><td>Cada cliente nuevo recibe su código <span class="codigo">C-####</span> automáticamente al importar</td></tr>
+      <tr><td>Límites</td><td>Hasta 5 000 clientes por archivo y máximo 1 MB de tamaño</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;">Al terminar, la app te dice exactamente cuántos agregó, cuántos saltó por repetidos y cuántos ignoró por no tener nombre — así sabes que tu cartera entró completa.</p>
+  <div class="tip"><strong>Cómo sacar el CSV desde Excel o Google Sheets:</strong> deja tus datos en dos columnas (nombre, teléfono), luego <em>Archivo → Descargar / Guardar como → CSV</em>. Si al abrir el archivo ves los nombres separados por comas, ya está listo para friendly-123.</div>
+
+  <h3>Puntos de restauración automáticos</h3>
+  <p>Además del respaldo manual, friendly-123 guarda —solo dentro de ese navegador— una foto de tus datos cada cierto tiempo, por si borras algo sin querer. <strong>Esto no reemplaza el respaldo manual:</strong> si se borra el caché del navegador o cambias de celular, esos puntos se pierden con él.</p>
+
+  <h3>Formato D — Respaldo automatizado a ti mismo (correo y/o WhatsApp)</h3>
+  <p>La forma más segura de no perder nunca tus datos por olvido. En <strong>Avanzado</strong>, con el <strong>deslizador (slider) de frecuencia</strong>, eliges cada cuánto quieres que la app te obligue a respaldarte — diario, semanal, quincenal o mensual — y por cuáles canales, correo y/o WhatsApp. <strong>El mensual es el mínimo obligatorio</strong> y no se puede alargar más: así, si algún mes se te pasa por completo, nunca pierdes más de 30 días de historial. Tú fijas y modificas esa frecuencia cuando quieras.</p>
+  <div class="tip"><strong>El backup va a TI, no a nosotros. Nunca pasa por ningún servidor.</strong> La app usa el propio correo y WhatsApp que <em>ya tienes configurados</em> en tu teléfono para forzarte a enviarte tu información a ti mismo/a:
+    <ul class="lista">
+      <li><strong>En teléfono o tablet:</strong> al tocar "Respaldar" se abre el menú de compartir de tu propio celular con el archivo <strong>ya adjunto</strong>. Eliges tu WhatsApp o tu Gmail, te lo envías a ti mismo/a y listo. No tienes que buscar ni adjuntar nada a mano.</li>
+      <li><strong>En computadora:</strong> se descarga el archivo y se abre el correo/WhatsApp con el mensaje ya escrito; ahí sí adjuntas el archivo recién descargado y envías. Es el máximo posible sin servidor en una laptop.</li>
+    </ul>
+  </div>
+  <div class="tip"><strong>Tu clave (PIN) usa exactamente el mismo método.</strong> Cuando la recuperas, la app siempre te la muestra en pantalla y además te abre un correo tuyo, hacia ti mismo/a, con tu clave dentro, para que quede guardada en tu bandeja. Igual que el respaldo: nunca pasa por un servidor. Aparte, si quieres compartir datos entre dos equipos, tienes también <strong>QR</strong> y la <strong>sincronización opcional</strong>, ambos en Avanzado.</div>
+</section>
+
+<section class="bloque revela" id="transferencias">
+  <div class="eyebrow">Sección 14</div>
+  <h2>Transferencias entre perchas</h2>
+  <p class="lead">El dolor más común en negocios con más de un punto de venta: una percha se queda sin stock mientras la de al lado tiene de sobra, y nadie se entera hasta que el cliente ya se fue. friendly-123 lo detecta en el momento exacto en que más importa.</p>
+
+  <h3>Cómo funciona</h3>
+  <ul class="lista">
+    <li>Cuando un producto está en rojo o naranja, la app revisa si ese mismo SKU tiene stock sano en otra percha activa.</li>
+    <li>Si lo encuentra, muestra un aviso directo en la ficha del producto: <em>"Hay 18 unidades en Local Downtown"</em> con un botón para solicitar la transferencia sugerida.</li>
+    <li>La cantidad sugerida siempre deja stock suficiente en el origen (nunca vacía la percha que presta).</li>
+    <li>El dueño de origen <strong>aprueba</strong> la transferencia desde Avanzado — en ese momento el stock se descuenta del origen y queda “en tránsito”.</li>
+    <li>El dueño de destino <strong>confirma la recepción</strong> (también desde Avanzado) — solo entonces el stock se suma al destino. Si el mismo dueño maneja ambos puntos, son dos clics distintos: uno para aprobar y otro para confirmar.</li>
+  </ul>
+
+  <div class="oportunidad"><strong>Caso:</strong> el Stand del Farmers Market se quedó con solo 3 camisetas Queen (umbral rojo: 6). El Local Downtown tiene 20 unidades del mismo SKU. La app sugiere transferir 7 — la mitad del excedente disponible — sin que nadie tenga que ir a contar percha por percha.</div>
+</section>
+
+<section class="bloque revela" id="seguridad">
+  <div class="eyebrow">Sección 15</div>
+  <h2>Seguridad, respaldo automático y modo sin internet</h2>
+
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Códigos de acceso por rol</h4>
+      <p style="font-size:16px;margin:0;">Tres códigos de 3 dígitos, cifrados en el dispositivo (dueño, empleado, contador). Un correo de recuperación permite generar uno nuevo si se olvida.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Guardia de doble pestaña</h4>
+      <p style="font-size:16px;margin:0;">Si abres el negocio en dos pestañas o dispositivos a la vez, la app lo detecta y avisa — evita que una venta se pierda porque la última pestaña en guardar "pisó" a la otra.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Caja negra de errores</h4>
+      <p style="font-size:16px;margin:0;">Guarda los últimos 20 errores técnicos en el dispositivo. Si algo falla, puedes mandarle esa información a soporte por WhatsApp sin necesitar herramientas de programador.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Sincronización multi-dispositivo</h4>
+      <p style="font-size:16px;margin:0;">En «Sincronizar equipo», copia la licencia de tu equipo y compártela una vez con cada dispositivo. Misma licencia, mismo cuaderno: ventas, stock y PINs quedan sincronizados solos. Los datos del cuaderno viajan cifrados entre sus dispositivos; FRIENDLY-123 no puede leerlos.</p>
+    </div>
+  </div>
+
+  <h3>Modo sin conexión (PWA)</h3>
+  <p>El "cascarón" de la app —pantallas, botones, lógica— se guarda en el dispositivo la primera vez que abres friendly-123, así que vuelve a abrir incluso sin señal. Lo único que siempre se pide fresco, nunca desde caché, son tus datos reales y las actualizaciones de versión.</p>
+
+  <div class="tip"><strong>Buen hábito semanal:</strong> los domingos en la noche, exporta el respaldo cifrado y descarga el CSV contable del mes en curso. Toma menos de 2 minutos y es la diferencia entre perder un mal día y perder un negocio entero.</div>
+
+  <h3>Si olvidas tu clave</h3>
+  <p>Toca <strong>«¿Olvidaste?»</strong> en la pantalla de entrada. Si alguien del equipo olvidó su PIN, el dueño o un admin puede cambiarlo desde la lista de equipo (Avanzado → Equipo y acceso).</p>
+</section>
+
+<section class="bloque revela" id="instancia-equipo">
+  <div class="eyebrow">Sección 16 — lo más nuevo</div>
+  <h2>Tu instancia, tu equipo y el control anti fraude</h2>
+  <p>Estas son las novedades que convierten friendly-123 de "una maqueta bonita" en <strong>tu</strong> negocio, con tu gente y tus reglas.</p>
+
+  <h3>Probar, activar y comprar</h3>
+  <p>Con el PIN <strong>456</strong> entras a la <strong>tienda de muestra</strong>: datos ficticios para practicar vender, ajustar stock y cerrar el día. La tienda de muestra nunca vence.</p>
+  <p>Con el PIN <strong>789</strong> activas <strong>tu instancia</strong>: registras tu correo y tu WhatsApp, y el dispositivo pasa a ser tuyo, con un identificador único para que tus datos nunca se mezclen con los de otro negocio. Desde ese día tienes <strong>30 días de uso completo</strong>, sin topes.</p>
+  <p>Al terminar la prueba sin licencia pagada, la app queda en <strong>solo lectura</strong>: puedes ver y exportar toda tu información, pero no registrar nada nuevo. <strong>Tus datos nunca se borran.</strong> Para seguir registrando, compra tu licencia por WhatsApp +593 99 990 5080 o en staff@jfcarpio.com. La licencia pagada vale para todos los dispositivos de tu negocio y se activa sola, sin volver a entrar.</p>
+  <div class="tip"><strong>Tus datos son tuyos.</strong> Se guardan en tu dispositivo. Si activas el cuaderno compartido, viajan cifrados entre tus dispositivos y nadie más puede leerlos.</div>
+
+  <h3>Tu nombre de negocio, arriba</h3>
+  <p>Como dueño verás un lápiz ✎ junto al título de arriba. Tócalo y escribe el nombre real de tu negocio: queda guardado en tu instancia y viaja en tus respaldos y sincronizaciones. Si por lo que sea fallara, el título por defecto se queda y nada más se rompe.</p>
+
+  <h3>Tu equipo: empleados con su propio PIN</h3>
+  <p>En <strong>Avanzado → Empleados</strong> das de alta hasta 49 empleados, cada uno con su nombre y su PIN de 3 dígitos. Cuando entran con su PIN, <strong>cada movimiento que hacen queda firmado con su nombre</strong> en el historial: quién vendió, quién ajustó stock, quién anuló. Usa PINs distintos al tuyo y al del contador.</p>
+
+  <h3>Control anti fraude</h3>
+  <p>En <strong>Avanzado → Control anti fraude</strong> tienes, de un vistazo, tres cosas:</p>
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Integridad del historial</h4>
+      <p style="font-size:16px;margin:0;">Cada movimiento va <strong>sellado</strong> y encadenado al anterior. Si alguien edita o borra el historial en el equipo para tapar un faltante, el sello no cuadra y aquí sale en rojo, señalando dónde se rompió y qué persona rodea la ruptura.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Anulaciones por persona</h4>
+      <p style="font-size:16px;margin:0;">Cuántas ventas anuló hoy cada empleado. El truco clásico —vender, cobrar en efectivo y luego anular la venta para quedarse la plata— deja rastro aquí.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Mermas por persona</h4>
+      <p style="font-size:16px;margin:0;">Cuántas unidades bajó a mano cada empleado (los ajustes negativos). Un robo disfrazado de "rotura" o "merma" se ve sumado, con nombre.</p>
+    </div>
+  </div>
+  <div class="tip"><strong>Honestidad técnica:</strong> como todo corre en tu equipo, el sello detecta la manipulación <em>común</em> y deja evidencia, pero no es a prueba de un experto con tiempo. Para el día a día de un quiosco, es justo la red que necesitas.</div>
+
+  <h3>Cuaderno compartido: todo tu equipo al día</h3>
+  <p>Si usas el negocio en más de un dispositivo (caja y bodega, por ejemplo), abre <strong>Avanzado → Sincronizar equipo</strong>, copia la licencia de tu negocio y entrala una vez en cada dispositivo. Misma licencia, mismo cuaderno: ventas, stock, clientes y PINs quedan sincronizados solos. Los datos viajan cifrados de extremo a extremo.</p>
+  <p>Una licencia corresponde a un solo negocio: no crees un negocio paralelo en otro aparato. Con ambos aparatos conectados y despiertos, el objetivo es que los cambios aparezcan en menos de 2 segundos; si uno está sin internet o Safari lo suspendió, conserva su copia y se pone al día al reconectar. El indicador junto a Ayuda muestra el estado: sincronizado, conectando o fuera de línea. Estar conectado no reemplaza el respaldo descargable.</p>
+
+  <h3>Instalar es opcional</h3>
+  <p>friendly-123 funciona entrando a tu URL, siempre. Si quieres, tu teléfono te ofrecerá "Agregar a pantalla de inicio" para tenerla como un ícono más, pero es un extra, no un requisito. La primera opción siempre es entrar.</p>
+</section>
+
+<section class="bloque revela" id="casos">
+  <div class="eyebrow">Sección 17 — de principio a fin</div>
+  <h2>Casos reales de aprovechamiento full</h2>
+  <p class="lead">Cinco negocios distintos, cinco formas distintas de exprimir friendly-123. Todas las cifras están en dólares, a escala real de pequeño negocio.</p>
+
+  <div class="tabs">
+    <div class="tab-botones" id="tabBotones">
+      <button class="activo" data-tab="0">Tienda de rock</button>
+      <button data-tab="1">Boutique andina</button>
+      <button data-tab="2">Librería boutique</button>
+      <button data-tab="3">Tienda de barrio</button>
+      <button data-tab="4">Feria de fin de semana</button>
+    </div>
+    <div class="tab-panel-wrap">
+      <div class="tab-panels" id="tabPanels">
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Tienda de rock — 3 perchas en Austin</h3>
+          <p>Local Downtown (propio), Stand Farmers Market (socio, comisión escalonada) y Makers Fair (consignación). Vende camisetas, vinilos, souvenirs y coleccionables.</p>
+          <ul class="lista">
+            <li><strong>Inventario:</strong> 61 SKU activos, valor de venta total ≈ $3,540, margen promedio 55%.</li>
+            <li><strong>Uso del semáforo:</strong> cada mañana el dueño filtra Inventario en rojo (3–5 productos típicamente) y repone antes de abrir; revisa negro una vez por semana para liquidar coleccionables sin movimiento en 45+ días (ej. el VHS "The Wall" dormido desde abril).</li>
+            <li><strong>Comisiones:</strong> la promotora del Mercado gana entre $20–41/mes según su escala; el dueño ve en un vistazo si alguna percha lleva 7+ días dormida.</li>
+            <li><strong>Transferencias:</strong> usa el aviso automático para mover camisetas estrella entre Downtown y el Farmers Market cuando una se queda corta.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Boutique de artesanía y ropa andina — Santa Fe</h3>
+          <p>Sombreros de paja toquilla, aretes de filigrana, bufandas y chales de alpaca, pulseras de mullos. Ticket promedio más alto que el resto de casos.</p>
+          <ul class="lista">
+            <li><strong>Precios reales:</strong> Sombrero de paja toquilla $30, Aretes de filigrana $22 (estrella <span class="ico-estrella" role="img" aria-label="estrella"></span>, margen 73% → amarillo), Bufanda de alpaca $25, Chal bordado $35.</li>
+            <li><strong>Uso del color amarillo:</strong> los aretes de filigrana tienen margen altísimo (costo $6 sobre precio $22) — la app los marca amarillo automáticamente. El dueño los usa como "producto de entrada" en redes sociales porque cada venta deja mucha plata.</li>
+            <li><strong>Matriz de clientes:</strong> turistas ocasionales caen naturalmente en primavera o invierno; clientas locales frecuentes (bodas, eventos) llegan a verano — la boutique les avisa primero de colecciones nuevas.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Librería boutique de narrativa latinoamericana</h3>
+          <p>Catálogo curado de 8 autoras y autores contemporáneos: Mariana Enríquez, Fernanda Melchor, Samanta Schweblin, Dolores Reyes, entre otras. Precios entre $17 y $22.</p>
+          <ul class="lista">
+            <li><strong>Umbrales bajos por naturaleza:</strong> son libros de tiraje limitado — umbral rojo típico de 3 unidades, amarillo de 6. Con solo 2 unidades en bodega, "Mugre rosa" ya se enciende rojo.</li>
+            <li><strong>Cierre del día:</strong> como las ventas son pocas pero de ticket alto, el dueño no registra en vivo — usa el cierre del día al cerrar la librería, apuntando cuántos ejemplares salieron de cada título.</li>
+            <li><strong>Etiquetas:</strong> imprime código de barras + QR con el código de cada libro para identificarlo con un lector compatible. El QR no abre la sinopsis en el celular.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Tienda de barrio / minimarket — productos básicos</h3>
+          <p>Agua, pilas, cinta adhesiva, fundas de regalo, chicles. Márgenes ajustados por naturaleza del rubro.</p>
+          <ul class="lista">
+            <li><strong>Margen bajo:</strong> Agua sin gas 600ml cuesta $0.70 y se vende a $0.80: margen de apenas 12.5%. En básicos de alta rotación es normal, pero vale la pena negociar con el distribuidor cada seis meses. Revisa estos márgenes en el reporte contable.</li>
+            <li><strong>Alta rotación, ticket bajo:</strong> ideal para el modo Vendido por cuadrícula táctil — decenas de toques rápidos al día sin escribir nada.</li>
+            <li><strong>Reporte contable:</strong> con márgenes tan ajustados, el dueño revisa el CSV contable cada semana (no solo mensual) para vigilar que el volumen sí compense el margen bajo.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Feria de fin de semana — evento de 2–3 días</h3>
+          <p>Una feria artesanal o bazar navideño usando la percha temporal "Feria de fin de semana" con comisión de consignación.</p>
+          <ul class="lista">
+            <li><strong>Antes del evento:</strong> el dueño abre la feria desde Inventario → Perchas, define el nombre del evento (ej. "Holiday Market") y su % de comisión (30% en el ejemplo por defecto).</li>
+            <li><strong>Durante el evento:</strong> se asignan productos a esa percha y se vende por cuadrícula táctil — rápido, sin fricción, ideal con mucha gente en fila.</li>
+            <li><strong>Al cerrar:</strong> un toque archiva la percha (conserva todo su historial) y salta directo a Comisiones, mostrando la liquidación lista para pagarle al consignatario esa misma noche — sin esperar al cierre de mes.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bloque revela" id="faq">
+  <div class="eyebrow">Sección 18</div>
+  <h2>Preguntas frecuentes</h2>
+  <div id="acordeon">
+
+    <div class="acordeon-item">
+      <button class="preg">¿Qué pasa si un producto tiene poco stock Y está por vencer al mismo tiempo?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">La app se queda siempre con la señal más grave entre las dos: si el vencimiento es más urgente que el nivel de stock, gana el vencimiento (y viceversa). Nunca se combinan colores ni se promedian — un producto muestra un solo color a la vez, el más urgente.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿El empleado puede ver cuánta plata gana el negocio?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. La Vista Hoy, los reportes de Avanzado y el detalle de comisiones están reservados al código de dueño (y al de contador para la capa contable). El empleado ve stock, ventas registradas y productos estrella, nunca montos de ganancia.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Qué diferencia hay entre "percha" y "sucursal"?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">La percha es donde realmente vendes (el mostrador, el stand, la mesa de feria) — es la unidad operativa. La sucursal es un agrupador que usa la app para reportes y para organizar varias perchas bajo un mismo nombre en el gestor de Inventario → Perchas.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Puedo cambiar los umbrales rojo/amarillo de un producto después de creado?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">Sí, en cualquier momento desde la ficha del producto. La app exige que el umbral rojo sea siempre menor que el amarillo — si los pones al revés, no deja guardar y explica por qué.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Qué pasa si pierdo el celular sin haber hecho respaldo?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">Se pierde todo lo que no esté respaldado: los puntos de restauración automáticos viven solo en ese navegador y se pierden con el dispositivo. Por eso el respaldo manual cifrado (Avanzado → Exportar respaldo), guardado fuera del celular, es indispensable — no opcional.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿El reporte CSV sirve para declarar impuestos directamente?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. Es un insumo ordenado para que tu contador trabaje más rápido — el propio archivo lo advierte en su primera línea. La declaración formal ante la autoridad tributaria siempre debe hacerla un profesional acreditado.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Cómo decide la app si un producto está "dormido" (negro)?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">Cuando el stock está sano (por encima del umbral amarillo) pero no ha tenido ninguna venta en 45 días o más.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Necesito internet para usar la app todos los días?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. Es local-first: funciona completamente offline en el día a día. El internet solo se necesita para sincronizar entre varios dispositivos o hacer respaldos en la nube — y hasta eso tiene un método alterno por WhatsApp sin conexión directa.</p></div></div>
+    </div>
+
+  </div>
+</section>
+
+<section class="bloque revela" id="glosario">
+  <div class="eyebrow">Sección 19</div>
+  <h2>Glosario rápido</h2>
+  <dl class="glosario">
+    <dt>Percha</dt><dd>Unidad operativa real de venta: mostrador, stand, mesa de feria.</dd>
+    <dt>Sucursal</dt><dd>Agrupador de perchas para reportes y organización.</dd>
+    <dt>Sistema Simon</dt><dd>Los cinco colores de estado (verde, amarillo, naranja, rojo, negro) que clasifican cada producto.</dd>
+    <dt>Semáforo de colores</dt><dd>Los cinco estados del inventario: verde, amarillo, naranja, rojo y negro. Un color plano por estado, sin niveles ni matices.</dd>
+    <dt>Umbral rojo / amarillo</dt><dd>Cantidades de stock que activan cada alerta de reposición.</dd>
+    <dt>Producto estrella <span class="ico-estrella" role="img" aria-label="estrella"></span></dt><dd>Producto marcado por el dueño para impulsar activamente hoy.</dd>
+    <dt>Matriz de estaciones (RFM)</dt><dd>Clasificación de clientes en primavera, verano, otoño e invierno según frecuencia y monto de compra.</dd>
+    <dt>Matriz BCG</dt><dd>Clasificación de productos en estrellas, vacas lecheras, promesas y pesos muertos según ventas de 60 días.</dd>
+    <dt>Cierre del día</dt><dd>Registro por lote de todas las ventas del día cuando no se registraron en vivo.</dd>
+    <dt>Feria de fin de semana</dt><dd>Percha temporal de consignación para eventos de 2–3 días, archivable con su historial.</dd>
+    <dt>Respaldo cifrado</dt><dd>Archivo .json con todo el negocio, protegido por una clave elegida por el dueño.</dd>
+  </dl>
+</section>
+
+</main>
+
+<footer class="pie">
+  <p><strong>friendly-123</strong> — control de inventario, clientes y perchas para pequeños negocios</p>
+  <p><a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> · septiembre 2026 · v1.0 · shell 351</p>
+</footer>
+</div>
+<div class="idioma" data-lang="en" lang="en">
+<nav class="toc" id="tocDesktop">
+  <div class="grupo-titulo">Get started</div>
+  <a href="#mision-en">Mission and vision</a>   <a href="#que-es-en">1. What friendly-123 is</a>   <a href="#primeros-pasos-en">2. First steps</a>   <a href="#colores-en">3. The color language</a>
+  <div class="grupo-titulo">The views</div>
+  <a href="#vista-hoy-en">4. Today view</a>   <a href="#inventario-en">5. Inventory</a>   <a href="#perchas-en">6. Shelves and branches</a>   <a href="#vender-en">7. Sold</a>   <a href="#etiquetas-en">8. Labels</a>   <a href="#clientes-en">9. Customers and seasons</a>   <a href="#comisiones-en">10. Commissions</a>   <a href="#bcg-en">11. BCG matrix</a>   <a href="#avanzado-en">12. Advanced mode</a>
+  <div class="grupo-titulo">Data and backup</div>
+  <a href="#csv-respaldo-en">13. CSV and backup</a>   <a href="#transferencias-en">14. Transfers</a>   <a href="#seguridad-en">15. Security</a>   <a href="#instancia-equipo-en">16. Your team and anti-fraud</a>
+  <div class="grupo-titulo">Practice</div>
+  <a href="#casos-en">17. Real cases</a>   <a href="#faq-en">18. FAQ</a>   <a href="#glosario-en">19. Glossary</a>
+</nav>
+
+<nav class="tocMovil" id="tocMovil">
+  <a href="#mision-en">Mission</a>   <a href="#que-es-en">What it is</a>   <a href="#primeros-pasos-en">Start</a>   <a href="#colores-en">Colors</a>   <a href="#vista-hoy-en">Today</a>   <a href="#inventario-en">Inventory</a>   <a href="#perchas-en">Shelves</a>   <a href="#vender-en">Sold</a>   <a href="#etiquetas-en">Labels</a>   <a href="#clientes-en">Customers</a>   <a href="#comisiones-en">Commissions</a>   <a href="#bcg-en">BCG matrix</a>   <a href="#avanzado-en">Advanced</a>   <a href="#csv-respaldo-en">CSV/Backup</a>   <a href="#transferencias-en">Transfers</a>   <a href="#seguridad-en">Security</a>   <a href="#instancia-equipo-en">Team/Anti-fraud</a>   <a href="#casos-en">Real cases</a>   <a href="#faq-en">FAQ</a>   <a href="#glosario-en">Glossary</a>
+</nav>
+
+<div class="hero" id="inicio-en">
+  <div class="contenido">
+    <img class="hero-logo" src="manual-logo.png" alt="friendly-123">
+    <div class="hero-tagline">Stop guessing. Start seeing.</div>
+    <div class="kicker">User manual · v1.0 · September 2026</div>
+    <h2>friendly-123</h2>
+    <p class="sub">The inventory, sales, customers and light accounting app for small businesses in the US and around the world, explained from start to finish, with real cases in dollars and the complete guide to its color language.</p>
+    <div class="cta">
+      <a href="#que-es-en" class="principal">Start reading</a>       <a href="#colores-en">Go straight to the colors</a>       <a href="#casos-en">See real cases</a>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<!-- MISION Y VISION
+     Fuente unica: MISION-VISION.md en la raiz del repo. Si cambia alli, cambia aqui
+     y en manifiesto.html y checklist.html. Va SIN numero de seccion a proposito: la
+     numeracion del manual arranca en "1. Que es friendly-123" y no se debe correr. -->
+<section class="bloque revela" id="mision-en">
+  <div class="eyebrow">Why it exists</div>
+  <h2>Mission and vision</h2>
+
+  <div style="border-left:5px solid var(--rust);padding:6px 0 6px 24px;margin:26px 0 30px;max-width:780px;">
+    <p style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--rust-deep);margin:0 0 10px;">Mission</p>
+    <p style="font-family:var(--font-display);font-size:26px;line-height:1.35;font-weight:700;color:var(--ink);margin:0 0 14px;">That no small business depends on a single person remembering everything.</p>
+    <p style="font-size:17px;line-height:1.65;color:var(--ink-soft);margin:0;">We take what a business knows out of its owner's head and put it where their people can see it, every day, without asking permission.</p>
+  </div>
+
+  <div style="border-left:5px solid var(--sim-verde);padding:6px 0 6px 24px;max-width:780px;">
+    <p style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sim-verde-dk);margin:0 0 10px;">Vision</p>
+    <p style="font-family:var(--font-display);font-size:26px;line-height:1.35;font-weight:700;color:var(--ink);margin:0 0 14px;">A business of your own that doesn't cost you your own life.</p>
+    <p style="font-size:17px;line-height:1.65;color:var(--ink-soft);margin:0;">Small shops where the owner closes the door at six, leaves, and the business still knows what it knows. Where the team doesn't wait for instructions because they are already looking at the same thing. Where whoever starts a business has the time and the headspace to grow in something beyond their own inventory.</p>
+  </div>
+</section>
+
+<section class="bloque revela" id="que-es-en">
+  <div class="eyebrow">Section 1</div>
+  <h2>What friendly-123 is</h2>
+  <p class="lead">friendly-123 is an inventory, sales and customer control app designed for the small business: the corner store, the clothing shop, the boutique bookstore, the market stall, the weekend fair stand. A single file, it works without internet, and tells you at a glance what your business needs today, with no accounting manuals, no Excel, and no need for the owner to always be there.</p>
+
+  <div class="grid3">
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-verde-dk);">Who it is for</h4>
+      <p style="margin:0;font-size:16px;">Owners of 1 to 6 points of sale (shops, stands, consignment shelves) who need real control of inventory and money without hiring a corporate system.</p>
+    </div>
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-amarillo-dk);">Its philosophy</h4>
+      <p style="margin:0;font-size:16px;">Every product has a color. You don't memorize reports: the color already tells you whether to sell, restock, promote or let it rest.</p>
+    </div>
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-azul-dk);">Works without internet</h4>
+      <p style="margin:0;font-size:16px;">It is a local-first PWA: it installs on the phone or tablet, saves everything on the device and syncs when there is signal.</p>
+    </div>
+  </div>
+
+  <h3>The app's eight subsystems</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>View</th><th>What it solves</th><th>Who sees it</th></tr>
+      <tr><td><strong>Today</strong></td><td>Overall business traffic light, alerts, today's profit, star product</td><td>Owner (money) / Employee (counts)</td></tr>
+      <tr><td><strong>Inventory</strong></td><td>All product cards, color filters, quick adjustments, adding products</td><td>Both (adding and shelves owner only)</td></tr>
+      <tr><td><strong>Sold</strong></td><td>Touch sales grid, barcode scanner, end of day</td><td>Both</td></tr>
+      <tr><td><strong>Labels</strong></td><td>Code128 barcode and QR ready to print</td><td>Both</td></tr>
+      <tr><td><strong>Shelves</strong></td><td>Photos of each shelf with a goal traffic light</td><td>Both (photos) / Owner (management)</td></tr>
+      <tr><td><strong>Customers</strong></td><td>Cards with a unique code and a seasons matrix (RFM)</td><td>Both</td></tr>
+      <tr><td><strong>Commissions</strong></td><td>Settlement of partner, franchise and consignment shelves</td><td>Owner</td></tr>
+      <tr><td><strong>Advanced</strong></td><td>Activity, expenses, P&amp;L, balance sheet, valued inventory, backup</td><td>Owner (accountant with a sub-key)</td></tr>
+    </table>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Status colors</div></div>
+    <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Traffic light colors</div></div>
+    <div class="stat"><div class="n" data-contar="8">0</div><div class="l">Main views</div></div>
+    <div class="stat"><div class="n" data-contar="0">0</div><div class="l">fixed tax: you set it</div></div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);">The counters start when you reach this section: one of the manual's dynamic effects in action.</p>
+</section>
+
+<section class="bloque revela" id="primeros-pasos-en">
+  <div class="eyebrow">Section 2</div>
+  <h2>First steps</h2>
+  <p class="lead">Setting up friendly-123 takes less than two minutes. These are the steps, in order, to have your shop running today.</p>
+
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Open your business link in Chrome or Safari</h4><p>Never in the in-app browser of WhatsApp or Instagram: confirmation dialogs can be blocked there. If it reaches you through WhatsApp, tap "Open in browser".</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Install it as an app (optional but recommended)</h4><p>On Android: menu ⋮ → "Install app" or "Add to home screen". On iPhone: share button → "Add to Home Screen". It gets its own "123" icon and opens without a browser bar.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Set your three access codes</h4><p>Each role has a 3-digit code (000–999) stored encrypted on the device: the <strong>owner code</strong> (sees money and settings), the <strong>employee code</strong> (sells and counts stock, does not see profits) and the <strong>accountant code</strong> (a separate sub-key that protects the accounting layer inside Advanced). Register them in Advanced → Access, together with a recovery email.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">4</div>
+    <div class="txt"><h4>Create your branches and shelves</h4><p>A <strong>branch</strong> groups shelves for reports (e.g. "Downtown"). A <strong>shelf</strong> is the real operating unit where you sell (the counter, the stand, the fair table). You can have several shelves per branch.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">5</div>
+    <div class="txt"><h4>Add your first products</h4><p>By hand from Inventory → "+ Add", or by scanning the barcode in Sold and filling in the new card. Set the name, category, price, cost, supplier, starting stock and the red/yellow thresholds (below how many units each alert turns on).</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">6</div>
+    <div class="txt"><h4>Make your first backup</h4><p>Advanced → Export backup, protected with a key. Save it in your WhatsApp or Drive. Repeat this at least every week; the app reminds you if too much time goes by.</p></div>
+  </div>
+
+  <div class="tip"><strong>JFC's recommendation:</strong> on day one, open the sample store (PIN 456) and practice selling, adjusting stock and closing the day before loading your real inventory. That way you learn without fear of "breaking" anything.</div>
+
+  <h3>Startup checklist</h3>
+  <ul class="checklist">
+    <li>App installed on the shop's phone or tablet</li>
+    <li>3 access codes set (owner, employee, accountant) + recovery email registered in Advanced → Access (if EmailJS is set up it arrives by email; if not, the code appears on screen)</li>
+    <li>Branches and shelves created with their type (own, partner, franchise, consignment)</li>
+    <li>At least 10 real products loaded with price, cost and thresholds</li>
+    <li>Monthly expenses of each location registered in Advanced</li>
+    <li>First encrypted backup downloaded and stored off the phone</li>
+    <li>Employee trained in Sold + quick stock adjustment</li>
+  </ul>
+
+  <div class="tip"><strong>Language:</strong> the app is in English and you can switch it to Spanish with the language selector at the top. This manual too: use the EN / ES button.</div>
+</section>
+
+<section class="bloque revela" id="colores-en">
+  <div class="eyebrow">Section 3: the heart of the app</div>
+  <h2>The color language: the Simon System</h2>
+  <p class="lead">Every product in friendly-123 is in one of five colors. The color is never decorative: it is an automatic diagnosis that combines your stock, your thresholds, your margin and your days without a sale. Learn this table once and you will read any shelf at a glance, forever.</p>
+
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Color</th><th>Means</th><th>Turns on when…</th><th>Owner's action</th></tr>
+      <tr><td class="estado"><span class="punto p-verde" aria-hidden="true"></span>Green</td><td>Healthy</td><td>Stock above the yellow threshold, normal margin, sold recently</td><td>Keep going, no attention needed</td></tr>
+      <tr><td class="estado"><span class="punto p-amarillo" aria-hidden="true"></span>Yellow</td><td>Opportunity</td><td>Healthy stock and not dormant (less than 45 days without sales), and margin ≥ 50%</td><td>Push it: it is leaving money on the table</td></tr>
+      <tr><td class="estado"><span class="punto p-naranja" aria-hidden="true"></span>Orange</td><td>Urgent-soon</td><td>Stock between the red and yellow thresholds, or expires in 4–7 days</td><td>Sell it first / schedule it for restocking this week</td></tr>
+      <tr><td class="estado"><span class="punto p-rojo" aria-hidden="true"></span>Red</td><td>Emergency</td><td>Stock at zero or below the red threshold, expired or expiring in ≤3 days</td><td>Act today: restock, transfer or withdraw</td></tr>
+      <tr><td class="estado"><span class="punto p-negro" aria-hidden="true"></span>Black</td><td>Dormant capital</td><td>45 days or more without a single sale, with healthy stock</td><td>Free that money: discount, bundle or remove it from the catalog</td></tr>
+    </table>
+  </div>
+
+  <div class="tip"><strong>Important note:</strong> when a perishable product is about to expire and also has low stock, the app always keeps the <em>more serious</em> of the two signals. A product with healthy stock that expires tomorrow is painted red just like one with no stock.</div>
+
+  <h3>Try it yourself: status simulator</h3>
+  <p>Pick a color: this is how a real Inventory card looks.</p>
+  <div class="simulador">
+    <div class="botones" id="simBotones">
+      <button class="estado-btn activo" data-estado="verde" style="background:var(--sim-verde);border-color:var(--sim-verde-dk);color:#fff;">Green</button>
+      <button class="estado-btn" data-estado="amarillo" style="background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);">Yellow</button>
+      <button class="estado-btn" data-estado="naranja" style="background:var(--sim-naranja);border-color:var(--sim-naranja-dk);color:#fff;">Orange</button>
+      <button class="estado-btn" data-estado="rojo" style="background:var(--sim-rojo);border-color:var(--sim-rojo-dk);color:#fff;">Red</button>
+      <button class="estado-btn" data-estado="negro" style="background:var(--sim-negro);border-color:#000;color:#fff;">Black</button>
+    </div>
+    <div class="demo-caja" id="demoCaja">
+      <div class="dnombre" id="demoNombre">Metallica T-shirt — Master of Puppets</div>
+      <div class="dstock" id="demoStock">8</div>
+      <div class="dmsg" id="demoMsg">Healthy stock</div>
+    </div>
+  </div>
+
+  <h3>One color, one meaning</h3>
+  <p>Each state has <strong>a single flat color</strong>. There are no grades or intensities: a card is green, yellow, orange, red or black, and that is all there is to read. There used to be a three-level scale inside each color; it was removed because it forced you to interpret shades instead of recognizing a state at a glance, which is exactly what this system is meant to avoid.</p>
+  <p>Blue was left out of the traffic light on purpose: it is <strong>never</strong> an inventory signal. If it appears, it is part of the interface, not a state of your products.</p>
+
+  <div class="alerta"><strong>Red is different:</strong> besides the gradient, red pulses gently (an urgency animation) so that no product in an emergency goes unnoticed, even if the owner only glances at the screen.</div>
+
+  <h3>The golden rule: never memorize, just look at the color</h3>
+  <p>The whole design of friendly-123 starts from a conviction of Juan Fernando Carpio: a small-business owner has no time to read 12-column reports every morning. They do have time to look at a screen for 8 seconds and know, without thinking, what to do first. That is why each color always carries the same implicit question:</p>
+  <ul class="lista">
+    <li><strong><span class="punto p-rojo" aria-hidden="true"></span>Red</strong> asks: "what is running out or expiring TODAY?"</li>
+    <li><strong><span class="punto p-naranja" aria-hidden="true"></span>Orange</strong> asks: "what should I sell first this week?"</li>
+    <li><strong><span class="punto p-amarillo" aria-hidden="true"></span>Yellow</strong> asks: "which product is making me the most money and should be pushed?"</li>
+    <li><strong><span class="punto p-negro" aria-hidden="true"></span>Black</strong> asks: "what money do I have buried on a shelf, not moving?"</li>
+    <li><strong><span class="punto p-verde" aria-hidden="true"></span>Green</strong> asks nothing: it is the absence of a problem, and that is information too.</li>
+  </ul>
+</section>
+
+<section class="bloque revela" id="vista-hoy-en">
+  <div class="eyebrow">Section 4</div>
+  <h2>Today view: the business's overall traffic light</h2>
+  <p class="lead">It is the first screen anyone sees when opening the app. It sums up, in 3 seconds, whether the business needs attention today.</p>
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">What the owner sees</h4>
+      <ul class="lista" style="margin:0;">
+        <li>Three-state business hero: <strong>Green</strong> = no emergencies. <strong>Yellow</strong> = there are orange products (review this week). <strong>Red</strong> = there are products in an emergency. Black and yellow-opportunity products do not affect the hero</li>
+        <li>In today / Out today / Today's profit / Value of your inventory</li>
+        <li>Sales of the day and average sale (average ticket)</li>
+        <li>List of red and orange alerts sorted by urgency</li>
+        <li>The "note of the day": a different management tip for every day of the year</li>
+      </ul>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">What the employee sees</h4>
+      <ul class="lista" style="margin:0;">
+        <li>The same traffic light and the same stock alerts</li>
+        <li>Number of sales of the day (no money amounts or profit)</li>
+        <li>The <strong>star <span class="ico-estrella" role="img" aria-label="star"></span></strong> products the owner marked to push today</li>
+      </ul>
+      <p style="font-size:14px;margin:10px 0 0;color:var(--ink-soft);">This split is intentional: the employee knows what to sell and how much has been sold, but profitability stays with the owner only.</p>
+    </div>
+  </div>
+  <div class="tip"><strong>Case:</strong> a rock T-shirt shop in downtown Austin sold $312 today in 14 tickets (average $22.30). The hero is yellow because there are 3 orange products (few units left) but none in red: "manageable, not urgent".</div>
+</section>
+
+<section class="bloque revela" id="inventario-en">
+  <div class="eyebrow">Section 5</div>
+  <h2>Inventory: the card grid</h2>
+  <p class="lead">Each product is a card with its color. You can filter by status, adjust stock without scanning, mark stars and add new products.</p>
+
+  <h3>The fields of a product</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Field</th><th>Real example (USD)</th><th>What it is for</th></tr>
+      <tr><td>Name</td><td>AC/DC T-shirt — Back in Black</td><td>Shown on cards, labels and reports</td></tr>
+      <tr><td>Category</td><td>T-shirts</td><td>Groups items in Labels and in reports</td></tr>
+      <tr><td>SKU</td><td>CAM-ACDC-BIB</td><td>Readable internal code, does not change when the product is renamed</td></tr>
+      <tr><td>Barcode</td><td>7861000030033</td><td>What the scanner reads in Sold</td></tr>
+      <tr><td>Sale price</td><td>$20.00</td><td>What the customer pays</td></tr>
+      <tr><td>Cost</td><td>$8.50</td><td>Sets the margin and therefore whether the product can be yellow (opportunity)</td></tr>
+      <tr><td>Red / yellow threshold</td><td>8 / 16 units</td><td>Below 8 it turns red; between 8 and 16, orange</td></tr>
+      <tr><td>Supplier</td><td>Rock Import EC</td><td>Reference for restocking</td></tr>
+      <tr><td>Perishable + expiry date</td><td>Yes — expires 2026-07-08</td><td>Turns on expiry alerts (red/orange) above the stock ones</td></tr>
+      <tr><td>Costing method</td><td>FIFO (recommended)</td><td>Suggested selling order for perishables: what expires first goes first</td></tr>
+      <tr><td>Sales associate</td><td>María Auquilla</td><td>Links the product to a sales associate or promoter (optional). Chosen from a dropdown when adding or editing the product</td></tr>
+    </table>
+  </div>
+
+  <div class="oportunidad"><strong>Threshold recommendation:</strong> as a practical rule for small businesses, set the red threshold at 3–5 days of normal sales, and the yellow one at twice that number. A fast-moving product (a star T-shirt) needs higher thresholds than a slow one (a collector's vinyl).</div>
+
+  <h3>Quick stock adjustment (no scanning)</h3>
+  <p>Each card has <strong>−</strong> and <strong>+</strong> buttons to move 1 unit without going through the scanner: perfect for physical counts, shrinkage or incoming goods. The app always asks for a short reason ("Shrinkage", "Physical count", "Gift to customer") and saves it in the movement log, visible only to the owner: the natural lock against mismatches.</p>
+
+  <h3>The star <span class="ico-estrella" role="img" aria-label="star"></span>: the product you want to push today</h3>
+  <p>The owner can mark any product with a star. That product automatically appears in the "Push today" section of the Today view and at the very top of the Sold grid, so the employee knows exactly what to recommend without the owner having to be there.</p>
+
+  <div class="tip"><strong>Inventory filters:</strong> All · Urgent (red) · Review (orange) · Opportunity (yellow) · Healthy (green) · Dormant (black). Use them every morning in this order: first Urgent, then Review, and once a week check Dormant to free up capital.</div>
+
+  <h3>Create variants without repeating work</h3>
+  <p>Open a product's card and tap <strong>Create variant</strong>. Choose what changes (color, size, material, style, flavor or other) and type the value. The app preloads prices and settings, requires its own code and starts the new stock at zero. Check the information before saving and add a photo that matches that variant.</p>
+</section>
+
+<section class="bloque revela" id="perchas-en">
+  <div class="eyebrow">Section 6</div>
+  <h2>Shelves and branches</h2>
+  <p class="lead">A <strong>shelf</strong> is your operating unit: the counter, a stand, a fair table. A <strong>branch</strong> groups shelves for reports and settlement. Each shelf has a business type that decides how the money is split.</p>
+
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Shelf type</th><th>How the sale is split</th><th>Example</th></tr>
+      <tr><td><strong>Own</strong></td><td>100% for the owner, no commission</td><td>The shop's main counter</td></tr>
+      <tr><td><strong>Partner</strong></td><td>Fixed commission % or tiers based on reaching the goal</td><td>Stand at the Farmers Market: 25% base, rises to 40% above $120/month</td></tr>
+      <tr><td><strong>Franchise</strong></td><td>Agreed commission %, reports to its own branch</td><td>Point of sale run by a third party under your brand</td></tr>
+      <tr><td><strong>Consignment</strong></td><td>Commission % for the consignee, the rest is net for the owner</td><td>Makers Fair: 30% for the promoter</td></tr>
+    </table>
+  </div>
+
+  <h3>Commission tiers: reward the effort</h3>
+  <p>Instead of a fixed percentage, you can define <strong>tiers</strong> that raise the commission the more the shelf sells. A real example of a promoter at the market, with a monthly goal of $300:</p>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Month's sales up to…</th><th>Commission</th></tr>
+      <tr><td>$80</td><td>25%</td></tr>
+      <tr><td>$100</td><td>30%</td></tr>
+      <tr><td>$120</td><td>35%</td></tr>
+      <tr><td>$999+</td><td>40%</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;color:var(--ink-soft);">That way the promoter has a direct incentive: the more she sells, the higher the percentage she takes on the total, not only on the excess.</p>
+
+  <p>On every partner, franchise or consignment shelf there is a <strong>Commission</strong> button that opens the deal editor: associate %, monthly goal, tiers, fixed contribution, guaranteed minimum, preferred reading (associate/house) and the switch <strong>"use this shelf's own commission"</strong> (to ignore the sales associate's deal when you want the shelf's to rule).</p>
+
+  <h3>Weekend fair: temporary shelf</h3>
+  <p>For 2–3 day events (a craft fair, a Christmas bazaar) create a shelf marked as <strong>Fair</strong> with its own commission. When you close it, it is archived with its whole history and you jump straight to Commissions to see its settlement, without mixing its numbers with the rest of the year.</p>
+
+  <h3>Shelf photos with a goal traffic light</h3>
+  <p>The Shelves view shows a real photo of each point of sale (taken with the phone camera) next to a traffic light of how much of its monthly goal it has reached. It is the fastest way to know, without opening numbers, whether a shelf is doing well.</p>
+</section>
+
+<section class="bloque revela" id="vender-en">
+  <div class="eyebrow">Section 7</div>
+  <h2>Sold: touch grid + scanner + end of day</h2>
+  <p class="lead">Sold is not a shopping cart: it is real-time inventory control. Each tap is one unit less in stock, with 5 seconds to undo.</p>
+
+  <h3>Three ways to record a sale</h3>
+  <div class="grid3">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">1. Direct tap</h4>
+      <p style="font-size:15px;margin:0;">A grid with every product on the active shelf, stars first. One tap = one unit sold. The customer chosen in the selector applies to every tap.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">2. Scan or search</h4>
+      <p style="font-size:15px;margin:0;">Type or scan the barcode / SKU. The app plays a confirmation beep and shows the full card with price, stock and status.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">3. End of day</h4>
+      <p style="font-size:15px;margin:0;">For those who don't record live: note how many units of each product went out and apply it all together at the end of the day. It deducts stock and calculates commissions just like a normal sale.</p>
+    </div>
+  </div>
+
+  <div class="exito"><strong>Undo a sale:</strong> after each tap a 5-second notice appears: "Sale recorded, tap here to cancel". Perfect for when the customer changes their mind or there was an accidental tap.</div>
+
+  <div class="tip"><strong>Customer at the top or below:</strong> you can choose the customer in the selector at the top of Sold, or inside the sale panel ("Sell with info" button). The panel also has a <strong>+ New</strong> button to register a new customer on the fly: it is created and stays selected in the sale and in your customer list. You can also add <strong>notes</strong> to the sale (for example, "customer asked for an invoice" or "took the last one in size M"), which are saved with the sale.</div>
+
+  <h3>End-of-day example: a Latin American bookstore</h3>
+  <p>The bookstore downtown does not record sale by sale during the day. At closing time, the owner counts what is missing from the table and notes:</p>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Product</th><th>Units sold today</th><th>Price</th><th>Subtotal</th></tr>
+      <tr><td>Kentukis — Samanta Schweblin</td><td>2</td><td>$19.00</td><td>$38.00</td></tr>
+      <tr><td>Pelea de gallos — M. F. Ampuero <span class="ico-estrella" role="img" aria-label="star"></span></td><td>1</td><td>$18.00</td><td>$18.00</td></tr>
+      <tr><td>Cometierra — Dolores Reyes</td><td>1</td><td>$21.00</td><td>$21.00</td></tr>
+      <tr><td colspan="3" style="text-align:right;font-weight:700;">End-of-day total</td><td style="font-weight:700;">$77.00</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;">When applied, the app deducts the stock of the 3 books and adds those sales to the day's summary, as if they had been recorded live.</p>
+
+  <h3>House sale, courtesy and on account</h3>
+  <p><strong><em>House sale</em></strong> is a pure house sale: no commission is assigned to anyone and the shelf's sales associate does not change. It is chosen sale by sale; picking a sales associate is never required.</p>
+  <p><strong>Courtesy</strong>: the customer does not pay (revenue $0), but the cost still counts. <strong>On account (fiado)</strong>: the sale is added to the customer's debt in Customers; it needs a chosen customer.</p>
+</section>
+
+<section class="bloque revela" id="etiquetas-en">
+  <div class="eyebrow">Section 8</div>
+  <h2>Labels: barcode and QR ready to print</h2>
+  <p class="lead">Each product generates its own label with a real (scannable) Code128 barcode and an optional QR containing the product code. It does not open a web page or publish business data. Everything is drawn locally, without depending on any outside service.</p>
+
+  <div class="barcode-demo" id="barcodeDemo" aria-hidden="true"></div>
+  <p style="text-align:center;font-family:var(--font-mono);font-size:13px;color:var(--ink-soft);">7861000030033 — this is how the barcode is "drawn" when a label opens (animated stroke effect)</p>
+
+  <h3>What the printable label includes</h3>
+  <ul class="lista">
+    <li>Product name and large price (easy to read from a distance on a counter)</li>
+    <li>Expiry date if the product is perishable</li>
+    <li>Code128 barcode scannable by any reader</li>
+    <li>QR code with the product's code, for compatible readers. It does not open another app or publish a page about your business.</li>
+    <li>You can tap the barcode to print <em>only</em> the code, or save it as a PNG image — ideal for stickers made outside</li>
+  </ul>
+  <div class="tip"><strong>Recommendation:</strong> print labels in batches once a week for everything that arrived new. A sheet of 20 self-adhesive labels costs between $0.50 and $1.20 at an office-supply store — make it worthwhile by labeling only what actually turns over.</div>
+
+  <p><strong>On iPhone:</strong> tapping Print opens Safari's print sheet. From there you choose an AirPrint printer or save/share the result.</p>
+</section>
+
+<section class="bloque revela" id="clientes-en">
+  <div class="eyebrow">Section 9</div>
+  <h2>Customers and the seasons matrix (RFM)</h2>
+  <p class="lead">Each customer receives a unique code when they register. The app automatically classifies each one into a "season" based on how often they buy and how much they spend — the same logic big chains use (RFM: Recency, Frequency, Monetary) but told through planting metaphors, easy to remember without marketing courses.</p>
+
+  <div class="matriz2x2">
+    <div class="celda-matriz" style="background:var(--sim-naranja-bg);border-color:var(--sim-naranja);">
+      <h4 style="color:var(--sim-naranja-dk);">Autumn — cooling off</h4>
+      <p>They used to be among your best customers and haven't come by in a while. Reach out today: this is where lost money gets recovered.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
+      <h4 style="color:var(--sim-amarillo-dk);">Summer — in full harvest</h4>
+      <p>They buy often and buy big. Take care of them like gold: they're your most stable income.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
+      <h4 style="color:var(--sim-azul-dk);">Winter — asleep</h4>
+      <p>No signs of life. A personalized message can wake them up.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
+      <h4 style="color:var(--sim-verde-dk);">Spring — growing</h4>
+      <p>Just sprouting. Water them: a little attention and they come back.</p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);text-align:center;margin-top:-6px;">Right: bought recently. Up: spend more money. (Hover over each quadrant.)</p>
+
+  <h3>How it's used in practice</h3>
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Register the customer at the counter</h4><p>Name and phone (optional). The app generates a unique code instantly — you can show it to them or write it on their receipt.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Select them when selling</h4><p>In Sold, the "Customer" selector applies that code to the sale. This way the app builds their history with no extra work.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Check the matrix once a week</h4><p>The Autumn quadrant is your priority reactivation list: these are customers who already proved they buy big, they just need a nudge.</p></div>
+  </div>
+
+  <div class="oportunidad"><strong>Real case:</strong> at the Andean clothing boutique, "Doña Carmen" bought 4 times in 60 days for a total of $145 (summer), but "Sr. Andrade" bought 3 times for $210 more than 70 days ago — he fell into autumn. A WhatsApp message with the new alpaca scarf collection ($25–35) can win him back before he reaches winter.</div>
+
+  <h3>Import your whole customer list at once (CSV)</h3>
+  <p>If you already have a customer list, the owner can upload it all at once from the <strong>"Import your customer list from a file"</strong> block, at the bottom of this same section. It needs a CSV with two columns — name and phone — and each customer automatically gets their unique code. The exact format, with an example and rules, is in <a href="#csv-respaldo-en">Section 13</a>. <strong>The employee doesn't see this button:</strong> for them, only the manual registration above exists.</p>
+
+  <div class="tip"><strong>Editing and deleting customers:</strong> the owner and admin can edit any customer's contact info and notes (✎ button) and also <strong>delete them completely</strong> (<strong>Delete</strong> button). Deletion is permanent — the customer disappears from the list and the sales selector — but <strong>it's always recorded in the activity log</strong>: who deleted them, whom, and when. The employee doesn't see the delete button.</div>
+
+  <h3>On account (fiado), store credit (abono) and pending payment</h3>
+  <p><strong>On account (fiado)</strong> is what the customer owes you. <strong>Store credit (abono)</strong> is credit in their favor: it can be for a specific product or "undetermined". Each customer's balance is always calculated from their history, never typed in by hand.</p>
+  <p>The <strong>Pending payment</strong> button shows, with one tap, only the customers who owe you money. If the app couldn't verify someone's balance, it tells you instead of hiding it.</p>
+</section>
+
+<section class="bloque revela" id="comisiones-en">
+  <div class="eyebrow">Section 10</div>
+  <h2>Commissions: what you owe each promoter</h2>
+  <p class="lead">Calculated sale by sale, no Excel and no surprises. Every partner, franchise, or consignment shelf shows up here with its settlement for the month.</p>
+
+  <h3>What each settlement card shows</h3>
+  <ul class="lista">
+    <li>Gross sales for the month for that shelf</li>
+    <li>The promoter's commission (based on their fixed % or their tier scale)</li>
+    <li>Net amount left for the owner</li>
+    <li>Monthly goal achievement, if the shelf has one defined</li>
+    <li>Alert if the shelf has gone 7+ days without a single sale ("sleeping shelf")</li>
+    <li>"Mark as paid" button once you transfer or hand over their commission</li>
+    <li>Where the % comes from: if the sales associate has their own deal, the card says so ("using the sales associate's own deal"); if not, it uses the shelf's standard rate</li>
+    <li>Fixed contribution and deal notices (for example, if the fixed contribution is ignored because the shelf uses goal-based tiers)</li>
+  </ul>
+
+  <h3>Telling the sales associate: sale notice, payment method and statement</h3>
+  <p><strong>After a sale.</strong> When a sale carries a commission, a card appears for 20 seconds: <strong>"Tell Ana their piece sold?"</strong>. Tapping it opens WhatsApp with the message ready (what sold, where, for how much, and their commission). Nothing is sent until you tap send. It does not appear for a house sale or if the person has no phone saved.</p>
+  <p><strong>When you pay.</strong> <strong>Mark as paid</strong> asks how you paid (cash, transfer, store credit or other). The paid month then shows it, for example "paid · cash", and the WhatsApp receipt says "Pagado con".</p>
+  <p><strong>Their statement.</strong> <strong>Send statement</strong> on the shelf card sends the person a link with their month: what sold, their commission, what is paid and what is still owed, plus any returns. You choose whether the link works for <strong>7 or 30 days</strong>. The link carries the data encrypted inside itself: it is not stored on any server, it shows only that person's sales (never your customers or your costs), and it stops opening when it expires. Because nothing is stored on a server, a link already sent cannot be cancelled; that is why it expires.</p>
+
+  <h3>Everything sold this month adds up</h3>
+  <p>At the top of <strong>Commissions</strong>, <strong>Everything sold this month</strong> splits every sale into: sales with commission, house sales on shared racks, and your own racks. The total is the same number as <strong>Sold</strong>. Returns of already-paid sales and the fixed contribution that was deducted appear below it, so no money is left out of view. Each rack card also shows its house sales and the rack total.</p>
+  <p><strong>By product / SKU</strong> includes all products sold in the selected month, including your own racks. Each product shows its total and separates sales with commission, house sales on shared racks, and own-rack sales. Own-rack sales never create a commission payment.</p>
+  <p><strong>Fixed contribution and guaranteed minimum</strong> apply to each sale. The rack card shows what was actually deducted this month.</p>
+  <p><strong>Balance.</strong> Your inventory counts as an asset at <strong>cost</strong>, and only what is yours. The same stock at sale price and the pieces on consignment (they belong to the consignors) are shown below it, for reference.</p>
+
+  <h3>Markdown by time on the shelf</h3>
+  <p>In a shelf's commission editor, <strong>Mark down by time on the shelf</strong> lowers the price of items that have been there a long time, for example 10 % after 30 days and 25 % after 60. It is off until you turn it on, and it works per shelf. The list price never changes: the markdown applies when you sell, and each sale keeps the price it had. The commission is calculated on what you actually charged. <strong>Today</strong> warns you 3 days before a price drops. A price you type in "Adjust price" or a courtesy always wins.</p>
+  <h3>Customer loyalty</h3>
+  <p>In <strong>Advanced</strong>, <strong>Customer loyalty</strong> lets you reward regulars: every N purchases, the next one gets a discount. It is off until you turn it on. Purchases are counted from the sales recorded for that customer, so every device shows the same number; voided, returned and courtesy sales do not count. When you pick the customer in a sale, the app tells you if the discount applies and offers a button to apply it. It never applies it on its own.</p>
+  <h3>Consignor artists add their own pieces</h3>
+  <p>An artist who leaves pieces with you on consignment (the consignor: the pieces are theirs) can add those pieces to their own shelf, on a device of your store, with a PIN of their own. This is not for a sales associate who sells for you: a sales associate earns a commission but does not own the pieces. Open that person's editor in Commissions (✎), go to <strong>Artist access</strong>, type a 3-digit PIN and tap <strong>Save artist access</strong>. The shelf is the one assigned to that person; without one, they cannot add pieces.</p>
+  <p><strong>What the artist can do.</strong> Add a piece with its name, price, how many and a photo; see their pieces with how many are left; and print the label of each one. <strong>What they cannot do.</strong> Change or remove a piece after saving it (you or an admin can), see sales, money, customers, other shelves or any other screen. What sold and what you owe them still reaches them through <strong>Send statement</strong>.</p>
+  <p>The PIN cannot match anyone else's PIN. <strong>Turn off access</strong> closes it on every device of the notebook. A device that has not updated yet does not know artists: there, the artist PIN simply does not open.</p>
+
+  <h3>Editing a sales associate (✎)</h3>
+  <p>Tap the <strong>✎ Edit</strong> button on a sales associate's card (or the promoter's name inside a settlement) to open their editor. There you can change their name, base %, <strong>monthly goal</strong>, <strong>tiers/scales</strong>, payment details (phone, ID number, bank, account), and <strong>notes</strong>. If the sales associate has their own goal and tiers, these override the shelf's.</p>
+
+  <h3>Goal-based commission tiers</h3>
+  <p>In the sales associate's editor (or the <strong>Commission</strong> button on a shelf) you can define tiers: the % rises the more they sell in the month. Example with a $300 goal: up to $80 → 25%, up to $100 → 30%, up to $120 → 35%, $999+ → 40%. The % applies to the total sold, not just the amount over the previous tier.</p>
+
+  <h3>RFM matrix for promoters</h3>
+  <p>At the bottom of Commissions, a 4-quadrant matrix classifies each promoter by value (monthly sales) and recency (days since their last sale): <strong>Champions</strong> (high value and active), <strong>At risk</strong> (high value but asleep), <strong>Promising</strong> (active but low value), and <strong>Asleep</strong>. Same logic as the customer matrix, applied to your sales team.</p>
+
+  <h3>Promoter ranking</h3>
+  <p>An automatic medal board showing units sold, gross sales, their strongest SKU, and an alert if any promoter has gone more than 7 days without selling anything — useful for catching early whether someone needs support or training.</p>
+
+  <div class="tip"><strong>Send summary via WhatsApp:</strong> a button automatically puts together the day's summary (sales, pending commissions, critical stock) and opens WhatsApp ready to send it to whoever you choose — no copying and pasting numbers by hand.</div>
+</section>
+
+<section class="bloque revela" id="bcg-en">
+  <div class="eyebrow">Section 11</div>
+  <h2>BCG matrix for your inventory</h2>
+  <p class="lead">Based on sales from the last 60 days, it automatically classifies each product into one of four classic portfolio-management quadrants — without you having to calculate anything.</p>
+
+  <div class="matriz2x2">
+    <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
+      <h4 style="color:var(--sim-azul-dk);">Up-and-Comers</h4>
+      <p>They don't sell much yet but are on the rise. Give them display space and room to grow.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
+      <h4 style="color:var(--sim-verde-dk);">Stars</h4>
+      <p>They sell a lot and are climbing. Protect their stock — they're your immediate future.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-plata-bg);border-color:var(--sim-plata-dk);">
+      <h4 style="color:var(--ink-soft);">Dead Weight</h4>
+      <p>No movement in 60 days. Free up that capital with discounts or bundles.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
+      <h4 style="color:var(--sim-amarillo-dk);">Cash Cows</h4>
+      <p>They sell a lot, steadily. They fund everything else in the business.</p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);text-align:center;margin-top:-6px;">Right: selling above average. Up: growing. (Hover over each quadrant.)</p>
+
+  <div class="oportunidad"><strong>How to use it every month:</strong> check <em>cash cows</em> to make sure they never run short on stock (they're your cash flow), check <em>up-and-comers</em> to decide which ones deserve more shelf space or a "new" tag, and check <em>dead weight</em> alongside Inventory's black filter to plan a joint clearance sale.</div>
+</section>
+
+<section class="bloque revela" id="avanzado-en">
+  <div class="eyebrow">Section 12</div>
+  <h2>Advanced mode: the accounting layer</h2>
+  <p class="lead">This is where the business's technical detail is — activity, expenses, and lightweight accounting (P&amp;L, balance sheet, and valued inventory). It's not for everyday use; it's for the accountant, the administrator, or the owner who wants to see the numbers in depth. That's why it asks for its own sub-key.</p>
+
+  <h3>Monthly expenses</h3>
+  <p>Rent, electricity, salaries, internet, etc. You enter the monthly total for each location and the app spreads it across the actual days in the month (28 to 31) to estimate today's operating expense within the P&amp;L.</p>
+  <div class="tip"><strong>Example:</strong> a store downtown with rent $280, electricity $35, internet $25, and a part-time helper $180 adds up to $520/month. Over July's 31 days, that's $16.77/day in operating expense, which the app automatically subtracts from today's gross profit.</div>
+
+  <h3>Petty cash (in the Expenses tab)</h3>
+  <p>Cash control for each shelf is now in the <strong>Expenses</strong> tab (it used to be inside the shelf's folder). Pick the shelf, see its balance, and record a <strong>+ Deposit</strong> or <strong>− Withdrawal</strong> with its reason. Only the owner and admin see it; it's operational cash control at the physical point of sale, it doesn't replace the P&amp;L or commissions.</p>
+
+  <h3>Profit and loss (for the day) — example with a 15% tax turned on</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Item</th><th>Example</th></tr>
+      <tr><td>Sales collected (with 15% VAT)</td><td>$312.00</td></tr>
+      <tr><td>VAT collected (remitted to the tax authority)</td><td>$40.70</td></tr>
+      <tr><td>Net income (without VAT)</td><td>$271.30</td></tr>
+      <tr><td>Cost of goods sold</td><td>$118.40</td></tr>
+      <tr><td>Gross profit</td><td>$152.90</td></tr>
+      <tr><td>Operating expenses (for the day)</td><td>$16.77</td></tr>
+      <tr><td><strong>Net profit for the day</strong></td><td><strong>$136.13</strong></td></tr>
+    </table>
+  </div>
+  <div class="tip"><strong>Tax (sales tax, VAT, GST):</strong> above the P&amp;L you set your business tax: rate, name and how it applies. <strong>Included in the price</strong> (VAT/IVA) or <strong>added when charging</strong> (US sales tax). A country selector suggests values, and you pick your currency there too. Each sale keeps the tax it had when it was made, and tax-exempt products are marked in their card. It is a notebook setting: it applies to all your devices and goes in the backup. Only the owner or an admin can change it. Either way, <strong>this is an input for your accountant, not a filing with the tax authority</strong>.</div>
+
+  <h3>Simplified balance sheet and valued inventory</h3>
+  <p>The balance sheet adds the day's estimated cash to the value of your entire inventory at sale price. The valued inventory breaks down, product by product, how much it's worth at cost, how much at sale price, and what your potential profit would be if you sold everything today — useful for knowing how much capital you actually have "tied up" on the shelf.</p>
+
+  <h3>Recent activity</h3>
+  <p>A chronological log of everything that happened: sales, stock adjustments with their reason, new products added, voids, star changes, transfers between shelves, and commission settlements. It's your anti-discrepancy logbook — if something doesn't add up at month's end, the full trail is right here.</p>
+</section>
+
+<section class="bloque revela" id="csv-respaldo-en">
+  <div class="eyebrow">Section 13</div>
+  <h2>Export accounting CSV and back up</h2>
+  <p class="lead">friendly-123 never depends on an outside server to keep your data. It is saved on your device (and, if you turn on the shared notebook, it travels encrypted between your devices), and you decide when to export it, in different formats depending on what you need.</p>
+
+  <h3>Format A — Accounting report in CSV (for your accountant)</h3>
+  <p>From Advanced → "Download accounting report (.csv)". It's a quote-delimited text file that Excel or Google Sheets open directly, with correct accents (includes UTF-8 BOM). This is the exact structure it generates:</p>
+  <pre class="codebox">"<span class="csv-tit">Accounting report — friendly-123</span>","07/07/2026, 09:14" "NOTICE","Input for the accountant. Not a filing with the tax authority."  "<span class="csv-tit">PROFIT AND LOSS (today)</span>","" "Sales collected (with VAT)","<span class="csv-num">$312.00</span>" "VAT collected (15%, remitted to the tax authority)","<span class="csv-num">$40.70</span>" "Net income (without VAT)","<span class="csv-num">$271.30</span>" "Cost of goods sold","<span class="csv-num">$118.40</span>" "Gross profit","<span class="csv-num">$152.90</span>" "Operating expenses","<span class="csv-num">$16.77</span>" "Net profit","<span class="csv-num">$136.13</span>"  "<span class="csv-tit">SIMPLIFIED BALANCE SHEET</span>","" "Estimated income for the day","<span class="csv-num">$312.00</span>" "Valued inventory","<span class="csv-num">$3,540.00</span>" "Total assets","<span class="csv-num">$3,852.00</span>"  "<span class="csv-tit">VALUED INVENTORY BY PRODUCT</span>","" "Product","Stock,Cost,Sale price,Potential profit" "AC/DC - Back in Black T-Shirt","25,<span class="csv-num">$212.50</span>,<span class="csv-num">$500.00</span>,<span class="csv-num">$287.50</span>" "Rock Austin Ceramic Mug","40,<span class="csv-num">$120.00</span>,<span class="csv-num">$320.00</span>,<span class="csv-num">$200.00</span>"</pre>
+  <p style="font-size:15px;">The file downloads under the name <span class="codigo">reporte-contable-friendly-2026-09-22.csv</span> — the download date always stays in the filename so versions don't get confused.</p>
+
+  <div class="tip"><strong>Recommendations for the CSV:</strong>
+    <ul class="lista" style="margin:10px 0 0;">
+      <li>Download it the same day you send it to your accountant — it's a snapshot of the current day, not a historical cumulative.</li>
+      <li>Open it in Google Sheets if you're going to share it by link instead of as an attachment; it keeps the accents thanks to the BOM.</li>
+      <li>If you manage several locations, download it once per shelf/branch (select the location above before exporting) — the report always corresponds to the location active on screen.</li>
+      <li>Keep a monthly copy in a folder named after the month; with 12 files a year you have your complete accounting history without depending on anyone's cloud.</li>
+    </ul>
+  </div>
+
+  <h3>Format B — Full encrypted backup (.json)</h3>
+  <p>This is the real backup of <strong>the whole</strong> business: products, sales, customers, shelves, commissions, and your access codes. It is in Advanced, below the accounting sub-key, because it's a sensitive action.</p>
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Export backup</h4><p>The app asks you for a passphrase of at least 8 characters to protect the file (you can leave it blank, but it's not recommended). It downloads as <span class="codigo">respaldo-friendly-2026-09-22.json</span>.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Keep it off your phone</h4><p>Send it to yourself on WhatsApp, upload it to Google Drive, or email it. If your phone is lost or damaged, this file is the only way to recover the entire business.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Import backup (if you need to restore)</h4><p>Advanced → Import backup → select the file → enter the passphrase. <strong>This replaces all current data</strong> — the app always asks for explicit confirmation before proceeding.</p></div>
+  </div>
+  <div class="alerta"><strong>Important:</strong> if you lose the passphrase to an encrypted backup, that file cannot be recovered — there's no backdoor. Write the passphrase down somewhere other than the file itself.</div>
+
+  <h3>Format C — Import your customer list (CSV)</h3>
+  <p>If you already have your customers in Excel, on your phone, or in another app, there's no need to type them in one by one. Save your list as a CSV and upload it from <strong>Customers → (at the bottom) "Import your customer list from a file"</strong>. Only the owner sees this button; the employee can only register customers by hand.</p>
+  <p>The file needs <strong>two columns, name and phone</strong>, in that order. The first row can be a header (the app detects it and skips it). Here's what a valid file looks like:</p>
+  <pre class="codebox"><span class="csv-tit">name,phone</span> Rosa Quinde,0991111001 Marco Sarmiento,0991111002 "Pérez, Juan Andrés",0987654321 Carmen Ulloa,</pre>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>File rule</th><th>Detail</th></tr>
+      <tr><td>Columns</td><td>Name in the first, phone in the second (phone can be left empty)</td></tr>
+      <tr><td>Header</td><td>Optional — if the first row says "name" or "phone", it's skipped automatically</td></tr>
+      <tr><td>Names with a comma</td><td>Enclose them in double quotes: <span class="codigo">"Pérez, Juan"</span></td></tr>
+      <tr><td>Duplicates</td><td>If a name already exists (or repeats within the file) it's skipped, without creating duplicates</td></tr>
+      <tr><td>Unique code</td><td>Each new customer automatically gets their <span class="codigo">C-####</span> code when imported</td></tr>
+      <tr><td>Limits</td><td>Up to 5,000 customers per file and a maximum size of 1 MB</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;">When it's done, the app tells you exactly how many it added, how many it skipped as duplicates, and how many it ignored for having no name — so you know your whole list came through.</p>
+  <div class="tip"><strong>How to get the CSV from Excel or Google Sheets:</strong> leave your data in two columns (name, phone), then <em>File → Download / Save as → CSV</em>. If, when you open the file, you see the names separated by commas, it's ready for friendly-123.</div>
+
+  <h3>Automatic restore points</h3>
+  <p>In addition to the manual backup, friendly-123 saves — only within that browser — a snapshot of your data every so often, in case you delete something by accident. <strong>This doesn't replace the manual backup:</strong> if the browser cache is cleared or you switch phones, those points are lost with it.</p>
+
+  <h3>Format D — Automated backup to yourself (email and/or WhatsApp)</h3>
+  <p>The safest way to never lose your data through forgetfulness. In <strong>Advanced</strong>, with the <strong>frequency slider</strong>, you choose how often you want the app to force you to back up — daily, weekly, biweekly, or monthly — and through which channels, email and/or WhatsApp. <strong>Monthly is the mandatory minimum</strong> and can't be stretched further: that way, if you completely miss a month, you never lose more than 30 days of history. You set and change that frequency whenever you want.</p>
+  <div class="tip"><strong>The backup goes to YOU, not to us. It never passes through any server.</strong> The app uses the very email and WhatsApp <em>you already have set up</em> on your phone to make you send your information to yourself:
+    <ul class="lista">
+      <li><strong>On phone or tablet:</strong> tapping "Back up" opens your own phone's share menu with the file <strong>already attached</strong>. You pick your WhatsApp or Gmail, send it to yourself, and that's it. You don't have to find or attach anything by hand.</li>
+      <li><strong>On computer:</strong> the file downloads and email/WhatsApp opens with the message already written; there you attach the file you just downloaded and send it. It's the most that's possible without a server on a laptop.</li>
+    </ul>
+  </div>
+  <div class="tip"><strong>Your code (PIN) uses exactly the same method.</strong> When you recover it, the app always shows it on screen and also opens an email from you, to yourself, with your code inside, so it stays saved in your inbox. Same as the backup: it never passes through a server. Also, if you want to share data between two devices, you also have <strong>QR</strong> and <strong>optional syncing</strong>, both in Advanced.</div>
+</section>
+
+<section class="bloque revela" id="transferencias-en">
+  <div class="eyebrow">Section 14</div>
+  <h2>Transfers between shelves</h2>
+  <p class="lead">The most common pain point in businesses with more than one point of sale: one shelf runs out of stock while the one next door has plenty to spare, and nobody notices until the customer has already left. friendly-123 catches it at the exact moment it matters most.</p>
+
+  <h3>How it works</h3>
+  <ul class="lista">
+    <li>When a product is red or orange, the app checks whether that same SKU has healthy stock at another active shelf.</li>
+    <li>If it finds one, it shows a direct notice on the product's page: <em>"There are 18 units at Local Downtown"</em> with a button to request the suggested transfer.</li>
+    <li>The suggested quantity always leaves enough stock at the origin (it never empties out the lending shelf).</li>
+    <li>The origin owner <strong>approves</strong> the transfer from Advanced — at that moment the stock is deducted from the origin and marked "in transit".</li>
+    <li>The destination owner <strong>confirms receipt</strong> (also from Advanced) — only then is the stock added to the destination. If the same owner manages both locations, these are two separate taps: one to approve and one to confirm.</li>
+  </ul>
+
+  <div class="oportunidad"><strong>Case:</strong> the Farmers Market Stand was left with only 3 Queen T-shirts (red threshold: 6). Local Downtown has 20 units of the same SKU. The app suggests transferring 7 — half of the available surplus — without anyone having to go count shelf by shelf.</div>
+</section>
+
+<section class="bloque revela" id="seguridad-en">
+  <div class="eyebrow">Section 15</div>
+  <h2>Security, automatic backup, and offline mode</h2>
+
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Access codes by role</h4>
+      <p style="font-size:16px;margin:0;">Three 3-digit codes, encrypted on the device (owner, employee, accountant). A recovery email lets you generate a new one if it's forgotten.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Double-tab guard</h4>
+      <p style="font-size:16px;margin:0;">If you open the business in two tabs or devices at once, the app detects it and warns you — this keeps a sale from being lost because the last tab to save "overwrote" the other.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Error black box</h4>
+      <p style="font-size:16px;margin:0;">Saves the last 20 technical errors on the device. If something fails, you can send that information to support via WhatsApp without needing any developer tools.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Multi-device sync</h4>
+      <p style="font-size:16px;margin:0;">In "Sync your team", copy your team's license and share it once with each device. Same license, same notebook: sales, stock, and PINs stay synced automatically. The notebook's data travels encrypted between its devices; FRIENDLY-123 cannot read it.</p>
+    </div>
+  </div>
+
+  <h3>Offline mode (PWA)</h3>
+  <p>The app's "shell" — screens, buttons, logic — is saved on the device the first time you open friendly-123, so it opens again even without signal. The only things always requested fresh, never from cache, are your actual data and version updates.</p>
+
+  <div class="tip"><strong>Good weekly habit:</strong> on Sunday nights, export the encrypted backup and download the accounting CSV for the current month. It takes less than 2 minutes and it's the difference between losing a bad day and losing an entire business.</div>
+
+  <h3>If you forget your code</h3>
+  <p>Tap <strong>"Forgot?"</strong> on the sign-in screen. If someone on the team forgot their PIN, the owner or an admin can change it from the team list (Advanced → Team &amp; access).</p>
+</section>
+
+<section class="bloque revela" id="instancia-equipo-en">
+  <div class="eyebrow">Section 16 — what's newest</div>
+  <h2>Your instance, your team, and fraud control</h2>
+  <p>These are the new features that turn friendly-123 from "a pretty mockup" into <strong>your</strong> business, with your people and your rules.</p>
+
+  <h3>Try it, activate it, and buy it</h3>
+  <p>With PIN <strong>456</strong> you enter the <strong>sample store</strong>: fictitious data for practicing selling, adjusting stock, and closing the day. The sample store never expires.</p>
+  <p>With PIN <strong>789</strong> you activate <strong>your instance</strong>: you register your email and your WhatsApp, and the device becomes yours, with a unique identifier so your data never gets mixed up with another business's. From that day you have <strong>30 days of full use</strong>, with no caps.</p>
+  <p>When the trial ends without a paid license, the app switches to <strong>read-only</strong>: you can view and export all your information, but not record anything new. <strong>Your data is never deleted.</strong> To keep recording, buy your license via WhatsApp +593 99 990 5080 or at staff@jfcarpio.com. The paid license covers every device of your business and activates itself, with no need to log in again.</p>
+  <div class="tip"><strong>Your data is yours.</strong> It's saved on your device. If you activate the shared notebook, it travels encrypted between your devices and no one else can read it.</div>
+
+  <h3>Your business name, at the top</h3>
+  <p>As the owner you'll see a pencil ✎ next to the title above. Tap it and type your business's real name: it's saved in your instance and travels along with your backups and syncs. If it fails for some reason, the default title stays and nothing else breaks.</p>
+
+  <h3>Your team: employees with their own PIN</h3>
+  <p>In <strong>Advanced → Employees</strong> you can add up to 49 employees, each with their name and their 3-digit PIN. When they log in with their PIN, <strong>every move they make is signed with their name</strong> in the history: who sold, who adjusted stock, who voided. Use PINs different from yours and the accountant's.</p>
+
+  <h3>Fraud control</h3>
+  <p>In <strong>Advanced → Fraud control</strong> you get, at a glance, three things:</p>
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">History integrity</h4>
+      <p style="font-size:16px;margin:0;">Every move is <strong>sealed</strong> and chained to the previous one. If someone edits or deletes history on the device to cover up a shortfall, the seal doesn't match and it shows up here in red, pointing out where it broke and which person surrounds the break.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Voids by person</h4>
+      <p style="font-size:16px;margin:0;">How many sales each employee voided today. The classic trick — selling, collecting cash, and then voiding the sale to pocket the money — leaves a trail here.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Shrinkage by person</h4>
+      <p style="font-size:16px;margin:0;">How many units each employee removed by hand (negative adjustments). Theft disguised as "breakage" or "shrinkage" shows up totaled, with a name.</p>
+    </div>
+  </div>
+  <div class="tip"><strong>Technical honesty:</strong> since everything runs on your device, the seal detects <em>common</em> tampering and leaves evidence, but it's not proof against an expert with time on their hands. For the day-to-day of a kiosk, it's exactly the safety net you need.</div>
+
+  <h3>Shared notebook: your whole team up to date</h3>
+  <p>If you run the business on more than one device (register and warehouse, for example), open <strong>Advanced → Sync your team</strong>, copy your business's license, and enter it once on each device. Same license, same notebook: sales, stock, customers, and PINs stay synced automatically. Data travels encrypted end-to-end.</p>
+  <p>One license is one business: don't create a parallel business on another device. With both devices online and awake, the goal is for changes to appear in under 2 seconds; if one is offline or Safari put it to sleep, it keeps its copy and catches up when it reconnects. The indicator next to Help shows the state: synced, connecting or offline. Being connected does not replace the downloadable backup.</p>
+
+  <h3>Installing is optional</h3>
+  <p>friendly-123 always works by going to your URL. If you want, your phone will offer "Add to home screen" so you can have it as one more icon, but it's an extra, not a requirement. The first option is always to just go there.</p>
+</section>
+
+<section class="bloque revela" id="casos-en">
+  <div class="eyebrow">Section 17 — from start to finish</div>
+  <h2>Real cases of getting the full benefit</h2>
+  <p class="lead">Five different businesses, five different ways to squeeze the most out of friendly-123. All figures are in dollars, at real small-business scale.</p>
+
+  <div class="tabs">
+    <div class="tab-botones" id="tabBotones">
+      <button class="activo" data-tab="0">Rock shop</button>
+      <button data-tab="1">Andean boutique</button>
+      <button data-tab="2">Boutique bookstore</button>
+      <button data-tab="3">Neighborhood store</button>
+      <button data-tab="4">Weekend market</button>
+    </div>
+    <div class="tab-panel-wrap">
+      <div class="tab-panels" id="tabPanels">
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Rock shop — 3 shelves in Austin</h3>
+          <p>Local Downtown (own), Stand Farmers Market (partner, tiered commission), and Makers Fair (consignment). Sells T-shirts, vinyl records, souvenirs, and collectibles.</p>
+          <ul class="lista">
+            <li><strong>Inventory:</strong> 61 active SKUs, total sale value ≈ $3,540, average margin 55%.</li>
+            <li><strong>Using the traffic light:</strong> every morning the owner filters Inventory by red (typically 3–5 products) and restocks before opening; checks black once a week to clear out collectibles with no movement in 45+ days (e.g., the "The Wall" VHS, asleep since April).</li>
+            <li><strong>Commissions:</strong> the Farmers Market promoter earns between $20–41/month depending on her tier; the owner sees at a glance if any shelf has been asleep for 7+ days.</li>
+            <li><strong>Transfers:</strong> uses the automatic alert to move star T-shirts between Downtown and the Farmers Market when one runs short.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Andean crafts and clothing boutique — Santa Fe</h3>
+          <p>Toquilla straw hats, filigree earrings, alpaca scarves and shawls, beaded bracelets. Higher average ticket than the other cases.</p>
+          <ul class="lista">
+            <li><strong>Real prices:</strong> Toquilla straw hat $30, filigree earrings $22 (star <span class="ico-estrella" role="img" aria-label="star"></span>, 73% margin → yellow), alpaca scarf $25, embroidered shawl $35.</li>
+            <li><strong>Using the color yellow:</strong> the filigree earrings have a very high margin (cost $6 against a $22 price) — the app automatically flags them yellow. The owner uses them as an "entry product" on social media because each sale leaves a lot of profit.</li>
+            <li><strong>Customer matrix:</strong> occasional tourists naturally fall into spring or winter; frequent local customers (weddings, events) reach summer — the boutique notifies them first about new collections.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Boutique bookstore of Latin American fiction</h3>
+          <p>A curated catalog of 8 contemporary authors: Mariana Enríquez, Fernanda Melchor, Samanta Schweblin, Dolores Reyes, among others. Prices between $17 and $22.</p>
+          <ul class="lista">
+            <li><strong>Naturally low thresholds:</strong> these are limited-print books — typical red threshold of 3 units, yellow of 6. With only 2 units in stock, "Mugre rosa" already lights up red.</li>
+            <li><strong>Day close:</strong> since sales are few but high-ticket, the owner doesn't record them live — uses the day close when closing the bookstore, noting how many copies of each title went out.</li>
+            <li><strong>Labels:</strong> prints a barcode + QR with each book’s code for a compatible reader. The QR does not open the synopsis on a phone.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Neighborhood store / minimarket — basic goods</h3>
+          <p>Water, batteries, tape, gift bags, gum. Tight margins by the nature of the category.</p>
+          <ul class="lista">
+            <li><strong>Low margin:</strong> Still water 600ml costs $0.70 and sells for $0.80: a margin of just 12.5%. In high-turnover basics that is normal, but it's worth negotiating with the distributor every six months. Review these margins in the accounting report.</li>
+            <li><strong>High turnover, low ticket:</strong> ideal for the touch-grid Sold mode — dozens of quick taps a day without typing anything.</li>
+            <li><strong>Accounting report:</strong> with margins so tight, the owner checks the accounting CSV every week (not just monthly) to make sure volume really does make up for the low margin.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Weekend market — 2–3 day event</h3>
+          <p>An artisan fair or Christmas bazaar using the temporary shelf "Weekend market" with a consignment commission.</p>
+          <ul class="lista">
+            <li><strong>Before the event:</strong> the owner opens the market from Inventory → Shelves, sets the event's name (e.g., "Holiday Market") and its commission % (30% in the default example).</li>
+            <li><strong>During the event:</strong> products are assigned to that shelf and sold via the touch grid — fast, frictionless, ideal with a long line of people.</li>
+            <li><strong>At closing:</strong> one tap archives the shelf (keeps its entire history) and jumps straight to Commissions, showing the settlement ready to pay the consignee that same night — no waiting for month-end close.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bloque revela" id="faq-en">
+  <div class="eyebrow">Section 18</div>
+  <h2>Frequently asked questions</h2>
+  <div id="acordeon">
+
+    <div class="acordeon-item">
+      <button class="preg">What happens if a product has low stock AND is about to expire at the same time?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">The app always goes with whichever signal is more severe: if expiration is more urgent than the stock level, expiration wins (and vice versa). Colors are never combined or averaged — a product shows only one color at a time, the most urgent one.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">Can the employee see how much money the business makes?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. The Today view, the Advanced reports, and commission detail are reserved for the owner's code (and the accountant's for the accounting layer). The employee sees stock, recorded sales, and star products, never profit amounts.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">What's the difference between a "shelf" and a "branch"?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">The shelf is where you actually sell (the counter, the stand, the market table) — it's the operational unit. The branch is a grouping the app uses for reports and for organizing several shelves under one name in the Inventory → Shelves manager.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">Can I change a product's red/yellow thresholds after it's been created?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">Yes, anytime from the product's page. The app requires the red threshold to always be lower than the yellow one — if you set them backwards, it won't let you save and explains why.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">What happens if I lose my phone without having backed up?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">You lose everything that isn't backed up: the automatic restore points are only in that browser and are lost along with the device. That's why the manual encrypted backup (Advanced → Export backup), saved off your phone, is essential — not optional.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">Can the CSV report be used to file taxes directly?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. It's an organized input to help your accountant work faster — the file itself warns of this on its first line. The formal filing with the tax authority must always be done by an accredited professional.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">How does the app decide if a product is "asleep" (black)?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">When stock is healthy (above the yellow threshold) but hasn't had a single sale in 45 days or more.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">Do I need internet to use the app every day?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. It's local-first: it works completely offline day to day. Internet is only needed to sync between several devices or make cloud backups — and even that has an alternate method via WhatsApp with no direct connection.</p></div></div>
+    </div>
+
+  </div>
+</section>
+
+<section class="bloque revela" id="glosario-en">
+  <div class="eyebrow">Section 19</div>
+  <h2>Quick glossary</h2>
+  <dl class="glosario">
+    <dt>Shelf</dt><dd>The real operational sales unit: counter, stand, market table.</dd>
+    <dt>Branch</dt><dd>A grouping of shelves for reports and organization.</dd>
+    <dt>Simon System</dt><dd>The five status colors (green, yellow, orange, red, black) that classify each product.</dd>
+    <dt>Color traffic light</dt><dd>The five inventory states: green, yellow, orange, red, and black. One flat color per state, no levels or shades.</dd>
+    <dt>Red / yellow threshold</dt><dd>Stock quantities that trigger each restock alert.</dd>
+    <dt>Star product <span class="ico-estrella" role="img" aria-label="star"></span></dt><dd>A product the owner has marked to actively push today.</dd>
+    <dt>Seasons matrix (RFM)</dt><dd>Classification of customers into spring, summer, autumn, and winter based on purchase frequency and amount.</dd>
+    <dt>BCG matrix</dt><dd>Classification of products into stars, cash cows, up-and-comers, and dead weight based on 60-day sales.</dd>
+    <dt>Day close</dt><dd>Batch recording of all the day's sales when they weren't recorded live.</dd>
+    <dt>Weekend market</dt><dd>Temporary consignment shelf for 2–3 day events, archivable with its history.</dd>
+    <dt>Encrypted backup</dt><dd>.json file with the entire business, protected by a passphrase chosen by the owner.</dd>
+  </dl>
+</section>
+
+</main>
+
+<footer class="pie">
+  <p><strong>friendly-123</strong> — inventory, customer, and shelf management for small businesses</p>
+  <p><a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> · September 2026 · v1.0 · shell 351</p>
+</footer>
+</div>
+
+
+<script>
+(function(){
+  // -------- Reloj en vivo (mismo espíritu que la app) --------
+  function tick(){
+    var el = document.getElementById('relojManual');
+    if(!el) return;
+    el.textContent = new Date().toLocaleString(document.documentElement.getAttribute('data-idioma')==='en'?'en-US':'es-EC', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+  }
+  tick(); setInterval(tick, 20000);
+
+  // -------- Barra de progreso de lectura --------
+  var barra = document.getElementById('barraProgreso');
+  function actualizarBarra(){
+    var h = document.documentElement;
+    var pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+    if(barra) barra.style.width = (isFinite(pct) ? pct : 0) + '%';
+  }
+  document.addEventListener('scroll', actualizarBarra, {passive:true});
+  actualizarBarra();
+
+  // -------- Por idioma: cada bloque .idioma tiene sus propias demos --------
+  function init(raiz, EN){
+    var sfx = EN ? '-en' : '';
+    function q(id){ return raiz.querySelector('#' + id); }
+  // -------- Revelado al hacer scroll (translateY, sin opacity) --------
+  var reveladores = raiz.querySelectorAll('.revela');
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entradas){
+      entradas.forEach(function(en){
+        if(en.isIntersecting){ en.target.classList.add('visto'); }
+      });
+    }, {threshold:0.12});
+    reveladores.forEach(function(el){ io.observe(el); });
+  } else {
+    reveladores.forEach(function(el){ el.classList.add('visto'); });
+  }
+
+  // -------- Contadores animados --------
+  var stats = raiz.querySelectorAll('[data-contar]');
+  var yaContado = false;
+  function contarStats(){
+    if(yaContado) return;
+    yaContado = true;
+    stats.forEach(function(el){
+      var meta = parseInt(el.getAttribute('data-contar'), 10) || 0;
+      var actual = 0;
+      var paso = Math.max(1, Math.ceil(meta / 30));
+      var iv = setInterval(function(){
+        actual += paso;
+        if(actual >= meta){ actual = meta; clearInterval(iv); }
+        el.textContent = actual;
+      }, 30);
+    });
+  }
+  var statZone = raiz.querySelector('.stat-grid');
+  if(statZone && 'IntersectionObserver' in window){
+    var io2 = new IntersectionObserver(function(entradas){
+      entradas.forEach(function(en){ if(en.isIntersecting) contarStats(); });
+    }, {threshold:0.4});
+    io2.observe(statZone);
+  } else if(statZone){ contarStats(); }
+
+  // -------- Scrollspy: resalta la sección activa en el TOC --------
+  var secciones = raiz.querySelectorAll('section.bloque, .hero');
+  var enlacesDesktop = raiz.querySelectorAll('#tocDesktop a');
+  var enlacesMovil = raiz.querySelectorAll('#tocMovil a');
+  function marcarActivo(id){
+    [enlacesDesktop, enlacesMovil].forEach(function(lista){
+      lista.forEach(function(a){
+        a.classList.toggle('activo', a.getAttribute('href') === '#' + id);
+      });
+    });
+  }
+  if('IntersectionObserver' in window){
+    var io3 = new IntersectionObserver(function(entradas){
+      entradas.forEach(function(en){
+        if(en.isIntersecting){ marcarActivo(en.target.id); }
+      });
+    }, {rootMargin:'-40% 0px -50% 0px', threshold:0});
+    secciones.forEach(function(s){ if(s.id) io3.observe(s); });
+  }
+
+  // -------- Simulador de semáforo interactivo --------
+  var ESTADOS = {
+    verde:   {bg:'linear-gradient(135deg, #00C87A 0%, #009A5A 100%)', borde:'#009A5A', msg:EN?'Healthy stock':'Stock saludable', stock:22},
+    amarillo:{bg:'linear-gradient(135deg, #FFC700 0%, #B8860B 100%)', borde:'#B8860B', msg:EN?'Good margin: there is money waiting for you':'Buen margen — hay dinero esperándote', stock:9, tinta:'#0F1923'},
+    naranja: {bg:'linear-gradient(135deg, #F97316 0%, #C05000 100%)', borde:'#C05000', msg:EN?'Few left: review soon':'Quedan pocas — revisar pronto', stock:5},
+    rojo:    {bg:'linear-gradient(135deg, #E8365D 0%, #B0183E 100%)', borde:'#B0183E', msg:EN?'Out of stock: restock as soon as possible':'Sin stock — repón cuanto antes', stock:0},
+    negro:   {bg:'#0A0A0F', borde:'#000000', msg:EN?'No sales in 82 days: your money is resting there':'Sin ventas hace 82 días — tu dinero está descansando ahí', stock:15}
+  };
+  var estadoActual = 'verde', nivelActual = 1;
+  var demoCaja = q('demoCaja');
+  var demoStock = q('demoStock');
+  var demoMsg = q('demoMsg');
+  function pintarDemo(){
+    var e = ESTADOS[estadoActual];
+    if(!demoCaja) return;
+    var factor = nivelActual === 1 ? 0.55 : nivelActual === 2 ? 0.8 : 1;
+    demoCaja.style.background = e.bg;
+    demoCaja.style.borderColor = e.borde;
+    demoCaja.style.color = e.tinta || '#FFFFFF';
+    demoCaja.style.boxShadow = nivelActual === 3 ? ('0 0 22px -2px ' + e.borde) : 'none';
+    demoStock.textContent = e.stock;
+    demoStock.style.color = e.tinta || '#FFFFFF';
+    demoMsg.textContent = e.msg;
+    demoMsg.style.color = e.tinta || '#FFFFFF';
+  }
+  raiz.querySelectorAll('.simulador .estado-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      raiz.querySelectorAll('.simulador .estado-btn').forEach(function(b){ b.classList.remove('activo'); });
+      btn.classList.add('activo');
+      estadoActual = btn.getAttribute('data-estado');
+      pintarDemo();
+    });
+  });
+  raiz.querySelectorAll('.demo-nivel .nivel-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      raiz.querySelectorAll('.demo-nivel .nivel-btn').forEach(function(b){ b.classList.remove('activo'); });
+      btn.classList.add('activo');
+      nivelActual = parseInt(btn.getAttribute('data-nivel'), 10);
+      pintarDemo();
+    });
+  });
+  pintarDemo();
+
+  // -------- Código de barras animado (barras de alturas variables) --------
+  var bd = q('barcodeDemo');
+  if(bd){
+    var patron = [3,1,2,4,1,3,2,1,4,2,3,1,2,4,1,3,2,4,1,2,3,1,4,2,3,1,2,4,1,3];
+    patron.forEach(function(w, i){
+      var s = document.createElement('span');
+      s.style.height = (14 + w * 12) + 'px';
+      s.style.width = (w % 2 === 0 ? 5 : 3) + 'px';
+      s.style.animationDelay = (i * 0.025) + 's';
+      bd.appendChild(s);
+    });
+  }
+
+  // -------- Tabs de casos de uso --------
+  var tabBotones = raiz.querySelectorAll('#tabBotones button');
+  var tabPanels = q('tabPanels');
+  tabBotones.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      tabBotones.forEach(function(b){ b.classList.remove('activo'); });
+      btn.classList.add('activo');
+      var idx = parseInt(btn.getAttribute('data-tab'), 10);
+      tabPanels.style.transform = 'translateX(-' + (idx * 100) + '%)';
+    });
+  });
+
+  // -------- Acordeón FAQ --------
+  raiz.querySelectorAll('.acordeon-item .preg').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var item = btn.closest('.acordeon-item');
+      var estabaAbierto = item.classList.contains('abierto');
+      raiz.querySelectorAll('.acordeon-item').forEach(function(i){ i.classList.remove('abierto'); });
+      if(!estabaAbierto){ item.classList.add('abierto'); }
+    });
+  });
+
+  // -------- Tilt 3D en tarjetas (sin afectar accesibilidad ni opacity) --------
+  var tiltCards = raiz.querySelectorAll('.tilt');
+  tiltCards.forEach(function(card){
+    card.addEventListener('mousemove', function(e){
+      var r = card.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width - 0.5;
+      var y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = 'perspective(700px) rotateY(' + (x * 7) + 'deg) rotateX(' + (y * -7) + 'deg) translateY(-2px)';
+    });
+    card.addEventListener('mouseleave', function(){
+      card.style.transform = 'perspective(700px) rotateY(0deg) rotateX(0deg) translateY(0)';
+    });
+  });
+  }
+  document.querySelectorAll('.idioma').forEach(function(r){ init(r, r.getAttribute('data-lang') === 'en'); });
+
+  // -------- Botón EN / ES --------
+  var b = document.getElementById('btnIdioma');
+  if(b) b.addEventListener('click', function(){
+    var l = document.documentElement.getAttribute('data-idioma') === 'en' ? 'es' : 'en';
+    document.documentElement.setAttribute('data-idioma', l); document.documentElement.lang = l;
+    try{ localStorage.setItem('f123_manual_idioma', l); }catch(_){}
+    tick(); window.scrollTo(0, 0);
+  });
+})();</script>
+
+
+<script>
+// Version kill-switch (parity with index.html, 2026-07-17): si la version
+// publicada cambio, purga caches y recarga. Evita que leads con este HTML
+// cacheado queden atascados en una version vieja para siempre.
+(async function(){try{
+var r=await fetch("./version.json?ts="+Date.now(),{cache:"no-store"});
+if(!r.ok){try{var eb=JSON.parse(localStorage.getItem("f123_errores")||"[]");eb.push({ts:Date.now(),tipo:"version-check",msg:"version.json "+r.status});if(eb.length>50)eb.splice(0,eb.length-50);localStorage.setItem("f123_errores",JSON.stringify(eb))}catch(_){}return}
+var v=String(((await r.json())||{}).version||"");if(!v)return;
+var K="f123_version_vista",prev=localStorage.getItem(K);
+if(prev===v)return;localStorage.setItem(K,v);
+try{var cs=await caches.keys();for(var c of cs){try{await caches.delete(c)}catch(_){}}}catch(_){}
+location.reload();
+}catch(_){}})();
+</script>
+</body>
+</html>

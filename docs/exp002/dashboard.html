@@ -1,0 +1,2646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
+
+<!-- iOS and the WhatsApp in-app browser reinterpret colors in dark mode.
+     Without this block the text becomes invisible. -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#F8F9FB">
+<meta name="robots" content="noindex,nofollow">
+
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="logo.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="friendly-123">
+<meta property="og:title" content="Dashboard">
+<meta property="og:description" content="Your entire business on one big screen. The data stays on your devices.">
+<meta property="og:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+<!-- Tabulator: tabla, busqueda, agrupacion y los cinco exports en una sola
+     libreria. SheetJS y jsPDF van por debajo de ella, no como codigo nuestro.
+     El CDN aqui SI corresponde: este archivo necesita conexion por definicion,
+     al reves que la app, que tiene que arrancar sin ella. Si un CDN no carga,
+     ver degradarSinTabulator(): la tabla se sigue viendo en HTML plano. -->
+<link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator_simple.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js" defer></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+
+<style>
+  :root{
+    color-scheme: light only;
+    forced-color-adjust: none;
+    --verde:#00C87A;   --verde-dk:#00975C;
+    --amarillo:#FFC700; --amarillo-dk:#8A5A00;
+    --naranja:#F97316; --naranja-dk:#B54E0A;
+    --rojo:#E8365D;    --rojo-dk:#A8123A;
+    --negro:#0A0A0F;
+    --rust:#E86040;
+    --ink:#0F1923;
+    --body-c:#2C3E50;
+    --canvas:#F8F9FB;
+    --card:#FFFFFF;
+    --hairline:#E8ECF2;
+    --font-display:'Space Grotesk',Inter,-apple-system,'Helvetica Neue',sans-serif;
+    --font-body:Inter,-apple-system,'Helvetica Neue',sans-serif;
+    --font-mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;padding:0;background:var(--canvas) !important;
+    color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;
+    font-family:var(--font-body);font-size:16px;line-height:1.55;
+    -webkit-text-size-adjust:100%;
+  }
+  h1,h2,h3,p,li,span,strong,a,td,th,label,button,div{
+    color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;
+  }
+  h1,h2,h3,strong{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;font-family:var(--font-display);}
+  @media (prefers-color-scheme: dark){
+    html,body{background:var(--canvas) !important;color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;}
+    h1,h2,h3,strong{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+    p,li,span,td,th,label,a,div{color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;}
+    .card,.top{background:var(--card) !important;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+  }
+
+  .wrap{width:100%;max-width:1500px;margin:0 auto;padding:0 clamp(12px,2.4vw,26px)}
+
+  .top{
+    background:var(--card);border-bottom:3px solid var(--amarillo);
+    padding:12px 0;position:sticky;top:0;z-index:30;
+  }
+  .top .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top img{height:30px;width:auto;display:block;flex-shrink:0}
+  .top .neg{font-family:var(--font-display);font-size:clamp(16px,2vw,20px);font-weight:700}
+  .pulso{
+    margin-left:auto;display:flex;align-items:center;gap:8px;
+    font-family:var(--font-mono);font-size:13px;font-weight:700;
+  }
+  .punto{width:10px;height:10px;border-radius:50%;background:#C4CDD8;flex-shrink:0}
+  .punto.vivo{background:var(--verde)}
+  .punto.viejo{background:var(--naranja)}
+  .punto.solo{background:var(--rojo)}
+
+  /* ---------- puerta ---------- */
+  #puerta{min-height:100vh;min-height:100svh;display:flex;align-items:center;justify-content:center;padding:24px}
+  /* DESKTOP FIRST, a proposito (JFC 2026-08-15): el tablero es para llegar a
+     casa y mirar el negocio con calma en una pantalla que si cabe. La app del
+     dia a dia ya es mobile-first; esta no. Igual funciona a 320px, pero las
+     medidas base son las de escritorio y se APRIETAN hacia abajo. */
+  #puerta .card{max-width:520px;width:100%;text-align:center}
+  .wrap{max-width:1500px}
+  @media (max-width: 900px){
+    .wrap{padding-left:14px;padding-right:14px}
+  }
+  .card{
+    background:var(--card);border:1px solid var(--hairline);border-radius:18px;
+    padding:clamp(20px,3.4vw,30px);
+  }
+  #puerta img{height:38px;width:auto;margin:0 auto 16px;display:block}
+  h1{font-size:clamp(24px,4vw,32px);line-height:1.2;margin:0 0 8px}
+  .sub{font-size:16px;line-height:1.55;margin:0 0 20px}
+  #puerta input[type=text],#puerta input[type=password]{
+    width:100%;min-height:52px;padding:13px 15px;border:2px solid var(--hairline);
+    border-radius:12px;font-family:var(--font-mono);font-size:17px;letter-spacing:.06em;
+    text-align:center;text-transform:uppercase;background:#FFFFFF;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
+  }
+  #puerta input[type=password]{margin-top:10px;letter-spacing:.4em}
+  #puerta input:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+  /* Enlaces de texto: subrayados y del color del cuerpo. Nunca gris apagado. */
+  .enlace{
+    background:none;border:none;padding:4px 2px;font-family:inherit;font-size:inherit;
+    text-decoration:underline;cursor:pointer;
+    color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;
+  }
+  /* POLITICA DE DATOS: popup ligero, sin pagina aparte. Se abre desde los dos
+     sitios donde alguien se lo puede preguntar: la puerta y el pie. */
+  #pol{position:fixed;inset:0;z-index:990;background:#0F1923D9;display:none;
+    align-items:center;justify-content:center;padding:18px;}
+  #pol.on{display:flex}
+  #pol .card{max-width:520px;width:100%;max-height:88vh;overflow-y:auto;text-align:left}
+  #pol h2{font-size:21px;margin:0 0 12px}
+  #pol p{font-size:15px;line-height:1.6;margin:0 0 11px}
+  #pol li{font-size:15px;line-height:1.6;margin:0 0 7px}
+  .btn{
+    width:100%;min-height:50px;padding:13px;border:none;border-radius:12px;
+    background:var(--rust);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+    font-family:var(--font-display);font-weight:700;font-size:16px;cursor:pointer;margin-top:12px;
+  }
+  .btn.sec{background:#FFFFFF;border:2px solid var(--hairline);color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;}
+  .btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .nota{
+    font-size:15px;line-height:1.5;text-align:left;background:var(--canvas);
+    border-left:4px solid var(--verde);border-radius:0 10px 10px 0;padding:12px 14px;margin:18px 0 0;
+  }
+  .msg{font-size:15px;font-weight:700;min-height:22px;margin:12px 0 0}
+
+  /* ---------- tablero ---------- */
+  #tablero{display:none;padding:18px 0 60px}
+  .kpis{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));
+    gap:12px;margin:0 0 18px;
+  }
+  .kpi{background:var(--card);border:1px solid var(--hairline);border-radius:14px;padding:14px 16px}
+  .kpi .et{
+    font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.05em;margin:0 0 5px;
+  }
+  .kpi .n{font-family:var(--font-display);font-size:clamp(22px,3vw,30px);font-weight:700;line-height:1.1;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;font-variant-numeric:tabular-nums}
+  .kpi .pie{font-size:14px;margin-top:4px}
+
+  .barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+  .tabsel{display:flex;gap:6px;flex-wrap:wrap}
+  .tabsel button{
+    min-height:44px;padding:10px 16px;border:2px solid var(--hairline);border-radius:11px;
+    background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:15px;cursor:pointer;
+  }
+  .tabsel button.on{background:var(--ink);border-color:var(--ink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+  /* Tabs (JFC 2026-09-11): con 7 vistas la barra se apretaba/envolvia. Ahora
+     scrollea en horizontal (los botones no se encogen) — aditivo, mismo look. */
+  .tabsel{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:2px;}
+  .tabsel button{flex:0 0 auto;white-space:nowrap;}
+  #buscar{
+    flex:1;min-width:min(100%,240px);min-height:44px;padding:10px 14px;
+    border:2px solid var(--hairline);border-radius:11px;font-size:16px;background:#FFFFFF;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
+    text-transform:none;text-align:left;font-family:var(--font-body);letter-spacing:normal;
+  }
+  .exp{display:flex;gap:6px;flex-wrap:wrap}
+  .exp button{
+    min-height:44px;padding:10px 13px;border:2px solid var(--hairline);border-radius:11px;
+    background:#FFFFFF;font-family:var(--font-mono);font-weight:700;font-size:13px;cursor:pointer;
+  }
+  #tabla{background:var(--card);border:1px solid var(--hairline);border-radius:14px;overflow:hidden}
+  .cierre{
+    background:var(--card);border:1px solid var(--hairline);border-left:4px solid var(--rust);
+    border-radius:0 14px 14px 0;padding:14px 16px;margin:14px 0 0;font-size:15px;line-height:1.55;
+  }
+  .cierre strong{display:block;margin-bottom:2px}
+  .pie-lienzo{
+    text-align:center;font-size:14px;line-height:1.55;margin:26px auto 0;max-width:640px;
+  }
+  .tabulator{font-family:var(--font-body);font-size:15px;border:none}
+  .tabulator .tabulator-header{background:var(--canvas);border-bottom:2px solid var(--ink)}
+  .tabulator .tabulator-col-title{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase}
+  .tabulator-row.tabulator-row-even{background:#FCFDFE}
+  .num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  /* COMMISSIONS, LA ESTRELLA (JFC 2026-09-24, Bloque 6b). Mismo lenguaje que la
+     app (DESIGN.md, look A): tarjeta blanca borde 2px radio 6px, rotulos mono en
+     mayusculas 13px, cifras tabulares, escala 13/14/16. Color solo en cifras y
+     chips; nunca tarjetas pintadas (eso es de SIMON). */
+  #cm{margin:0 0 22px}
+  .cm-card{background:var(--card);border:2px solid var(--hairline);border-radius:6px;padding:14px 16px;margin:0 0 12px}
+  .cm-bar{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+  .cm-bar label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;flex:1 1 240px;min-width:0}
+  .cm-bar select{flex:1 1 180px;min-width:0;max-width:100%;min-height:40px;font-size:14px;font-weight:700;padding:4px 10px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;color:var(--ink)}
+  .cm-key{min-height:40px;padding:6px 12px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
+  .cm-key.on{background:var(--body-c);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+  .cm-key.rojo{border-color:#B0183E;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:0 0 14px}
+  .cm-k .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .cm-k .n{font-family:var(--font-mono);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .cm-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;margin-top:10px}
+  .cm-stats .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .cm-stats .n{font-family:var(--font-mono);font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+  .cm-stats .n small{font-family:var(--font-body);font-size:13px;font-weight:400}
+  .cm-chip{display:inline-block;font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:4px 10px;border-radius:6px}
+  .cm-chip.pend{background:#FAD5DE;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-chip.ok{background:#C0F5E0;color:#086944 !important;-webkit-text-fill-color:#086944 !important}
+  .cm-chip.none{background:#E8ECF2;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important}
+  .cm-verde{color:#086944 !important;-webkit-text-fill-color:#086944 !important}
+  .cm-rojo{color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cm-actions a,.cm-actions button{min-height:40px;padding:6px 12px;border:2px solid var(--ink);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer}
+  .cm-actions a.pagar{background:var(--rust);border-color:#C05000;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px}
+  .cm-h{font-family:var(--font-display);font-size:16px;font-weight:700;margin:0}
+  /* v423: barras de reparto. Azul #1F5FB8 = asociado, verde #086944 = casa (paleta validada, CVD dE 19).
+     Texto siempre en tinta; el color solo va en la barra y en el cuadrito de la leyenda. */
+  .cm-reparto .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+  .cm-barra{display:flex;gap:2px;height:12px;max-width:100%;border-radius:4px;overflow:hidden}
+  .cm-barra i{display:block;height:100%;min-width:0}
+  .cm-barra-xl{height:28px}
+  .cm-s-asoc{background:#1F5FB8}.cm-s-casa{background:#086944}
+  .cm-leyenda{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:10px;font-size:15px;font-weight:700}
+  .cm-leyenda .sw{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+  .cm-fila-barra{margin-top:10px}
+  .cm-sub{font-size:13px;margin:2px 0 0}
+  #cm details summary{cursor:pointer;font-size:14px;font-weight:700;color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important}
+  #cm table{width:100%;font-size:14px;border-collapse:collapse}
+  #cm td{padding:4px 0;vertical-align:top}
+  #cm td.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  mark{background:#FFF3C2;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;padding:0 2px;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ PUERTA ══════════════════════════ -->
+<style>
+  /* 2026-08-19, JFC: aviso "necesitas la app abierta" muy visible. La gente
+     es atolondrada; sin esto entran, no ven nada y creen que la app esta
+     rota. Se dice de tres formas: banner amarillo arriba, linea corta antes
+     del boton, y modal explicito cuando el intento falla por app cerrada. */
+  #aviso-app-abierta{background:#FFF4C2;border:2px solid #B8860B;color:#4a3410;
+    border-radius:10px;padding:12px 14px;margin:0 0 14px;font-size:14px;line-height:1.5;
+    display:flex;align-items:flex-start;gap:10px;}
+  #aviso-app-abierta .icon{font-size:20px;line-height:1;flex-shrink:0;margin-top:2px;font-weight:800;}
+  #aviso-app-abierta strong{color:#2a1d0a;}
+  #aviso-app-abierta .paso{display:block;font-size:13px;color:#4a3410;margin-top:4px;}
+  .hint-boton{font-size:13px;color:#5b5b5b;text-align:center;margin:6px 0 10px;}
+</style>
+<div id="puerta">
+  <div class="card">
+    <img id="logo-puerta" alt="friendly-123">
+    <h1>Dashboard</h1>
+    <p class="sub">Your whole business, on one big screen.</p>
+
+    <!-- AVISO INELUDIBLE (JFC 2026-08-19): el tablero NO tiene datos propios.
+         Los pide en vivo al telefono/dispositivo del duenio (o del encargado)
+         y ese dispositivo tiene que estar con la app abierta y en linea.
+         Sin esto, el usuario ve un tablero vacio y no sabe por que. -->
+    <div id="aviso-app-abierta" role="note">
+      <span class="icon">!</span>
+      <span>
+        <strong>Open the friendly-123 app on your phone or tablet BEFORE you sign in here.</strong>
+        <span class="paso">1. On your phone, open the app and log in with your PIN.</span>
+        <span class="paso">2. Keep that tab open (do not close it).</span>
+        <span class="paso">3. Then come back here and enter your code + PIN below.</span>
+        <span class="paso" style="color:#7a5510;">This board has no data of its own — it reads live from your device.</span>
+      </span>
+    </div>
+
+    <!-- AVISO DE DEMO (JFC 2026-08-27): la demo es aislada y tiene su propia
+         licencia; se anuncia antes de la cajita de pegado para que un visitante
+         sepa que puede probar sin tocar un negocio real. -->
+    <div class="demo-aviso" style="margin:0 0 10px;padding:10px 12px;border:1px dashed #7a5510;border-radius:8px;background:rgba(122,85,16,.08);font-size:13px;line-height:1.5;color:#5d4a1e;">
+      <strong>Try the demo:</strong> enter PIN <strong style="font-family:var(--font-mono,monospace);">456</strong> to explore a sample business. It's fully isolated — nothing you do there touches a real store.
+    </div>
+    <input id="codigo" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
+           placeholder="F123-XXXX-XXXX-XXXX-XXXXX" aria-label="Your business code">
+    <!-- EL PIN NO ES OPCIONAL (JFC, 2026-08-15). El codigo abre la sala; el PIN
+         dice quien eres. Un enlace reenviado sin PIN no muestra nada. Se
+         verifica en el dispositivo del duenio, no aqui: este lienzo nunca sabe
+         si un PIN existe, solo recibe un si o un no. -->
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off"
+           maxlength="6" placeholder="Your PIN" aria-label="Your owner or admin PIN">
+    <p class="hint-boton">The app must be open on another device for this to show anything.</p>
+    <button type="button" class="btn" id="entrar">See my business</button>
+    <p class="msg" id="msg"></p>
+
+    <p class="nota">
+      This board is a canvas: it stores nothing. What you see arrives encrypted from
+      your team's devices and disappears when you close this tab.
+      <button type="button" class="enlace" id="ver-politica-2">How we handle your data</button>
+    </p>
+  </div>
+</div>
+
+<!-- Politica de datos. Corta a proposito: si hace falta una pagina entera
+     para explicar que no guardamos nada, algo se esta guardando. -->
+<div id="pol" role="dialog" aria-modal="true" aria-labelledby="pol-t">
+  <div class="card">
+    <h2 id="pol-t">How we handle your data</h2>
+    <p><strong>We do not handle them. We do not have them.</strong></p>
+    <ul>
+      <li>Your products, sales and customers are stored on your team's devices. On no server of ours.</li>
+      <li>For them to appear here, they travel encrypted with a key derived from your license code — the key never leaves your devices.</li>
+      <li>The server they pass through only bounces bytes it cannot read, and does not store them.</li>
+      <li>This board writes nothing to your browser. When you close the tab, no trace remains.</li>
+      <li>No analytics, no trackers, no ads.</li>
+    </ul>
+    <p>The only things we do keep, in our license panel: your code, your name and contact email, and the technical failures the app self-reports so we can fix them. Nothing about your business.</p>
+    <button type="button" class="btn" id="pol-x">Got it</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ TABLERO ══════════════════════════ -->
+<header class="top" id="cabecera" style="display:none;">
+  <div class="wrap">
+    <img id="logo-top" alt="friendly-123">
+    <span class="neg" id="neg-nombre">Tu negocio</span>
+    <span class="pulso"><span class="punto" id="punto"></span><span id="pulso-txt">conectando…</span></span>
+  </div>
+</header>
+
+<main id="tablero"><div class="wrap">
+  <div class="kpis" id="kpis"></div>
+
+  <!-- COMMISSIONS, LA ESTRELLA DEL TABLERO (JFC 2026-09-24, Bloque 6b).
+       Se calcula aqui, en el lienzo, a partir de la foto que manda la app
+       (datos.ventas ya trae comisionPct/comisionAsociado/liquidada/mes por venta;
+       datos.liquidaciones trae el mes en curso por percha con meta, tramos,
+       devoluciones y reparto por persona). El tablero NO escribe dinero: pagar,
+       corregir y devolver se hacen en la app via deep-link #editar=comisiones:<id>.
+       Solo datos del propio dueno (la foto llega de sus aparatos). -->
+  <section id="cm" aria-labelledby="cm-titulo"></section>
+
+  <div class="barra">
+    <div class="tabsel" id="tabsel"></div>
+    <input id="buscar" type="search" placeholder="Search everything: a product, a customer, an amount…" aria-label="Search">
+    <div class="exp" id="exp"></div>
+  </div>
+
+  <div id="tabla"></div>
+  <div class="cierre" id="cierre"></div>
+
+  <!-- CALCULADORA DE COSTO UNITARIO (JFC 2026-08-18).
+       "Queremos permitirles calcular costo unitario (en el tablero!,
+       recordemos que la app es de combate para la accion y el tablero es para
+       revisar con calma)".
+       Eso es exactamente por que vive AQUI y no en la app: sacar el costo real
+       de una unidad es una cuenta de sentarse, con la factura del proveedor
+       delante — no algo que se hace con el cliente esperando en el mostrador.
+       No guarda nada: el tablero es un lienzo. Da el numero para que el dueno
+       lo escriba en la ficha del producto desde la app. -->
+  <section id="costo-unit" style="margin:26px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Real unit cost</h2>
+    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+      Lo que de verdad te cuesta UNA unidad, con el flete, la aduana y lo que se
+      rompe en el camino repartido encima. Casi siempre es más que el precio de
+      la factura, y es el número con el que se decide un precio de venta.
+    </p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="font-size:13px;font-weight:700;">You paid in total<br>
+        <input id="cu-total" type="number" min="0" step="any" placeholder="0.00"
+          style="width:150px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Freight & shipping<br>
+        <input id="cu-flete" type="number" min="0" step="any" placeholder="0.00"
+          style="width:130px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Taxes & customs<br>
+        <input id="cu-imp" type="number" min="0" step="any" placeholder="0.00"
+          style="width:150px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Other costs<br>
+        <input id="cu-otros" type="number" min="0" step="any" placeholder="0.00"
+          style="width:130px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Units received<br>
+        <input id="cu-unid" type="number" min="1" step="1" placeholder="1"
+          style="width:150px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Broken or lost (%)<br>
+        <input id="cu-merma" type="number" min="0" max="99" step="0.5" placeholder="0"
+          style="width:180px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Your selling price<br>
+        <input id="cu-precio" type="number" min="0" step="any" placeholder="0.00"
+          style="width:160px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+    </div>
+    <div id="cu-out" style="margin-top:14px;font-size:15px;line-height:1.6;"></div>
+  </section>
+
+  <!-- QUIEN ESTA EN EL LOOP. Va al PIE a proposito: no es lo primero que se
+       mira cada manana, pero es lo que hay que revisar antes de creerse los
+       numeros de arriba. Si un dispositivo lleva horas a ciegas, las cifras
+       de esta pantalla estan incompletas y hay que decirlo. -->
+  <section id="micelio" style="margin:26px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Your team right now</h2>
+    <p id="micelio-resumen" style="font-size:15px;line-height:1.55;margin:0 0 12px;"></p>
+    <div id="micelio-lista" class="card" style="padding:6px 16px;"></div>
+    <p id="micelio-nota" style="font-size:14px;line-height:1.55;margin:10px 0 0;"></p>
+  </section>
+  <section id="finanzas-foto" class="card" style="margin:24px 0;padding:18px;">
+    <h2 style="font-size:19px;margin:0 0 8px;">Finance snapshot</h2>
+    <div id="finanzas-foto-contenido" style="font-size:14px;line-height:1.5;">Waiting for a verified snapshot…</div>
+  </section>
+
+  <!-- AVANZADO, calcado (JFC 2026-08-15). La app del dia a dia mete todo esto
+       en una columna de telefono; aqui hay pantalla de sobra para usarlo bien.
+       Lo que se ve y lo que se hace NO se reimplementa: se le pide al
+       dispositivo del duenio por el canal cifrado y el ejecuta. Ver
+       ORDENES_PERMITIDAS en sync-realtime.js (lista blanca estricta). -->
+  <section id="avz" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Avanzado</h2>
+    <div class="tabsel" id="avz-sel" style="margin:0 0 12px;"></div>
+    <div id="avz-cuerpo" class="card"></div>
+    <p id="avz-msg" style="font-size:15px;font-weight:700;margin:10px 0 0;min-height:22px;"></p>
+  </section>
+
+  <!-- QUIEN TIENE ACCESO (JFC 2026-08-28). El directorio de acceso: qué PIN
+       corresponde a qué persona (nombre, correo, notas). Es la base para el
+       control real de quién puede entrar a tu cuaderno. Se pide al dispositivo
+       del dueño por el canal cifrado (GET /api/directorio). -->
+  <section id="acceso" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Who has access</h2>
+    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+      Cada PIN de tu cuaderno, con la persona que lo usa. Si un PIN no tiene
+      nombre, edítalo en la app (Access &amp; recovery) y asígnale quién es.
+    </p>
+    <div id="acceso-cuerpo" class="card" style="padding:6px 16px;">
+      <p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Cargando…</p>
+    </div>
+  </section>
+
+  <!-- SOPORTE (JFC 2026-08-28). Botones de auxilio según el tipo de problema,
+       todo amigable. El dueño pide una acción y el dispositivo la ejecuta. -->
+  <section id="soporte" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Support</h2>
+    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+      ¿Algo se atascó? Elige lo que te pasa y te ayudamos a desatascarlo. Nada
+      de esto borra tus datos.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button type="button" id="sop-fixlic" style="padding:12px 16px;border:2px solid #00805A;border-radius:8px;background:#fff;color:#00805A;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
+        🔑 My license is broken or too short<br>
+        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Get a fresh full license for this device</span>
+      </button>
+      <button type="button" id="sop-resync" style="padding:12px 16px;border:2px solid #2C4A68;border-radius:8px;background:#fff;color:#2C4A68;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
+        🔄 My devices aren't talking to each other<br>
+        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Reconnect this device to your team</span>
+      </button>
+    </div>
+    <p id="sop-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;min-height:22px;"></p>
+  </section>
+
+  <p class="pie-lienzo">
+    Este tablero es un lienzo: no guarda nada. Lo que ves llega cifrado desde los dispositivos
+    de tu equipo y desaparece al cerrar esta pesta&ntilde;a.
+    <button type="button" id="ver-politica">C&oacute;mo tratamos tus datos</button>
+  </p>
+
+  <!-- PERISCOPIO DE DATOS (JFC 2026-08-27). Al fondo del tablero, el log de
+       movimientos y el estado de sync/accesos, como termómetro del manejo de
+       datos. Solo pinta la foto que llega del dispositivo; no guarda nada. -->
+  <details id="oc-log-tablero" style="margin-top:28px;border-top:1px solid #2a3a4a;padding-top:14px;">
+    <summary style="cursor:pointer;font-weight:700;color:#8A6400;">My log · data &amp; sync control (periscope)</summary>
+    <div id="oc-log-sync" style="font-family:monospace;font-size:12px;margin:10px 0;"></div>
+    <table id="oc-log-tabla" style="width:100%;font-size:13px;border-collapse:collapse;"></table>
+  </details>
+</div></main>
+
+<!-- MODO LOCAL. aislamiento.js es OBLIGATORIO y va PRIMERO: sin el, este
+     archivo lee localStorage sin el prefijo amig:: y no encuentra los datos de
+     la app aunque esten a dos centimetros. crypto-store.js da OCSecure, que es
+     quien puede juzgar el PIN aqui mismo sin preguntarle a nadie.
+     Los dos son del mismo origen: no son CDN y no pueden fallar por red. -->
+<script src="./aislamiento.js"></script>
+<script src="./crypto-store.js"></script>
+<script src="./canarios.js"></script>
+<script src="./salud-app.js"></script>
+<script>
+/* ============================================================================
+   tablero.html — el lienzo.
+
+   COMO FUNCIONA, en una linea: pide el codigo de la sala, deriva la misma
+   clave que la app (PBKDF2 -> AES-GCM), se conecta al mismo relay, pide una
+   foto y la pinta. No escribe nunca, no guarda nunca.
+
+   POR QUE NO REUSA sync-realtime.js TAL CUAL: ese modulo escribe en
+   localStorage (log de ops, cola, lamport) porque es un participante activo
+   del equipo. El tablero NO debe dejar rastro, asi que aqui va solo la mitad
+   que necesita: derivar la clave, conectarse, descifrar y pintar. Cero
+   escritura, cero persistencia. Es la misma cripta y el mismo dialecto, con
+   la mitad de las capacidades a proposito.
+
+   Si alguna vez cambian SALT_FIJO, el nombre de la sala o el formato de las
+   ops en sync-realtime.js, hay que cambiarlos aqui tambien. Estan marcados.
+   ============================================================================ */
+(function () {
+  "use strict";
+
+  /* --- ESPEJO EXACTO de sync-realtime.js. No tocar sin tocar alla. --- */
+  var RELAY_URL = "wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/";
+  var SALT_FIJO = "amigable-sync-v1";
+  var TIPO_LATIDO = "__latido__";
+  var TIPO_PIN = "__pin__";
+  var TIPO_ORDEN = "__orden__";
+  var TIPO_RESPUESTA = "__respuesta__";
+  var TIPO_FOTO_PEDIDA = "__foto_pedida__";
+  var TIPO_FOTO_TROZO = "__foto_trozo__";
+  var fotoTimer = null;
+  var reconexionTimer = null;
+  var reconexionMs = 1500;
+
+  /* El logo real, embebido: este archivo se manda por WhatsApp y tiene que
+     abrir igual sin depender de ningun servidor de imagenes. */
+  var LOGO = "data:image/png;base64,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";
+  var clave = null, ws = null, miId = "t" + Math.random().toString(36).slice(2, 10), fotoToken = "";
+  var datos = { productos: [], clientes: [], ventas: [], resumen: null };
+  var esperados = {}, recibidos = {}, fotoTemporal = {}, totalTrozos = 0, clavesTrozos = {};
+  /* De que foto son los trozos que estoy armando. Dos dispositivos pueden
+     contestar el mismo pedido, y al reconectar se pide otra: sin esto, los
+     trozos de fotos distintas se mezclaban y salia un negocio hecho de dos
+     momentos diferentes, sin ningun aviso. */
+  var fotoEnCurso = "", fotoFecha = "";
+  var ultimoDato = 0, tabla = null, vista = "productos", degradado = false;
+  var tablaDe = "";   /* de que vista es la tabla que esta montada ahora mismo */
+  var autorizado = false;   /* mientras sea false, nada de datos se pinta */
+  var modoLocal = false;    /* los datos salieron de este mismo dispositivo */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
+  var money = function (n) { return "$" + (Number(n) || 0).toFixed(2); };
+  /* Semaforo Simon, congelado (ver project_simon_semantics). Los cinco, ni uno
+     mas: el azul esta EXCLUIDO de tableros a proposito. Texto siempre solido y
+     con contraste sobre su fondo, nunca color sobre el mismo tono. */
+  var SIMON = {
+    verde:   { bg: "#00C87A", txt: "#0A2E1E", nom: "Sano" },
+    dorado:  { bg: "#FFC700", txt: "#3D2E00", nom: "Oportunidad" },
+    amarillo:{ bg: "#FFC700", txt: "#3D2E00", nom: "Oportunidad" },
+    naranja: { bg: "#F97316", txt: "#FFFFFF", nom: "Se acaba" },
+    rojo:    { bg: "#E8365D", txt: "#FFFFFF", nom: "Urgente" },
+    negro:   { bg: "#0A0A0F", txt: "#FFFFFF", nom: "Dormido" },
+  };
+  /* La fecha llega en ISO. Mostrarla cruda es ilegible para el duenio; se
+     pinta local y corta. Si no parsea, se muestra tal cual antes que un
+     "Invalid Date". */
+  var fecha = function (iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso || "");
+    var dd = String(d.getDate()).padStart(2, "0"), mm = String(d.getMonth() + 1).padStart(2, "0");
+    return dd + "/" + mm + "/" + d.getFullYear() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  };
+  var plural = function (n, uno, muchos) { return n + " " + (n === 1 ? uno : muchos); };
+
+  /* --- Cripto: identica a la de la app --- */
+  async function derivarClave(codigo) {
+    var enc = new TextEncoder();
+    var base = await crypto.subtle.importKey("raw", enc.encode(codigo), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: enc.encode(SALT_FIJO), iterations: 100000, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  /* ESPEJO EXACTO de idDeSala() en sync-realtime.js: el prefijo y el corte a
+     40 caracteres son parte del identificador. Sin el prefijo se entra a OTRA
+     sala y no llega nada, sin ningun error visible. Ya paso una vez. */
+  async function idDeSala(codigo) {
+    var h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("amigable-sala:" + codigo));
+    return Array.from(new Uint8Array(h)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("").slice(0, 40);
+  }
+  async function cifrar(obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var buf = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, clave, new TextEncoder().encode(JSON.stringify(obj)));
+    var out = new Uint8Array(12 + buf.byteLength);
+    out.set(iv, 0); out.set(new Uint8Array(buf), 12);
+    return out.buffer;
+  }
+  async function descifrar(buf) {
+    var d = new Uint8Array(buf);
+    var claro = await crypto.subtle.decrypt({ name: "AES-GCM", iv: d.slice(0, 12) }, clave, d.slice(12));
+    return JSON.parse(new TextDecoder().decode(claro));
+  }
+
+  /* --- Pulso: se muestra LA HORA DEL ULTIMO DATO, no un "conectado" generico.
+         Un indicador verde que miente seria peor que no tener tablero. --- */
+  function pulso(txt, clase) {
+    $("punto").className = "punto" + (clase ? " " + clase : "");
+    $("pulso-txt").textContent = txt;
+  }
+  setInterval(function () {
+    if (!ultimoDato) return;
+    /* En modo local sin sala, el dato no envejece: sale del mismo dispositivo.
+       Decir "sin novedades hace 40 min" ahi seria mentir. */
+    if (!ws && modoLocal) { pulso("from this device", "vivo"); return; }
+    var seg = Math.round((Date.now() - ultimoDato) / 1000);
+    if (seg < 120) pulso("al día · hace " + (seg < 10 ? "un momento" : seg + " s"), "vivo");
+    else pulso("sin novedades hace " + Math.round(seg / 60) + " min", "viejo");
+  }, 5000);
+
+  /* --- Conexión --- */
+  /* Manda el PIN al dispositivo del duenio, que es el unico que puede
+     verificarlo. Aqui no hay copia del PIN ni forma de saber si existe. */
+  function verificarPin(pin) {
+    return new Promise(function (resolve) {
+      if (!ws || ws.readyState !== 1) { resolve({ ok: false, datos: { error: "Sin conexión." } }); return; }
+      var id = "p" + Math.random().toString(36).slice(2, 10);
+      /* Se declara ANTES del timeout: leerlo por hoisting funciona, pero
+         depender de eso es como se cuelan los bugs raros. */
+      var negativas = 0;
+      var reloj = setTimeout(function () {
+        if (!pedidos[id]) return;
+        delete pedidos[id];
+        resolve({ ok: false, datos: { error: negativas
+          ? "Ese PIN no abre el tablero. Tiene que ser el del dueño o el de un admin."
+          : "Ningún dispositivo de tu equipo contestó. Abre friendly-123 y vuelve a intentar." } });
+      }, 12000);
+      /* Se espera un SI. Un NO no cierra la puerta: en una sala con varios
+         dispositivos, el que no conoce ese PIN puede contestar antes que el que
+         si lo conoce, y rendirse al primer no rechazaba PINs validos. Los "no"
+         se cuentan solo para redactar mejor el mensaje del timeout. */
+      pedidos[id] = function (r) {
+        if (!r.ok) { negativas++; return; }
+        clearTimeout(reloj);
+        delete pedidos[id];
+        resolve(r);
+      };
+      cifrar({ opId: id, deviceId: miId, tipo: TIPO_PIN, payload: { pedidoId: id, pin: pin } })
+        .then(function (buf) { try { ws.send(buf); } catch (_) {} });
+    });
+  }
+
+  /* Si a los 6 s no contesto nadie, casi siempre es que no hay ningun
+     dispositivo del equipo encendido. Se dice, no se disimula. */
+  function sinNadie() {
+    setTimeout(function () {
+      if (ultimoDato) return;
+      /* ULTIMA RED (JFC 2026-08-17). Antes esto dejaba las pestanias vacias
+         aunque el negocio estuviera guardado en ESTE mismo navegador. Si hay
+         datos aqui, se pintan: una pantalla en blanco delante de alguien que
+         tiene todos sus datos en ese computador es el peor final posible. */
+      if (pintarDesdeLocal()) {
+        $("cierre").innerHTML = "<strong>Ningún otro dispositivo de tu equipo contestó.</strong>" +
+          "Esto es lo que hay guardado en este computador. Si tu equipo abre friendly-123, " +
+          "esta pantalla se actualiza sola.";
+        return;
+      }
+      pulso("no device connected", "solo");
+      $("cierre").innerHTML = "<strong>Ningún dispositivo de tu equipo está conectado.</strong>" +
+        "Abre friendly-123 y esta pantalla se llena sola.";
+      $("puerta").style.display = "none";
+      $("cabecera").style.display = "block";
+      $("tablero").style.display = "block";
+    }, 6000);
+  }
+
+  async function conectar(codigo) {
+    /* Mismo normalizado que la app: sin esto, "amg-x" y "F123-X" caen en salas
+       distintas y el equipo nunca entiende por que no ve nada. */
+    codigo = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
+    clave = await derivarClave(codigo);
+    var sala = await idDeSala(codigo);
+    ws = new WebSocket(RELAY_URL + sala);
+    ws.binaryType = "arraybuffer";
+    /* onopen NO pide la foto: primero hay que pasar el PIN. Pedirla antes
+       seria justo el agujero que el PIN viene a tapar.
+
+       conectar() no resuelve hasta que el socket este ABIERTO de verdad: sin
+       esto, el PIN se mandaba por un socket todavia en CONNECTING y siempre
+       fallaba con "sin conexion". */
+    var abierto = new Promise(function (listo, falla) {
+      var reloj = setTimeout(function () { falla(new Error("timeout")); }, 12000);
+      ws.onopen = function () {
+        clearTimeout(reloj);
+        pulso("comprobando tu PIN…");
+        listo();
+      };
+      ws.addEventListener("error", function () { clearTimeout(reloj); falla(new Error("error")); }, { once: true });
+    });
+    ws.onmessage = async function (ev) {
+      if (typeof ev.data === "string") return;   /* presencia, en claro */
+      try {
+        var op = await descifrar(ev.data);
+        /* La respuesta al PIN es lo UNICO que se atiende antes de estar
+           autorizado. Todo lo demas se descarta: sin PIN no se pinta un dato. */
+        if (op && op.tipo === TIPO_RESPUESTA) { recibirRespuesta(op.payload); return; }
+        if (!autorizado) return;
+        if (op && op.tipo === TIPO_FOTO_TROZO) { recibirTrozo(op.payload); return; }
+        /* Latido: quien esta vivo y como se llama. No es dato del negocio y no
+           se guarda en ningun lado; vive en memoria hasta que se cierre esta
+           pestana, como todo lo demas en este lienzo. */
+        if (op && op.tipo === TIPO_LATIDO && op.payload && op.payload.id) {
+          latidos[op.payload.id] = { apodo: op.payload.apodo || "", rol: op.payload.rol || "", visto: Date.now() };
+          pintarMicelio();
+          return;
+        }
+        /* Una op de negocio en vivo: se vuelve a pedir la foto para no
+           reimplementar aqui la logica de aplicar cambios. El lienzo se
+           repinta entero, que es barato y no puede quedar a medias. */
+        if (op && op.tipo && op.tipo.indexOf("__") !== 0) {
+          /* Una venta puede generar varias ops seguidas. Pedir una foto por
+             cada una multiplicaba frames y trabajo del relay; 120 ms agrupa
+             la ráfaga y mantiene el tablero perceptiblemente instantáneo. */
+          clearTimeout(fotoTimer);
+          fotoTimer = setTimeout(pedirFoto, 120);
+        }
+      } catch (_) { /* cifrado con otra clave: ruido, se ignora */ }
+    };
+    /* Al reconectar se vuelve a pedir la foto sin volver a pedir el PIN: la
+       sesion ya esta autorizada en esta pestana, y hacerle teclear el PIN cada
+       vez que parpadea el wifi seria insufrible. Al cerrar la pestana se
+       pierde todo, que es justo lo que tiene que pasar. */
+    ws.onclose = function () {
+      pulso("reconectando…");
+      clearTimeout(reconexionTimer);
+      var espera = reconexionMs / 2 + Math.random() * reconexionMs / 2;
+      reconexionMs = Math.min(30000, reconexionMs * 2);
+      reconexionTimer = setTimeout(function () {
+        conectar(codigo).then(function () { if (autorizado) pedirFoto(); }).catch(function () {});
+      }, espera);
+    };
+    ws.onerror = function () { try { ws.close(); } catch (_) {} };
+    await abierto;
+  }
+
+  async function pedirFoto() {
+    if (!ws || ws.readyState !== 1) return;
+    try {
+      // Compatibilidad durante el cambio de shell: un aparato v318 no entrega
+      // token. El aparato v319 exige uno; el antiguo aún puede responder y la
+      // cobertura de finanzas se rotula incompleta, sin fingir paridad.
+      ws.send(await cifrar({ opId: miId + "-" + Date.now(), deviceId: miId, tipo: TIPO_FOTO_PEDIDA, payload: { fotoToken: fotoToken } }));
+    } catch (_) {}
+  }
+
+  /* --- La foto llega por partes. Se pinta lo que va llegando. --- */
+  function recibirTrozo(p) {
+    if (!p || !p.tabla) return;
+    // Ya llegó data válida: la conexión sí fue estable y puede reiniciar backoff.
+    reconexionMs = 1500;
+    /* Foto nueva: se tira lo que habia a medias. Mezclar es peor que esperar.
+
+       Y si dos dispositivos del equipo contestan a la vez, gana LA MAS
+       RECIENTE, no la ultima en llegar: el que tiene peor conexion suele
+       contestar despues y con datos mas viejos, y quedarse con esa seria
+       mostrar el negocio de hace media hora sin decirlo. */
+    var sello = String(p.fotoId || p.generadaEn || "");
+    if (sello && sello !== fotoEnCurso) {
+      if (fotoEnCurso && String(p.generadaEn || "") <= fotoFecha) return;
+      fotoEnCurso = sello;
+      fotoFecha = String(p.generadaEn || "");
+      esperados = {}; recibidos = {}; fotoTemporal = {}; totalTrozos = 0; clavesTrozos = {};
+    }
+    ultimoDato = Date.now();
+    if (p.negocio) $("neg-nombre").textContent = p.negocio;
+    if (Number.isInteger(p.deTotal) && p.deTotal > 0) totalTrozos = p.deTotal;
+    if (Number.isInteger(p.k) && p.k >= 0) clavesTrozos[p.k] = true;
+    esperados[p.tabla] = p.total;
+    recibidos[p.tabla] = recibidos[p.tabla] || {};
+    recibidos[p.tabla][p.i] = p.filas || [];
+    var partes = [], listo = true;
+    for (var i = 0; i < p.total; i++) {
+      if (!recibidos[p.tabla][i]) { listo = false; break; }
+      partes = partes.concat(recibidos[p.tabla][i]);
+    }
+    if (!listo) { pulso("recibiendo… " + Object.keys(recibidos[p.tabla]).length + "/" + p.total); return; }
+    fotoTemporal[p.tabla] = (p.tabla === "resumen" || p.tabla === "gastosMensuales") ? (partes[0] || null) : partes;
+    if (!totalTrozos || Object.keys(clavesTrozos).length < totalTrozos) {
+      pulso("recibiendo foto… " + Object.keys(clavesTrozos).length + "/" + totalTrozos);
+      return;
+    }
+    for (var nombre in esperados) {
+      if (!Object.prototype.hasOwnProperty.call(fotoTemporal, nombre)) return;
+    }
+    datos = fotoTemporal;
+    mostrar();
+  }
+
+  /* ---------------------------------------------------------------- VISTAS */
+  var VISTAS = {
+    productos: {
+      nombre: "Products",
+      cols: [
+        { title: "Product", field: "nombre", minWidth: 200, widthGrow: 3, headerFilter: false },
+        { title: "SKU", field: "sku", width: 130, cssClass: "num" },
+        { title: "Category", field: "categoria", width: 130 },
+        { title: "Stock", field: "stockActual", width: 90, hozAlign: "right", cssClass: "num" },
+        { title: "Price", field: "precio", width: 105, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Cost", field: "costo", width: 105, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Margin", field: "margen", width: 110, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        /* El color Simon ES el lenguaje de la app, no decoracion. Aqui va
+           como chip con su palabra dentro: el color para el vistazo, la
+           palabra para quien no distingue colores y para el buscador. */
+        { title: "Status", field: "estado", width: 125, formatter: function (c) {
+            var v = String(c.getValue() || "");
+            var col = SIMON[v] || { bg: "#FFFFFF", txt: "#2C3E50", nom: v };
+            return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
+              'font-weight:700;background:' + col.bg + ';color:' + col.txt + ';">' + col.nom + "</span>";
+          } },
+        { title: "Shelf", field: "ubicacionNombre", width: 150 },
+      ],
+      filas: function () {
+        return (datos.productos || []).map(function (p) {
+          return Object.assign({}, p, { margen: (Number(p.precio) || 0) - (Number(p.costo) || 0) });
+        });
+      },
+      /* M12: la vista termina nombrando la herramienta que resuelve lo que
+         acaba de mostrar. Se nombra la herramienta, nunca el razonamiento. */
+      cierre: function (f) {
+        var dormidos = f.filter(function (p) { return p.estado === "negro"; }).length;
+        if (dormidos) return "<strong>" + dormidos + " productos sin movimiento.</strong>" +
+          "En la app, Perchas &rarr; Reposición arma la lista de qué mover primero.";
+        var rojos = f.filter(function (p) { return p.estado === "rojo"; }).length;
+        if (rojos) return "<strong>" + rojos + " en rojo.</strong>Inventario, filtro Urgente, te los deja juntos para reponer.";
+        return "<strong>Inventario sano.</strong>La matriz BCG de la app te dice cuáles empujar para que rindan más.";
+      },
+    },
+    clientes: {
+      nombre: "Customers",
+      cols: [
+        { title: "Customer", field: "nombre", minWidth: 180, widthGrow: 3 },
+        { title: "Código", field: "codigo", width: 110, cssClass: "num" },
+        /* Campos reales de fichaCliente() en mock-backend.js: recencia,
+           frecuencia y monto (RFM de 90 dias). No inventar otros. */
+        { title: "Compró hace", field: "recencia", width: 130, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = c.getValue(); return v == null ? "nunca" : v + " días"; } },
+        { title: "Compras 90d", field: "frecuencia", width: 125, hozAlign: "right", cssClass: "num" },
+        { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Phone", field: "telefono", width: 140, cssClass: "num" },
+        /* JFC 2026-09-02: refleja el rango de edad y país capturados en My customers. */
+        { title: "Age", field: "rangoEdad", width: 100 },
+        { title: "Country", field: "pais", width: 130 },
+        /* "Compró" (JFC 2026-08-27): qué productos ha comprado cada cliente.
+           Se deriva en vivo de datos.ventas (clienteNombre → productoNombre),
+           no se inventa un campo nuevo del backend. */
+        { title: "Compró", field: "compro", minWidth: 200, widthGrow: 2,
+          formatter: function (c) {
+            var nombre = c.getRow().getData().nombre;
+            var prods = {};
+            (datos.ventas || []).forEach(function (v) {
+              if (v.clienteNombre === nombre && v.productoNombre) prods[v.productoNombre] = true;
+            });
+            var lista = Object.keys(prods);
+            if (!lista.length) return "—";
+            return lista.slice(0, 4).join(", ") + (lista.length > 4 ? "…" : "");
+          } },
+      ],
+      filas: function () { return datos.clientes || []; },
+      cierre: function (f) {
+        return "<strong>" + plural(f.length, "cliente", "clientes") + ".</strong>" +
+          "En Clientes, la matriz de comportamiento te dice con quién puedes contar, y el fiado con plan de cuotas está ahí mismo.";
+      },
+    },
+    ventas: {
+      nombre: "Sales",
+      cols: [
+        /* LAPICITO (JFC 2026-09-10, #6): editar una venta ya asentada — corregir
+           el precio/cantidad para cuadrar la ganancia real (lo que pide Belén).
+           El dashboard NO edita dinero: abre la app en su editor probado por
+           deep-link (#editar=venta:<id>), solo dueño/admin. Las liquidadas van
+           bloqueadas (no se tocan). */
+        { title: "", field: "id", width: 48, hozAlign: "center", headerSort: false, download: false,
+          formatter: function (c) {
+            var v = c.getRow().getData();
+            if (v.liquidada) return '<span title="Liquidada — bloqueada">·</span>';
+            return '<a href="index.html#editar=venta:' + encodeURIComponent(v.id) +
+              '" title="Corregir esta venta (precio, cantidad) en la app" ' +
+              'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
+          } },
+        { title: "Date", field: "fecha", width: 155, cssClass: "num",
+          formatter: function (c) { return fecha(c.getValue()); },
+          /* Se ordena por el ISO original, no por el texto pintado: si no,
+             "01/09" quedaria antes que "31/08". */
+          sorter: "string" },
+        { title: "Product", field: "productoNombre", minWidth: 190, widthGrow: 3 },
+        { title: "Cant.", field: "cantidad", width: 85, hozAlign: "right", cssClass: "num" },
+        { title: "Price", field: "precioUnit", width: 110, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Total", field: "total", width: 115, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Customer", field: "clienteNombre", width: 160 },
+        /* JFC 2026-09-02: refleja forma de pago y número de factura de la venta. */
+        { title: "Payment", field: "formaPago", width: 110 },
+        { title: "Invoice", field: "factura", width: 150 },
+        { title: "Shelf", field: "ubicacionNombre", width: 150 },
+      ],
+      filas: function () {
+        return (datos.ventas || []).map(function (v) {
+          return Object.assign({}, v, { total: (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) });
+        });
+      },
+      cierre: function (f) {
+        var t = f.reduce(function (a, v) { return a + (Number(v.total) || 0); }, 0);
+        return "<strong>" + plural(f.length, "venta", "ventas") + " por " + money(t) + " en lo que ves.</strong>" +
+          "Toca el lápiz ✎ de una fila para corregir su precio o cantidad en la app y cuadrar la ganancia real. Filtra por fecha y exporta a PDF para tu contador.";
+      },
+    },
+
+    /* Eventos va JUSTO DESPUES de Ventas y Clientes, como se pidio. */
+    eventos: {
+      nombre: "Events",
+      cols: [
+        { title: "Event", field: "evento", minWidth: 200, widthGrow: 3 },
+        { title: "Date", field: "fecha", width: 120 },
+        { title: "Sales", field: "ventas", width: 90, hozAlign: "right", cssClass: "num" },
+        { title: "Tickets", field: "unidades", width: 100, hozAlign: "right", cssClass: "num" },
+        { title: "People", field: "personas", width: 100, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return c.getValue() || "—"; } },
+        { title: "Collected", field: "recaudado", width: 125, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Profit", field: "ganancia", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Commission", field: "comision", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Shelf", field: "perchas", width: 160 },
+        { title: "Buyers", field: "compradores", width: 130, hozAlign: "right", cssClass: "num" },
+        { title: "Last sale", field: "ultimaVenta", width: 130 },
+      ],
+      filas: filasEventos,
+      cierre: function (f) {
+        if (!f.length) {
+          return "<strong>Todavía no hay eventos.</strong>" +
+            "Un evento aparece aquí en cuanto vendes un producto de tipo " +
+            "Ticket/Evento y le escribes el nombre de la función o la clase.";
+        }
+        var rec = f.reduce(function (a, v) { return a + (Number(v.recaudado) || 0); }, 0);
+        var gan = f.reduce(function (a, v) { return a + (Number(v.ganancia) || 0); }, 0);
+        var com = f.reduce(function (a, v) { return a + (Number(v.comision) || 0); }, 0);
+        var top = f.slice().sort(function (a, b) { return b.recaudado - a.recaudado; })[0];
+        return "<strong>" + plural(f.length, "evento", "eventos") + " · " + money(rec) +
+          " recaudado, " + money(gan) + " de ganancia" +
+          (com > 0 ? ", " + money(com) + " en comisiones" : "") + ".</strong>" +
+          (top ? "El que más dejó: " + esc(top.evento) + " con " + money(top.recaudado) + ". " : "") +
+          "Cada fila junta TODAS las ventas de esa función, sin importar el producto ni la percha.";
+      },
+    },
+
+    comisiones: {
+      nombre: "Commissions",
+      cols: [
+        /* #2 (JFC 2026-09-11): editar la comisión de la percha desde el dashboard.
+           Aditivo: el lápiz solo aparece si la fila trae ubicacionId; si no, no se
+           pinta y no rompe nada. Abre la app en su editor probado por deep-link. */
+        { title: "", field: "ubicacionId", width: 44, hozAlign: "center", headerSort: false, download: false,
+          formatter: function (c) {
+            var id = c.getValue();
+            if (!id) return "";
+            return '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(id) +
+              '" title="Ajustar la comisión de esta percha en la app" ' +
+              'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
+          } },
+        { title: "Who gets paid", field: "quien", minWidth: 170, widthGrow: 2 },
+        { title: "Deal", field: "percha", minWidth: 160, widthGrow: 2 },
+        { title: "Type", field: "modalidad", width: 190 },
+        { title: "%", field: "pct", width: 85, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return (Number(c.getValue()) || 0) + "%"; } },
+        { title: "% house", field: "pctCasa", width: 95, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return (Number(c.getValue()) || 0) + "%"; } },
+        { title: "Sold", field: "ventasBrutas", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Takes", field: "comision", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "House keeps", field: "casa", width: 140, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Status", field: "estado", width: 120, formatter: function (c) {
+            var v = String(c.getValue() || "");
+            var bg = v === "pagado" ? "#00C87A" : "#E8A020";
+            /* v391: junto a "pagado", como se pago (si se registro). */
+            var medio = ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[(c.getRow().getData() || {}).medioPago] || "";
+            return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
+              'font-weight:700;background:' + bg + ';color:#0F1923;">' + esc(v) + (v === "pagado" && medio ? " · " + esc(medio) : "") + "</span>";
+          } },
+        { title: "Corrected", field: "corregidas", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return Number(c.getValue()) ? c.getValue() : "—"; } },
+      ],
+      filas: filasComisiones,
+      cierre: function (f) {
+        if (!f.length) {
+          return "<strong>Ninguna percha reparte comisión todavía.</strong>" +
+            "Las perchas de tipo socio, consignación o feria aparecen aquí solas " +
+            "en cuanto venden.";
+        }
+        var deb = f.reduce(function (a, v) { return a + (Number(v.comision) || 0); }, 0);
+        var casa = f.reduce(function (a, v) { return a + (Number(v.casa) || 0); }, 0);
+        var pend = f.filter(function (v) { return v.estado === "pendiente"; });
+        var corr = f.reduce(function (a, v) { return a + (Number(v.corregidas) || 0); }, 0);
+        /* Los dos botones cambian la lectura del MISMO dato, no piden nada al
+           equipo. Por eso el cambio es instantaneo aunque no haya internet. */
+        return "<strong>" + money(deb) + " para quienes cobran comisión · " +
+          money(casa) + " queda en la casa</strong>" +
+          (pend.length ? "Sin liquidar: " + pend.map(function (v) { return esc(v.quien); }).join(", ") + ". " : "Todo liquidado. ") +
+          (corr ? corr + " venta(s) con el porcentaje corregido a mano. " : "") +
+          'Ver por: <button type="button" data-agr="percha"' +
+          (agruparComisionesPor === "percha" ? ' style="font-weight:700;text-decoration:underline;"' : "") +
+          ">deal/shelf</button> · " +
+          '<button type="button" data-agr="persona"' +
+          (agruparComisionesPor === "persona" ? ' style="font-weight:700;text-decoration:underline;"' : "") +
+          ">person</button>" +
+          " — la misma persona puede ser vendedora en una percha y artista en otra, " +
+          "con % distintos, y las dos cosas son ciertas a la vez.";
+      },
+    },
+
+    /* RESTOCK (JFC 2026-09-10, best-practice de dashboards para negocios chicos:
+       la vista más útil no es la más llena, es la que deja ver la PRÓXIMA ACCIÓN.
+       Esta junta lo que está en o bajo su punto de reorden — la excepción
+       operativa que el dueño quiere ver antes de decidir qué comprar. Usa los
+       datos que ya llegan en la foto (productos con stock y umbrales). */
+    reposicion: {
+      nombre: "Restock",
+      cols: [
+        { title: "Product", field: "nombre", minWidth: 200, widthGrow: 3 },
+        { title: "Shelf", field: "ubicacionNombre", width: 150 },
+        { title: "Stock", field: "stockActual", width: 90, hozAlign: "right", cssClass: "num" },
+        { title: "Reorder at", field: "umbralRojo", width: 110, hozAlign: "right", cssClass: "num" },
+        { title: "Order", field: "faltan", width: 100, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = Number(c.getValue()) || 0; return v > 0 ? "+" + v : "—"; } },
+        { title: "Status", field: "estado", width: 125, formatter: function (c) {
+            var v = String(c.getValue() || "");
+            var col = SIMON[v] || { bg: "#FFFFFF", txt: "#2C3E50", nom: v };
+            return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
+              'font-weight:700;background:' + col.bg + ';color:' + col.txt + ';">' + col.nom + "</span>";
+          } },
+      ],
+      filas: function () {
+        return (datos.productos || []).filter(function (p) {
+          var s = Number(p.stockActual) || 0, r = Number(p.umbralRojo) || 0;
+          return p.estado === "rojo" || p.estado === "negro" || (r > 0 && s <= r);
+        }).map(function (p) {
+          var s = Number(p.stockActual) || 0, a = Number(p.umbralAmarillo) || 0, r = Number(p.umbralRojo) || 0;
+          /* F (fix 2026-09-10): "Order +N" salía en blanco cuando la percha no tiene
+             umbral amarillo (a=0 → max(0, 0-s)=0). Objetivo de reposición: el
+             amarillo si existe; si no, el doble del rojo; y si tampoco hay rojo,
+             al menos 1 (la percha ya está en rojo/negro, algo hay que pedir). */
+          var objetivo = a > 0 ? a : (r > 0 ? r * 2 : 1);
+          return Object.assign({}, p, { faltan: Math.max(0, objetivo - s) });
+        }).sort(function (a, b) { return (Number(a.stockActual) || 0) - (Number(b.stockActual) || 0); });
+      },
+      cierre: function (f) {
+        if (!f.length) return "<strong>Nada por reponer.</strong>Todo el stock está sobre su punto de reorden.";
+        var cero = f.filter(function (p) { return (Number(p.stockActual) || 0) === 0; }).length;
+        return "<strong>" + plural(f.length, "producto por reponer", "productos por reponer") + "." +
+          (cero ? " " + cero + " en cero." : "") + "</strong>En la app, Inventario con el filtro Urgente los deja juntos para reponer.";
+      },
+    },
+
+    /* COMISIONISTAS (JFC 2026-09-10). La entidad que ahora SÍ sincroniza entre
+       aparatos: el dueño ve su equipo de comisionistas con su % vigente, venga
+       el alta de donde venga. Usa datos.promotoras, que ya viaja en la foto. */
+    comisionistas: {
+      nombre: "Sales associates and consignors",
+      cols: [
+        { title: "Sales associate / consignor", field: "nombre", minWidth: 180, widthGrow: 3 },
+        { title: "Commission", field: "comisionBase", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = c.getValue(); if (v == null) v = c.getRow().getData().comision; return (Number(v) || 0) + "%"; } },
+        { title: "Monthly goal", field: "metaMensual", width: 130, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = Number(c.getValue()) || 0; return v ? money(v) : "—"; } },
+        { title: "Tiers", field: "escalasComision", width: 85, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = c.getValue(); return (Array.isArray(v) && v.length) ? v.length : "—"; } },
+        { title: "Phone", field: "telefono", width: 150, cssClass: "num" },
+      ],
+      filas: function () { return datos.promotoras || []; },
+      cierre: function (f) {
+        return "<strong>" + plural(f.length, "comisionista", "comisionistas") + ".</strong>" +
+          "Se dan de alta en el formulario de comisionista y ahora se sincronizan a todos los aparatos del negocio.";
+      },
+    },
+    gastos: {
+      nombre: "Expenses",
+      cols: [
+        { title: "Date", field: "fecha", width: 125 },
+        { title: "Description", field: "concepto", minWidth: 190, widthGrow: 3 },
+        { title: "Category", field: "categoria", width: 125 },
+        { title: "Amount", field: "monto", width: 115, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
+        { title: "Shelf", field: "ubicacionId", width: 130 },
+      ],
+      filas: function () { return datos.gastos || []; },
+      cierre: function (f) { return "<strong>" + f.length + " detailed expenses.</strong> The monthly shelf budget is listed separately."; },
+    },
+    transferencias: {
+      nombre: "Transfers",
+      cols: [
+        { title: "Date", field: "fecha", width: 140 },
+        { title: "Status", field: "estado", width: 135 },
+        { title: "From", field: "productoOrigenId", minWidth: 140, widthGrow: 2 },
+        { title: "To", field: "productoDestinoId", minWidth: 140, widthGrow: 2 },
+        { title: "Units", field: "cantidad", width: 90, hozAlign: "right" },
+      ],
+      filas: function () { return datos.transferencias || []; },
+      cierre: function (f) { return "<strong>" + f.length + " transfers.</strong> Their status comes from the current shared notebook."; },
+    },
+    gastoMensual: {
+      nombre: "Monthly costs",
+      cols: [
+        { title: "Shelf", field: "percha", minWidth: 190, widthGrow: 2 },
+        { title: "Monthly cost", field: "monto", width: 140, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
+      ],
+      filas: function () {
+        var g = (datos.gastosMensuales || {}).porUbicacion || {};
+        return Object.keys(g).map(function (id) {
+          var u = (datos.perchas || []).find(function (x) { return String(x.id) === id; });
+          return { percha: (u && u.nombre) || id, monto: Number(g[id]) || 0 };
+        });
+      },
+      cierre: function (f) { return "<strong>" + f.length + " shelf budgets.</strong>"; },
+    },
+    hechosFinancieros: {
+      nombre: "Credit & cash facts",
+      cols: [
+        { title: "When", field: "ts", width: 165, formatter: function (c) { return new Date(Number(c.getValue()) || 0).toLocaleString(); } },
+        { title: "Type", field: "tipo", width: 155 },
+        { title: "Customer / shelf", field: "destino", minWidth: 150, widthGrow: 2 },
+        { title: "Amount", field: "monto", width: 115, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
+        { title: "Fact ID", field: "id", minWidth: 180, widthGrow: 2 },
+      ],
+      filas: function () { return (datos.hechosFinancieros || []).map(function (h) {
+        var d = h.datos && h.datos.payload || h.datos || {};
+        return { id: h.id, ts: h.ts, tipo: h.tipo, destino: d.clienteId || d.perchaId || d.ubicacionId || "—", monto: d.monto };
+      }); },
+      cierre: function (f) { return "<strong>" + f.length + " immutable facts.</strong> Balances require complete chains on the app."; },
+    },
+  };
+
+  /* ======================================================================
+     PESTANIA EVENTOS — la actividad desplegada POR EVENTO
+     ======================================================================
+     JFC 2026-08-18: "Despliegue de actividad POR EVENTO, cuando se trate de
+     eventos, tanto ventas como cambios etc (...) que sea la siguiente pestania
+     a Ventas y Clientes".
+
+     Un evento no es una percha ni un producto: es una funcion, una clase, una
+     feria con fecha. Sus ventas quedaban desperdigadas en la lista general y
+     para saber como fue "el concierto del sabado" habia que filtrar a ojo por
+     fecha y rezar. Aqui cada evento es UNA fila con todo lo suyo.
+
+     Se agrupa por nombre de evento y NO por producto: el mismo ticket puede
+     venderse para tres funciones distintas, y tres productos distintos pueden
+     pertenecer al mismo evento. El nombre es lo que la gente escribio y lo que
+     va a buscar.
+     ====================================================================== */
+  function filasEventos() {
+    var porEvento = {};
+    (datos.ventas || []).forEach(function (v) {
+      var nombre = String(v.eventoNombre || "").trim();
+      /* Sin nombre de evento no hay evento. Los productos tipo ticket que se
+         vendieron sin llenar el dato caen en un grupo aparte y honesto, en vez
+         de inventarles una funcion o de desaparecer de la vista. */
+      if (!nombre) {
+        if (v.tipoProducto !== "ticket") return;
+        nombre = "(ticket with no event name)";
+      }
+      var k = nombre.toLowerCase();
+      if (!porEvento[k]) porEvento[k] = {
+        evento: nombre, fecha: v.eventoFecha || "", ventas: 0, unidades: 0,
+        recaudado: 0, costo: 0, personas: 0, comision: 0, casa: 0,
+        perchas: {}, compradores: {}, ultima: "", corregidas: 0,
+      };
+      var g = porEvento[k];
+      var cant = Number(v.cantidad) || 0;
+      g.ventas++;
+      g.unidades += cant;
+      g.recaudado += (Number(v.precioUnit) || 0) * cant;
+      g.costo += (Number(v.costoUnit) || 0) * cant;
+      g.personas += Number(v.eventoPersonas) || 0;
+      g.comision += Number(v.comisionAsociado) || 0;
+      if (v.netoCasa != null) g.casa += Number(v.netoCasa) || 0;
+      if (v.comisionCorregida) g.corregidas++;
+      if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
+      var quien = v.pagador || v.clienteNombre;
+      if (quien) g.compradores[quien] = 1;
+      /* La fecha del evento la escribe una persona y puede venir vacia en unas
+         ventas y llena en otras: se toma la primera que aparezca. */
+      if (!g.fecha && v.eventoFecha) g.fecha = v.eventoFecha;
+      if (String(v.fecha || "") > g.ultima) g.ultima = v.fecha;
+    });
+    return Object.keys(porEvento).map(function (k) {
+      var g = porEvento[k];
+      return {
+        evento: g.evento,
+        fecha: g.fecha || "",
+        ventas: g.ventas,
+        unidades: g.unidades,
+        personas: g.personas || null,
+        recaudado: +g.recaudado.toFixed(2),
+        ganancia: +(g.recaudado - g.costo).toFixed(2),
+        comision: +g.comision.toFixed(2),
+        casa: +g.casa.toFixed(2),
+        perchas: Object.keys(g.perchas).join(", "),
+        compradores: Object.keys(g.compradores).length,
+        ultimaVenta: String(g.ultima || "").slice(0, 10),
+        corregidas: g.corregidas,
+      };
+    }).sort(function (a, b) {
+      /* Lo mas reciente arriba: un evento de anteayer importa mas que uno de
+         hace ocho meses, y el que abre el tablero viene de vivirlo. */
+      return String(b.ultimaVenta).localeCompare(String(a.ultimaVenta));
+    });
+  }
+
+  /* ======================================================================
+     PESTANIA COMISIONES — liquidar, y poder mirarlo de todas las formas
+     ======================================================================
+     JFC 2026-08-18: "agreguemos otro tab de Comisiones, para hacer
+     liquidaciones, y variados reportes por comisionista/promotora o artista
+     (cuando el artista por ejemplo le deja 15% al local (...) y se lleva el
+     resto) (...) debe agrupar lo de cada comisionista PERO admitir a la vez
+     que cada uno puede tener tratos y % distintos con la casa anfitriona".
+
+     Esa ultima parte es la que manda el diseno. La misma persona puede ser
+     vendedora en una percha al 10% y artista en otra al 85%, y las dos cosas
+     son ciertas al mismo tiempo. Por eso NO se guarda un porcentaje por
+     persona: se agrupa la plata real de cada trato y se muestra el % efectivo
+     que sale de esa plata. Un unico numero por persona seria mentira en cuanto
+     alguien tenga dos tratos, que es el caso normal, no el raro.
+
+     Se puede mirar por percha (un trato = una fila) o por persona (todos sus
+     tratos sumados). Las dos lecturas salen del mismo dato.
+     ====================================================================== */
+  var agruparComisionesPor = "percha";
+
+  function filasComisiones() {
+    var liq = datos.liquidaciones || [];
+    if (agruparComisionesPor === "percha") {
+      return liq.map(function (l) {
+        var pct = l.pctEfectivo != null ? l.pctEfectivo : (l.pctBase || 0);
+        return {
+          ubicacionId: l.ubicacionId || l.perchaId || "", // #2 (JFC 2026-09-11): id para el lapicito -> editor de comision de la app
+          quien: l.asociadoNombre || l.promotorNombre || "(no associate assigned)",
+          percha: l.ubicacion,
+          modalidad: pct >= 50 ? "Artist — house keeps" : "Seller — takes",
+          pct: pct,
+          /* FIX (JFC 2026-09-11): el % de la casa se enchufa al valor que YA calcula
+             la app (pctQuedaEnCasa), no a un 100-pct ingenuo. Con aporte fijo o
+             mínimo garantizado la casa NO es 100-pct; recomputarlo aquí mentía. */
+          pctCasa: l.pctQuedaEnCasa != null ? l.pctQuedaEnCasa : +(100 - pct).toFixed(2),
+          ventasBrutas: l.ventasBrutas || 0,
+          comision: l.comisionSocio || 0,
+          casa: l.netoDueno != null ? l.netoDueno : +((l.ventasBrutas || 0) - (l.comisionSocio || 0)).toFixed(2),
+          estado: l.estado || "",
+          pendientes: l.ventasPendientes || 0,
+          corregidas: l.ventasCorregidas || 0,
+        };
+      }).sort(function (a, b) { return b.comision - a.comision; });
+    }
+    /* Por persona: se SUMA la plata de todos sus tratos y el % se deriva del
+       total. Alguien con 10% en una percha y 85% en otra sale con su % real
+       combinado, que es un dato util y no una etiqueta inventada. */
+    var porQuien = {};
+    (datos.liquidaciones || []).forEach(function (l) {
+      var quien = l.asociadoNombre || l.promotorNombre || "(no associate assigned)";
+      if (!porQuien[quien]) porQuien[quien] = {
+        quien: quien, perchas: [], ventasBrutas: 0, comision: 0, casa: 0,
+        pendientes: 0, corregidas: 0,
+      };
+      var g = porQuien[quien];
+      g.perchas.push(l.ubicacion + " (" + (l.pctEfectivo != null ? l.pctEfectivo : l.pctBase || 0) + "%)");
+      g.ventasBrutas += l.ventasBrutas || 0;
+      g.comision += l.comisionSocio || 0;
+      g.casa += l.netoDueno != null ? l.netoDueno : ((l.ventasBrutas || 0) - (l.comisionSocio || 0));
+      g.pendientes += l.ventasPendientes || 0;
+      g.corregidas += l.ventasCorregidas || 0;
+      if (l.medioPago) g.medioPago = l.medioPago;
+    });
+    return Object.keys(porQuien).map(function (k) {
+      var g = porQuien[k];
+      var pct = g.ventasBrutas > 0 ? +(g.comision / g.ventasBrutas * 100).toFixed(2) : 0;
+      return {
+        quien: g.quien,
+        percha: g.perchas.join(" · "),
+        modalidad: g.perchas.length > 1 ? "Multiple deals" : (pct >= 50 ? "Artist — house keeps" : "Seller — takes"),
+        pct: pct,
+        pctCasa: +(100 - pct).toFixed(2),
+        ventasBrutas: +g.ventasBrutas.toFixed(2),
+        comision: +g.comision.toFixed(2),
+        casa: +g.casa.toFixed(2),
+        estado: g.pendientes ? "pendiente" : "pagado",
+        medioPago: g.pendientes ? null : (g.medioPago || null),
+        pendientes: g.pendientes,
+        corregidas: g.corregidas,
+      };
+    }).sort(function (a, b) { return b.comision - a.comision; });
+  }
+
+  /* ---------------------------------------------------------- COMMISSIONS */
+  var cmMes = null, cmVista = "producto";
+  function cmMesActual() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function cmEtiquetaMes(m) {
+    var p = String(m || "").split("-").map(Number);
+    if (p.length !== 2 || !p[0] || !p[1]) return String(m || "");
+    try { return new Date(p[0], p[1] - 1, 15).toLocaleDateString(undefined, { month: "long", year: "numeric" }); } catch (_) { return String(m); }
+  }
+  function cmFilas(mes) {
+    return (datos.ventas || []).filter(function (v) {
+      if (!v || v.mes !== mes) return false;
+      var con = v.comisionPct != null;
+      var counter = !con && v.modoComision === "counter" && v.ubicacionTipo && v.ubicacionTipo !== "propio";
+      return con || counter;
+    });
+  }
+  function cmMeses() {
+    var set = {}; set[cmMesActual()] = 1;
+    (datos.ventas || []).forEach(function (v) { if (v && v.mes && v.comisionPct != null) set[v.mes] = 1; });
+    return Object.keys(set).sort().reverse();
+  }
+  function cmPendienteDe(mes) {
+    return cmFilas(mes).reduce(function (a, v) { return a + ((v.comisionPct != null && !v.liquidada) ? (Number(v.comisionAsociado) || 0) : 0); }, 0);
+  }
+  function cmAgrupar(filas, por) {
+    var map = {};
+    filas.forEach(function (v) {
+      var k = por === "producto" ? (v.productoId || v.productoNombre) : (v.ubicacionId || v.ubicacionNombre);
+      var g = map[k] || (map[k] = { id: k, nombre: por === "producto" ? v.productoNombre : v.ubicacionNombre, sku: v.sku || "", ubicacionId: v.ubicacionId || "", perchas: {}, personas: {}, unid: 0, bruto: 0, socio: 0, casa: 0, pend: 0, counterUnid: 0, counterMonto: 0, devueltas: 0 });
+      var monto = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+      if (v.comisionPct != null) {
+        g.unid += Number(v.cantidad) || 1; g.bruto += monto; g.socio += Number(v.comisionAsociado) || 0;
+        g.casa += v.netoCasa != null ? Number(v.netoCasa) : (monto - (Number(v.comisionAsociado) || 0));
+        if (!v.liquidada) g.pend += Number(v.comisionAsociado) || 0;
+        if (v.devuelta) g.devueltas++;
+        if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
+        if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
+      } else { g.counterUnid += Number(v.cantidad) || 1; g.counterMonto += monto; }
+      if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto); });
+  }
+  function cmRanking(filas) {
+    var map = {};
+    filas.forEach(function (v) {
+      if (v.comisionPct == null) return;
+      var partes = Array.isArray(v.reparto) && v.reparto.length ? v.reparto.map(function (r, i) { return { n: i === 1 ? (v.asistenteNombre || "") : (v.asociadoNombre || ""), m: Number(r.monto) || 0 }; }) : [{ n: v.asociadoNombre || "", m: Number(v.comisionAsociado) || 0 }];
+      partes.forEach(function (p) { if (!p.n) return; var g = map[p.n] || (map[p.n] = { nombre: p.n, monto: 0, ventas: 0 }); g.monto += p.m; g.ventas++; });
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.monto - a.monto; });
+  }
+  function cmRecibo(ubicacionId, mes) {
+    /* Recibo imprimible SIN logo nuestro (JFC): es el papel del cliente para su asociado. */
+    var filas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId && v.comisionPct != null; });
+    /* v423 (JFC 2026-09-29): la liquidacion viva es del MES ACTUAL. Antes el recibo de un mes pasado
+       copiaba sus devoluciones (y su asociado vigente). Ahora: mes pasado = solo sus ventas. */
+    var esActual = mes === cmMesActual();
+    var liqViva = (datos.liquidaciones || []).find(function (l) { return l.ubicacionId === ubicacionId; }) || {};
+    var f0 = filas[0] || {};
+    var liq = esActual ? liqViva : { ubicacion: liqViva.ubicacion || f0.ubicacionNombre || "", asociadoNombre: f0.asociadoNombre || "" };
+    var neg = (datos.resumen && datos.resumen.nombreNegocio) || ($("neg-nombre") && $("neg-nombre").textContent) || "";
+    var porProd = cmAgrupar(filas, "producto");
+    var tot = filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
+    var html = "<!doctype html><html><head><meta charset=utf-8><title>Commission receipt</title><style>body{font-family:Inter,Arial,sans-serif;color:#0F1923;margin:32px;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px}table{width:100%;border-collapse:collapse}td,th{padding:6px 0;border-bottom:1px solid #E8ECF2;text-align:left}td.n,th.n{text-align:right;font-family:'JetBrains Mono',Consolas,monospace}tfoot td{font-weight:700;border-top:2px solid #0F1923}</style></head><body>" +
+      "<h1>" + esc(neg || "Commission receipt") + "</h1><div>" + esc(liq.ubicacion || "") + (liq.asociadoNombre ? " · " + esc(liq.asociadoNombre) : "") + " · " + esc(cmEtiquetaMes(mes)) + "</div>" +
+      "<h2>Sales with commission</h2><table><thead><tr><th>Product</th><th class=n>Units</th><th class=n>Sold</th><th class=n>Commission</th></tr></thead><tbody>" +
+      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + d.unid + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + money(d.socio) + "</td></tr>"; }).join("") +
+      "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + money(tot) + "</td></tr></tfoot></table>" +
+      ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") +
+        "<tfoot><tr><td>Net after returns</td><td class=n>" + money(tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
+      "<p style='margin-top:24px'>Signature: ____________________________</p></body></html>";
+    var w = window.open("", "_blank"); if (!w) return;
+    w.document.open(); w.document.write(html); w.document.close();
+    try { w.focus(); w.print(); } catch (_) {}
+  }
+  function pintarComisiones() {
+    var cont = $("cm"); if (!cont) return;
+    var meses = cmMeses(); var actual = cmMesActual();
+    if (!cmMes || meses.indexOf(cmMes) < 0) cmMes = actual;
+    var filas = cmFilas(cmMes);
+    var conCom = filas.filter(function (v) { return v.comisionPct != null; });
+    var liqs = (cmMes === actual) ? (datos.liquidaciones || []) : [];
+    var ajustes = liqs.reduce(function (a, l) { return a.concat(l.ajustes || []); }, []);
+    var bruto = conCom.reduce(function (a, v) { return a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1); }, 0);
+    var socio = conCom.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0) + ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0);
+    var pend = conCom.reduce(function (a, v) { return a + (v.liquidada ? 0 : (Number(v.comisionAsociado) || 0)); }, 0) + ajustes.reduce(function (a, x) { return a + (x.liquidada ? 0 : (Number(x.montoComisionSocio) || 0)); }, 0);
+    var casa = bruto - socio;
+    var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
+    var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + money(n) + "</div></div>"; };
+    var grupos = cmAgrupar(filas, cmVista);
+    /* v423: barras (JFC "visualizacion amplia e impactante"). Azul = asociado, verde = casa (validado para
+       daltonismo). Largo de cada barra = lo vendido con comision de esa fila frente a la mayor. */
+    var cmMax = grupos.reduce(function (a, g) { return Math.max(a, g.bruto); }, 0);
+    var cmBarra = function (socioM, casaM, cls, ancho) {
+      var s = Math.max(0, socioM), c = Math.max(0, casaM), t = s + c; if (t <= 0) return "";
+      var ps = Math.round(s / t * 1000) / 10;
+      return '<div class="cm-barra' + (cls || "") + '" style="width:' + ancho + '%" title="Associate ' + money(s) + " · House " + money(c) + '"><i class="cm-s-asoc" style="width:' + ps + '%"></i><i class="cm-s-casa" style="width:' + (100 - ps) + '%"></i></div>';
+    };
+    var tarjeta = function (g) {
+      var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
+      var estado = g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
+      var sub = cmVista === "producto"
+        ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
+          + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
+        : (l && l.asociadoNombre ? "Associate: <strong>" + esc(l.asociadoNombre) + "</strong>" + (l.pctEfectivo != null ? " · " + l.pctEfectivo + "%" : "") + (l.baseComision === "margen" ? " · on margin" : "") : (Object.keys(g.personas).length ? "Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : ""));
+      var stats = '<div class="cm-stats">' +
+        (g.unid ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + g.unid + "u</small></div></div>" +
+          '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
+          '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
+        (g.pend > 0 ? '<div><div class="et cm-rojo">Still to pay</div><div class="n cm-rojo">' + money(g.pend) + "</div></div>" : "") +
+        (g.counterUnid ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + g.counterUnid + "u</small></div></div>" : "") +
+        "</div>";
+      var extra = "";
+      if (l) {
+        if (l.metaMensual) extra += '<div class="cm-sub">Target ' + money(l.metaMensual) + " · " + (l.cumplimientoMeta != null ? l.cumplimientoMeta + "% met" : "") + (l.tieneEscalas ? " · goal-based tiers" : "") + "</div>";
+        if ((l.ajustes || []).length) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ajustes.length + " return(s) of already-paid sales: " + money(l.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + " deducted</strong></div>";
+        if ((l.repartoPersonas || []).length > 1) extra += "<details><summary>Split between people</summary><table>" + l.repartoPersonas.map(function (p) { return "<tr><td>" + esc(p.nombre) + '</td><td class="num">' + money(p.monto) + "</td></tr>"; }).join("") + "</table></details>";
+        if ((l.detallePendientes || []).length) extra += "<details><summary>Which sales does this payment cover?</summary><table>" + l.detallePendientes.map(function (d) { return "<tr><td>" + d.cantidad + "× " + esc(d.producto) + '</td><td class="num">' + money(d.comisionSocio) + "</td></tr>"; }).join("") + "</table></details>";
+        if (l.ventasCorregidas) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ventasCorregidas + " sale(s) with the percentage manually corrected.</strong></div>";
+      }
+      var acciones = cmVista === "percha" && g.ubicacionId ? '<div class="cm-actions">' +
+        (g.pend > 0 ? '<a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(g.ubicacionId) + '">Pay in the app</a>' : "") +
+        '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(g.ubicacionId) + '">Adjust the deal</a>' +
+        '<button type="button" data-cm-recibo="' + esc(g.ubicacionId) + '">Receipt</button></div>' : "";
+      var barra = g.bruto > 0 && cmMax > 0 ? '<div class="cm-fila-barra">' + cmBarra(g.socio, g.casa, "", Math.max(6, Math.round(g.bruto / cmMax * 100))) + "</div>" : "";
+      return '<div class="cm-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><div><h3 class="cm-h">' + esc(g.nombre) + (g.sku ? ' <span style="font-weight:400;font-size:13px;">' + esc(g.sku) + "</span>" : "") + "</h3>" + (sub ? '<div class="cm-sub">' + sub + "</div>" : "") + "</div>" + estado + "</div>" + barra + stats + extra + acciones + "</div>";
+    };
+    var rank = cmRanking(conCom);
+    cont.innerHTML =
+      '<h2 id="cm-titulo" style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">Commissions</h2>' +
+      '<div class="cm-card cm-bar">' +
+        '<label>Month <select id="cm-mes">' + meses.map(function (m) { var p = cmPendienteDe(m); return '<option value="' + m + '"' + (m === cmMes ? " selected" : "") + ">" + esc(cmEtiquetaMes(m)) + (m === actual ? " (current)" : "") + (p > 0 ? " · " + money(p) + " still to pay" : "") + "</option>"; }).join("") + "</select></label>" +
+        atrasados.map(function (m) { return '<button type="button" class="cm-key rojo" data-cm-mes="' + m + '" title="Commissions still unpaid from earlier months">' + esc(cmEtiquetaMes(m)) + " · " + money(cmPendienteDe(m)) + "</button>"; }).join("") +
+        '<div style="display:flex;gap:6px;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
+      "</div>" +
+      '<div class="cm-grid">' + k("Sales with commission", bruto) + k("Associates take", socio) + k("House keeps", casa, "cm-verde") + k("Still to pay", pend, pend > 0 ? "cm-rojo" : "cm-verde") + "</div>" +
+      (bruto > 0 ? (function () {
+        var s = Math.max(0, socio), c = Math.max(0, casa), t = s + c; if (t <= 0) return "";
+        var ps = Math.round(s / t * 100), pc = 100 - ps;
+        return '<div class="cm-card cm-reparto" role="img" aria-label="Of ' + money(bruto) + ' sold with commission, associates take ' + ps + '% and the house keeps ' + pc + '%">' +
+          '<div class="et">Where each dollar sold with commission goes</div>' + cmBarra(s, c, " cm-barra-xl", 100) +
+          '<div class="cm-leyenda"><span><b class="sw cm-s-asoc"></b>Associates ' + ps + "% · " + money(s) + '</span><span><b class="sw cm-s-casa"></b>House ' + pc + "% · " + money(c) + "</span></div></div>";
+      })() : "") +
+      (grupos.length ? grupos.map(tarjeta).join("") : '<div class="cm-card">No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.</div>') +
+      (rank.length ? '<details class="cm-card" style="padding:10px 16px;"><summary>Ranking · who earned the most this month</summary><table style="margin-top:8px;">' + rank.map(function (r, i) { return "<tr><td>" + (i + 1) + ". " + esc(r.nombre) + " <small>(" + r.ventas + " sale" + (r.ventas === 1 ? "" : "s") + ")</small></td><td class=\"num\">" + money(r.monto) + "</td></tr>"; }).join("") + "</table></details>" : "");
+    var sel = $("cm-mes"); if (sel) sel.addEventListener("change", function () { cmMes = sel.value; pintarComisiones(); });
+    cont.querySelectorAll("[data-cm-mes]").forEach(function (b) { b.addEventListener("click", function () { cmMes = b.getAttribute("data-cm-mes"); pintarComisiones(); }); });
+    cont.querySelectorAll("[data-cm-vista]").forEach(function (b) { b.addEventListener("click", function () { cmVista = b.getAttribute("data-cm-vista"); pintarComisiones(); }); });
+    cont.querySelectorAll("[data-cm-recibo]").forEach(function (b) { b.addEventListener("click", function () { cmRecibo(b.getAttribute("data-cm-recibo"), cmMes); }); });
+  }
+  /* Para pruebas de navegador: pintar con una foto dada, sin pasar por la puerta. */
+  window.OCDashComisiones = { pintarConDatos: function (d) { datos = d || datos; pintarComisiones(); }, meses: cmMeses };
+
+  function mostrar() {
+    $("puerta").style.display = "none";
+    $("cabecera").style.display = "block";
+    $("tablero").style.display = "block";
+    pintarKpis();
+    try { pintarComisiones(); } catch (e) { console.warn("[dashboard] comisiones", e); }
+    if (!$("tabsel").children.length) pintarSelector();
+    try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {}
+    pintarTabla();
+    pintarLog();
+    pintarFinanzasFoto();
+  }
+
+  function pintarFinanzasFoto() {
+    var el = $("finanzas-foto-contenido");
+    if (!el) return;
+    var tiene = ["gastos", "transferencias", "gastosMensuales", "hechosFinancieros"]
+      .every(function (k) { return Object.prototype.hasOwnProperty.call(datos, k); });
+    if (!tiene) { el.textContent = "This device uses an older shell. Finance coverage is incomplete."; return; }
+    var gastos = datos.gastos || [], tras = datos.transferencias || [], hechos = datos.hechosFinancieros || [];
+    var gm = datos.gastosMensuales || {};
+    var mensual = Number(gm.gastosMensuales) || 0;
+    var sumaGastos = gastos.reduce(function (a, g) { return a + (Number(g.monto) || 0); }, 0);
+    var cartera = hechos.filter(function (h) { return /^cartera_/.test(h.tipo || ""); });
+    var caja = hechos.filter(function (h) { return /^caja_chica_/.test(h.tipo || ""); });
+    el.innerHTML = '<p style="margin:0 0 7px;">Detailed expenses: <b>' + gastos.length + '</b> · total <b>' + esc(money(sumaGastos)) +
+      '</b> · monthly shelf costs <b>' + esc(money(mensual)) + '</b></p>' +
+      '<p style="margin:0 0 7px;">Transfers: <b>' + tras.length + '</b> · customer credit facts: <b>' + cartera.length +
+      '</b> · petty cash facts: <b>' + caja.length + '</b></p>' +
+      '<p style="margin:0;">Latest expenses: ' + esc(gastos.slice(0, 5).map(function (g) { return (g.concepto || "expense") + " " + money(g.monto || 0); }).join(" · ") || "none") + '</p>';
+  }
+
+  /* PERISCOPIO DE DATOS (JFC 2026-08-27). Pinta el log de movimientos y el
+     estado de sync/accesos al fondo del tablero. Solo lee la foto que llegó
+     del dispositivo y el localStorage local (mismo origen); no guarda nada. */
+  function pintarLog() {
+    var syncEl = $("oc-log-sync");
+    var tablaEl = $("oc-log-tabla");
+    if (!syncEl || !tablaEl) return;
+    var accesos = 0;
+    try { accesos = (JSON.parse(localStorage.getItem("f123_accesos") || "[]") || []).length; } catch (_) {}
+    var neg = "";
+    try { neg = $("neg-nombre") ? $("neg-nombre").textContent : ""; } catch (_) {}
+    var filas = Array.isArray(datos.movimientos) ? datos.movimientos : [];
+    /* CONTROL DE CAMBIOS EN COLORES (JFC 2026-09-10, "world class"). Cada
+       dispositivo recibe un color ESTABLE (derivado de su apodo), y cada
+       movimiento se pinta con el color de quién lo hizo: una franja a la
+       izquierda + un punto en la columna Device. Así, de un vistazo, se ve qué
+       aparato tocó qué. Además el TIPO se tiñe por categoría (venta = verde,
+       borrado = rojo, edición/sync = ámbar). Todo con color SÓLIDO y legible
+       sobre el fondo oscuro — nunca gris ni opaco. */
+    function colorDisp(nombre) {
+      var s = String(nombre || "—"), h = 0;
+      for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return "hsl(" + (h % 360) + ",75%,63%)"; // sólido, brillante, sobre fondo oscuro
+    }
+    function colorTipo(t) {
+      t = String(t || "");
+      if (/venta|sold|sale|cortes/i.test(t)) return "#28ECAA";
+      if (/borr|elimin|delete|anul|cancel|baja/i.test(t)) return "#FF6B6B";
+      if (/edic|edit|actualiz|update|merge|sync|promov|degrad/i.test(t)) return "#E8A020";
+      return "#CFE3F5";
+    }
+    // Leyenda: un chip por dispositivo con su color y cuántas acciones hizo.
+    var porDisp = {};
+    filas.forEach(function (m) { var k = m.dispositivoApodo || "—"; porDisp[k] = (porDisp[k] || 0) + 1; });
+    var leyenda = Object.keys(porDisp).sort(function (a, b) { return porDisp[b] - porDisp[a]; }).map(function (k) {
+      return '<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 6px 0;font-size:12px;color:#E6EDF3;">' +
+        '<span style="width:11px;height:11px;border-radius:50%;background:' + colorDisp(k) + ';display:inline-block;"></span>' +
+        esc(k) + ' <span style="color:#9fb2c4;">(' + porDisp[k] + ')</span></span>';
+    }).join("");
+    syncEl.innerHTML =
+      '<div style="margin-bottom:8px;">store: <b>' + esc(neg || "—") + '</b> · foto: ' + esc(fotoEnCurso || "—") + ' · accesos: ' + accesos + '</div>' +
+      (leyenda ? '<div style="margin-bottom:6px;">' + leyenda + '</div>' : "");
+    if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#9fb2c4;">No activity yet.</td></tr>'; return; }
+    var html = '<tr style="text-align:left;color:#9fb2c4;font-size:12px;">' +
+      "<th style=\"padding:4px 8px;\">Type</th><th style=\"padding:4px 8px;\">Detail</th>" +
+      "<th style=\"padding:4px 8px;\">Who</th><th style=\"padding:4px 8px;\">Device</th><th style=\"padding:4px 8px;\">When</th></tr>";
+    // JFC 2026-09-02: quién (usuario + rol) Y desde qué dispositivo (apodo) hizo
+    // cada acción — el tablero refleja el responsable de todo movimiento.
+    var detalleTxt = function (d) {
+      if (d == null) return "—";
+      if (typeof d === "string") return d;
+      try {
+        return Object.keys(d).map(function (k) {
+          var v = d[k];
+          if (v && typeof v === "object") v = JSON.stringify(v);
+          return k + ": " + v;
+        }).join(" · ");
+      } catch (_) { return "—"; }
+    };
+    filas.forEach(function (m) {
+      var cd = colorDisp(m.dispositivoApodo || "—");
+      var quien = esc(m.usuarioNombre || "—") + (m.usuarioRol ? ' <span style="color:#9fb2c4;">(' + esc(m.usuarioRol) + ")</span>" : "");
+      html += "<tr style=\"border-top:1px solid #2a3a4a;\">" +
+        '<td style="padding:4px 8px;border-left:4px solid ' + cd + ';font-weight:700;color:' + colorTipo(m.tipo) + ';">' + esc(m.tipo || "—") + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;">' + esc(detalleTxt(m.detalle)) + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;">' + quien + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + cd + ';margin-right:6px;"></span>' + esc(m.dispositivoApodo || "—") + "</td>" +
+        '<td style="padding:4px 8px;color:#9fb2c4;">' + esc(m.fecha || "—") + "</td></tr>";
+    });
+    tablaEl.innerHTML = html;
+  }
+
+  function pintarKpis() {
+    var r = datos.resumen || {};
+    var d = r.resumenDia || {};
+    var prods = datos.productos || [];
+    var valor = prods.reduce(function (a, p) { return a + (Number(p.costo) || 0) * (Number(p.stockActual) || 0); }, 0);
+    var dormido = prods.filter(function (p) { return p.estado === "negro"; })
+      .reduce(function (a, p) { return a + (Number(p.costo) || 0) * (Number(p.stockActual) || 0); }, 0);
+    var k = [
+      ["Entró hoy", money(d.entra || 0), plural(d.ventasCount || 0, "venta", "ventas")],
+      ["Ganancia de hoy", money(d.gananciaHoy || 0), "después del costo"],
+      ["Inventario", money(valor), prods.length + " productos"],
+      ["Capital dormido", money(dormido), "sin movimiento"],
+    ];
+    $("kpis").innerHTML = k.map(function (x) {
+      return '<div class="kpi"><p class="et">' + esc(x[0]) + '</p><div class="n">' + esc(x[1]) + '</div><p class="pie">' + esc(x[2]) + "</p></div>";
+    }).join("");
+  }
+
+  function pintarSelector() {
+    $("tabsel").innerHTML = Object.keys(VISTAS).map(function (k) {
+      return '<button type="button" data-v="' + k + '"' + (k === vista ? ' class="on"' : "") + ">" + esc(VISTAS[k].nombre) + "</button>";
+    }).join("");
+    $("tabsel").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-v]");
+      if (!b) return;
+      vista = b.dataset.v;
+      Array.prototype.forEach.call($("tabsel").children, function (x) { x.classList.toggle("on", x === b); });
+      pintarTabla();
+    });
+    $("exp").innerHTML =
+      '<button type="button" data-x="csv">CSV</button>' +
+      '<button type="button" data-x="xlsx">Excel</button>' +
+      '<button type="button" data-x="pdf">PDF</button>' +
+      '<button type="button" data-x="json">JSON</button>' +
+      '<button type="button" data-x="copy">Copy</button>';
+    /* M10: tres reportes de UNA pagina, listos para el contador o el banco.
+       Un CSV de 4.000 filas no le sirve a nadie; un resumen firmado con fecha
+       si. Se arman con jsPDF directo, no con el export de la tabla, porque no
+       son la tabla: son un cierre. */
+    $("exp").insertAdjacentHTML("beforeend",
+      '<button type="button" data-r="mes" style="border-color:#0F1923;">Monthly report</button>' +
+      '<button type="button" data-r="inv" style="border-color:#0F1923;">Valued inventory</button>' +
+      '<button type="button" data-r="cli" style="border-color:#0F1923;">Customers up to date</button>');
+    $("exp").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-r]");
+      if (b) reporte(b.dataset.r);
+    });
+    $("exp").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-x]");
+      if (!b) return;
+      /* Un boton que no hace nada al tocarlo es peor que uno que dice por que. */
+      if (!tabla) {
+        $("cierre").innerHTML = "<strong>Ahora mismo no se puede exportar.</strong>" +
+          "No cargó la herramienta de exportación. Recarga la página con internet y vuelve a intentarlo.";
+        return;
+      }
+      exportar(b.dataset.x);
+    });
+    $("buscar").addEventListener("input", function () { filtrar(this.value); });
+    /* Agrupar Comisiones por trato o por persona. Vive en el pie porque es una
+       lectura del dato que ya esta en pantalla, no un filtro nuevo: no pide
+       nada al equipo y funciona igual sin internet. */
+    $("cierre").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-agr]");
+      if (!b) return;
+      agruparComisionesPor = b.dataset.agr;
+      pintarTabla();
+    });
+  }
+
+  /* Un solo campo que busca en TODAS las columnas: el dueño no piensa en
+     columnas, piensa "la camiseta de Metallica". Sin acentos y sin
+     distinguir mayusculas. */
+  function normalizar(s) {
+    return String(s == null ? "" : s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+  function filtrar(q) {
+    /* Sin Tabulator no hay filtro. Se filtra a mano sobre la tabla simple en
+       vez de dejar al duenio tecleando contra una caja que no responde. */
+    if (!tabla) { filtrarDegradado(q); return; }
+    var t = normalizar(q).trim();
+    if (!t) { tabla.clearFilter(); return; }
+    tabla.setFilter(function (fila) {
+      for (var k in fila) {
+        if (normalizar(fila[k]).indexOf(t) >= 0) return true;
+      }
+      return false;
+    });
+  }
+
+  /* Filtro de emergencia: oculta filas de la tabla en HTML plano. Lento
+     comparado con Tabulator, pero con 500 filas como tope no se nota. */
+  function filtrarDegradado(q) {
+    var t = normalizar(q).trim();
+    var filas = document.querySelectorAll("#tabla tbody tr");
+    if (!filas.length) return;
+    Array.prototype.forEach.call(filas, function (tr) {
+      tr.style.display = (!t || normalizar(tr.textContent).indexOf(t) >= 0) ? "" : "none";
+    });
+  }
+
+  function pintarTabla() {
+    var v = VISTAS[vista];
+    var filas = v.filas();
+    $("cierre").innerHTML = v.cierre(filas);
+    if (typeof Tabulator === "undefined") { degradarSinTabulator(v, filas); return; }
+    /* Si la vista es la misma, se REEMPLAZAN los datos en vez de reconstruir.
+       Destruir la tabla en cada actualizacion tiraba el scroll, el orden que el
+       duenio habia elegido y la fila donde estaba mirando — y aqui los datos
+       llegan en vivo, asi que pasaba con cada venta. */
+    if (tabla && tablaDe === vista && !degradado) {
+      try { tabla.replaceData(filas); filtrar($("buscar").value); return; }
+      catch (_) { /* si falla, se reconstruye abajo */ }
+    }
+    if (tabla) { try { tabla.destroy(); } catch (_) {} }
+    degradado = false;   /* si Tabulator llego tarde, ya no estamos degradados */
+    tablaDe = vista;
+    tabla = new Tabulator("#tabla", {
+      data: filas,
+      columns: v.cols,
+      layout: "fitColumns",   /* llena el ancho: es una pantalla grande, hay que usarla */
+      height: "58vh",
+      renderVertical: "virtual",     /* miles de filas sin matar un teléfono viejo */
+      placeholder: "Nada que mostrar todavía.",
+      movableColumns: true,
+      /* El nombre largo se corta por ancho; el tooltip lo devuelve entero sin
+         obligar a ensanchar la columna ni a hacer scroll lateral. */
+      /* El tooltip devuelve lo que se VE, no el dato crudo: sobre la columna
+         Estado mostraba "rojo" en vez de "Urgente". */
+      tooltip: function (e, cell) {
+        try {
+          var f = cell.getColumn().getDefinition().formatter;
+          if (typeof f === "function") {
+            var tmp = document.createElement("div");
+            tmp.innerHTML = f(cell);
+            return tmp.textContent || "";
+          }
+        } catch (_) {}
+        return String(cell.getValue() == null ? "" : cell.getValue());
+      },
+    });
+    filtrar($("buscar").value);
+  }
+
+  /* Si un CDN no carga, la tabla SE SIGUE VIENDO. Sin orden ni exports, y se
+     dice. Degradar no es fallar. */
+  function degradarSinTabulator(v, filas) {
+    degradado = true;
+    /* Se suelta la instancia vieja: si no, filtrar() la seguiria usando y
+       llamaria setFilter sobre una tabla que ya no existe en el DOM. */
+    if (tabla) { try { tabla.destroy(); } catch (_) {} tabla = null; }
+    tablaDe = "";
+    var th = v.cols.map(function (c) { return "<th style='text-align:left;padding:9px 8px;border-bottom:2px solid #0F1923;font-size:13px;'>" + esc(c.title) + "</th>"; }).join("");
+    var tr = filas.slice(0, 500).map(function (f) {
+      /* esc(undefined) pintaba la palabra "undefined" en la celda. Aqui no hay
+         formatters, asi que al menos el dinero se formatea a mano. */
+      return "<tr>" + v.cols.map(function (c) {
+        var val = f[c.field];
+        if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>—</td>";
+        if (/^(precio|costo|margen|precioUnit|costoUnit|monto)$/.test(c.field)) val = money(val);
+        return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + esc(val) + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+    $("tabla").innerHTML =
+      "<div style='padding:11px 14px;background:#FFF6F2;border-bottom:1px solid #E8ECF2;font-size:15px;'>" +
+      "Se está mostrando la tabla simple: no cargaron las herramientas de orden y exportación. Los datos son los mismos." +
+      "</div><div style='overflow:auto;max-height:62vh;'><table style='width:100%;border-collapse:collapse;'><thead><tr>" +
+      th + "</tr></thead><tbody>" + tr + "</tbody></table></div>";
+  }
+
+  function exportar(tipo) {
+    /* \w no incluye acentos ni ñ: "Panadería Ñusta" salia como "Panadera usta".
+       Se quitan solo los caracteres que los sistemas de archivos prohiben. */
+    var nombre = ($("neg-nombre").textContent || "negocio").replace(/[\\/:*?"<>|]/g, "").trim();
+    var f = nombre + " · " + VISTAS[vista].nombre + " · " + new Date().toISOString().slice(0, 10);
+    try {
+      if (tipo === "csv") tabla.download("csv", f + ".csv", { bom: true });
+      else if (tipo === "xlsx") tabla.download("xlsx", f + ".xlsx", { sheetName: VISTAS[vista].nombre });
+      else if (tipo === "json") tabla.download("json", f + ".json");
+      else if (tipo === "copy") { tabla.copyToClipboard("all"); }
+      else if (tipo === "pdf") {
+        tabla.download("pdf", f + ".pdf", {
+          orientation: "landscape",
+          /* Encabezado con negocio y fecha: un archivo sin contexto es basura
+             dentro de una semana. */
+          title: nombre + " — " + VISTAS[vista].nombre + " — " + new Date().toLocaleDateString(),
+        });
+      }
+    } catch (e) {
+      $("cierre").innerHTML = "<strong>No se pudo exportar.</strong>Puede que no haya cargado la herramienta de exportación. Recarga la página e inténtalo de nuevo.";
+      try { if (window.AMG && window.AMG.Salud) window.AMG.Salud.registrar("export " + tipo + ": " + e.message, "tablero.html", 0); } catch (_) {}
+    }
+  }
+
+  /* ================================================== QUIEN ESTA EN EL LOOP
+     Mismos umbrales y mismos tres estados que la app (ver micelio-vivo.js).
+     Aqui no hay perilla: el tablero solo mira. Los umbrales se cambian desde
+     Avanzado, en el dispositivo del dueno, que es donde vive esa decision.
+
+     UN DISPOSITIVO DESCONECTADO NO PUEDE AVISAR QUE ESTA DESCONECTADO. Por eso
+     no se pregunta "estas ahi": se recuerda la ultima vez que se le oyo. El
+     silencio ES la senal.
+     ======================================================================== */
+  var latidos = {};
+  var UMB = { rezagado: 5, ciegas: 120 };   /* minutos, igual que de fabrica */
+  var MIC = {
+    al_dia:   { texto: "Al día",   bg: "#00C87A", txt: "#0A2E1E" },
+    rezagado: { texto: "Rezagado", bg: "#FFC700", txt: "#3D2E00" },
+    ciegas:   { texto: "A ciegas", bg: "#E8365D", txt: "#FFFFFF" },
+  };
+  var ROLES = { dueno: "Dueño", admin: "Admin", empleado: "Empleado", contador: "Contador", soporte: "Maintenance / Support" };
+
+  function micEstado(ms) {
+    if (ms < UMB.rezagado * 60000) return "al_dia";
+    if (ms < UMB.ciegas * 60000) return "rezagado";
+    return "ciegas";
+  }
+  function micCuando(ms) {
+    if (ms < 45000) return "hace un momento";
+    var min = Math.round(ms / 60000);
+    if (min < 60) return "hace " + min + (min === 1 ? " minuto" : " minutos");
+    var h = Math.round(min / 60);
+    if (h < 24) return "hace " + h + (h === 1 ? " hora" : " horas");
+    var d = Math.round(h / 24);
+    return "hace " + d + (d === 1 ? " día" : " días");
+  }
+
+  function pintarMicelio() {
+    var ahora = Date.now(), ORDEN = { ciegas: 0, rezagado: 1, al_dia: 2 };
+    var lista = Object.keys(latidos).map(function (id) {
+      var e = latidos[id], ms = ahora - e.visto;
+      return { id: id, apodo: e.apodo, rol: e.rol, ms: ms, estado: micEstado(ms) };
+    }).sort(function (a, b) { return (ORDEN[a.estado] - ORDEN[b.estado]) || (b.ms - a.ms); });
+
+    if (!lista.length) {
+      $("micelio-resumen").textContent =
+        "Esperando a que se presente algún dispositivo.";
+      $("micelio-lista").innerHTML = "";
+      $("micelio-nota").textContent = "";
+      return;
+    }
+
+    var ciegos = lista.filter(function (m) { return m.estado === "ciegas"; });
+    $("micelio-resumen").textContent = ciegos.length
+      ? (ciegos.length === 1 ? "Un dispositivo lleva" : ciegos.length + " dispositivos llevan") +
+        " rato sin sincronizar. Mientras estén así pueden vender algo que aquí ya se vendió, y los números de arriba no los incluyen."
+      : "Todos los dispositivos del equipo están hablando entre sí. Lo que ves arriba está completo.";
+
+    $("micelio-lista").innerHTML = lista.map(function (m) {
+      var c = MIC[m.estado];
+      /* El apodo manda; si no lo pusieron, el número estable (001, 002...);
+         si tampoco, el rol. Nunca el PIN. (JFC 2026-08-27: auto-numeración.) */
+      var nombre = m.apodo
+        || (window.OCMicelio && window.OCMicelio.numeroEstable ? window.OCMicelio.numeroEstable(m.id) : "")
+        || ROLES[m.rol] || ("Dispositivo " + String(m.id).slice(1, 5));
+      var rolTxt = ROLES[m.rol] ? '<span style="font-size:14px;color:var(--ink-soft);">' + esc(ROLES[m.rol]) + "</span>" : "";
+      /* Lapicito ✎ (JFC 2026-08-27): renombra el dispositivo desde el tablero.
+         Manda una orden orientada a ese deviceId (para) que el dispositivo
+         aplica con OCMicelio.ponerApodo. */
+      var lapiz = '<button type="button" title="Renombrar este dispositivo" data-renombrar="' + esc(m.id) + '" ' +
+        'style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>';
+      return '<div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:11px 0;border-bottom:1px solid var(--hairline);">' +
+        '<span style="display:inline-block;min-width:100px;text-align:center;padding:4px 12px;border-radius:20px;' +
+        'font-size:13px;font-weight:700;background:' + c.bg + ';color:' + c.txt + ' !important;-webkit-text-fill-color:' + c.txt + ' !important;">' + c.texto + "</span>" +
+        '<span style="font-size:16px;font-weight:700;">' + esc(nombre) + "</span>" + lapiz +
+        rolTxt +
+        '<span style="font-size:14px;margin-left:auto;">' + esc(micCuando(m.ms)) + "</span></div>";
+    }).join("");
+    /* Delegación: un solo listener para todos los lapicitos (se re-renderiza
+       cada 20s, así que no se pueden enlazar listeners directos). */
+    var _listaEl = $("micelio-lista");
+    if (_listaEl && !_listaEl.dataset.renombrarOk) {
+      _listaEl.dataset.renombrarOk = "1";
+      _listaEl.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest("[data-renombrar]") : null;
+        if (!b) return;
+        var id = b.getAttribute("data-renombrar");
+        var actual = (latidos[id] && latidos[id].apodo) || "";
+        var v = prompt("Renombrar este dispositivo:", actual);
+        if (v === null) return;
+        ordenar("POST", "/micelio/apodo", { apodo: v }, id).then(function (r) {
+          if (r && r.ok) { latidos[id] = latidos[id] || {}; latidos[id].apodo = v; pintarMicelio(); }
+          else alert("No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta"));
+        });
+      });
+    }
+
+    $("micelio-nota").innerHTML = ciegos.length
+      ? "Se ponen al día solos en cuanto haya señal."
+      : "Si ves un nombre que no reconoces, cambia el código de tu sala.";
+  }
+  /* Los estados envejecen aunque no llegue nada: sin este reloj, alguien que
+     se apago hace una hora seguiria pintado en verde. */
+  setInterval(pintarMicelio, 20000);
+
+  /* --------------------------------------------------------------- M10 --- */
+  function reporte(cual) {
+    // 2026-08-19, aprobado JFC: bilingual y con nombre del CDN caido para
+    // que el owner sepa que no es la app — es la red o un CDN. Antes decia
+    // solo "Recarga y prueba" y le quitaba pista al usuario.
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      var _es_p = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      $("cierre").innerHTML = _es_p
+        ? "<strong>No se pudo armar el reporte.</strong> No cargó la herramienta de PDF (cdnjs). Recarga la página e inténtalo; si sigue fallando, el reporte tambien se puede exportar desde la tabla de arriba como XLSX o CSV."
+        : "<strong>Could not build the report.</strong> The PDF tool did not load (cdnjs). Reload the page and try again; if it still fails, the report can also be exported from the table above as XLSX or CSV.";
+      return;
+    }
+    var neg = $("neg-nombre").textContent || "Mi negocio";
+    var doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    var titulo, cols, filas, pie = "";
+
+    if (cual === "inv") {
+      titulo = "Inventario valorizado";
+      cols = ["Producto", "Percha", "Stock", "Costo", "Valor"];
+      var totalInv = 0;
+      filas = (datos.productos || []).map(function (p) {
+        var v = (Number(p.costo) || 0) * (Number(p.stockActual) || 0);
+        totalInv += v;
+        return [p.nombre, p.ubicacionNombre || "", String(p.stockActual || 0), money(p.costo), money(v)];
+      });
+      pie = "Valor total del inventario, a costo: " + money(totalInv);
+
+    } else if (cual === "cli") {
+      titulo = "Clientes al día";
+      cols = ["Cliente", "Teléfono", "Compró hace", "Compras 90d", "Monto 90d"];
+      filas = (datos.clientes || []).map(function (c) {
+        return [c.nombre, c.telefono || "", c.recencia == null ? "nunca" : c.recencia + " días",
+                String(c.frecuencia || 0), money(c.monto)];
+      });
+      pie = plural(filas.length, "cliente activo", "clientes activos") + ".";
+
+    } else {
+      titulo = "Reporte del mes";
+      /* Se filtra por el mes en curso sobre lo que hay en pantalla: el tablero
+         muestra lo que el equipo tiene, y eso es lo que se reporta. */
+      var mes = (new Date()).toISOString().slice(0, 7);
+      var vs = (datos.ventas || []).filter(function (v) { return String(v.fecha || "").slice(0, 7) === mes; });
+      var bruto = 0, costo = 0;
+      var porProd = {};
+      vs.forEach(function (v) {
+        var t = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0);
+        bruto += t; costo += (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 0);
+        var k = v.productoNombre || "(sin nombre)";
+        porProd[k] = porProd[k] || { u: 0, t: 0 };
+        porProd[k].u += Number(v.cantidad) || 0;
+        porProd[k].t += t;
+      });
+      cols = ["Producto", "Unidades", "Vendido"];
+      filas = Object.keys(porProd).sort(function (a, b) { return porProd[b].t - porProd[a].t; })
+        .map(function (k) { return [k, String(porProd[k].u), money(porProd[k].t)]; });
+      pie = "Vendido: " + money(bruto) + "   ·   Costo: " + money(costo) + "   ·   Margen: " + money(bruto - costo);
+    }
+
+    doc.setFontSize(16); doc.text(neg, 40, 46);
+    doc.setFontSize(12); doc.text(titulo, 40, 66);
+    doc.setFontSize(10);
+    doc.text("Generado el " + (new Date()).toLocaleString(), 40, 82);
+    doc.autoTable({
+      head: [cols], body: filas, startY: 98, styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [15, 25, 35] }, alternateRowStyles: { fillColor: [250, 251, 253] },
+    });
+    var y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 98) + 22;
+    doc.setFontSize(11); doc.text(pie, 40, y);
+    doc.setFontSize(8);
+    /* El aviso va en el documento, no solo en pantalla: el PDF se manda por
+       WhatsApp y viaja solo. */
+    doc.text("Insumo para tu contador. No es una declaración válida ante el SRI.", 40, y + 18);
+    doc.save(neg.replace(/[\\/:*?"<>|]/g, "").trim() + " - " + titulo + " - " + (new Date()).toISOString().slice(0, 10) + ".pdf");
+  }
+
+  /* ================================================== EL MANDO A DISTANCIA
+     Este lienzo no tiene backend y no reimplementa ni una regla de negocio.
+     Manda una orden cifrada y el dispositivo del duenio la ejecuta contra su
+     propio /api. La regla vive en un solo sitio; aqui solo se pide y se pinta.
+     ======================================================================== */
+  var pedidos = {};   /* pedidoId -> resolve. En memoria y nada mas. */
+
+  function ordenar(metodo, ruta, cuerpo, para) {
+    return new Promise(function (resolve) {
+      if (!ws || ws.readyState !== 1) {
+        resolve({ ok: false, datos: { error: "Sin conexión con tu equipo." } });
+        return;
+      }
+      var id = "o" + Math.random().toString(36).slice(2, 10);
+      /* Timeout SIEMPRE. Si el telefono se apago justo ahora, esta pantalla no
+         puede quedarse girando para siempre esperando algo que no va a venir. */
+      var reloj = setTimeout(function () {
+        if (!pedidos[id]) return;
+        delete pedidos[id];
+        resolve({ ok: false, datos: { error: "Tu dispositivo no contestó. Revisa que la app esté abierta." } });
+      }, 12000);
+      /* A diferencia del PIN, aqui la PRIMERA respuesta manda: son ordenes
+         ejecutadas contra un backend, no votos. */
+      pedidos[id] = function (r) { clearTimeout(reloj); delete pedidos[id]; resolve(r); };
+      /* `para` (JFC 2026-08-27): orienta la orden a un dispositivo concreto
+         (ej. renombrar su apodo). Si viene, solo ese dispositivo la aplica. */
+      cifrar({ opId: id, deviceId: miId, tipo: TIPO_ORDEN,
+               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null, para: para || "" } })
+        .then(function (buf) { try { ws.send(buf); } catch (_) {} });
+    });
+  }
+
+  /* Si dos dispositivos del negocio contestan la misma orden, solo cuenta el
+     primero: el pedido ya se borro y el segundo cae aqui sin hacer nada. */
+  function recibirRespuesta(p) {
+    var fn = pedidos[p && p.pedido];
+    if (!fn) return;
+    /* El pedido NO se borra aqui: para el PIN puede llegar mas de una respuesta
+       y solo el "si" cierra el trato. Cada handler decide cuando borrarse. */
+    fn({ ok: !!p.ok, datos: p.datos });
+  }
+
+  /* El puente para tablero-avanzado.js. Se expone lo minimo: pedir, y las
+     cuatro funciones de formato. Nada de ws ni de la clave. */
+  window.__lienzo = { $: $, esc: esc, money: money, fecha: fecha, ordenar: ordenar };
+
+  /* ======================================================== MODO LOCAL ====
+     LO PRIMERO QUE HAY QUE INTENTAR (JFC, 2026-08-15, y con toda la razon): si
+     el tablero se abre en el MISMO dispositivo donde esta la app, los datos ya
+     estan aqui. Pedirselos por el relay a un tercero era absurdo, y si nadie
+     contestaba el duenio se quedaba mirando una pantalla vacia con sus propios
+     datos a dos centimetros.
+
+     Mismo origen = mismo localStorage. Se lee el buffer del backend
+     directamente. NO se carga mock-backend.js: arrastra media app y solo hace
+     falta leer. Si el formato cambiara, esto degrada al modo remoto en vez de
+     romperse.
+
+     El relay sigue existiendo para lo que si lo necesita: ver el negocio desde
+     OTRO dispositivo.
+     ======================================================================== */
+  var K_ESTADO = "f123_estado_v4";
+
+  function leerEstadoLocal() {
+    /* JFC 2026-10-01 EMERGENCIA (Belen): con el telefono de la tienda sin contestar, el tablero
+       pintaba lo guardado en ESTE navegador, y ese navegador tenia la DEMO: la duena entro con su
+       PIN y vio un negocio de ejemplo. Misma regla que la app (_esAparatoDemo en mock-backend):
+       sin cuaderno propio activado no hay negocio local; se va al equipo por la sala. */
+    try {
+      if (!localStorage.getItem("f123_tienda_activa") && !localStorage.getItem("f123_owned")) {
+        /* v441: si ademas hay un cuaderno guardado (la demo), el tablero estuvo a punto de pintarla:
+           se avisa al canario demo-visto (una vez por sesion). */
+        try { if ((localStorage.getItem(K_ESTADO + "_A") || localStorage.getItem(K_ESTADO + "_B")) && window.OCSalud && window.OCSalud.demoVisto) window.OCSalud.demoVisto("tablero"); } catch (_) {}
+        return null;
+      }
+    } catch (_) { return null; }
+    try {
+      var ptr = localStorage.getItem(K_ESTADO + "_ptr") || "B";
+      /* Doble buffer A/B: se prueba el activo y, si esta corrupto o vacio, el
+         otro. Por eso existen dos: para que nunca haya un unico punto de fallo. */
+      var orden = [ptr, ptr === "A" ? "B" : "A"];
+      for (var i = 0; i < orden.length; i++) {
+        var raw = localStorage.getItem(K_ESTADO + "_" + orden[i]);
+        if (!raw) continue;
+        var e = JSON.parse(raw);
+        if (e && Array.isArray(e.productos)) return e;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /* Arma la misma forma que llega por el relay, para que el resto del tablero
+     no sepa ni le importe de donde vinieron los datos. */
+  function datosDesdeLocal(e) {
+    var ubic = {};
+    (e.ubicaciones || []).forEach(function (u) { ubic[u.id] = u.nombre; });
+    var prods = {}, clientesArr = e.clientes || [];
+    var cli = {};
+    clientesArr.forEach(function (c) { cli[c.id] = c.nombre; });
+
+    var productos = (e.productos || []).map(function (p) {
+      prods[p.id] = p;
+      var precio = Number(p.precio) || 0, costo = Number(p.costo) || 0;
+      return {
+        id: p.id, nombre: p.nombre, sku: p.sku || "", categoria: p.categoria || "",
+        stockActual: Number(p.stockActual) || 0, precio: precio, costo: costo,
+        margen: +(precio - costo).toFixed(2),
+        estado: estadoSimon(p),
+        ubicacionNombre: ubic[p.ubicacionId] || "",
+      };
+    });
+
+    /* Quien cobra en cada percha. Se resuelve una vez y no percha por venta. */
+    var asoc = {};
+    (e.ubicaciones || []).forEach(function (u) {
+      if (!u.promotoraId) return;
+      var pr = (e.promotoras || []).find(function (x) { return x.id === u.promotoraId; });
+      if (pr) asoc[u.id] = pr.nombre;
+    });
+
+    var hoy = new Date(); hoy = hoy.getFullYear() + "-" +
+      String(hoy.getMonth() + 1).padStart(2, "0") + "-" + String(hoy.getDate()).padStart(2, "0");
+    var entra = 0, sale = 0, nHoy = 0;
+    var ventas = (e.ventas || []).map(function (v) {
+      var p = prods[v.productoId] || {};
+      var cant = Number(v.cantidad) || 0;
+      var pu = Number(v.precioUnit) || 0, cu = Number(v.costoUnit) || 0;
+      if (String(v.fecha || "").slice(0, 10) === hoy) { entra += pu * cant; sale += cu * cant; nHoy++; }
+      return {
+        id: v.id, fecha: v.fecha, productoNombre: p.nombre || "(deleted product)",
+        sku: p.sku || "", categoria: p.categoria || "", cantidad: cant,
+        precioUnit: pu, costoUnit: cu,
+        clienteNombre: cli[v.clienteId] || "",
+        ubicacionId: v.ubicacionId,
+        ubicacionNombre: ubic[v.ubicacionId] || "",
+        /* Lo mismo que manda /api/ventas/todas por el relay: sin esto, las
+           pestanias de Eventos y Comisiones funcionarian conectadas al equipo y
+           quedarian vacias en el propio dispositivo del duenio, que es
+           exactamente el bug que ya nos costo un tablero en blanco. */
+        tipoProducto: p.tipoProducto || "normal",
+        eventoNombre: (v.info && v.info.nombreEvento) || "",
+        eventoFecha: (v.info && v.info.fechaEvento) || "",
+        eventoPersonas: (v.info && v.info.numPersonas) || null,
+        pagador: (v.info && v.info.nombrePagador) || "",
+        comisionPct: v.split ? v.split.comisionPct : null,
+        comisionAsociado: v.split ? v.split.montoComisionSocio : 0,
+        netoCasa: v.split ? v.split.montoNetoDueno : null,
+        comisionCorregida: !!(v.split && v.split.corregida),
+        liquidada: !!v.liquidada,
+        medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
+        asociadoNombre: asoc[v.ubicacionId] || "",
+      };
+    });
+
+    /* LIQUIDACIONES EN LOCAL. Cuando el tablero se abre conectado al equipo,
+       estas llegan calculadas por el backend. Aqui se rehacen con la misma
+       definicion —agrupar el mes por percha— para que la pestania de Comisiones
+       diga lo mismo por los dos caminos. Se suma la plata REAL de cada venta,
+       no se reaplica un porcentaje: si alguien corrigio una comision en
+       retrospectiva, este total ya la trae corregida. */
+    var mesActual = new Date().toISOString().slice(0, 7);
+    var liqPorPercha = {};
+    ventas.forEach(function (v) {
+      if (String(v.fecha || "").slice(0, 7) !== mesActual) return;
+      if (v.comisionPct == null) return;              /* percha propia: no reparte */
+      var id = v.ubicacionId || "";
+      if (!liqPorPercha[id]) liqPorPercha[id] = {
+        ubicacionId: id, ubicacion: ubic[id] || "(percha borrada)",
+        asociadoNombre: v.asociadoNombre || "", ventasBrutas: 0,
+        comisionSocio: 0, netoDueno: 0, ventasPendientes: 0,
+        ventasCorregidas: 0, transacciones: 0,
+      };
+      var g = liqPorPercha[id];
+      g.ventasBrutas += (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0);
+      g.comisionSocio += Number(v.comisionAsociado) || 0;
+      g.netoDueno += Number(v.netoCasa) || 0;
+      g.transacciones++;
+      if (!v.liquidada) g.ventasPendientes++;
+      if (v.liquidada && v.medioPagoComision) g.medioPago = v.medioPagoComision;
+      if (v.comisionCorregida) g.ventasCorregidas++;
+    });
+    var liquidaciones = Object.keys(liqPorPercha).map(function (k) {
+      var g = liqPorPercha[k];
+      g.ventasBrutas = +g.ventasBrutas.toFixed(2);
+      g.comisionSocio = +g.comisionSocio.toFixed(2);
+      g.netoDueno = +g.netoDueno.toFixed(2);
+      g.pctEfectivo = g.ventasBrutas > 0 ? +(g.comisionSocio / g.ventasBrutas * 100).toFixed(2) : 0;
+      g.estado = g.ventasPendientes === 0 ? "pagado" : "pendiente";
+      return g;
+    });
+
+    return {
+      productos: productos,
+      clientes: clientesArr.filter(function (c) { return !c.despedido; }),
+      ventas: ventas,
+      liquidaciones: liquidaciones,
+      perchas: e.ubicaciones || [],
+      resumen: { resumenDia: {
+        entra: +entra.toFixed(2), sale: +sale.toFixed(2),
+        gananciaHoy: +(entra - sale).toFixed(2), ventasCount: nHoy,
+      } },
+    };
+  }
+
+  /* El color Simon replicado a partir de los umbrales del propio producto. Si
+     faltan, se usan los mismos valores de fabrica que la app. */
+  function estadoSimon(p) {
+    var s = Number(p.stockActual) || 0;
+    var rojo = Number(p.umbralRojo) || 2, ambar = Number(p.umbralAmarillo) || 5;
+    if (s <= 0) return "rojo";
+    if (s <= rojo) return "rojo";
+    if (s <= ambar) return "naranja";
+    return "verde";
+  }
+
+  /* El PIN en modo local se comprueba AQUI mismo, contra el secreto cifrado de
+     este dispositivo. Sin relay y sin esperar a nadie. */
+  async function pinLocalOk(pin) {
+    try {
+      /* GUARD: crypto-store se carga con la pagina, pero si por lo que sea
+         todavia no esta, se espera un poco antes de rendirse. Devolver null a
+         la primera mandaba al duenio al camino remoto sin necesidad. */
+      for (var i = 0; i < 20 && !window.OCSecure; i++) {
+        await new Promise(function (r) { setTimeout(r, 100); });
+      }
+      if (!window.OCSecure) return null;   /* null = no se puede juzgar */
+      if (window.OCSecure.migrarSiHaceFalta) { try { await window.OCSecure.migrarSiHaceFalta(); } catch (_) {} }
+      /* Si el intento esta en penalizacion por fallos previos EN LA APP, el
+         verificador devuelve null igual que si no hubiera secreto. Se
+         distingue aqui: no es lo mismo "no puedo juzgar" que "espera 40 s", y
+         mandar a alguien penalizado al relay solo le da una pantalla vacia
+         (bug en vivo, PC de la hermana de JFC, 2026-08-17). */
+      try {
+        if (window.OCSecure.segundosBloqueo) {
+          var esp = Number(window.OCSecure.segundosBloqueo("login")) || 0;
+          if (esp > 0) return { bloqueado: esp };
+        }
+      } catch (_) {}
+      if (!window.OCSecure.verificarOwnerOEmpleado) return null;
+      var rol = await window.OCSecure.verificarOwnerOEmpleado(pin);
+      if (rol === "dueno" || rol === "admin") return true;
+      /* #3 (JFC 2026-09-10): los PIN de admin TAMBIEN abren el dashboard. A nivel
+         cripto un admin cuenta como "empleado", así que se comprueba contra la
+         lista de PINs de admin que la app publica (f123_admins_pins, mismo origen).
+         Un empleado normal NO entra. */
+      if (rol === "empleado") {
+        try {
+          var _admins = JSON.parse(localStorage.getItem("f123_admins_pins") || "[]");
+          if (Array.isArray(_admins) && _admins.indexOf(String(pin)) >= 0) return true;
+        } catch (_) {}
+      }
+      return false;
+    } catch (_) { return null; }
+  }
+
+  /* ------------------------------------------------------------------------
+     PINTAR CON LO QUE HAY AQUI. El negocio vive en ESTE dispositivo: si por lo
+     que sea el camino local no se pudo tomar (PIN penalizado, secreto no
+     disponible), no hay ninguna razon para que las pestanias salgan vacias.
+     Devuelve true si de verdad pinto algo.
+     ------------------------------------------------------------------------ */
+  function pintarDesdeLocal() {
+    try {
+      var e = leerEstadoLocal();
+      if (!e) return false;
+      var d = datosDesdeLocal(e);
+      /* Un estado local vacio no es un tablero: es una app recien instalada.
+         Pintarlo taparia el mensaje honesto de "no hay nadie conectado". */
+      if (!(d.productos || []).length && !(d.ventas || []).length) return false;
+      datos.productos = d.productos; datos.clientes = d.clientes;
+      datos.ventas = d.ventas; datos.resumen = d.resumen;
+      datos.liquidaciones = d.liquidaciones; datos.perchas = d.perchas;
+      datos.gastos = (e.gastos || []).filter(function (g) { return !g.borrado; });
+      datos.transferencias = e.transferencias || [];
+      datos.gastosMensuales = { porUbicacion: e.gastosMensuales || {},
+        gastosMensuales: Object.values(e.gastosMensuales || {}).reduce(function (a, v) { return a + (Number(v) || 0); }, 0) };
+      datos.movimientos = e.movimientos || [];
+      datos.promotoras = e.promotoras || [];
+      var fotoLocalRef = datos;
+      try {
+        var req = indexedDB.open("f123_hechos_db");
+        req.onsuccess = function () {
+          var db = req.result;
+          if (!db.objectStoreNames.contains("hechos")) { db.close(); return; }
+          var q = db.transaction("hechos", "readonly").objectStore("hechos").getAll();
+          q.onsuccess = function () {
+            if (datos !== fotoLocalRef) { db.close(); return; }
+            datos.hechosFinancieros = (q.result || []).filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
+            db.close(); mostrar();
+          };
+        };
+      } catch (_) {}
+      try {
+        var o = JSON.parse(localStorage.getItem("f123_owned") || "{}");
+        if (o.nombreNegocio) $("neg-nombre").textContent = o.nombreNegocio;
+      } catch (_) {}
+      ultimoDato = Date.now();
+      /* SOLO es modo local si de verdad no hay sala escuchando. Antes esto se
+         quedaba en true para siempre: si el WebSocket se caia despues, el pulso
+         seguia diciendo "desde este dispositivo" aunque los datos hubieran
+         llegado del equipo. Un indicador que miente es peor que no tenerlo
+         (caza de bugs 2026-08-18). */
+      modoLocal = !ws;
+      pulso("from this device", "vivo");
+      mostrar();
+      return true;
+    } catch (_) { return false; }
+  }
+
+  /* ==================================================== COSTO UNITARIO REAL
+     Todo lo que se paga por traer una caja se reparte entre las unidades que
+     de verdad quedan vendibles. Las que se rompen no desaparecen del costo: su
+     plata se la comen las que sobreviven, que es por que el costo real casi
+     siempre es mayor que "la factura dividido para las unidades".
+
+     No guarda nada: el tablero es un lienzo. Da el numero para que se escriba
+     en la ficha del producto desde la app.
+     ====================================================================== */
+  (function () {
+    var ids = ["cu-total", "cu-flete", "cu-imp", "cu-otros", "cu-unid", "cu-merma", "cu-precio"];
+    var out = $("cu-out");
+    if (!out) return;
+    var num = function (id) { var v = Number(($(id) || {}).value); return Number.isFinite(v) ? v : 0; };
+
+    function calcular() {
+      var unidades = num("cu-unid");
+      var desembolso = num("cu-total") + num("cu-flete") + num("cu-imp") + num("cu-otros");
+      if (!unidades || unidades <= 0 || desembolso <= 0) {
+        out.innerHTML = '<span style="color:#5A6B7A;">Escribe al menos cuánto pagaste y cuántas unidades llegaron.</span>';
+        return;
+      }
+      var merma = Math.max(0, Math.min(99, num("cu-merma")));
+      var vendibles = unidades * (1 - merma / 100);
+      /* Si la merma deja menos de una unidad, la division se vuelve absurda y
+         escupiria un costo gigante presentado como si fuera un dato. */
+      if (vendibles < 1) {
+        out.innerHTML = '<span style="color:#A8123A;font-weight:700;">Con esa merma no queda ni una unidad vendible. Revisa el porcentaje.</span>';
+        return;
+      }
+      var unitarioBruto = desembolso / unidades;
+      var unitarioReal = desembolso / vendibles;
+      var precio = num("cu-precio");
+
+      var html = '<div style="display:flex;gap:20px;flex-wrap:wrap;">';
+      html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Te cuesta cada una</div>' +
+        '<div style="font-size:26px;font-weight:700;">' + money(unitarioReal) + "</div>" +
+        '<div style="font-size:13px;color:#5A6B7A;">' + vendibles.toFixed(vendibles % 1 ? 1 : 0) + " vendibles de " + unidades + "</div></div>";
+      if (merma > 0) {
+        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Sin contar lo que se rompe</div>' +
+          '<div style="font-size:26px;font-weight:700;color:#5A6B7A;">' + money(unitarioBruto) + "</div>" +
+          '<div style="font-size:13px;color:#5A6B7A;">la merma le suma ' + money(unitarioReal - unitarioBruto) + "</div></div>";
+      }
+      if (precio > 0) {
+        var margen = precio - unitarioReal;
+        var pct = precio > 0 ? (margen / precio) * 100 : 0;
+        var col = margen <= 0 ? "#A8123A" : pct < 20 ? "#B8760A" : "#00975C";
+        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Ganas por unidad</div>' +
+          '<div style="font-size:26px;font-weight:700;color:' + col + ';">' + money(margen) + "</div>" +
+          '<div style="font-size:13px;color:#5A6B7A;">' + pct.toFixed(1) + "% del precio</div></div>";
+        /* El punto de equilibrio contesta la pregunta que sigue siempre despues
+           de la primera: cuantas hay que vender para no perder. */
+        if (margen > 0) {
+          var equilibrio = Math.ceil(desembolso / margen);
+          html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Para recuperar lo invertido</div>' +
+            '<div style="font-size:26px;font-weight:700;">' + equilibrio + "</div>" +
+            '<div style="font-size:13px;color:#5A6B7A;">unidades vendidas</div></div>';
+        }
+      }
+      html += "</div>";
+      if (precio > 0 && precio <= unitarioReal) {
+        html += '<p style="margin:12px 0 0;color:#A8123A;font-weight:700;">A ' + money(precio) +
+          " estarías vendiendo con pérdida: cada unidad te cuesta " + money(unitarioReal) + ".</p>";
+      }
+      html += '<p style="margin:12px 0 0;font-size:13px;color:#5A6B7A;">Este número no se guarda solo. Escríbelo como "Costo" en la ficha del producto desde la app.</p>';
+      out.innerHTML = html;
+    }
+
+    ids.forEach(function (id) {
+      var el = $(id);
+      if (el) el.addEventListener("input", calcular);
+    });
+    calcular();
+  })();
+
+  /* ------------------------------------------------------------- arranque */
+  function normalizarCodigo(c) {
+    return String(c || "").toUpperCase().replace(/[^A-Z0-9*~$=-]/g, "");
+  }
+  $("entrar").addEventListener("click", async function () {
+    var local = leerEstadoLocal();
+    var c = normalizarCodigo($("codigo").value);
+    var cuerpo = c.replace(/^F123-/, "").replace(/-/g, "");
+    /* La licencia se exige SIEMPRE, en todos los dispositivos por igual (JFC,
+       2026-08-15). Lo unico que cambia entre un telefono y una computadora es
+       el layout, nunca quien puede entrar. */
+    /* GUARD 4 (JFC 2026-08-27, bloque 2): si el negocio está en ESTE
+       dispositivo, la licencia sobra — solo hace falta el PIN. Se valida el
+       formato SOLO cuando hay que conectar con el equipo (sin estado local).
+       Antes se exigía el código aunque el negocio estuviera aquí, y el campo
+       estorbaba en la primera pantalla. */
+    if (!local && (c.indexOf("F123-") !== 0 || (cuerpo.length !== 12 && cuerpo.length !== 17))) {
+      $("msg").style.color = "#A8123A";
+      $("msg").textContent = "Revisa el código: va completo, como F123-XXXX-XXXX-XXXX-XXXXX.";
+      return;
+    }
+    var pin = String($("pin").value || "").trim();
+    /* El PIN de friendly-123 es de 3 digitos. Se avisa antes de gastar 12 s
+       de espera contra la sala por algo que no puede ser un PIN. */
+    if (!/^[0-9]{3}$/.test(pin)) {
+      $("msg").style.color = "#A8123A";
+      $("msg").textContent = pin ? "El PIN es de 3 dígitos." : "Escribe tu PIN.";
+      $("pin").focus();
+      return;
+    }
+    $("entrar").disabled = true;
+    $("msg").style.color = "#00975C";
+
+    /* PRIMERO LO LOCAL. Si el negocio esta en ESTE dispositivo, no hay nada que
+       pedirle a nadie: ni relay, ni esperar, ni fallar porque otro no contesto. */
+    if (local) {
+      $("msg").textContent = "Comprobando tu PIN…";
+      var vale = await pinLocalOk(pin);
+      if (vale && typeof vale === "object" && vale.bloqueado) {
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = "Demasiados intentos fallidos. Espera " + vale.bloqueado +
+          " s y vuelve a escribir tu PIN — no es que el PIN este mal.";
+        $("pin").value = "";
+        return;
+      }
+      if (vale === false) {
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = "Ese PIN no abre el tablero. Tiene que ser el del dueño o el de un admin.";
+        $("pin").value = "";
+        return;
+      }
+      if (vale === true) {
+        autorizado = true;
+        recordarLicencia(c);   /* una hora, para no reteclearla */
+        $("pin").value = "";
+        try {
+          if (!pintarDesdeLocal()) throw new Error("estado local vacio");
+        } catch (err) {
+          /* Si armar los datos locales falla, se sigue al relay en vez de
+             dejar la pantalla en blanco. */
+          $("msg").textContent = "Conectando con tus dispositivos…";
+          try { await conectar(c); var remotoOk = await verificarPin(pin); if (remotoOk.ok) { fotoToken = (remotoOk.datos && remotoOk.datos.fotoToken) || ""; pedirFoto(); } sinNadie(); } catch (_) {}
+          $("entrar").disabled = false;
+          return;
+        }
+        /* Ya se ve el negocio. La conexion se levanta DESPUES y en segundo
+           plano, para que las ventas de los demas sigan llegando en vivo. Si
+           falla, el tablero ya esta lleno: no se avisa de nada. */
+        /* La conexion se levanta DESPUES y en segundo plano: si falla, el
+           tablero ya esta lleno con los datos de aqui y no hay nada que avisar. */
+        conectar(c).then(function () { return verificarPin(pin); }).then(function (r) { if (r.ok) { fotoToken = (r.datos && r.datos.fotoToken) || ""; pedirFoto(); } }).catch(function () {});
+        return;
+      }
+      /* vale === null: no se pudo juzgar aqui (secreto no disponible). Se cae
+         al camino remoto en vez de dejar al duenio fuera. */
+    }
+
+    $("msg").textContent = "Conectando con tus dispositivos…";
+    try {
+      await conectar(c);
+      $("msg").textContent = "Comprobando tu PIN con tu equipo…";
+      var v = await verificarPin(pin);
+      if (!v.ok) {
+        /* Se corta la conexion: sin PIN valido este lienzo no se queda
+           escuchando la sala. */
+        try { ws.close(); } catch (_) {}
+        ws = null;
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = (v.datos && v.datos.error) || "No se pudo comprobar tu PIN.";
+        $("pin").value = "";
+        return;
+      }
+      autorizado = true;
+      fotoToken = (v.datos && v.datos.fotoToken) || "";
+      recordarLicencia(c);   /* una hora, para no reteclearla */
+      $("pin").value = "";
+      /* EL PIN YA PASO. Si el negocio tambien esta en ESTE dispositivo, se
+         pinta ya mismo en vez de esperar a que alguien de la sala conteste.
+         Antes, si nadie contestaba, la duenia se quedaba mirando las pestanias
+         vacias sentada delante del computador donde estan todos sus datos. */
+      pintarDesdeLocal();
+      pulso("pidiendo tu negocio...");
+      pedirFoto();
+      cargarAcceso();
+      sinNadie();
+    } catch (e) {
+      $("entrar").disabled = false;
+      $("msg").style.color = "#A8123A";
+      $("msg").textContent = "No se pudo conectar. Revisa tu internet.";
+    } finally {
+      /* GUARD: el boton vuelve SIEMPRE. Sin esto, cualquier excepcion en un
+         camino nuevo dejaba la puerta trabada y solo se salia recargando. */
+      if (!autorizado) $("entrar").disabled = false;
+    }
+  });
+
+  /* ========================================================================
+     QUIEN TIENE ACCESO + SOPORTE (JFC 2026-08-28).
+     El directorio de acceso se pide al dispositivo del duenio (GET
+     /api/directorio) y se pinta. Los botones de soporte piden una accion por
+     orden remota (fixlic / rotar) o re-sincronizan.
+     ======================================================================== */
+  function cargarAcceso() {
+    var el = $("acceso-cuerpo");
+    if (!el) return;
+    el.innerHTML = '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Cargando…</p>';
+    ordenar("GET", "/api/directorio", null).then(function (r) {
+      if (!r.ok || !r.datos || !r.datos.directorio) {
+        el.innerHTML = '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">' +
+          ((r.datos && r.datos.error) || "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?") + "</p>";
+        return;
+      }
+      var d = r.datos.directorio;
+      var filas = [];
+      var fila = function (rol, pin, persona) {
+        var nombre = (persona && persona.nombre) ? persona.nombre : '<span style="color:#A8123A;">sin nombre</span>';
+        var correo = (persona && persona.correo) ? persona.correo : "";
+        var notas = (persona && persona.notas) ? persona.notas : "";
+        return '<div style="padding:8px 0;border-bottom:1px solid #E3EAF0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">' +
+          '<span style="font-weight:700;min-width:110px;">' + rol + '</span>' +
+          '<code style="font-family:monospace;letter-spacing:.08em;color:#2C4A68;">' + (pin || "—") + '</code>' +
+          '<span style="flex:1;min-width:160px;">' + nombre + (correo ? ' <span style="color:#5A6B7A;font-size:12px;">· ' + correo + "</span>" : "") + "</span>" +
+          (notas ? '<span style="color:#5A6B7A;font-size:12px;width:100%;">' + notas + "</span>" : "") +
+          "</div>";
+      };
+      filas.push(fila("Owner", d.owner && d.owner.pin, d.owner));
+      (d.empleados || []).forEach(function (e) { filas.push(fila("Staff", e.pin, e)); });
+      filas.push(fila("Accounting", d.acct && d.acct.pin, d.acct));
+      el.innerHTML = filas.join("") || '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Aún no hay directorio. Edita un PIN en la app (Access &amp; recovery) para asignarle quién es.</p>';
+    });
+  }
+
+  function sopMsg(txt, ok) {
+    var m = $("sop-msg");
+    if (!m) return;
+    m.style.color = ok ? "#00805A" : "#A8123A";
+    m.textContent = txt;
+  }
+
+  function bindSoporte() {
+    var bFix = $("sop-fixlic");
+    if (bFix) bFix.addEventListener("click", function () {
+      if (!confirm("Esto le da a ESTE dispositivo una licencia nueva completa y lo mueve a un cuaderno nuevo (tus datos locales se quedan). Cualquier otro dispositivo debe entrar con el código nuevo para volver a unirse. ¿Continuar?")) return;
+      sopMsg("Pidiendo licencia nueva a tu dispositivo…", true);
+      ordenar("POST", "/micelio/fixlic", {}).then(function (r) {
+        sopMsg(r.ok ? "Listo — tu dispositivo generó la licencia nueva (mírala en la app)." : ((r.datos && r.datos.error) || "Tu dispositivo no contestó."), r.ok);
+      });
+    });
+    var bRes = $("sop-resync");
+    if (bRes) bRes.addEventListener("click", function () {
+      sopMsg("Pidiendo reconexión…", true);
+      ordenar("POST", "/micelio/apodo", { apodo: "" }).then(function () {
+        /* La reconexión real la hace el dispositivo; aquí solo se avisa. */
+        sopMsg("Hecho — tu dispositivo se está reconectando a tu equipo.", true);
+      });
+    });
+  }
+
+  /* Se cargan al entrar (autorizado) y cada vez que llega una foto nueva. */
+  var _cargarAccesoY = function () { cargarAcceso(); };
+  try { window.addEventListener("oc-dashboard-entro", _cargarAccesoY); } catch (_) {}
+  try { bindSoporte(); } catch (_) {}
+  /* Si ya se entró antes de bindear, cargar igual. */
+  try { if (autorizado) cargarAcceso(); } catch (_) {}
+  $("codigo").addEventListener("keydown", function (e) { if (e.key === "Enter") $("entrar").click(); });
+
+  /* ------------------------------------------------ LOS GUIONES LOS PONE LA APP
+     MISMA MÁSCARA QUE LA CAJITA DE "JOIN" DEL APP PRINCIPAL (JFC 2026-08-26).
+     Antes esta versión agrupaba 3 + 4-4-4 (herencia de AMG, prefijo de 3), que
+     para una licencia F123- (prefijo de 4, forma 4-4-4-5) partía mal el código y
+     arruinaba el pegado. Se porta TAL CUAL la lógica ya aprobada de auth-ui.js
+     (_ocMascaraCodigo): alfabeto Crockford exacto, pela el prefijo repetido,
+     agrupa 4-4-4-5 (el último grupo lleva 5 = 4 del cuerpo + símbolo de
+     verificación) y el pegado REEMPLAZA el valor entero. Sin inventar nada. */
+  (function () {
+    var inp = $("codigo");
+    var PRE = "F123";
+    inp.setAttribute("autocapitalize", "characters");
+    inp.setAttribute("autocorrect", "off");
+    inp.setAttribute("spellcheck", "false");
+    inp.setAttribute("maxlength", "25"); // F123- + 4 + 4 + 4 + 5 = 22, con holgura
+
+    function formatear(raw) {
+      var v = String(raw || "").toUpperCase().replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
+      // Pela TODAS las repeticiones del prefijo (y "TEAM" de papeles viejos): al
+      // pegar "F123-..." sobre un campo que ya mostraba "F123-", no queda "F123F123".
+      var cambio = true;
+      while (cambio) {
+        cambio = false;
+        if (v.indexOf("TEAM") === 0) { v = v.slice(4); cambio = true; }
+        else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
+      }
+      v = v.slice(0, 17);
+      if (!v) return "";
+      var out = PRE, i = 0;
+      while (i < v.length) {
+        var corte = (i === 12) ? 5 : 4; // 4-4-4-5, el 4o grupo lleva 5
+        out += "-" + v.slice(i, i + corte);
+        i += corte;
+      }
+      return out;
+    }
+    function alEscribir() {
+      var antes = inp.value;
+      var despues = formatear(antes);
+      if (antes !== despues) {
+        inp.value = despues;
+        try { inp.setSelectionRange(despues.length, despues.length); } catch (_) {}
+      }
+    }
+    inp.addEventListener("input", alEscribir);
+    inp.addEventListener("paste", function (e) {
+      try {
+        var cb = (e.clipboardData || window.clipboardData);
+        if (!cb) { setTimeout(alEscribir, 0); return; }
+        e.preventDefault();
+        var pegado = cb.getData("text");
+        inp.value = formatear(pegado);
+        try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
+      } catch (_) { setTimeout(alEscribir, 0); }
+    });
+    inp.addEventListener("focus", function () {
+      if (!inp.value) { inp.value = PRE + "-"; try { inp.setSelectionRange(PRE.length + 1, PRE.length + 1); } catch (_) {} }
+    });
+    inp.addEventListener("blur", function () {
+      if (inp.value === PRE + "-" || inp.value === PRE) inp.value = "";
+    });
+  })();
+
+  /* El código puede venir en el enlace, para no teclearlo en el teléfono.
+     Se limpia de la barra de direcciones apenas se lee: no tiene por qué
+     quedar en el historial del navegador. */
+  (function () {
+    var m = (location.hash || "").match(/c=([A-Z0-9$*~=-]+)/i);
+    if (!m) return;
+    $("codigo").value = normalizarCodigo(decodeURIComponent(m[1]));
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
+    setTimeout(function () { $("entrar").click(); }, 200);
+  })();
+
+  /* La politica se abre desde la puerta y desde el pie. Un solo popup, dos
+     botones: si hubiera dos textos, uno se quedaria viejo. */
+  (function () {
+    var pol = $("pol");
+    var abrir = function () { pol.classList.add("on"); };
+    var cerrar = function () { pol.classList.remove("on"); };
+    ["ver-politica", "ver-politica-2"].forEach(function (id) {
+      var b = $(id);
+      if (b) b.addEventListener("click", abrir);
+    });
+    $("pol-x").addEventListener("click", cerrar);
+    pol.addEventListener("click", function (e) { if (e.target === pol) cerrar(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") cerrar(); });
+  })();
+
+  /* Logo: se inyecta desde la constante de abajo para no repetir el base64. */
+  /* ------------------------------------------------------ RECORDAR 1 HORA
+     La licencia se pide siempre, pero no se hace teclear 17 caracteres cada
+     vez: tras una entrada valida se guarda una hora en ESTE navegador y se
+     precarga sola. Pasada la hora, se vuelve a pedir entera.
+
+     Una hora y no mas: es una sesion de trabajo. Y se guarda en
+     sessionStorage aparte de la marca de tiempo, para que cerrar el navegador
+     tambien la olvide aunque el reloj no haya vencido.
+
+     Nunca se guarda el PIN. Eso no se recuerda nunca. */
+  var K_LIC = "f123_tablero_lic";
+  var LIC_MS = 3600000;
+
+  function recordarLicencia(cod) {
+    try { sessionStorage.setItem(K_LIC, JSON.stringify({ c: cod, t: Date.now() })); } catch (_) {}
+  }
+  function licenciaRecordada() {
+    try {
+      var o = JSON.parse(sessionStorage.getItem(K_LIC) || "null");
+      if (!o || !o.c || (Date.now() - (o.t || 0)) > LIC_MS) return "";
+      return /^F123-/i.test(o.c) ? o.c : "";
+    } catch (_) { return ""; }
+  }
+
+  (function () {
+    var r = licenciaRecordada();
+    if (r && !$("codigo").value) {
+      $("codigo").value = r;
+      setTimeout(function () { try { $("pin").focus(); } catch (_) {} }, 250);
+    }
+  })();
+
+  /* GUARD 4: la puerta se adapta a lo que hay. Si el negocio esta en ESTE
+     dispositivo, la licencia sobra y el campo estorba: pedir un dato que no
+     hace falta es como se pierde a la gente en la primera pantalla. */
+  (function () {
+    try {
+      if (!leerEstadoLocal()) return;
+      var cod = $("codigo");
+      cod.insertAdjacentHTML("beforebegin",
+        '<p style="font-size:14px;line-height:1.5;margin:0 0 12px;color:#00975C;' +
+        'font-weight:700;">Tu negocio está en este dispositivo: se abre al instante.</p>');
+    } catch (_) {}
+  })();
+
+  if (LOGO) { $("logo-puerta").src = LOGO; $("logo-top").src = LOGO; }
+  else {
+    $("logo-puerta").outerHTML = '<div style="font-family:var(--font-display);font-size:24px;font-weight:700;color:#0F1923;margin-bottom:16px;">friendly-123</div>';
+    $("logo-top").outerHTML = '<span style="font-family:var(--font-display);font-weight:700;color:#0F1923;">friendly-123</span>';
+  }
+})();
+</script>
+<!-- Avanzado, aparte: si este archivo no carga, el resto del tablero
+     sigue funcionando igual. -->
+<script src="./tablero-avanzado.js"></script>
+</body>
+</html>

@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<!-- panel.html — PANEL MAESTRO de friendly-123 (JFC, master admin)
+     Acceso: jfcarpiopuntocom.github.io/friendly-123/panel.html
+     PRIVADO: URL no publicada en ningún lugar de la app demo ni en la landing.
+     Protegido con PIN de 6 dígitos (WebCrypto SHA-256 en el navegador).
+     Acciones: liberar correo de un cliente (requiere segundo PIN).
+
+     v1.0 — 2026-07-15 — Clonado de docs/panel.html de AMIGABLE, adaptado a
+            friendly-123. PIN subido de 3 a 6 dígitos (mejora de seguridad,
+            decidida por JFC). AMIGABLE se migra a 6 dígitos en tarea aparte
+            (JFC hará /make-plan) — NO tocar ese archivo desde aquí.
+
+     NOTA DE DATOS: los números de versión/commit son un SNAPSHOT MANUAL al
+     2026-07-15. Una página estática no puede consultar git en vivo. Al pushear
+     cambios grandes, actualiza el bloque de "Instancias · detalle" y la tabla
+     de "Control de versiones" de abajo. -->
+<meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="dark">
+<title>Panel · f123</title>
+<style>
+  :root{
+    --bg:#0f1117;
+    --surface:#1a1e2a;
+    --surface2:#222736;
+    --border:#2e3448;
+    --gold:#c9953a;
+    --gold-dim:#b8862f;
+    --green:#28c98a;
+    --green-dim:#1a7a52;
+    --amber:#d4832a;
+    --red:#c94040;
+    --blue:#4a7fd4;      /* marca de proyectos relacionados/otros */
+    --ink:#e8e4dc;
+    --ink-soft:#b8b3bf;  /* secundario legible (>= #999, regla de legibilidad) */
+    --ink-dim:#9d9aa8;   /* terciario — nunca más oscuro que #999 */
+    --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+    --mono:"Cascadia Code","JetBrains Mono","Consolas",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;}
+
+  /* ── PIN GATE ── ocupa la pantalla completa hasta que autentique */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:0;}
+  #gate-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px 28px;width:min(380px,92vw);display:flex;flex-direction:column;align-items:center;gap:20px;}
+  #gate-brand{font-size:14px;font-family:var(--mono);color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;}
+  #gate-title{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:0.01em;}
+
+  /* Casillas de entrada (●●●●●●) — 6 dígitos */
+  .slots{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .slot{width:34px;height:34px;border:2px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink);background:var(--surface2);transition:border-color .15s;}
+  .slot.lleno{border-color:var(--gold);}
+
+  /* Teclado numérico */
+  .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;}
+  .pad-key{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;user-select:none;transition:background .12s, transform .08s;-webkit-tap-highlight-color:transparent;}
+  .pad-key:active{background:var(--border);transform:scale(.95);}
+  .pad-key .emoji{font-size:18px;line-height:1;}
+  .pad-key .digit{font-size:17px;font-weight:700;font-family:var(--mono);color:var(--ink);line-height:1;}
+  .pad-key.borrar{grid-column:span 1;background:transparent;border-color:var(--border);color:var(--ink-soft);font-size:14px;font-weight:600;}
+  .pad-key.vacio{visibility:hidden;pointer-events:none;}
+
+  #gate-msg{font-size:14px;font-family:var(--mono);min-height:18px;color:var(--red);text-align:center;}
+
+  /* ── PANEL PRINCIPAL (oculto hasta auth) ── */
+  #panel{display:none;}
+  #panel.visible{display:block;}
+
+  /* Topbar */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+  .topbar-brand{display:flex;align-items:center;gap:10px;}
+  .topbar-sello{width:34px;height:34px;border-radius:8px;background:var(--gold);color:#000;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .topbar-brand h1{font-size:16px;font-weight:700;}
+  .topbar-brand .role{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:1px;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  #btn-cerrar{font-size:13px;font-family:var(--mono);color:var(--ink-dim);background:transparent;border:1px solid var(--border);border-radius:5px;padding:6px 11px;cursor:pointer;}
+  #btn-cerrar:hover{color:var(--ink);}
+  .topbar-jump{font-size:13px;font-weight:700;color:#000;background:var(--gold);border:0;border-radius:6px;padding:9px 11px;cursor:pointer;min-height:44px;}
+  #licencias{scroll-margin-top:90px;}
+  #lic-config{scroll-margin-top:90px;}
+
+  /* Layout */
+  main{max-width:1040px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* Stats bar */
+  .stats-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:28px;}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+  .stat-value{font-size:26px;font-weight:700;font-family:var(--mono);line-height:1.1;}
+  .stat-label{font-size:13px;color:var(--ink-soft);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;}
+
+  /* Sección heading */
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;margin-top:34px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .sec-head h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);}
+  .sec-head .hint{font-size:13px;font-family:var(--mono);color:var(--ink-dim);}
+
+  /* Callout de ROLES — evita confundir master con dueño y proyectos entre sí */
+  .roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:8px;}
+  .role-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;border-left:3px solid var(--gold);}
+  .role-card.dueno{border-left-color:var(--green);}
+  .role-card.aviso{border-left-color:var(--red);grid-column:1/-1;}
+  .role-card h3{font-size:14px;font-weight:700;margin-bottom:6px;color:var(--ink);}
+  .role-card p{font-size:14px;color:var(--ink-soft);line-height:1.55;}
+  .role-card strong{color:var(--ink);}
+
+  /* Grilla proyectos */
+  .proyectos{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+  .pcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px;}
+  .pcard.prod{border-top:3px solid var(--green);}
+  .pcard.demo{border-top:3px solid var(--amber);}
+  .pcard.main{border-top:3px solid var(--gold);}
+  .pcard.otro{border-top:3px solid var(--blue);}
+  .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .pcard-nombre{font-size:17px;font-weight:700;line-height:1.2;}
+  .pcard-sub{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:2px;}
+  .badge{font-size:13px;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;flex-shrink:0;}
+  .badge-prod{background:rgba(40,201,138,.16);color:var(--green);}
+  .badge-demo{background:rgba(212,131,42,.18);color:var(--amber);}
+  .badge-main{background:rgba(201,149,58,.18);color:var(--gold);}
+  .badge-otro{background:rgba(74,127,212,.18);color:var(--blue);}
+  .pcard-desc{font-size:14px;color:var(--ink-soft);line-height:1.5;}
+
+  /* Filas de datos técnicos dentro de cada card */
+  .datos{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px;align-items:baseline;}
+  .datos dt{color:var(--ink-dim);font-family:var(--mono);white-space:nowrap;}
+  .datos dd{color:var(--ink);font-family:var(--mono);word-break:break-word;}
+  .datos dd.ok{color:var(--green);}
+  .datos dd.warn{color:var(--amber);}
+
+  .pcard-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;}
+  .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 13px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid transparent;transition:opacity .15s;}
+  .btn:hover{opacity:.82;}
+  .btn-primary{background:var(--gold);color:#000;}
+  .btn-outline{background:transparent;border-color:var(--border);color:var(--ink-soft);}
+  .btn-outline:hover{border-color:var(--gold-dim);color:var(--ink);}
+  .btn-danger{background:transparent;border-color:var(--red);color:var(--red);}
+  .btn-danger:hover{background:rgba(201,64,64,.12);}
+
+  /* Tabla comparativa de versiones */
+  .tabla-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
+  table.versiones{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;}
+  table.versiones th,table.versiones td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);}
+  table.versiones th{background:var(--surface2);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-size:13px;font-weight:700;white-space:nowrap;}
+  table.versiones td{color:var(--ink);font-family:var(--mono);}
+  table.versiones tr:last-child td{border-bottom:none;}
+  table.versiones td.nom{font-family:var(--font);font-weight:700;}
+  .pill{display:inline-block;font-size:13px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:4px;}
+  .pill.green{background:rgba(40,201,138,.16);color:var(--green);}
+  .pill.amber{background:rgba(212,131,42,.18);color:var(--amber);}
+  .pill.gold{background:rgba(201,149,58,.18);color:var(--gold);}
+  .pill.blue{background:rgba(74,127,212,.18);color:var(--blue);}
+
+  /* ── LICENCIAS (patrón heredado del panel de AMIGABLE, JFC 2026-07-10) ──
+     Todo el monitoreo de instancias vive AQUÍ, en el panel maestro. Config del
+     Worker vacía por defecto — friendly-123 aún no tiene Worker propio desplegado. */
+  .lic-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);}
+  /* Model (JFC 2026-07-28): minima = free forever for anyone,
+     full = paid and uncapped, bloqueada = abuse or non-payment.
+     "observada" was removed; old records read as minima from the worker. */
+  .lic-badge.full{background:rgba(40,201,138,.18);color:var(--green);}
+  .lic-badge.minima{background:rgba(212,131,42,.20);color:var(--amber);}
+  .lic-badge.bloqueada{background:rgba(201,64,64,.20);color:var(--red);}
+  /* Aliases for old names, in case an unnormalized record shows up. */
+  .lic-badge.activa{background:rgba(40,201,138,.18);color:var(--green);}
+  .lic-badge.limitada,.lic-badge.observada{background:rgba(212,131,42,.20);color:var(--amber);}
+  .lic-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:14px;font-family:var(--mono);}
+  .lic-input:focus{outline:none;border-color:var(--gold-dim);}
+  /* 2026-09-25 (JFC: "la primera fila ... DEBE ser persistente o toca adivinar a quien le aplicas
+     los cambios"): el encabezado de la tabla de licencias queda fijo bajo la barra superior. */
+  .tabla-wrap:has(#lic-tabla){max-height:78vh;overflow:auto;}
+  #lic-tabla thead th{position:sticky;top:0;z-index:6;background:#101826;box-shadow:0 2px 0 var(--border);}
+  #lic-tabla td.date{font-size:13px;color:var(--ink-soft);font-family:var(--mono);}
+  #lic-tabla select{padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink);font-size:13px;cursor:pointer;}
+  #lic-tabla td .btn-ok{padding:5px 10px;border-radius:5px;border:none;background:var(--green-dim);color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-left:4px;}
+
+  /* Notas operativas / roadmap */
+  .notas{display:grid;gap:10px;}
+  .nota{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 18px;}
+  .nota-head{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+  .nota-body{font-size:14px;color:var(--ink-soft);line-height:1.6;}
+  .nota-body strong{color:var(--ink);}
+  code{background:var(--surface2);padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--ink);}
+
+  /* Roadmap fases */
+  .fases{display:grid;gap:8px;}
+  .fase{display:flex;align-items:flex-start;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 16px;}
+  .fase-ico{font-size:16px;line-height:1.4;flex-shrink:0;}
+  .fase-txt{font-size:14px;color:var(--ink-soft);line-height:1.5;}
+  .fase-txt b{color:var(--ink);}
+  .fase.done{border-left:3px solid var(--green);}
+  .fase.next{border-left:3px solid var(--amber);}
+  .fase.todo{border-left:3px solid var(--border);}
+
+  /* Modal de confirmación (segundo PIN para acciones) */
+  #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;}
+  #modal-overlay.visible{display:flex;}
+  #modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 26px;width:min(360px,90vw);display:flex;flex-direction:column;align-items:center;gap:16px;}
+  #modal-titulo{font-size:16px;font-weight:700;text-align:center;}
+  #modal-desc{font-size:14px;color:var(--ink-soft);text-align:center;line-height:1.5;}
+  #modal-msg{font-size:13px;font-family:var(--mono);min-height:16px;color:var(--red);}
+  #modal-cancelar{font-size:13px;color:var(--ink-dim);background:transparent;border:none;cursor:pointer;padding:4px 8px;}
+
+  footer{text-align:center;font-size:13px;color:var(--ink-dim);font-family:var(--mono);padding:28px 20px 16px;border-top:1px solid var(--border);margin-top:20px;}
+  footer em{font-style:italic;color:var(--gold-dim);}
+
+  @media(max-width:520px){
+    .topbar{padding:12px 14px;}
+    .topbar-right{gap:6px;}
+    .topbar-right>div{display:none!important;}
+    #btn-cerrar{padding:8px 6px;}
+    .tabla-wrap:has(#lic-tabla){max-height:none;overflow-x:auto;overflow-y:visible;}
+    main{padding:18px 12px 48px;}
+    #gate-box{padding:28px 20px 22px;}
+  }
+/* ── LISTA DINAMICA v2 (JFC 2026-09-24). Tinta de verdad, nada gris, min 13px,
+   cuatro esquinas. Ver panel-licencias.js. ── */
+.lic-barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.lic-th{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline dotted;}
+.lic-th:hover,.lic-th:focus{color:var(--gold);outline:none;}
+.lic-sub{font-size:13px;font-weight:600;color:var(--ink);}
+.lic-chip{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);border:1px solid var(--gold);border-radius:6px;padding:1px 6px;margin-top:2px;}
+.lic-mini{font-size:13px;padding:3px 8px;margin-top:4px;background:transparent;border:1px solid var(--gold);color:var(--gold);}
+.lic-peligro{border-color:var(--red,#E8365D);color:var(--red,#E8365D);}
+.lic-lapiz{background:none;border:1px solid var(--border);color:var(--ink);border-radius:6px;font-size:13px;padding:0 5px;cursor:pointer;}
+tr.lic-sel td{background:rgba(255,200,0,.10);}
+.lic-check{width:18px;height:18px;cursor:pointer;}
+.lic-mas{margin-top:6px;font-size:13px;} .lic-mas summary{cursor:pointer;color:var(--ink);font-weight:700;}
+.lic-paginacion{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px;margin:10px 0 18px;color:var(--ink);}
+.lic-caja{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:14px 0;font-size:14px;color:var(--ink);}
+.lic-caja summary{cursor:pointer;font-size:15px;}
+.lic-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;}
+.lic-modal-caja{background:var(--bg,#0f1218);color:var(--ink);border:1px solid var(--gold);border-radius:12px;padding:20px;width:min(640px,100%);max-height:90vh;overflow:auto;}
+.lic-campo{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--ink);}
+/* Legibilidad (Opus 5.5, 2026-09-24): el texto de ayuda de los campos salia en el gris por defecto del navegador. */
+.lic-barra .lic-input::placeholder,.lic-modal .lic-input::placeholder{color:var(--ink);opacity:1;}
+.lic-pagos-tabla{width:100%;border-collapse:collapse;font-size:13px;} .lic-pagos-tabla th,.lic-pagos-tabla td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--border);color:var(--ink);}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     GATE — pantalla de PIN (visible hasta auth)
+     ══════════════════════════════════════════════ -->
+<div id="gate">
+  <div id="gate-box">
+    <div id="gate-brand">friendly-123 · Master Panel</div>
+    <div id="gate-title">Acceso privado</div>
+    <div class="slots" id="gate-slots">
+      <div class="slot" id="gs0"></div>
+      <div class="slot" id="gs1"></div>
+      <div class="slot" id="gs2"></div>
+      <div class="slot" id="gs3"></div>
+      <div class="slot" id="gs4"></div>
+      <div class="slot" id="gs5"></div>
+    </div>
+    <div class="pad" id="gate-pad"></div>
+    <div id="gate-msg"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PANEL PRINCIPAL
+     ══════════════════════════════════════════════ -->
+<div id="panel">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-sello">JFC</div>
+      <div>
+        <h1>friendly-123 · Master Panel</h1>
+        <div class="role">Master Admin — JFC · sesión activa</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--green);font-family:var(--mono);">
+        <div class="dot"></div><span id="status-label">En línea</span>
+      </div>
+      <button type="button" class="topbar-jump" onclick="licIrConfig()">Worker / seed</button>
+      <button id="btn-cerrar">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- SONAR DE CANARIOS (plan canarios F5, JFC 2026-09-25). Seccion APARTE de la
+         lista de licencias, a pedido de JFC. Tres versiones vivas en el mismo
+         origen (mismos datos): previo (rewind), estable (clientes) y next
+         (canario, aparatos lord). Lee version.json de cada canal y el Sonar del
+         Worker (/canario/estado: solo numeros). Los botones escriben una orden
+         en el Worker con la Master Key; la ejecuta sonar.yml en GitHub. -->
+    <div class="sec-head" style="margin-top:0;"><h2>Sonar de Canarios</h2><span class="hint" id="sonar-meta">cargando…</span></div>
+    <div id="sonar" style="margin-bottom:26px;">
+      <!-- SONAR = MAPA DE LA APP (JFC 2026-09-25: "canarios svg en un sonar mapa real de la
+           app en sus partes para que VEAMOS literalmente donde se rompe"). La app dibujada
+           como es: barra de arriba, menu y un cuarto por seccion. En cada parte vive un
+           canario con su nombre: verde y parado = bien; rojo, caido y latiendo = ahi se
+           rompio algo (con cuantos reportes). Datos: /canario/estado -> nodos (ids y conteos). -->
+      <style>
+        /* SONAR v2 — quiet when healthy, loud only when action is needed.
+           Healthy/stale/structural birds are ~2/3 of the old 56px footprint. */
+        @keyframes sonarRespira { 0%,100% { transform: scale(1); opacity:.94; } 50% { transform: scale(1.035); opacity:1; } }
+        @keyframes sonarPulsar { 0% { transform:scale(.62); opacity:.9; } 100% { transform:scale(1.55); opacity:0; } }
+        @keyframes sonarDrop { 0% { transform:translateY(-7px); opacity:.35; } 100% { transform:translateY(0); opacity:1; } }
+        @keyframes sonarGiro { to { transform: rotate(360deg); } }
+        #sonar-mapa [data-state="healthy"] .sonar-sprite > image { animation: sonarRespira 3.2s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        #sonar-mapa [data-state="hotfix"].is-new .sonar-pulsar-ring { animation: sonarPulsar 1.1s ease-out 2; transform-box:fill-box; transform-origin:center; }
+        #sonar-mapa [data-state="shell"].is-new .sonar-sprite > image { animation: sonarDrop .24s ease-out 1; }
+        #sonar-mapa [data-state="stale"] { opacity:.42; }
+        #sonar-mapa .barrido { animation: sonarGiro 4s linear infinite; transform-box: view-box; transform-origin: 455px 280px; }
+        /* Vientito v2: only a newly detected HOTFIX gets the light airflow.
+           Structural faults are intentionally stark: room red + fallen bird, no playful wind. */
+        @keyframes ocViento { 0% { transform: translateX(-160px); opacity: 0; } 15% { opacity: .72; } 85% { opacity: .72; } 100% { transform: translateX(920px); opacity: 0; } }
+        #sonar-mapa .oc-viento path { animation: ocViento 1.2s ease-in-out forwards; }
+        #sonar-mapa .oc-viento path:nth-child(2) { animation-delay: .12s; } #sonar-mapa .oc-viento path:nth-child(3) { animation-delay: .24s; } #sonar-mapa .oc-viento path:nth-child(4) { animation-delay: .36s; }
+        @media (prefers-reduced-motion: reduce) {
+          #sonar-mapa .oc-viento { display:none; }
+          #sonar-mapa [data-state] .sonar-sprite > image,
+          #sonar-mapa .sonar-pulsar-ring,
+          #sonar-mapa .barrido { animation:none !important; }
+        }
+      </style>
+      <div id="sonar-resumen" role="status" aria-live="polite" style="max-width:760px;margin:0 auto 8px;font:800 13px/1.4 var(--mono);letter-spacing:.02em;color:#28ECAA;"></div>
+      <div id="sonar-mapa" style="max-width:760px;margin:0 auto 12px;"></div>
+      <p id="sonar-viento-aviso" role="status" aria-live="polite" style="margin:0 0 10px;font-size:16px;font-weight:800;color:#E8A020;min-height:1px;"></p>
+      <div id="sonar-canales" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
+      <p id="sonar-rojos" style="display:none;margin:12px 0 0;font-size:16px;font-weight:700;color:#FF8A6B;"></p>
+      <p id="sonar-orden" style="margin:10px 0 0;font-size:15px;color:var(--ink);"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button class="btn" id="sonar-push" style="min-height:44px;font-size:15px;background:#28ECAA;color:#0B0F14;font-weight:800;">PUSH · next a clientes ya</button>
+        <button class="btn" id="sonar-rewind" style="min-height:44px;font-size:15px;background:#E86040;color:#FFFFFF;font-weight:800;">REWIND · clientes a la previa</button>
+        <button class="btn btn-outline" id="sonar-detener" style="min-height:44px;font-size:15px;">Detener promoción automática</button>
+        <button class="btn btn-outline" id="sonar-refrescar" style="min-height:44px;font-size:15px;">Actualizar</button>
+      </div>
+      <p style="margin:10px 0 0;font-size:15px;color:var(--ink);line-height:1.5;">
+        Regla: cada push a master llega primero a <strong>next</strong> (tus aparatos). Si en 33 minutos no hay rojos ni lo detienes, pasa solo a los clientes y la versión anterior queda en <strong>previo</strong>.
+        Push y Rewind se ejecutan en GitHub en 1 a 10 minutos.
+      </p>
+    </div>
+
+    <!-- STATS -->
+    <div class="sec-head"><h2>Resumen</h2><span class="hint" id="fecha-panel"></span></div>
+
+    <!-- LICENCIAS — conectado a un Cloudflare Worker externo (config vacía por defecto) -->
+    <div class="sec-head" id="licencias"><h2>Licencias · instancias activas</h2><span class="hint" id="lic-meta">configura el Worker →</span></div>
+    <p id="lic-estado" role="status" aria-live="polite" style="font-size:14px;font-weight:700;line-height:1.5;margin:0 0 12px;color:var(--ink);">Comprobando conexión…</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-outline" onclick="licToggleConfig()">⚙️ Config Worker</button>
+      <button class="btn btn-outline" onclick="licRecargar()">↻ Recargar</button>
+      <button class="btn btn-outline" onclick="licExportCSV()">Exportar CSV</button>
+      <button class="btn btn-outline" onclick="licFusionar()" title="Re-apuntar todos los dispositivos de una licencia origen a una destino (reensamblar ovejas en bloque)">🔗 Fusionar licencias</button>
+      <button class="btn btn-outline" onclick="licVerBorrados()" title="Licencias borradas, recuperables">🗑 Papelera</button>
+    </div>
+    <!-- PAPELERA: licencias borradas, recuperables con un clic (JFC 2026-08-27).
+         Nada borrado queda irrecuperable: un cliente (p.ej. idiomARTE) que se
+         perdió del panel por un borrado accidental se restaura desde aquí. -->
+    <div id="lic-papelera" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <div class="sec-head" style="margin-top:0;"><h2 style="font-size:16px;">Papelera · licencias borradas (recuperables)</h2><span class="hint" id="lic-pap-meta"></span></div>
+      <div id="lic-pap-lista" style="font-size:13px;"></div>
+    </div>
+    <div id="lic-config" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <!-- La URL viene PUESTA (JFC 2026-08-19). Antes el campo salia vacio con
+           un placeholder de ejemplo (…tucuenta.workers.dev) que no era la URL
+           real, asi que habia que saberla de memoria o copiarla de un .toml.
+           Ahora el unico dato que hay que escribir es el seed del secret value. -->
+      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">URL del Cloudflare Worker</label>
+      <input class="lic-input" id="lic-worker-url" type="url" value="https://friendly123-licencias.jfcarpio.workers.dev" placeholder="https://friendly123-licencias.jfcarpio.workers.dev" style="width:100%;margin-bottom:10px;">
+      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">Seed del secret value (el que escribiste en CMD)</label>
+      <input class="lic-input" id="lic-master-key" type="password" autocomplete="off" placeholder="el seed del secret value que escribiste en CMD" style="width:100%;margin-bottom:8px;">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">
+        Es lo que escribiste en CMD cuando
+        <code>npx wrangler secret put MASTER_KEY</code> te pidio
+        <em>Enter a secret value</em>. Se llama asi — <b>seed del secret
+        value</b> — para que puedas recordar cuando y donde lo generaste: fue
+        en la terminal, no aqui.
+        Cloudflare no lo puede devolver ni mostrar a nadie, asi que hay que
+        pegarlo aqui una vez por navegador. Se guarda solo en ESTE navegador,
+        nunca en el repo. Si lo perdiste, corre el comando otra vez en CMD con
+        un seed nuevo.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="licGuardarConfig()">Guardar y conectar</button>
+        <button class="btn btn-outline" onclick="licProbar()">Probar conexion</button>
+      </div>
+      <p id="lic-diag" style="font-size:13px;font-family:var(--mono);margin:10px 0 0;min-height:18px;line-height:1.5;"></p>
+    </div>
+    <div id="lic-maestro-box" role="status" aria-live="polite" style="display:none;background:var(--surface);border:2px solid var(--gold);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <strong style="color:var(--ink);">Permiso temporal de recuperación</strong>
+      <p id="lic-maestro-msg" style="color:var(--ink);font-size:14px;line-height:1.5;"></p>
+      <input class="lic-input" id="lic-maestro-token" type="text" readonly autocomplete="off" aria-label="Permiso temporal" style="width:100%;margin-bottom:8px;">
+      <button class="btn btn-primary" type="button" onclick="licCopiarMaestro()">Copiar permiso</button>
+      <button class="btn btn-outline" type="button" onclick="licCerrarMaestro()">Cerrar y borrar de pantalla</button>
+    </div>
+    <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
+    <!-- LISTA DINAMICA v2 (JFC 2026-09-24, escala 1.000-10.000). Filtros
+         combinables, orden por columna (click en el encabezado), 100 por
+         pagina, seleccion multiple con acciones masivas, pagos por licencia y
+         lotes por gremio. La logica esta en panel-licencias.js. -->
+    <div class="lic-barra">
+      <input class="lic-input" id="lic-filtro" placeholder="Buscar: negocio, nombre, email, WhatsApp, cédula, código, lote…" oninput="licFiltrarDebounce()" style="flex:2;min-width:220px;" aria-label="Buscar">
+      <select class="lic-input" id="lic-filtro-estado" onchange="licFiltrar()" aria-label="Estado">
+        <option value="">Todos los estados</option>
+        <option value="full">Full</option>
+        <option value="minima">Minimal</option>
+        <option value="bloqueada">Bloqueada</option>
+      </select>
+      <select class="lic-input" id="lic-filtro-pago" onchange="licFiltrar()" aria-label="Pago">
+        <option value="">Pago: todos</option>
+        <option value="con">Con pago registrado</option>
+        <option value="sin">Sin pago</option>
+        <option value="vencido">Pago vencido</option>
+      </select>
+      <select class="lic-input" id="lic-filtro-lote" onchange="licFiltrar()" aria-label="Lote"><option value="">Lote: todos</option></select>
+      <select class="lic-input" id="lic-filtro-inactivo" onchange="licFiltrar()" aria-label="Inactividad">
+        <option value="">Actividad: toda</option>
+        <option value="30">Sin entrar 30+ días</option>
+        <option value="90">Sin entrar 90+ días</option>
+      </select>
+      <button class="btn btn-outline" type="button" onclick="licLimpiarFiltros()">Limpiar</button>
+      <button class="btn btn-outline" type="button" onclick="licExportCSV()" title="Exporta lo que está filtrado">CSV</button>
+    </div>
+    <div class="lic-barra" id="lic-bulk" style="display:none;">
+      <strong data-n>0 selected</strong>
+      <button class="btn btn-outline" type="button" onclick="licSeleccionarTodos(true)">Seleccionar todo lo filtrado</button>
+      <button class="btn btn-outline" type="button" onclick="licSeleccionarTodos(false)">Quitar selección</button>
+      <select class="lic-input" id="lic-bulk-estado" aria-label="Estado masivo">
+        <option value="full">→ Full</option>
+        <option value="minima">→ Minimal</option>
+        <option value="bloqueada">→ Bloqueada</option>
+      </select>
+      <button class="btn btn-primary" type="button" onclick="licBulkEstado()">Aplicar a la selección</button>
+      <span id="lic-bulk-progreso" role="status" aria-live="polite"></span>
+    </div>
+    <div class="tabla-wrap">
+      <div id="lic-empty" style="padding:34px 20px;text-align:center;color:var(--ink);font-size:14px;display:none;">Aún no hay instancias. Cuando tengas el Worker configurado, aparecerán aquí.</div>
+      <table class="versiones" id="lic-tabla" style="display:none;">
+        <thead><tr>
+          <th><input type="checkbox" id="lic-check-pagina" aria-label="Seleccionar página" onchange="licSeleccionarPagina(this.checked)"></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('estado')">Estado</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('codigo')">Código f123 · lote</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('negocio')">Negocio</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('nombre')">Nombre</button></th>
+          <th>Email</th><th>WhatsApp</th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('pago')">Pago</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('activatedAt')">Activado</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('lastSeen')">Última vez</button></th>
+          <th>Acción</th>
+        </tr></thead>
+        <tbody id="lic-tbody"></tbody>
+      </table>
+    </div>
+    <div id="lic-paginacion" class="lic-paginacion" role="navigation" aria-label="Páginas"></div>
+
+    <!-- LOTES POR GREMIO (JFC 2026-09-24): N códigos de una vez con etiqueta y
+         prefijo. El Worker los guarda como pagados ("full"): el primer aparato
+         que entre con uno queda activado solo. Los códigos se muestran UNA vez;
+         bájalos en CSV. -->
+    <details class="lic-caja" id="lic-lotes">
+      <summary><strong>Lotes de licencias por gremio</strong> <span id="lic-lotes-resumen" class="lic-sub"></span></summary>
+      <div class="lic-barra" style="margin-top:10px;">
+        <input class="lic-input" id="lic-lote-etiqueta" placeholder="Etiqueta (gremio / asociación)" maxlength="40" style="flex:2;min-width:200px;" aria-label="Etiqueta">
+        <input class="lic-input" id="lic-lote-prefijo" placeholder="Prefijo (2-4)" maxlength="4" style="width:120px;" aria-label="Prefijo">
+        <input class="lic-input" id="lic-lote-cantidad" type="number" min="1" max="500" value="50" style="width:110px;" aria-label="Cantidad">
+        <select class="lic-input" id="lic-lote-estado" aria-label="Estado inicial"><option value="full">Nacen Full (pagadas por el gremio)</option><option value="minima">Nacen Minimal</option></select>
+        <button class="btn btn-primary" type="button" onclick="licEmitirLote()">Emitir lote</button>
+      </div>
+      <p id="lic-lote-msg" role="status" aria-live="polite" style="font-size:14px;margin:10px 0 0;"></p>
+      <div id="lic-lote-codigos" style="display:none;margin-top:10px;">
+        <textarea id="lic-lote-texto" readonly rows="6" style="width:100%;box-sizing:border-box;font-family:var(--mono);font-size:13px;color:var(--ink);"></textarea>
+        <button class="btn btn-outline" type="button" onclick="licBajarLoteCSV()">Bajar CSV de este lote</button>
+      </div>
+      <div class="tabla-wrap" style="margin-top:10px;">
+        <table class="versiones" id="lic-lotes-tabla" style="display:none;">
+          <thead><tr><th>Lote</th><th>Prefijo</th><th>Creado</th><th>Emitidos</th><th>Activados</th><th>Sin usar</th><th></th></tr></thead>
+          <tbody id="lic-lotes-tbody"></tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- PAGO (modal): asiento append-only por licencia. Un error se corrige con
+         otro asiento negativo, nunca editando. -->
+    <div id="lic-pago-modal" class="lic-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="lic-pago-titulo">
+      <div class="lic-modal-caja">
+        <h3 id="lic-pago-titulo" style="margin:0 0 6px;font-size:18px;">Registrar pago</h3>
+        <p id="lic-pago-quien" style="margin:0 0 12px;font-size:14px;"></p>
+        <div class="lic-barra">
+          <input class="lic-input" id="lic-pago-monto" type="number" step="any" placeholder="Monto (negativo = corrección)" style="flex:1;min-width:160px;" aria-label="Monto">
+          <input class="lic-input" id="lic-pago-moneda" value="USD" maxlength="3" style="width:80px;" aria-label="Moneda">
+          <select class="lic-input" id="lic-pago-medio" aria-label="Medio">
+            <option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="tarjeta">Tarjeta</option>
+            <option value="paypal">PayPal</option><option value="stripe">Stripe</option><option value="wise">Wise</option><option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="lic-barra" style="margin-top:8px;">
+          <label class="lic-campo">Fecha del pago<input class="lic-input" id="lic-pago-fecha" type="date"></label>
+          <label class="lic-campo">Cubre hasta (5 años por defecto)<input class="lic-input" id="lic-pago-hasta" type="date"></label>
+          <input class="lic-input" id="lic-pago-ref" placeholder="Referencia / comprobante" maxlength="80" style="flex:1;min-width:160px;" aria-label="Referencia">
+        </div>
+        <input class="lic-input" id="lic-pago-nota" placeholder="Nota (opcional)" maxlength="200" style="width:100%;box-sizing:border-box;margin-top:8px;" aria-label="Nota">
+        <p id="lic-pago-msg" role="status" aria-live="polite" style="font-size:14px;min-height:20px;margin:10px 0;"></p>
+        <div id="lic-pago-historial" style="font-size:13px;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+          <button class="btn btn-outline" type="button" onclick="licCerrarPago()">Cerrar</button>
+          <button class="btn btn-primary" type="button" id="lic-pago-guardar" onclick="licGuardarPago()">Guardar asiento</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTANCIAS — detalle por proyecto -->
+    <div class="sec-head"><h2>Instancias · detalle</h2><span class="hint">snapshot 2026-07-15</span></div>
+    <div class="proyectos">
+
+      <!-- ══ friendly-123 — MAIN / MASTER ══ -->
+      <div class="pcard main">
+        <div class="pcard-top">
+          <div>
+            <div class="pcard-nombre">friendly-123</div>
+            <div class="pcard-sub">Inventario · clientes · perchas</div>
+          </div>
+          <span class="badge badge-main">Main</span>
+        </div>
+        <div class="pcard-desc">Repo <strong style="color:var(--ink)">principal</strong> del control de inventario, clientes y perchas. GitHub Pages activo (branch master, path /docs), repo ahora público. Aloja este panel.</div>
+        <dl class="datos">
+          <dt>repo</dt><dd>friendly-123</dd>
+          <dt>rama</dt><dd>master</dd>
+          <dt>versión</dt><dd class="ok">v1.2.0</dd>
+          <dt>último</dt><dd>0bc3621 · 07-15 13:20</dd>
+          <dt>backend</dt><dd>estático · GitHub Pages</dd>
+          <dt>LS key</dt><dd>f123_secure</dd>
+          <dt>códigos</dt><dd class="warn">sin código maestro estático (reset por EmailJS)</dd>
+          <dt>backups</dt><dd class="warn">no trackeados aún</dd>
+        </dl>
+        <div class="pcard-actions">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/" target="_blank" rel="noopener">Abrir</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/friendly-123" target="_blank" rel="noopener">Repo</a>
+          <button class="btn btn-danger" data-action="liberar" data-key="f123_secure" data-nombre="friendly-123">🔓 Liberar correo</button>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/friendly-123/edit/master/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de friendly-123 detecta la versión nueva y muestra el aviso. No auto-reemplaza nada.">⬆️ Publicar update</a>
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- TABLA COMPARATIVA DE VERSIONES -->
+    <div class="sec-head"><h2>Control de versiones</h2><span class="hint">para planear updates/parches</span></div>
+    <div class="tabla-wrap">
+      <table class="versiones">
+        <thead>
+          <tr>
+            <th>App</th><th>Repo</th><th>Rama</th><th>Ver.</th><th>Último commit</th><th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="nom">friendly-123</td><td>friendly-123</td><td>master</td><td>v1.2.0</td>
+            <td>0bc3621 · 07-15 13:20</td><td><span class="pill gold">Main</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CÓDIGOS MAESTROS — referencia -->
+    <div class="sec-head"><h2>Códigos maestros de recuperación</h2><span class="hint">solo master</span></div>
+    <div class="tabla-wrap">
+      <table class="versiones">
+        <thead><tr><th>App</th><th>Código(s)</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td class="nom">Panel Maestro</td><td>oculto (sha256 en _expectedHash)</td><td>Acceso a este panel — 6 dígitos, solo tú lo sabes</td></tr>
+          <tr><td class="nom">friendly-123 (app)</td><td>N/A — sin código maestro estático</td><td>La recuperación de PIN del dueño usa reset por EmailJS (código temporal, expira en 15 min), no una lista de códigos fija en el código fuente.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ROADMAP — solo fases confirmadas en el código de friendly-123 -->
+    <div class="sec-head"><h2>Roadmap · distribución friendly-123</h2><span class="hint">soberanía digital</span></div>
+    <div class="fases">
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>version.json + chequeo de versión.</b> Entregada (v1.2.0, 2026-07-08): <code>docs/version.json</code> en vivo con changelog visible para la app.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Service worker / PWA.</b> Entregada: <code>docs/sw.js</code> + <code>docs/manifest.json</code> presentes en el repo.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>GitHub Pages público.</b> Entregada (2026-07-15): repo público, Pages activo en branch master /docs.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Panel de control de JFC.</b> Este panel, con "🔓 Liberar correo" y "⬆️ Publicar update" por app.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Cloudflare Worker de licencias.</b> Desplegado y funcionando en friendly123-licencias.jfcarpio.workers.dev (2026-08-19), con su seed del secret value puesto desde CMD. La sección "Licencias" de arriba solo pide pegar ese seed una vez por navegador.</div></div>
+    </div>
+
+
+    <!-- DELICADO — solo para master -->
+    <div class="sec-head"><h2 style="color:var(--red);">⚠️ Solo para ti — no compartir</h2></div>
+    <!-- ROLES — bloque anti-confusión (master vs dueño; proyectos distintos) -->
+    <div class="sec-head"><h2>Roles y aclaraciones</h2></div>
+    <div class="roles">
+      <div class="role-card">
+        <h3>🕵️ Master (tú, JFC)</h3>
+        <p>Controlas <strong>versiones, parches, códigos maestros y despliegues</strong> de friendly-123. Este panel es tuyo. Accedes con tu PIN de 6 dígitos.</p>
+      </div>
+      <div class="role-card dueno">
+        <h3>🏪 Dueño / Admin de local</h3>
+        <p>Opera <strong>su</strong> negocio con sus propios PINs (dueño, empleado, contable) dentro de la app. NO es master. No ve este panel.</p>
+      </div>
+      <div class="role-card aviso">
+        <h3>⚠️ No confundir productos</h3>
+        <p><strong>friendly-123</strong> y <strong>AMIGABLE</strong> son repos hermanos con historia compartida, pero cada uno tiene su propio panel, su propio PIN y su propio Worker de licencias. Nunca tratar uno como copia exacta del otro.</p>
+      </div>
+    </div>
+
+    <!-- NOTAS OPERATIVAS -->
+    <div class="sec-head"><h2>Notas operativas</h2></div>
+    <div class="notas">
+      <div class="nota">
+        <div class="nota-head">Liberar correo — ¿qué hace exactamente?</div>
+        <div class="nota-body">
+          Borra el campo <code>email</code> dentro de <code>localStorage["oc_secure"]</code> del cliente
+          (misma origin github.io). El dueño vuelve a ver el formulario de correo en su sección Avanzado,
+          sin tocar sus PINs ni el resto de su configuración.<br><br>
+          <strong>Atención:</strong> esto afecta la demo en esta misma pestaña. Para producción (servidor propio),
+          ir físicamente al dispositivo del cliente o usar la entrada de código maestro en Avanzado.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">Recuperación de PIN — cómo funciona en friendly-123</div>
+        <div class="nota-body">
+          A diferencia de AMIGABLE (que tiene una lista fija <code>MASTER_CODES_AUTHORIZED</code>), friendly-123
+          usa un flujo de <strong>reset temporal vía EmailJS</strong>: se genera un código con expiración de 15
+          minutos guardado en <code>localStorage["oc_reset"]</code>. Configura <code>EMAILJS_CONFIG</code> en
+          <code>email-recovery.js</code>; hasta entonces, el código de reset aparece en pantalla.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">Mantener este panel al día</div>
+        <div class="nota-body">
+          Los números de versión/commit son un <strong>snapshot manual</strong> (una página estática no consulta git en vivo).
+          Al pushear cambios grandes, actualiza las cards y la tabla de arriba con el nuevo hash y fecha.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">PIN de 6 dígitos — por qué el cambio</div>
+        <div class="nota-body">
+          JFC decidió subir de 3 a 6 dígitos como mejora de seguridad para reducir el espacio de fuerza bruta
+          por shoulder-surfing/memorización. friendly-123 nace con 6 dígitos desde el día uno; AMIGABLE migrará
+          en una tarea aparte que JFC ejecutará con <code>/make-plan</code>.
+        </div>
+      </div>
+    </div>
+    <!-- Movido al final (JFC 2026-09-25): no es de uso diario. -->
+    <!-- HERRAMIENTAS DE MARKETING — compartibles con clientes/prospectos -->
+    <div class="sec-head"><h2>Herramientas de marketing</h2><span class="hint">click en “Copiar link” para compartir por WhatsApp</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:28px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">App</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Demo en vivo</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">La app completa funcionando en el celular del cliente, sin instalación.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Filosofía</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Manifiesto</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Para clientes que necesitan entender el por qué antes de ver el producto.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/manifiesto.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/manifiesto.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Pitch</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Informe Ejecutivo</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Capacidades y resultados. El más completo para prospectos.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/informe-ejecutivo.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/informe-ejecutivo.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Reporte</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Sistema operativo del mostrador</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Foco en el usuario: quién es, qué pierde, qué gana.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/reporte-usuario.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/reporte-usuario.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">ROI</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">ROI Tienda Pequeña ($2,500)</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Números duros: cuánto pierde y cuánto recupera un negocio con $2,500 de inventario.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/roi-tienda.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/roi-tienda.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Manual</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Manual Maestro</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Guía completa de uso para el dueño.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/manual.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/manual.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    friendly-123 · Master Panel · private · noindex · 2026
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODAL — segundo PIN para confirmar acción (6 dígitos)
+     ══════════════════════════════════════════════ -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div id="modal-titulo">Confirmar acción</div>
+    <div id="modal-desc">Ingresa tu código para liberar el correo de <strong id="modal-cliente"></strong>.</div>
+    <div class="slots" id="modal-slots">
+      <div class="slot" id="ms0"></div>
+      <div class="slot" id="ms1"></div>
+      <div class="slot" id="ms2"></div>
+      <div class="slot" id="ms3"></div>
+      <div class="slot" id="ms4"></div>
+      <div class="slot" id="ms5"></div>
+    </div>
+    <div class="pad" id="modal-pad"></div>
+    <div id="modal-msg"></div>
+    <button id="modal-cancelar">Cancelar</button>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// panel.html — lógica principal. Clonada del panel de AMIGABLE, con el PIN
+// subido de 3 a 6 dígitos (gate y modal). Teclado con emojis barajados,
+// modal de segundo PIN para confirmar "liberar correo", licencias vía Worker.
+// ============================================================================
+
+// EMOJIS EXCLUSIVOS DEL PANEL — "just for me" (JFC). Temática espionaje/tech.
+const PANEL_EMOJIS = [
+  "🕵️", "🔐", "🗝️", "🔍", "🧩", "🎯", "🌐", "🛸", "💠", "⚡",
+  "🔮", "🌌", "⛓️", "🧬", "🪐", "⚗️", "🔭", "💡", "🌀", "🎱",
+  "🏹", "🧿", "🔬", "💫", "🌠", "🎰",
+];
+
+// HASH esperado del código de acceso. El código NO aparece como literal.
+// PIN de 6 dígitos — JFC puede cambiarlo editando este array (mismo orden = el PIN).
+// SEGURIDAD (2026-07-16): el PIN ya NO vive en el codigo fuente, solo su hash SHA-256.
+// Para cambiar el PIN: sha256 del nuevo PIN -> reemplazar _expectedHash. NO poner el PIN en claro.
+const _PIN_LEN = 6;
+const _expectedHash = "eaa98de6c2fe709ba90d71464e4bd004cbe5cc13f5400ed6f49efc2fb0308068";
+
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+
+function barajar(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function montarTeclado(padEl, slotsEl, onComplete) {
+  let entrada = [];
+  const pool = barajar(PANEL_EMOJIS);
+  padEl.innerHTML = "";
+  for (let d = 0; d <= 9; d++) {
+    if (d === 0) {
+      const vacio = document.createElement("div");
+      vacio.className = "pad-key vacio";
+      padEl.appendChild(vacio);
+    }
+    const key = document.createElement("div");
+    key.className = "pad-key";
+    key.innerHTML = `<span class="emoji">${pool[d]}</span><span class="digit">${d}</span>`;
+    key.addEventListener("click", () => {
+      if (entrada.length >= _PIN_LEN) return;
+      entrada.push(String(d));
+      actualizarSlots(slotsEl, entrada.length);
+      if (entrada.length === _PIN_LEN) onComplete(entrada.join(""), resetEntrada);
+    });
+    padEl.appendChild(key);
+    if (d === 0) {
+      const borrar = document.createElement("div");
+      borrar.className = "pad-key borrar";
+      borrar.textContent = "⌫";
+      borrar.addEventListener("click", () => {
+        if (!entrada.length) return;
+        entrada.pop();
+        actualizarSlots(slotsEl, entrada.length);
+      });
+      padEl.appendChild(borrar);
+    }
+  }
+  function actualizarSlots(slotsEl, n) {
+    const slots = slotsEl.querySelectorAll(".slot");
+    slots.forEach((s, i) => {
+      if (i < n) { s.textContent = "●"; s.classList.add("lleno"); }
+      else { s.textContent = ""; s.classList.remove("lleno"); }
+    });
+  }
+  function resetEntrada() {
+    entrada = [];
+    actualizarSlots(slotsEl, 0);
+  }
+  return resetEntrada;
+}
+
+// ── GATE ──
+async function initGate() {
+  
+  const padEl = document.getElementById("gate-pad");
+  const slotsEl = document.getElementById("gate-slots");
+  const msgEl = document.getElementById("gate-msg");
+  if (sessionStorage.getItem("panel_auth_f123") === "1") { mostrarPanel(); return; }
+  montarTeclado(padEl, slotsEl, async (codigo, reset) => {
+    const h = await sha256hex(codigo);
+    if (h === _expectedHash) {
+      sessionStorage.setItem("panel_auth_f123", "1");
+      mostrarPanel();
+    } else {
+      msgEl.textContent = "Código incorrecto.";
+      setTimeout(() => { msgEl.textContent = ""; reset(); }, 1400);
+    }
+  });
+}
+
+function mostrarPanel() {
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("panel").classList.add("visible");
+  initPanel();
+  sonarArrancar(); // 2026-09-25: Sonar de Canarios arriba de todo
+}
+
+// ── PANEL ──
+function initPanel() {
+  const d = new Date();
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  document.getElementById("fecha-panel").textContent =
+    d.getDate() + " " + meses[d.getMonth()] + " " + d.getFullYear();
+  document.getElementById("btn-cerrar").addEventListener("click", () => {
+    sessionStorage.removeItem("panel_auth_f123");
+    location.reload();
+  });
+  document.querySelectorAll("[data-action='liberar']").forEach(btn => {
+    btn.addEventListener("click", () => abrirModalLiberar(btn.dataset.nombre, btn.dataset.key));
+  });
+  licInit();
+}
+
+// ── LICENCIAS — config en localStorage, datos vía Cloudflare Worker ──
+function licGetCfg() {
+  try { return JSON.parse(localStorage.getItem("f123_master_cfg") || "{}"); } catch (_) { return {}; }
+}
+function licSetCfg(obj) {
+  const prev = licGetCfg();
+  localStorage.setItem("f123_master_cfg", JSON.stringify({ ...prev, ...obj }));
+}
+function licWorkerUrl() { return (licGetCfg().workerUrl || "").trim(); }
+let _sonarTimer = null;
+function sonarArrancar() { try { sonarPintar(); if (!_sonarTimer) _sonarTimer = setInterval(sonarPintar, 60000); } catch (_) {} }
+function licMasterKey() { return (licGetCfg().masterKey || "").trim(); }
+let _licMaestroTimer = null;
+function licCerrarMaestro() {
+  if (_licMaestroTimer) clearTimeout(_licMaestroTimer);
+  _licMaestroTimer = null;
+  const input = document.getElementById("lic-maestro-token");
+  if (input) input.value = "";
+  const box = document.getElementById("lic-maestro-box");
+  if (box) box.style.display = "none";
+}
+async function licEmitirMaestro(instanceId) {
+  licCerrarMaestro();
+  if (!licMasterKey() || !licWorkerUrl()) { mostrarConfirmacion("Conecta primero el panel privado al Worker."); return; }
+  if (!confirm("¿Ya verificaste personalmente la identidad del dueño? El permiso durará cinco minutos y solo servirá en este aparato.")) return;
+  try {
+    const res = await fetch(licWorkerUrl().replace(/\/+$/, "") + "/maestro/emitir", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() },
+      body: JSON.stringify({ instanceId }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data || typeof data.token !== "string") { mostrarConfirmacion("No se pudo emitir el permiso; revisa conexión y autorización."); return; }
+    const box = document.getElementById("lic-maestro-box");
+    const input = document.getElementById("lic-maestro-token");
+    document.getElementById("lic-maestro-msg").textContent = "Permiso válido durante cinco minutos solo para el aparato seleccionado. Úsalo en Acceso y recuperación. No cambia PINs ni datos por sí mismo.";
+    input.value = data.token; // solo DOM efímero, nunca localStorage ni logs
+    box.style.display = "block";
+    input.focus(); input.select();
+    _licMaestroTimer = setTimeout(licCerrarMaestro, 5 * 60 * 1000);
+  } catch (_) { mostrarConfirmacion("No se pudo contactar al Worker; no se emitió ningún permiso."); }
+}
+async function licCopiarMaestro() {
+  const input = document.getElementById("lic-maestro-token");
+  if (!input || !input.value) return;
+  try { await navigator.clipboard.writeText(input.value); mostrarConfirmacion("Permiso copiado. Caduca en cinco minutos."); }
+  catch (_) { input.focus(); input.select(); mostrarConfirmacion("Seleccionado; cópialo manualmente."); }
+}
+
+/* URL de fabrica del Worker de friendly-123. Esta aqui y no solo en
+   wrangler.toml para que el panel funcione en cualquier navegador sin que
+   nadie tenga que recordarla. NO es un secreto: sin el seed del secret value este
+   endpoint devuelve 401 a todo el mundo. */
+const LIC_WORKER_POR_DEFECTO = "https://friendly123-licencias.jfcarpio.workers.dev";
+
+/* ── SONAR DE CANARIOS (plan canarios F5, JFC 2026-09-25) ──────────────────
+   Tres canales en el mismo origen: raiz = estable (clientes), next/ = canario,
+   previo/ = estable anterior. Se lee version.json de cada uno (sin cache) y el
+   Sonar del Worker por shell. Las ordenes (push / rewind / detener / reanudar)
+   van al Worker con la Master Key; las ejecuta .github/workflows/sonar.yml. */
+function sonarRaiz() { return location.pathname.replace(/(next|previo)\/[^/]*$/, "").replace(/[^/]*$/, ""); }
+function sonarEsc(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+async function sonarVersion(sub) {
+  try { const r = await fetch(sonarRaiz() + sub + "version.json?z=" + Date.now(), { cache: "no-store" }); return r.ok ? await r.json() : null; } catch (_) { return null; }
+}
+async function sonarEstado(shell) {
+  const url = (licWorkerUrl() || LIC_WORKER_POR_DEFECTO).replace(/\/+$/, "");
+  if (!shell) return null;
+  try { const r = await fetch(url + "/canario/estado?shell=" + encodeURIComponent(shell), { cache: "no-store" }); return r.ok ? await r.json() : null; } catch (_) { return null; }
+}
+/* ¿La orden ya se ve en los canales? PUSH cumplido = clientes (estable) con el mismo shell que
+   next; REWIND cumplido = clientes con el shell de previo. Verdad medida, no lo que se pidio. */
+function sonarOrdenCumplida(o, versiones) {
+  const sh = (i) => (versiones[i] && versiones[i].shell) || "";
+  const [previo, estable, next] = [sh(0), sh(1), sh(2)];
+  if (!estable) return "sin datos de los canales";
+  if (Date.now() - (o.at || 0) > 86400000) return "vencida (más de 24 h)";
+  if (o.accion === "push") return estable === next ? "CUMPLIDA: clientes en " + estable : "PENDIENTE: clientes siguen en " + estable + " (next es " + next + "). La ejecuta GitHub: minutos si hay publicación en curso, si no hasta horas.";
+  if (o.accion === "rewind") return estable === previo ? "CUMPLIDA: clientes en " + estable : "PENDIENTE: clientes siguen en " + estable;
+  return "";
+}
+function sonarHora(ms) { if (!ms) return "—"; const d = new Date(ms); return d.toLocaleString("es-EC", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }); }
+/* Canarios del mapa: [id del nodo, nombre, cuarto donde vive]. Los ids coinciden con
+   los que manda la app (salud-app.js NODOS) y los organos internos del Worker. */
+const SONAR_CANARIOS = [
+  ["arranque", "Startup", "barra"], ["version", "Version", "barra"], ["codigo", "Code", "barra"],
+  ["hoy", "Today", "hoy"], ["escanear", "Sell", "escanear"], ["inventario", "Inventory", "inventario"],
+  ["perchas", "Racks", "perchas"], ["clientes", "Customers", "clientes"], ["comisiones", "Commissions", "comisiones"],
+  ["dinero", "Money", "comisiones"], ["gastos", "Expenses", "gastos"], ["etiquetas", "Labels", "etiquetas"],
+  ["avanzado", "Advanced", "avanzado"], ["tablero", "Dashboard", "barra"],
+].map(([id, nombre, cuarto]) => ({ id, nombre, cuarto, reportes: 0, estado: null, estadoPrevio: null, nuevo: false }));
+let SONAR_VIVO = false;
+const SONAR_CANARIO_COMPACTO = 37;
+const SONAR_CANARIO_HOTFIX = 56;
+const SONAR_ESTADOS = new Set(["healthy", "hotfix", "shell", "stale"]);
+function sonarEstadoVisual(c) {
+  if (c && SONAR_ESTADOS.has(c.estado)) return c.estado;
+  if (!SONAR_VIVO) return "stale";
+  if (c.reportes > 0) return "shell"; // protocolo viejo: degradar conservador, nunca inventar HOTFIX
+  return "healthy";
+}
+function sonarCanarioSVG(x, y, c) {
+  const estado = sonarEstadoVisual(c);
+  const idx = Math.max(0, SONAR_CANARIOS.indexOf(c));
+  const hotfix = estado === "hotfix", shell = estado === "shell", stale = estado === "stale";
+  const w = hotfix ? SONAR_CANARIO_HOTFIX : SONAR_CANARIO_COMPACTO;
+  const h = w, cy = y - 6, t = `translate(${x - w / 2} ${cy - h / 2})`;
+  const etiqueta = hotfix ? "HOTFIX" : shell ? "SHELL" : stale ? "STALE" : "OK";
+  const tinta = hotfix ? "#F3B33D" : shell ? "#FF8A6B" : stale ? "#AAB4AE" : "#28ECAA";
+  const ring = hotfix
+    ? `<circle class="sonar-pulsar-ring" cx="${x}" cy="${cy}" r="23" fill="none" stroke="#F3B33D" stroke-width="2.5" opacity=".85"/><circle class="sonar-pulsar-ring" cx="${x}" cy="${cy}" r="29" fill="none" stroke="#F3B33D" stroke-width="1.5" opacity=".55"/>`
+    : shell ? `<circle cx="${x}" cy="${cy}" r="23" fill="none" stroke="#E86040" stroke-width="3"/>`
+    : stale ? `<circle cx="${x}" cy="${cy}" r="22" fill="none" stroke="#AAB4AE" stroke-width="1.5" stroke-dasharray="3 4"/>` : "";
+  return `<g data-canario="${sonarEsc(c.id)}" data-state="${estado}" data-x="${Math.round(x)}" class="canario-v2 ${estado}${c.nuevo ? " is-new" : ""}" style="animation-delay:${(idx * 0.19) % 3.2}s"><title>${sonarEsc(c.nombre)} · ${etiqueta}${c.reportes ? " · " + c.reportes + " report(s)" : ""}</title>
+    ${ring}
+    <g class="sonar-sprite" transform="${t}"><image href="img/${shell ? "canario-caido" : "canario"}.png" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/></g>
+    <text x="${x}" y="${y + 28}" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF">${sonarEsc(c.nombre)}</text>
+    ${estado !== "healthy" ? `<text x="${x}" y="${y + 43}" text-anchor="middle" font-size="10" font-weight="900" letter-spacing=".08em" fill="${tinta}">${etiqueta}</text>` : ""}
+  </g>`;
+}
+function sonarDibujarMapa() {
+  const el = document.getElementById("sonar-mapa");
+  if (!el) return;
+  const W = 760, H = 470;
+  // Cuartos de la app: nombre visible y posicion (grilla 3 x 3 al lado del menu).
+  const cuartos = [
+    ["hoy", "TODAY"], ["escanear", "SELL · SOLD"], ["inventario", "INVENTORY"],
+    ["perchas", "RACKS"], ["clientes", "CUSTOMERS"], ["comisiones", "COMMISSIONS"],
+    ["gastos", "EXPENSES"], ["etiquetas", "LABELS"], ["avanzado", "ADVANCED"],
+  ];
+  const X0 = 150, Y0 = 92, CW = 196, CH = 118, G = 8;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Map of friendly-123 with its canaries" style="display:block;background:#07110D;border-radius:14px;">`;
+  // Marco de la app y barra de arriba.
+  svg += `<rect x="10" y="10" width="${W - 20}" height="${H - 20}" rx="14" fill="none" stroke="#1F6B4E" stroke-width="2"/>`;
+  svg += `<rect x="10" y="10" width="${W - 20}" height="70" rx="14" fill="#0F1923"/>`;
+  svg += `<text x="28" y="52" font-size="18" font-weight="800" fill="#FFFFFF">friendly-123</text>`;
+  // Menu lateral.
+  svg += `<rect x="10" y="84" width="130" height="${H - 94}" fill="#0C1A14"/>`;
+  cuartos.forEach(([id, nombre], i) => { svg += `<text x="24" y="${118 + i * 38}" font-size="13" font-weight="700" fill="#FFFFFF">${nombre.split(" ")[0]}</text>`; });
+  // Cuartos.
+  cuartos.forEach(([id, nombre], i) => {
+    const x = X0 + (i % 3) * (CW + G), y = Y0 + Math.floor(i / 3) * (CH + G);
+    const estadosCuarto = SONAR_CANARIOS.filter((c) => c.cuarto === id).map(sonarEstadoVisual);
+    const tieneShell = estadosCuarto.includes("shell"), tieneHotfix = estadosCuarto.includes("hotfix");
+    const borde = tieneShell ? "#E86040" : tieneHotfix ? "#F3B33D" : "#1F6B4E";
+    const tinta = tieneShell ? "#FF8A6B" : tieneHotfix ? "#F3B33D" : "#28ECAA";
+    svg += `<rect x="${x}" y="${y}" width="${CW}" height="${CH}" rx="10" fill="#0E2219" stroke="${borde}" stroke-width="${tieneShell || tieneHotfix ? 3 : 1.5}"/>`;
+    svg += `<text x="${x + 12}" y="${y + 22}" font-size="13" font-weight="800" fill="${tinta}">${nombre}</text>`;
+    const vivos = SONAR_CANARIOS.filter((c) => c.cuarto === id);
+    // v441: con 2 canarios en un cuarto se abren a 1/4 y 3/4 (a 1/3 y 2/3 los nombres se pisaban).
+    vivos.forEach((c, k) => { svg += sonarCanarioSVG(x + (vivos.length === 2 ? CW * (k ? 0.76 : 0.24) : CW / (vivos.length + 1) * (k + 1)), y + 58, c); });
+  });
+  // Barrido del sonar (solo decorativo, detras de nada importante: trazo fino translucido).
+  svg += `<g class="barrido" pointer-events="none"><path d="M455 280 L455 -60 A340 340 0 0 1 700 40 Z" fill="#28ECAA" opacity=".10"/><line x1="455" y1="280" x2="455" y2="-60" stroke="#28ECAA" stroke-width="2" opacity=".55"/></g>`;
+  // Canarios de la barra de arriba (arranque, version, codigo).
+  SONAR_CANARIOS.filter((c) => c.cuarto === "barra").forEach((c, k) => { svg += sonarCanarioSVG(330 + k * 110, 36, c).replace(/y="(\d+(?:\.\d+)?)" text-anchor/g, (m, v) => m); });
+  svg += `</svg>`;
+  el.innerHTML = svg;
+}
+/* Vientito (v441): ver el CSS ocViento arriba. SONAR_PREVIO = conteos del sondeo anterior;
+   null hasta el primer sondeo con datos, asi abrir el panel nunca dispara la rafaga. */
+let SONAR_PREVIO = null;
+function sonarViento(caidos) {
+  try {
+    const aviso = document.getElementById("sonar-viento-aviso");
+    if (aviso) aviso.textContent = "New alert: " + caidos.map((c) => c.nombre).join(", ");
+    const svg = document.querySelector("#sonar-mapa svg");
+    if (!svg || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+    const ns = "http://www.w3.org/2000/svg", g = document.createElementNS(ns, "g");
+    g.setAttribute("class", "oc-viento"); g.setAttribute("pointer-events", "none");
+    [120, 210, 300, 390].forEach((y) => {
+      const p = document.createElementNS(ns, "path");
+      p.setAttribute("d", `M0 ${y} C 60 ${y - 18}, 120 ${y + 18}, 180 ${y} S 280 ${y - 14}, 330 ${y}`);
+      p.setAttribute("fill", "none"); p.setAttribute("stroke", "#FFFFFF"); p.setAttribute("stroke-width", "3"); p.setAttribute("stroke-linecap", "round");
+      g.appendChild(p);
+    });
+    svg.appendChild(g);
+    const xCaido = Number((svg.querySelector(`[data-canario="${caidos[0].id}"]`) || { dataset: {} }).dataset.x) || 455;
+    /* Se inclina SOLO el sprite (su <g transform>), girando sobre sus propias patas con
+       rotate(a cx cy) explicito: con CSS rotate el centro caia en la esquina del mapa y los
+       canarios salian volando de su cuarto (visto en captura 2026-10-02). */
+    const inclinados = [];
+    svg.querySelectorAll("[data-canario].vivo").forEach((n) => {
+      const s = n.querySelector("g[transform]"); if (!s) return;
+      const cx = Number(n.dataset.x) || 0, base = s.getAttribute("transform");
+      const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(base); const pie = m ? Number(m[2]) + 56 : 0;
+      s.setAttribute("transform", `rotate(${cx < xCaido ? 12 : -12} ${cx} ${pie}) ${base}`);
+      inclinados.push([s, base]);
+    });
+    setTimeout(() => {
+      try { g.remove(); inclinados.forEach(([s, base]) => s.setAttribute("transform", base)); } catch (_) {}
+    }, 1700);
+  } catch (_) {}
+}
+async function sonarPintar() {
+  const meta = document.getElementById("sonar-meta");
+  const canales = [["previo/", "PREVIO · rewind", "#E8A020"], ["", "ESTABLE · clientes", "#28ECAA"], ["next/", "NEXT · canario", "#FFFFFF"]];
+  const versiones = await Promise.all(canales.map((c) => sonarVersion(c[0])));
+  const estados = await Promise.all(versiones.map((v) => sonarEstado(v && v.shell)));
+  document.getElementById("sonar-canales").innerHTML = canales.map((c, i) => {
+    const v = versiones[i], e = estados[i];
+    const shell = v ? v.shell : (c[0] ? "no publicado todavía" : "—");
+    const salud = e ? `${e.reportes} reportes lord · ${e.aparatos} aparatos · ${e.aparatosConProblemas} con problemas` : "sin datos del Sonar";
+    const rojo = e && e.rojo;
+    return `<div style="background:var(--surface);border:3px solid ${rojo ? "#E86040" : c[2]};border-radius:10px;padding:12px 14px;">
+      <div style="font-size:14px;font-weight:800;color:${c[2]};">${c[1]}</div>
+      <div style="font-size:18px;font-weight:800;color:#FFFFFF;margin-top:4px;">${sonarEsc(shell)}</div>
+      <div style="font-size:14px;color:#FFFFFF;margin-top:6px;">${sonarEsc(salud)}</div>
+      <div style="font-size:14px;font-weight:800;margin-top:6px;color:${rojo ? "#FF8A6B" : "#28ECAA"};">${rojo ? "EN ROJO" : "sin rojos"}</div>
+    </div>`;
+  }).join("");
+  // Sonar v2: el panel entiende estado explícito cuando el Worker lo entregue.
+  // Mientras llega CSP v2, cualquier reporte del protocolo viejo se trata como SHELL:
+  // seguro por defecto, nunca se inventa un HOTFIX.
+  SONAR_VIVO = !!(estados[1] || estados[2]);
+  SONAR_CANARIOS.forEach((c) => {
+    c.reportes = [estados[1], estados[2]].reduce((a, e) => a + ((e && e.nodos && e.nodos[c.id]) || 0), 0);
+    const declarado = [estados[2], estados[1]].map((e) => e && e.clases && e.clases[c.id]).find((x) => SONAR_ESTADOS.has(x)) || null;
+    c.estado = declarado;
+    const ahora = sonarEstadoVisual(c);
+    c.nuevo = !!(c.estadoPrevio && c.estadoPrevio !== ahora);
+    c.estadoPrevio = ahora;
+  });
+  const nuevosHotfix = SONAR_CANARIOS.filter((c) => c.nuevo && sonarEstadoVisual(c) === "hotfix");
+  if (SONAR_VIVO) SONAR_PREVIO = SONAR_CANARIOS.reduce((o, c) => { o[c.id] = c.reportes; return o; }, {});
+  sonarDibujarMapa();
+  if (nuevosHotfix.length) sonarViento(nuevosHotfix);
+  const conteos = SONAR_CANARIOS.reduce((o, c) => { const e = sonarEstadoVisual(c); o[e] = (o[e] || 0) + 1; return o; }, {});
+  const resumen = document.getElementById("sonar-resumen");
+  if (resumen) resumen.textContent = (conteos.shell ? "PROMOTION BLOCKED · " : "") +
+    `${conteos.healthy || 0} OK · ${conteos.hotfix || 0} HOTFIX · ${conteos.shell || 0} SHELL · ${conteos.stale || 0} STALE`;
+  const next = estados[2];
+  const rojos = document.getElementById("sonar-rojos");
+  if (next && next.rojo) {
+    rojos.style.display = "";
+    rojos.textContent = "Next en rojo, no pasará a clientes: " + next.rojos.map((r) => r.motivos.join("+") + " (" + r.canal + ", " + sonarHora(r.at) + ")").join(" · ");
+  } else rojos.style.display = "none";
+  const e0 = estados.find((x) => x) || {};
+  const o = e0.orden;
+  document.getElementById("sonar-orden").textContent =
+    (e0.detenido ? "Promoción automática DETENIDA. " : "Promoción automática activa (33 min). ") +
+    (o ? "Última orden: " + (o.accion === "push" ? "PUSH" : "REWIND") + " · " + sonarHora(o.at) + " · " + sonarOrdenCumplida(o, versiones) : "Sin órdenes todavía.");
+  document.getElementById("sonar-detener").textContent = e0.detenido ? "Reanudar promoción automática" : "Detener promoción automática";
+  document.getElementById("sonar-detener").dataset.accion = e0.detenido ? "reanudar" : "detener";
+  meta.textContent = "actualizado " + sonarHora(Date.now());
+}
+async function sonarOrden(accion) {
+  const avisos = {
+    push: "PUSH: la versión NEXT pasa a TODOS los clientes ahora, sin esperar los 33 minutos. ¿Seguro?",
+    rewind: "REWIND: los clientes vuelven a la versión PREVIA. Sus datos no se tocan. ¿Seguro?",
+  };
+  if (avisos[accion] && !confirm(avisos[accion])) return;
+  const url = (licWorkerUrl() || LIC_WORKER_POR_DEFECTO).replace(/\/+$/, "");
+  try {
+    const r = await fetch(url + "/canario/orden", { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ accion }) });
+    const j = await r.json().catch(() => ({}));
+    /* JFC 2026-09-30: antes decia solo "Orden registrada" y parecia hecho. La orden la ejecuta
+       GitHub: en minutos si hay una publicacion esperando (promover.yml), si no en el proximo
+       ciclo de sonar.yml, que GitHub puede retrasar horas. El estado real se ve abajo. */
+    mostrarConfirmacion(r.ok ? "Orden " + accion.toUpperCase() + " registrada. Todavía NO está hecha: mira abajo cuándo se cumple." : "No se pudo: " + (j.error || r.status));
+  } catch (_) { mostrarConfirmacion("Sin conexión con el Worker"); }
+  sonarPintar();
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const b = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
+  b("sonar-push", () => sonarOrden("push"));
+  b("sonar-rewind", () => sonarOrden("rewind"));
+  b("sonar-detener", (ev) => sonarOrden(ev.currentTarget.dataset.accion || "detener"));
+  b("sonar-refrescar", () => sonarPintar());
+});
+
+function licInit() {
+  const cfg = licGetCfg();
+  const u = document.getElementById("lic-worker-url");
+  const k = document.getElementById("lic-master-key");
+  if (u) u.value = cfg.workerUrl || LIC_WORKER_POR_DEFECTO;
+  if (k) k.value = cfg.masterKey || "";
+  /* Si nunca se guardo nada, se deja escrita la URL de fabrica para que el
+     unico paso pendiente sea el seed del secret value. Antes quedaba todo vacio y el panel
+     solo decia "configura el Worker", sin decir QUE configurar. */
+  if (!cfg.workerUrl) licSetCfg({ workerUrl: LIC_WORKER_POR_DEFECTO });
+  if (!licMasterKey()) {
+    licMostrarVacio("El registro aún no se ha consultado: falta el seed en este navegador.");
+    document.getElementById("lic-meta").textContent = "falta el seed del secret value — abre Config Worker";
+    licEstado("Falta el seed en este navegador. Toca «Worker / seed», pégalo y pulsa «Guardar y conectar».", false);
+    const c = document.getElementById("lic-config");
+    if (c) c.style.display = "block";   // se abre solo: es lo unico que falta
+    return;
+  }
+  licRecargar();
+}
+function licEstado(mensaje, correcto) {
+  const el = document.getElementById("lic-estado");
+  if (el) { el.textContent = mensaje; el.style.color = correcto ? "var(--green)" : "var(--amber)"; }
+}
+function licIrConfig() {
+  const p = document.getElementById("lic-config");
+  if (!p) return;
+  p.style.display = "block";
+  p.scrollIntoView({ behavior: "smooth", block: "start" });
+  // El foco deja el campo listo incluso cuando la vista remota no transmite gestos de scroll.
+  const campo = document.getElementById("lic-master-key");
+  if (campo && !licMasterKey()) setTimeout(() => campo.focus({ preventScroll: true }), 350);
+}
+
+/* Diagnostico explicito: dice CUAL de las cuatro cosas fallo, en vez de un
+   "no se pudo conectar" que obliga a adivinar. */
+async function licProbar() {
+  const d = document.getElementById("lic-diag");
+  const url = (document.getElementById("lic-worker-url").value || "").trim().replace(/\/+$/, "");
+  const key = (document.getElementById("lic-master-key").value || "").trim();
+  const pinta = (txt, color) => { d.style.color = color; d.textContent = txt; };
+  if (!url) { pinta("Falta la URL del Worker.", "var(--red)"); return; }
+  if (!key) { pinta("Falta el seed del secret value: el que escribiste en CMD, en wrangler secret put MASTER_KEY.", "var(--red)"); return; }
+  pinta("Probando…", "var(--ink-soft)");
+  try {
+    const res = await fetch(url + "/licencias", { headers: { "X-Master-Key": key } });
+    if (res.status === 401) { pinta("El Worker responde, pero rechaza ese seed del secret value (401). No coincide con el que tiene desplegado.", "var(--red)"); return; }
+    if (!res.ok) { pinta("El Worker respondio " + res.status + ".", "var(--red)"); return; }
+    const data = await res.json();
+    pinta("OK — conectado. " + (Array.isArray(data) ? data.length : 0) + " aparato(s) del registro " + (res.headers.get("X-Fuente-Registros") || "Worker") + ".", "var(--green)");
+  } catch (e) {
+    pinta("No se llego al Worker: " + e.message + " (revisa la URL o tu conexion).", "var(--red)");
+  }
+}
+function licToggleConfig() {
+  const p = document.getElementById("lic-config");
+  p.style.display = p.style.display === "none" ? "block" : "none";
+}
+function licGuardarConfig() {
+  const workerUrl = document.getElementById("lic-worker-url").value.trim();
+  const masterKey = document.getElementById("lic-master-key").value.trim();
+  if (workerUrl) {
+    let u;
+    try { u = new URL(workerUrl); } catch (_) { mostrarConfirmacion("URL inválida — revisa que esté completa"); return; }
+    if (u.protocol !== "https:") { mostrarConfirmacion("La URL del Worker debe empezar con https://"); return; }
+  }
+  if (!masterKey) { mostrarConfirmacion("Falta el seed del secret value — sin el, el Worker rechaza todo con 401"); return; }
+  licSetCfg({ workerUrl, masterKey });
+  mostrarConfirmacion("Configuración del Worker guardada");
+  licProbar();
+  licRecargar();
+}
+let _licData = [];
+/* Índice de TODOS los dispositivos (principales + hermanos plegados). Los
+   hermanos (g.filas.slice(1)) tienen todos los campos pero NO están en
+   _licData (que solo guarda una fila por licencia). Sin esto, el botón
+   Re-enganchar de una fila plegada no encontraba el registro y mostraba
+   "Dispositivo: <id>" sin info. (JFC 2026-08-27, refuerzo P2.) */
+let _licTodos = [];
+async function licRecargar() {
+  const url = licWorkerUrl();
+  const meta = document.getElementById("lic-meta");
+  if (!url) { meta.textContent = "sin URL del Worker — abre Config"; licEstado("Falta la URL del Worker. Abre «Worker / seed».", false); return; }
+  if (!licMasterKey()) { meta.textContent = "falta el seed del secret value — abre Config"; licEstado("Falta el seed en este navegador. Abre «Worker / seed».", false); return; }
+  meta.textContent = "cargando…";
+  licEstado("Consultando el registro de licencias…", false);
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias", { headers: { "X-Master-Key": licMasterKey() } });
+    if (res.status === 401) { meta.textContent = "Seed del secret value incorrecto"; licEstado("El Worker respondió 401: seed incorrecto. Abre «Worker / seed» y verifica el valor.", false); return; }
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("respuesta inesperada del Worker");
+    _licData = (Array.isArray(data) ? data : []).filter(Boolean); // guard: nunca dejar pasar un null (ver worker.js)
+    licRenderTabla(_licData);
+    licRenderStats(_licData);
+    meta.textContent = _licData.length + " instancia(s) · " + (new Date()).toLocaleTimeString("es");
+    licEstado("Worker conectado · fuente: " + (res.headers.get("X-Fuente-Registros") || "sin indicar") + " · " + _licData.length + " aparato(s) cargados · actualizado " + (new Date()).toLocaleTimeString("es") + ".", true);
+  } catch (e) {
+    meta.textContent = "error al conectar con el Worker";
+    licEstado("No se pudo cargar la lista: " + e.message + ". Los datos anteriores permanecen; pulsa «Recargar» para reintentar.", false);
+    mostrarConfirmacion("No se pudo conectar: " + e.message);
+  }
+}
+function licEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function licFmtDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleDateString("es") + " " + d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+}
+function licNormEstado(e) {
+  e = String(e || "").toLowerCase();
+  if (e === "full" || e === "minima" || e === "bloqueada") return e;
+  if (e === "activa") return "full";
+  if (e === "limitada" || e === "observada") return "minima";
+  return "minima";
+}
+function licRenderStats(data) {
+  const c = { full: 0, minima: 0, bloqueada: 0 };
+  data.forEach(r => { const e = licNormEstado(r.estado); if (c[e] !== undefined) c[e]++; });
+  document.getElementById("lic-stats").innerHTML =
+    `<div class="stat-box"><div class="stat-value">${data.length}</div><div class="stat-label">Total</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--green);">${c.full}</div><div class="stat-label">Full</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--amber);">${c.minima}</div><div class="stat-label">Minimal</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--red);">${c.bloqueada}</div><div class="stat-label">Blocked</div></div>`;
+}
+function licMostrarVacio() {
+  const vacio = document.getElementById("lic-empty");
+  vacio.textContent = arguments[0] || "El Worker respondió sin aparatos registrados.";
+  vacio.style.display = "block";
+  document.getElementById("lic-tabla").style.display = "none";
+}
+// wa.me exige solo digitos (con codigo de pais, sin "+", espacios ni guiones).
+function licWaHref(tel) {
+  const digits = String(tel || "").replace(/\D/g, "");
+  return digits ? "https://wa.me/" + digits : "";
+}
+/* Bloque licencias (JFC 2026-09-24): la tabla la pinta docs/panel-licencias.js
+   (indexado, filtros, orden, paginacion de 100, seleccion multiple, pagos y lotes).
+   Aqui solo queda el enchufe. */
+function licRenderTabla(data) { licPintar(); }
+function licToggleDisp(id) {
+  document.querySelectorAll(".lic-disp-" + id).forEach(f => {
+    f.style.display = f.style.display === "none" ? "table-row" : "none";
+  });
+}
+
+// Reparación explícita de metadatos de APARATOS PROPIOS de JFC. No fusiona
+// inventario ni altera licencias: cada edición usa el endpoint con historial
+// recuperable y después vuelve a leer KV para comprobar el resultado.
+function licUnificarNombre(codigo) {
+  const filas = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
+  if (filas.length < 2 || filas.some(r => String(r.email || "").trim().toLowerCase() !== "jfcarpio@gmail.com")) return;
+  const sugerido = (filas.find(r => r.nombreNegocio === "17 de septiembre") || filas[0]).nombreNegocio || "";
+  const anterior = document.getElementById("lic-unificar-form");
+  if (anterior) anterior.remove();
+  const form = document.createElement("div");
+  form.id = "lic-unificar-form";
+  form.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px";
+  form.innerHTML = '<div style="background:#202530;color:#FFFFFF;border:2px solid #F5B84D;border-radius:10px;padding:24px;max-width:440px;width:100%">' +
+    '<label for="lic-unificar-input" style="display:block;font-weight:700;margin-bottom:10px">Nombre único para tus aparatos</label>' +
+    '<input id="lic-unificar-input" maxlength="80" style="box-sizing:border-box;width:100%;padding:12px;background:#FFFFFF;color:#111111;border:2px solid #F5B84D;border-radius:6px;font-size:17px">' +
+    '<p id="lic-unificar-status" role="status" style="color:#FFFFFF;font-size:14px"></p>' +
+    '<div style="display:flex;gap:10px;justify-content:flex-end"><button type="button" id="lic-unificar-cancelar">Cancelar</button><button type="button" id="lic-unificar-guardar" style="background:#F5B84D;color:#111111;font-weight:700">Guardar en todos</button></div></div>';
+  document.body.appendChild(form);
+  const input = document.getElementById("lic-unificar-input");
+  input.value = sugerido;
+  input.focus(); input.select();
+  document.getElementById("lic-unificar-cancelar").addEventListener("click", () => form.remove());
+  document.getElementById("lic-unificar-guardar").addEventListener("click", () => licAplicarNombre(codigo));
+}
+async function licAplicarNombre(codigo) {
+  const form = document.getElementById("lic-unificar-form");
+  if (!form) return;
+  const filas = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
+  if (filas.length < 2 || filas.some(r => String(r.email || "").trim().toLowerCase() !== "jfcarpio@gmail.com")) return;
+  const nombre = document.getElementById("lic-unificar-input").value.trim().slice(0, 80);
+  const status = document.getElementById("lic-unificar-status");
+  if (!nombre) { status.textContent = "El nombre no puede quedar vacío."; return; }
+  const url = licWorkerUrl().replace(/\/+$/, "");
+  const key = licMasterKey();
+  if (!url || !key) return;
+  document.getElementById("lic-unificar-guardar").disabled = true;
+  let hechos = 0;
+  try {
+    for (const fila of filas) {
+      if (fila.nombreNegocio === nombre) { hechos++; continue; }
+      const res = await fetch(url + "/editar-correo", { method:"POST", headers:{ "Content-Type":"application/json", "X-Master-Key":key }, body:JSON.stringify({ instanceId:fila.instanceId, nombreNegocio:nombre }) });
+      if (!res.ok) throw new Error("Worker " + res.status + " tras " + hechos + " registros");
+      hechos++;
+    }
+    await licRecargar();
+    const verificados = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
+    if (verificados.length !== filas.length || verificados.some(r => r.nombreNegocio !== nombre)) throw new Error("la lectura de verificación no coincide");
+    form.remove();
+    mostrarConfirmacion("Nombre unificado en " + hechos + " aparatos; historial conservado");
+  } catch (e) { await licRecargar(); status.textContent = "Unificación parcial: " + e.message + ". Revisa la lista antes de repetir."; document.getElementById("lic-unificar-guardar").disabled = false; }
+}
+
+// RE-ENGANCHAR OVEJA PERDIDA (JFC 2026-08-27). Un dispositivo quedó "rogue"
+// (licencia trunca/vieja/ajena) y no se une a su licencia ni a sus hermanos.
+// Este botón re-apunta su registro KV a la licencia canónica que JFC elige.
+// Es reversible (pasa por el historial del Worker). Después, en el dispositivo,
+// se entra esa licencia por Avanzado → claim & merge para unir sus datos.
+/* A MI LICENCIA PRINCIPAL (v350, JFC 2026-09-22). JFC es el dueño de la app;
+   un aparato suyo es un aparato EN su licencia principal. Un toque re-apunta
+   el aparato suelto a ella (el Worker la conoce como secret, no está aquí).
+   Reversible: queda en el historial. */
+async function licAMiLicencia(instanceId) {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const reg = (Array.isArray(_licTodos) ? _licTodos : []).find(r => String(r.instanceId) === String(instanceId));
+  const nombre = reg ? (reg.nombreNegocio || reg.nombre || reg.instanceId) : instanceId;
+  const actual = reg ? String(reg.licenseCode || "").trim() : "";
+  if (!confirm("¿Este aparato es TUYO?\n\n" + nombre + "\nLicencia actual: " + (actual || "(ninguna)") +
+      "\n\nSe enganchará a tu licencia principal. Nunca lo hagas con el aparato de un cliente. Es reversible.")) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/a-principal", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": key }, body: "{}",
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert("Enganchado a tu licencia principal. En el aparato, entra tu licencia en Avanzado → Sync your team para que la adopte.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
+}
+
+/* DORMIDO v350 — reemplazado por licAMiLicencia. NO BORRAR.
+   APARATO DE JFC (v349, JFC 2026-09-22). Marca/quita en el Worker; el aparato
+   la adopta en su próximo login (o al volver a la app). Reversible: queda en el
+   historial de la licencia. */
+async function licMarcarSoporte(instanceId, marcar) {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const reg = (Array.isArray(_licTodos) ? _licTodos : []).find(r => String(r.instanceId) === String(instanceId));
+  const nombre = reg ? (reg.nombreNegocio || reg.nombre || reg.instanceId) : instanceId;
+  const pregunta = marcar
+    ? "¿Este aparato es TUYO?\n\n" + nombre + "\n\nEn su próximo login quedará como soporte: entra como invitado a las tiendas de clientes. Nunca marques el aparato de un cliente."
+    : "¿Quitar la marca de aparato tuyo?\n\n" + nombre + "\n\nEn su próximo login volverá a ser un aparato normal.";
+  if (!confirm(pregunta)) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/soporte", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": key },
+      body: JSON.stringify({ soporte: !!marcar }),
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert(marcar ? "Listo. Se aplica cuando ese aparato entre de nuevo." : "Marca quitada. Se aplica cuando ese aparato entre de nuevo.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
+}
+
+async function licReenganchar(instanceId) {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const reg = (Array.isArray(_licTodos) ? _licTodos : []).find(r => String(r.instanceId) === String(instanceId));
+  const actual = reg ? String(reg.licenseCode || "").trim() : "";
+  const nueva = prompt(
+    "Re-enganchar esta oveja perdida.\n\nDispositivo: " + (reg ? (reg.nombreNegocio || reg.nombre || reg.instanceId) : instanceId) +
+    "\nLicencia actual: " + (actual || "(ninguna)") +
+    "\n\nPega la licencia CANÓNICA a la que debe unirse (F123-XXXX-XXXX-XXXX-XXXXX):",
+    actual
+  );
+  if (nueva === null) return;
+  const lic = String(nueva).trim().toUpperCase();
+  if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(lic)) { alert("Esa no parece una licencia F123 válida."); return; }
+  if (!confirm("Re-apuntar este dispositivo a:\n\n    " + lic + "\n\nEs reversible (queda en el historial). ¿Continuar?")) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/reapuntar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": key },
+      body: JSON.stringify({ licenseCode: lic }),
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert("Re-enganchado. Si el aparato no tenía licencia, la adopta solo la próxima vez que entre (desde el shell v407) y se une a su cuaderno. Si ya tenía otra, entra esta licencia por Avanzado → Sync your team para que la adopte y se una a sus hermanos.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
+}
+
+// FUSIONAR LICENCIAS (JFC 2026-08-27). "Qué licencia engancho a cuál otra".
+// Re-apunta TODOS los dispositivos que hoy están en la licencia `origen` a la
+// licencia `destino`. Muestra los dispositivos afectados ANTES de confirmar,
+// para que JFC no mueva por error dispositivos de OTRO negocio que compartan
+// origen (ej. no fusionar K7M2→canónica si K7M2 tiene dispositivos de idiomARTE).
+async function licFusionar() {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const todos = Array.isArray(_licTodos) ? _licTodos : [];
+  const licencias = [...new Set(todos.map(r => String(r.licenseCode || "").trim().toUpperCase()).filter(Boolean))].sort();
+  if (licencias.length < 2) { alert("Necesitas al menos 2 licencias distintas para fusionar."); return; }
+  const opts = licencias.map(l => `<option value="${l}">${l}</option>`).join("");
+  const origen = prompt(
+    "FUSIONAR LICENCIAS\n\nRe-apunta TODOS los dispositivos de la licencia ORIGEN hacia la licencia DESTINO.\n\n" +
+    "Licencias presentes:\n" + licencias.map(l => "  • " + l).join("\n") +
+    "\n\nPega la licencia ORIGEN (la que tiene las ovejas perdidas):"
+  );
+  if (origen === null) return;
+  const o = String(origen).trim().toUpperCase();
+  if (!licencias.includes(o)) { alert("Esa licencia origen no está en la lista."); return; }
+  const destino = prompt(
+    "FUSIONAR LICENCIAS\n\nOrigen: " + o + "\n\nPega la licencia DESTINO (la canónica a la que deben unirse):"
+  );
+  if (destino === null) return;
+  const d = String(destino).trim().toUpperCase();
+  if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(d)) { alert("Esa no parece una licencia F123 válida."); return; }
+  if (o === d) { alert("Origen y destino son la misma licencia."); return; }
+  const afectados = todos.filter(r => String(r.licenseCode || "").trim().toUpperCase() === o);
+  const lista = afectados.map(r => "  • " + (r.nombreNegocio || r.nombre || r.instanceId)).join("\n");
+  if (!confirm(
+    "Fusionar:\n\n  ORIGEN:  " + o + "\n  DESTINO: " + d + "\n\nDispositivos que se moverán (" + afectados.length + "):\n" + lista +
+    "\n\nEs reversible (queda en el historial). ¿Continuar?"
+  )) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/fusionar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": key },
+      body: JSON.stringify({ origen: o, destino: d }),
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert("Fusionadas: " + (r.movidos ? r.movidos.length : 0) + " dispositivo(s) movidos a " + d + ".\n\nEn cada dispositivo entra la licencia destino por Avanzado → Sync your team para que la adopte y se una a sus hermanos.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
+}
+
+// Delete archives the record in the Worker first (key borrado:<id>), so it is
+// recoverable. It still asks: this panel is one click away from everything.
+//
+// GUARD ANTI-BORRÓN DE CLIENTE (JFC 2026-08-26 — "ya no sale la licencia de
+// Sarah en el panel"). Borrar una fila de "pruebas" nunca puede llevarse por
+// delante a un cliente real. Por eso, si el registro tiene una licencia de
+// verdad, para confirmar hay que TECLEAR LA LICENCIA COMPLETA (no un "DELETE"
+// genérico que se teclea en piloto automático), y si es el ÚLTIMO dispositivo de
+// esa licencia se avisa en grande: borrarlo saca al negocio del panel.
+async function licBorrar(instanceId) {
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
+  // Buscar el registro y su licencia; contar cuántos DEVICES comparten esa licencia.
+  const reg = (Array.isArray(_licData) ? _licData : []).find(r => String(r.instanceId) === String(instanceId)) || {};
+  const licencia = String(reg.licenseCode || "").trim();
+  const mismaLic = licencia
+    ? (Array.isArray(_licData) ? _licData : []).filter(r => String(r.licenseCode || "").trim().toUpperCase() === licencia.toUpperCase())
+    : [reg];
+  const esUltimo = licencia && mismaLic.length <= 1;
+  if (licencia) {
+    // Registro CON licencia real: confirmación fuerte tecleando la licencia entera.
+    let aviso = "You are about to delete a device of license:\n\n    " + licencia + "\n\n";
+    aviso += esUltimo
+      ? "⚠️ THIS IS THE LAST DEVICE OF THIS LICENSE. Deleting it removes this business from the panel entirely. To cut off service use Blocked, never Delete.\n\n"
+      : ("This license has " + mismaLic.length + " devices; this removes ONLY this one device, not the license.\n\n");
+    aviso += "It stays archived in the Worker (recoverable), but to confirm, type the FULL license exactly as shown above:";
+    const _conf = prompt(aviso);
+    if (_conf === null) return; // cancelado
+    if (_conf.trim().toUpperCase() !== licencia.toUpperCase()) {
+      alert("What you typed does not match the license. Cancelled, nothing was deleted.");
+      return;
+    }
+  } else {
+    // Registro SIN licencia (demo suelta): confirmación estándar.
+    if (!confirm("Delete this record from the list?\n\nIt is archived in the Worker before being deleted, so it can be recovered. To cut someone's service off use Blocked, not this.")) return;
+    const _conf = prompt("This is IRREVERSIBLE from this panel (though it stays archived in the Worker).\n\nType DELETE in capitals to confirm:");
+    if (_conf !== "DELETE") { if (_conf !== null) alert("You did not type DELETE exactly. Cancelled, nothing was deleted."); return; }
+  }
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId),
+      { method: "DELETE", headers: { "X-Master-Key": licMasterKey() } });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
+    mostrarConfirmacion("Record deleted and archived");
+    licRecargar();
+  } catch (e) { alert("Network error: " + e.message); }
+}
+
+// EDITAR NOMBRE / NEGOCIO desde el panel (JFC 2026-08-27, "con lapicito en todo").
+// Usa /editar-correo del Worker, que ya sabe editar nombre/apellido/nombreNegocio
+// y NUNCA vacía un campo (un valor vacío se ignora). El master puede etiquetar una
+// licencia con el negocio ("idiomARTE") y el dueño ("Sarah HB") para reconocerla.
+async function licEditarCampo(instanceId, campo) {
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
+  const reg = (Array.isArray(_licData) ? _licData : []).find(r => String(r.instanceId) === String(instanceId)) || {};
+  let body = { instanceId: instanceId };
+  if (campo === "negocio") {
+    const v = prompt("Nombre del negocio (tienda):", reg.nombreNegocio || "");
+    if (v === null) return;
+    if (!v.trim()) { alert("El nombre del negocio no puede quedar vacío."); return; }
+    body.nombreNegocio = v.trim();
+  } else {
+    const actual = ((reg.nombre || "") + (reg.apellido ? " " + reg.apellido : "")).trim();
+    const v = prompt("Nombre del dueño/a:", actual);
+    if (v === null) return;
+    if (!v.trim()) { alert("El nombre no puede quedar vacío."); return; }
+    body.nombre = v.trim();
+  }
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/editar-correo",
+      { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
+    mostrarConfirmacion("Guardado");
+    licRecargar();
+  } catch (e) { alert("Network error: " + e.message); }
+}
+
+// PAPELERA (JFC 2026-08-27). Lista lo archivado en el Worker (borrado:<id>) y
+// permite restaurarlo. Requiere el Worker desplegado con los endpoints /borrados
+// y /licencias/:id/desarchivar.
+function licEscAttr(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+async function licVerBorrados() {
+  const cont = document.getElementById("lic-papelera");
+  const lista = document.getElementById("lic-pap-lista");
+  const meta = document.getElementById("lic-pap-meta");
+  cont.style.display = "block";
+  const url = licWorkerUrl();
+  if (!url) { meta.textContent = "sin URL del Worker"; return; }
+  lista.textContent = "Cargando…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/borrados", { headers: { "X-Master-Key": licMasterKey() } });
+    if (res.status === 404) { lista.textContent = "Este Worker todavía no tiene la papelera. Despliega la versión nueva (wrangler deploy) para poder ver y restaurar borrados."; return; }
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { lista.textContent = "Error: " + (j.error || res.status); return; }
+    const arr = Array.isArray(j.borrados) ? j.borrados : [];
+    meta.textContent = arr.length + (arr.length === 1 ? " archivada" : " archivadas");
+    if (!arr.length) { lista.textContent = "No hay licencias borradas."; return; }
+    lista.innerHTML = arr.map(r => {
+      const quien = (((r.nombre || "") + " " + (r.apellido || "")).trim() || r.nombreNegocio || r.email || "—");
+      const cuando = r.borradoEn ? licFmtDate(r.borradoEn) : "—";
+      const id = licEscAttr(r.instanceId);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">` +
+        `<span class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}</span>` +
+        `<span>${licEsc(quien)}</span>` +
+        `<span style="font-size:12px;color:var(--ink-soft);">borrada ${licEsc(cuando)}</span>` +
+        `<button class="btn-ok" style="margin-left:auto;" onclick="licDesarchivar('${id}')">Restaurar</button>` +
+        `</div>`;
+    }).join("");
+  } catch (e) { lista.textContent = "Error de red: " + e.message; }
+}
+async function licDesarchivar(instanceId) {
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
+  if (!confirm("Restaurar esta licencia a la lista de activas?")) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/desarchivar",
+      { method: "POST", headers: { "X-Master-Key": licMasterKey() } });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
+    mostrarConfirmacion("Licencia restaurada");
+    licVerBorrados();
+    licRecargar();
+  } catch (e) { alert("Network error: " + e.message); }
+}
+
+/* Filtros (JFC 2026-09-24): se leen de la barra y los aplica panel-licencias.js
+   sobre el indice ya armado; nunca se re-indexa por tecla. */
+function licFiltrosActuales() {
+  const v = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+  return { q: v("lic-filtro"), estado: v("lic-filtro-estado"), pago: v("lic-filtro-pago"), lote: v("lic-filtro-lote"), inactivoDias: v("lic-filtro-inactivo") };
+}
+function licFiltrar() { PanelLic.ui.pagina = 1; licPintar(); }
+let _licDebounce = null;
+function licFiltrarDebounce() { clearTimeout(_licDebounce); _licDebounce = setTimeout(licFiltrar, 120); }
+function licLimpiarFiltros() {
+  ["lic-filtro", "lic-filtro-estado", "lic-filtro-pago", "lic-filtro-lote", "lic-filtro-inactivo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  licFiltrar();
+}
+async function licCambiarEstado(instanceId) {
+  const sel = document.getElementById("lic-sel-" + instanceId);
+  if (!sel) return;
+  const estado = sel.value;
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/estado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() },
+      body: JSON.stringify({ estado })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    mostrarConfirmacion("Estado actualizado: " + estado);
+    const r = _licData.find(x => x.instanceId === instanceId);
+    if (r) r.estado = estado;
+    /* Lista v2 (2026-09-24): el estado del GRUPO se calcula al indexar, asi
+       que hay que reindexar o la fila y los totales quedarian viejos. */
+    if (typeof licReindexar === "function") licReindexar(); else licRenderStats(_licData);
+  } catch (e) {
+    mostrarConfirmacion("Error al actualizar: " + e.message);
+  }
+}
+/* CSV (JFC 2026-09-24): exporta lo FILTRADO y agrupado (una fila por licencia,
+   con lote, pagos y hasta cuando cubre). Lo que ves es lo que bajas. */
+function licBajarArchivo(texto, nombre) {
+  const a = document.createElement("a");
+  a.href = "data:text/csv;charset=utf-8,﻿" + encodeURIComponent(texto);
+  a.download = nombre;
+  a.click();
+}
+function licExportCSV() {
+  const lista = PanelLic.ui.ultimaLista || [];
+  if (!lista.length) { mostrarConfirmacion("No hay licencias que exportar con este filtro"); return; }
+  licBajarArchivo(PanelLic.csv(lista, t => t ? new Date(t).toISOString() : ""), "friendly123-licencias-" + (new Date()).toISOString().slice(0, 10) + ".csv");
+}
+
+// ── MODAL — segundo PIN ──
+let _pendingAction = null;
+
+function abrirModalLiberar(nombre, lsKey) {
+  _pendingAction = { key: lsKey, nombre };
+  document.getElementById("modal-cliente").textContent = nombre;
+  document.getElementById("modal-msg").textContent = "";
+  document.getElementById("modal-overlay").classList.add("visible");
+  const padEl = document.getElementById("modal-pad");
+  const slotsEl = document.getElementById("modal-slots");
+  const msgEl = document.getElementById("modal-msg");
+  padEl.innerHTML = "";
+  montarTeclado(padEl, slotsEl, async (codigo, resetFn) => {
+    const h = await sha256hex(codigo);
+    if (h === _expectedHash) {
+      ejecutarLiberacion(_pendingAction.key, _pendingAction.nombre);
+      cerrarModal();
+    } else {
+      msgEl.textContent = "Código incorrecto — intenta de nuevo.";
+      setTimeout(() => { msgEl.textContent = ""; resetFn(); }, 1400);
+    }
+  });
+  document.getElementById("modal-cancelar").onclick = cerrarModal;
+}
+
+function cerrarModal() {
+  document.getElementById("modal-overlay").classList.remove("visible");
+  document.getElementById("modal-msg").textContent = "";
+  _pendingAction = null;
+}
+
+function ejecutarLiberacion(lsKey, nombre) {
+  try {
+    const raw = localStorage.getItem(lsKey);
+    if (!raw) {
+      alert(`No se encontró la clave "${lsKey}" en localStorage.\nEsta función solo aplica a demos de mismo origen.`);
+      return;
+    }
+    const obj = JSON.parse(raw);
+    obj.email = "";
+    localStorage.setItem(lsKey, JSON.stringify(obj));
+    mostrarConfirmacion(`Correo liberado en ${nombre}. El dueño verá el formulario de correo la próxima vez que abra Avanzado.`);
+  } catch (e) {
+    alert("Error al leer/escribir localStorage: " + e.message);
+  }
+}
+
+function mostrarConfirmacion(texto) {
+  const t = document.createElement("div");
+  t.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a3a2a;border:1px solid var(--green);color:var(--green);padding:12px 20px;border-radius:8px;font-size:14px;font-family:var(--mono);z-index:300;max-width:90vw;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.5);`;
+  t.textContent = "✓ " + texto;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── INIT ──
+initGate();
+</script>
+<!-- LISTA DINAMICA v2 (JFC 2026-09-24): logica pura y pintado en panel-licencias.js;
+     aqui van los enchufes con el Worker (estado masivo, pagos, lotes). Las
+     funciones con el mismo nombre que arriba (licRenderStats) REEMPLAZAN a las
+     viejas a proposito: la nueva cuenta licencias, no aparatos. -->
+<script src="./panel-licencias.js"></script>
+<script>
+let _licIndice = null, _licIndiceDe = null, _licLotes = null, _licPagoActual = null, _licUltimoLote = null;
+
+function licIndice() {
+  if (!_licIndice || _licIndiceDe !== _licData) {
+    _licIndice = PanelLic.indexar(_licData, { lotes: _licLotes || [] });
+    _licIndiceDe = _licData;
+    licLlenarSelectLotes();
+  }
+  return _licIndice;
+}
+function licReindexar() { _licIndice = null; licPintar(); }
+function licPintar() {
+  if (_licLotes === null) { _licLotes = []; licCargarLotes(); }
+  const idx = licIndice();
+  PanelLic.pintar(idx, licFiltrosActuales());
+  licRenderStats(_licData);
+  const cp = document.getElementById("lic-check-pagina"); if (cp) cp.checked = false;
+}
+function licPagina(n) { PanelLic.ui.pagina = n; licPintar(); }
+function licOrdenar(campo) {
+  if (PanelLic.ui.orden === campo) PanelLic.ui.dir = PanelLic.ui.dir === "asc" ? "desc" : "asc";
+  else { PanelLic.ui.orden = campo; PanelLic.ui.dir = (campo === "negocio" || campo === "nombre" || campo === "codigo") ? "asc" : "desc"; }
+  licPintar();
+}
+function licRenderStats() {
+  const s = PanelLic.stats(licIndice().grupos);
+  const box = (v, l, color) => `<div class="stat-box"><div class="stat-value"${color ? ` style="color:${color};"` : ""}>${v}</div><div class="stat-label">${l}</div></div>`;
+  document.getElementById("lic-stats").innerHTML =
+    box(s.licencias, "Licencias") + box(s.dispositivos, "Aparatos") + box(s.demos, "Demos sin código") +
+    box(s.full, "Full", "var(--green)") + box(s.minima, "Minimal", "var(--amber)") + box(s.bloqueada, "Bloqueadas", "var(--red)") +
+    box(s.pagadas, "Con pago") + box(s.vencidas, "Pago vencido", s.vencidas ? "var(--red)" : "") + box(s.inactivas30, "Sin entrar 30 días") +
+    box("USD " + s.totalCobrado.toFixed(2), "Cobrado (asientos)", "var(--gold)");
+}
+function licLlenarSelectLotes() {
+  const sel = document.getElementById("lic-filtro-lote"); if (!sel) return;
+  const actual = sel.value;
+  const etiquetas = [...new Set((_licLotes || []).map(l => l.etiqueta).concat((_licIndice ? _licIndice.grupos : []).map(g => g.lote).filter(Boolean)))].sort();
+  sel.innerHTML = '<option value="">Lote: todos</option>' + etiquetas.map(e => `<option value="${licEscAttr(e)}"${e === actual ? " selected" : ""}>${licEsc(e)}</option>`).join("");
+}
+
+/* ── SELECCION + ESTADO MASIVO ── */
+function licSeleccionarTodos(valor) { PanelLic.seleccionar(PanelLic.ui.ultimaLista || [], valor); licPintar(); }
+function licSeleccionarPagina(valor) {
+  document.querySelectorAll("#lic-tbody .lic-check").forEach(cb => { if (cb.checked !== valor) { cb.checked = valor; cb.dispatchEvent(new Event("change")); } });
+}
+async function licBulkEstado() {
+  const ids = PanelLic.seleccionados();
+  const estado = document.getElementById("lic-bulk-estado").value;
+  const prog = document.getElementById("lic-bulk-progreso");
+  if (!ids.length) { mostrarConfirmacion("No hay nada seleccionado"); return; }
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  if (!confirm(`Cambiar ${ids.length} aparato(s) a "${estado}". ¿Seguro?`)) return;
+  prog.textContent = "0 / " + ids.length;
+  const r = await PanelLic.ejecutarEnLotes(ids, async (iid) => {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(iid) + "/estado", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ estado }) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const reg = _licData.find(x => x.instanceId === iid); if (reg) reg.estado = estado;
+  }, { concurrencia: 4, onProgreso: (h, t, f) => { prog.textContent = `${h} / ${t}` + (f ? ` · ${f} con error` : ""); } });
+  prog.textContent = `Listo: ${r.ok.length} ok` + (r.fallos.length ? `, ${r.fallos.length} con error (${r.fallos.slice(0, 3).map(f => f.item + ": " + f.error).join("; ")})` : "");
+  if (!r.fallos.length) PanelLic.limpiarSeleccion();
+  licReindexar();
+}
+
+/* ── PAGOS (asientos append-only por licencia) ── */
+function licAbrirPago(iid) {
+  const r = _licData.find(x => x.instanceId === iid); if (!r) return;
+  _licPagoActual = iid;
+  const hoy = new Date(); const hasta = new Date(hoy); hasta.setFullYear(hasta.getFullYear() + 5);
+  document.getElementById("lic-pago-quien").textContent = (r.nombreNegocio || "—") + " · " + (r.licenseCode || "sin código") + " · " + (r.email || "");
+  document.getElementById("lic-pago-monto").value = "";
+  document.getElementById("lic-pago-ref").value = ""; document.getElementById("lic-pago-nota").value = "";
+  document.getElementById("lic-pago-fecha").value = hoy.toISOString().slice(0, 10);
+  document.getElementById("lic-pago-hasta").value = hasta.toISOString().slice(0, 10);
+  document.getElementById("lic-pago-msg").textContent = r.licenseCode ? "" : "Este aparato no tiene licencia: activa una antes de registrar el pago.";
+  document.getElementById("lic-pago-guardar").disabled = !r.licenseCode;
+  document.getElementById("lic-pago-historial").innerHTML = "";
+  document.getElementById("lic-pago-modal").style.display = "flex";
+  licVerPagos(iid, true);
+  setTimeout(() => document.getElementById("lic-pago-monto").focus(), 50);
+}
+function licCerrarPago() { document.getElementById("lic-pago-modal").style.display = "none"; _licPagoActual = null; }
+async function licVerPagos(iid, dentroDelModal) {
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  if (!dentroDelModal) licAbrirPago(iid);
+  const cont = document.getElementById("lic-pago-historial");
+  cont.innerHTML = '<span class="lic-sub">Cargando historial…</span>';
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(iid) + "/pagos", { headers: { "X-Master-Key": licMasterKey() } });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
+    const pagos = j.pagos || [];
+    if (!pagos.length) { cont.innerHTML = '<span class="lic-sub">Sin pagos registrados para ' + licEsc(j.codigo || "esta licencia") + '.</span>'; return; }
+    const total = pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0);
+    cont.innerHTML = '<table class="lic-pagos-tabla"><thead><tr><th>Fecha</th><th>Monto</th><th>Medio</th><th>Referencia</th><th>Cubre hasta</th><th>Nota</th></tr></thead><tbody>' +
+      pagos.map(p => `<tr><td>${licEsc(p.fecha)}</td><td>${licEsc(p.moneda)} ${Number(p.monto).toFixed(2)}</td><td>${licEsc(p.medio)}</td><td>${licEsc(p.referencia || "—")}</td><td>${licEsc(p.hasta || "—")}</td><td>${licEsc(p.nota || "")}</td></tr>`).join("") +
+      `</tbody></table><p style="margin:8px 0 0;font-size:14px;"><strong>Total: ${licEsc(pagos[pagos.length - 1].moneda)} ${total.toFixed(2)}</strong> en ${pagos.length} asiento(s). Lo asentado no se edita: un error se corrige con un asiento negativo.</p>`;
+  } catch (e) { cont.innerHTML = '<span class="lic-sub">No se pudo leer el historial: ' + licEsc(e.message) + '</span>'; }
+}
+async function licGuardarPago() {
+  const iid = _licPagoActual; if (!iid) return;
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  const msg = document.getElementById("lic-pago-msg");
+  const monto = Number(document.getElementById("lic-pago-monto").value);
+  if (!Number.isFinite(monto) || monto === 0) { msg.textContent = "Monto inválido (distinto de 0; negativo = corrección)."; return; }
+  const body = { monto, moneda: document.getElementById("lic-pago-moneda").value, medio: document.getElementById("lic-pago-medio").value,
+    fecha: document.getElementById("lic-pago-fecha").value, hasta: document.getElementById("lic-pago-hasta").value,
+    referencia: document.getElementById("lic-pago-ref").value, nota: document.getElementById("lic-pago-nota").value, quien: "panel" };
+  const btn = document.getElementById("lic-pago-guardar"); btn.disabled = true; msg.textContent = "Guardando…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(iid) + "/pagos", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify(body) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
+    msg.textContent = `Asiento guardado. Total ${j.resumen.moneda} ${Number(j.resumen.total).toFixed(2)} en ${j.resumen.n} asiento(s).`;
+    const reg = _licData.find(x => x.instanceId === iid);
+    if (reg) { reg.pagoResumen = j.resumen; if (j.resumen.total > 0) reg.estado = "full"; }
+    document.getElementById("lic-pago-monto").value = "";
+    licVerPagos(iid, true);
+    licReindexar();
+  } catch (e) { msg.textContent = "Error: " + e.message; }
+  btn.disabled = false;
+}
+
+/* ── LOTES ── */
+async function licCargarLotes() {
+  const url = licWorkerUrl(); if (!url || !licMasterKey()) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/lotes", { headers: { "X-Master-Key": licMasterKey() } });
+    if (!res.ok) return;
+    _licLotes = await res.json();
+    licPintarLotes();
+    licReindexar();
+  } catch (_) {}
+}
+function licPintarLotes() {
+  const tb = document.getElementById("lic-lotes-tbody"), tabla = document.getElementById("lic-lotes-tabla"), res = document.getElementById("lic-lotes-resumen");
+  if (!tb) return;
+  const lotes = _licLotes || [];
+  const usados = new Set((_licData || []).map(r => String(r.licenseCode || "").trim().toUpperCase()).filter(Boolean));
+  res.textContent = lotes.length ? `${lotes.length} lote(s) · ${lotes.reduce((s, l) => s + l.total, 0)} códigos` : "ninguno todavía";
+  tabla.style.display = lotes.length ? "table" : "none";
+  tb.innerHTML = lotes.map(l => {
+    const act = (l.codigos || []).filter(c => usados.has(String(c).toUpperCase())).length;
+    return `<tr><td><strong>${licEsc(l.etiqueta)}</strong></td><td class="mono">${licEsc(l.prefijo || "—")}</td><td class="date">${licFmtDate(l.creado)}</td><td>${l.total}</td><td style="color:var(--green);font-weight:700;">${act}</td><td>${l.total - act}</td>` +
+      `<td><button type="button" class="btn-ok lic-mini" onclick="licBajarLoteCSV('${licEscAttr(l.etiqueta)}')">CSV</button> <button type="button" class="btn-ok lic-mini" onclick="document.getElementById('lic-filtro-lote').value='${licEscAttr(l.etiqueta)}';licFiltrar();">Ver activados</button> <button type="button" class="btn-ok lic-mini" onclick="licVerSinUsar('${licEscAttr(l.etiqueta)}')">Ver sin usar</button></td></tr>`;
+  }).join("");
+}
+async function licEmitirLote() {
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  const etiqueta = document.getElementById("lic-lote-etiqueta").value.trim();
+  const prefijo = document.getElementById("lic-lote-prefijo").value.trim();
+  const cantidad = Number(document.getElementById("lic-lote-cantidad").value);
+  const estado = document.getElementById("lic-lote-estado").value;
+  const msg = document.getElementById("lic-lote-msg");
+  if (!etiqueta) { msg.textContent = "Ponle etiqueta al lote (el gremio o asociación)."; return; }
+  if (!(cantidad >= 1 && cantidad <= 500)) { msg.textContent = "Cantidad entre 1 y 500 por lote."; return; }
+  if (!confirm(`Emitir ${cantidad} código(s) "${estado}" para "${etiqueta}". Los códigos se muestran una sola vez. ¿Seguro?`)) return;
+  msg.textContent = "Emitiendo…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/lote", { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ etiqueta, prefijo, cantidad, estado }) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
+    _licUltimoLote = j;
+    document.getElementById("lic-lote-texto").value = j.codigos.join("\n");
+    document.getElementById("lic-lote-codigos").style.display = "block";
+    msg.textContent = `${j.emitidos} código(s) emitidos para "${j.etiqueta}" (${j.totalLote} en total). Bájalos ahora: no se vuelven a mostrar juntos.`;
+    licCargarLotes();
+  } catch (e) { msg.textContent = "Error: " + e.message; }
+}
+/* "Ver sin usar" (Opus 5.5, 2026-09-24): codigos del lote que ningun aparato
+   activo todavia. Solo lectura: los muestra en la caja de codigos para
+   copiarlos o reenviarlos al gremio. No cambia nada en el Worker. */
+function licCodigosSinUsar(lote, datos) {
+  const usados = new Set((datos || []).map(r => String(r.licenseCode || "").trim().toUpperCase()).filter(Boolean));
+  return (lote && lote.codigos || []).filter(c => !usados.has(String(c).trim().toUpperCase()));
+}
+function licVerSinUsar(etiqueta) {
+  const l = (_licLotes || []).find(x => x.etiqueta === etiqueta); if (!l) return;
+  const libres = licCodigosSinUsar(l, _licData);
+  _licUltimoLote = { etiqueta: l.etiqueta + " (sin usar)", codigos: libres };
+  document.getElementById("lic-lote-texto").value = libres.join("\n");
+  document.getElementById("lic-lote-codigos").style.display = "block";
+  document.getElementById("lic-lote-msg").textContent = `${libres.length} de ${l.total} código(s) de "${l.etiqueta}" sin activar todavía.`;
+}
+function licBajarLoteCSV(etiqueta) {
+  let codigos, nombre;
+  if (etiqueta) { const l = (_licLotes || []).find(x => x.etiqueta === etiqueta); if (!l) return; codigos = l.codigos; nombre = etiqueta; }
+  else if (_licUltimoLote) { codigos = _licUltimoLote.codigos; nombre = _licUltimoLote.etiqueta; }
+  else return;
+  licBajarArchivo(PanelLic.csvCodigos(codigos, nombre), "friendly123-lote-" + nombre.replace(/[^A-Za-z0-9_-]+/g, "_") + "-" + (new Date()).toISOString().slice(0, 10) + ".csv");
+}
+</script>
+</body>
+</html>

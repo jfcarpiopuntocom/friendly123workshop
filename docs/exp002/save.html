@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#F8F9FB">
+<title>How much time are you losing counting by hand? friendly-123</title>
+<meta name="description" content="Work out in 10 seconds how many hours a year it costs you to keep inventory in a notebook or in your head. friendly-123: inventory, customers and light accounting for your business.">
+<meta property="og:title" content="How much time are you losing counting by hand? friendly-123">
+<meta property="og:description" content="Work out how many hours a year you get back with friendly-123: inventory, customers and light accounting for your business.">
+<meta property="og:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+<meta property="og:site_name" content="friendly-123">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="./favicon.ico">
+<style>
+  :root{
+    color-scheme: light only;
+    forced-color-adjust: none;
+    --verde:#00C87A;
+    --verde-dk:#00975C;
+    /* Bloque 2 (JFC 2026-09-24, legibilidad): blanco sobre #00C87A da 2.2:1 y
+       sobre #F97316 2.8:1. Donde hay TEXTO blanco se usa la tinta oscura del
+       mismo color (5.0:1 y 4.9:1). Puntos, barras y bordes siguen con el
+       color de marca: no llevan texto. */
+    --verde-ink:#0B7A4B;
+    --naranja-ink:#C2410C;
+    --rojo-ink:#B8123C;   /* blanco sobre #E8365D daba 3.9:1; aqui 6.4:1 */
+    --azul-ink:#2F6F86;   /* blanco sobre #5294AC daba 3.3:1; aqui 5.4:1 */
+    --amarillo:#FFC700;
+    --amarillo-dk:#8A5A00;
+    --azul:#5294AC;
+    --azul-dk:#2E6278;
+    --naranja:#F97316;
+    --naranja-dk:#B54E0A;
+    --rojo:#E8365D;
+    --rojo-dk:#A8123A;
+    --negro:#0A0A0F;
+    --ink:#0F1923;
+    --body-c:#2C3E50;
+    --canvas:#F8F9FB;
+    --card:#FFFFFF;
+    --hairline:#E8ECF2;
+    --on-primary:#FFFFFF;
+    --font-display:'Space Grotesk',Inter,-apple-system,'Helvetica Neue',sans-serif;
+    --font-body:Inter,-apple-system,'Helvetica Neue',sans-serif;
+    /* Familia mono: la misma que usa la app para cifras y etiquetas de
+       dato. La landing no la declaraba y por eso se sentia de otro
+       producto distinto al que vende. */
+    --font-mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html{-webkit-text-size-adjust:100%;}
+  html,body{
+    min-height:100vh;
+    min-height:100svh;
+    background:var(--canvas) !important;
+    color:var(--body-c) !important;
+    -webkit-text-fill-color:var(--body-c) !important;
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  img{max-width:100%;display:block;}
+  button{font-family:inherit;cursor:pointer;}
+  a{color:inherit;}
+
+  /* ===== iOS Safari / WhatsApp dark-mode legibility stack ===== */
+  h1,h2,h3,h4,p,li,a,span,em,strong,blockquote,figcaption,time,label,button,input{
+    -webkit-text-fill-color: currentColor !important;
+  }
+  h1,h2,h3,h4{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; font-family:var(--font-display); font-weight:700; }
+  p,li,label{ color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+
+  @media (prefers-color-scheme: dark){
+    html,body{ background:var(--canvas) !important; color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+    h1,h2,h3,h4{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+    p,li,label{ color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+    .card{ background:var(--card) !important; }
+    .card p, .card li, .card span{ color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+  }
+  /* Piso de calidad: foco visible por teclado. No existia ninguno, asi que
+     navegar con Tab era invisible. Se dibuja con el verde de accion, que aqui
+     si significa algo (es el color de "adelante" en el sistema Simon). */
+  a:focus-visible, button:focus-visible, input:focus-visible{
+    outline:3px solid var(--verde-dk);
+    outline-offset:3px;
+    border-radius:6px;
+  }
+  /* Los navegadores viejos sin :focus-visible igual reciben algo. */
+  a:focus, button:focus, input:focus{ outline:3px solid var(--verde-dk); outline-offset:3px; }
+  a:focus:not(:focus-visible), button:focus:not(:focus-visible), input:focus:not(:focus-visible){ outline:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;scroll-behavior:auto !important;}
+  }
+
+  .wrap{max-width:720px;margin:0 auto;padding:0 20px;}
+  .section{padding:48px 0;}
+  @media (min-width:640px){ .section{padding:72px 0;} }
+
+  /* ---------- Header ---------- */
+  header.top{
+    position:sticky;top:0;z-index:50;
+    background:rgba(248,249,251,.92);
+    -webkit-backdrop-filter:none;backdrop-filter:none;
+    border-bottom:1px solid var(--hairline);
+  }
+  @supports (backdrop-filter: blur(1px)) and (min-width:768px){
+    header.top{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+  }
+  header.top .inner{
+    max-width:720px;margin:0 auto;padding:12px 20px;
+    display:flex;align-items:center;gap:10px;
+  }
+  header.top img.logo{height:32px;width:auto;flex-shrink:0;}
+  header.top .word{
+    font-family:var(--font-display);font-weight:700;font-size:16px;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
+    white-space:nowrap;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{ text-align:center; padding:56px 0 32px; }
+  .hero .eyebrow{
+    display:inline-block;
+    font-size:.82rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--verde-dk) !important;-webkit-text-fill-color:var(--verde-dk) !important;
+    background:rgba(0,200,122,.12);
+    border:1px solid var(--verde);
+    border-radius:999px;
+    padding:6px 14px;
+    margin-bottom:18px;
+  }
+  .hero h1{
+    font-size:34px;font-size:clamp(30px,7.5vw,54px);
+    line-height:1.08;letter-spacing:-0.03em;
+    margin-bottom:16px;
+  }
+  .hero h1 .hl{ color:var(--verde-dk) !important; -webkit-text-fill-color:var(--verde-dk) !important; }
+  .hero .sub{
+    font-size:18px;line-height:1.55;max-width:540px;margin:0 auto 28px;
+  }
+  .hero .cta-row{ display:flex; flex-direction:column; gap:10px; align-items:center; }
+  @media (min-width:480px){ .hero .cta-row{ flex-direction:row; justify-content:center; } }
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    min-height:48px;padding:13px 26px;
+    border-radius:12px;font-weight:700;font-size:16px;
+    border:2px solid transparent;
+    text-decoration:none;
+    transition:transform .15s ease;
+  }
+  .btn:active{ transform:scale(.97); }
+  .btn-primary{
+    background:var(--verde-ink) !important;color:var(--on-primary) !important;-webkit-text-fill-color:var(--on-primary) !important;
+  }
+  .btn-ghost{
+    background:transparent !important;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
+    border-color:var(--hairline);
+  }
+
+  /* ---------- Problem / agitate ---------- */
+  .problema{ background:var(--card); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline); }
+  .problema h2{ font-size:26px;font-size:clamp(24px,5vw,30px); text-align:center; margin-bottom:14px; }
+  .problema .lead{ text-align:center; font-size:17px; max-width:560px; margin:0 auto 32px; }
+  .checks{ display:grid; grid-template-columns:1fr; gap:14px; max-width:560px; margin:0 auto; }
+  @media (min-width:600px){ .checks{ grid-template-columns:1fr 1fr; } }
+  .checks .item{
+    display:flex; gap:10px; align-items:flex-start;
+    background:var(--canvas); border:1px solid var(--hairline); border-radius:12px; padding:14px 16px;
+  }
+  .checks .item svg{ flex-shrink:0; margin-top:2px; }
+  .checks .item span{ font-size:15px; line-height:1.4; }
+
+  /* ---------- Calculadora ---------- */
+  .calc-section{ padding:48px 0 64px; }
+  .calc-card{
+    background:var(--card);
+    border:1px solid var(--hairline);
+    border-radius:20px;
+    padding:22px;
+    box-shadow:0 2px 0 var(--hairline);
+  }
+  @media (min-width:640px){ .calc-card{ padding:36px; } }
+  .calc-title{ text-align:center; margin-bottom:6px; font-size:24px; font-size:clamp(22px,5vw,28px); }
+  .calc-title .hl{ color:var(--verde-dk) !important; -webkit-text-fill-color:var(--verde-dk) !important; }
+  .calc-sub{ text-align:center; font-size:15px; margin-bottom:28px; }
+  .calc-grid{ display:grid; grid-template-columns:1fr; gap:22px; }
+  @media (min-width:640px){ .calc-grid{ grid-template-columns:1fr 1fr; gap:32px; } }
+
+  .campo{ margin-bottom:22px; }
+  .campo:last-child{ margin-bottom:0; }
+  .campo label{ display:block; font-size:.9rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:10px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  .campo .valor-grande{
+    font-family:var(--font-display); font-weight:700; font-size:30px; font-variant-numeric:tabular-nums;
+    color:var(--verde-dk) !important; -webkit-text-fill-color:var(--verde-dk) !important;
+    margin-bottom:10px;
+  }
+  input[type="range"]{
+    width:100%; height:44px;
+    -webkit-appearance:none;appearance:none;
+    background:transparent;
+    cursor:pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track{
+    height:8px;border-radius:999px;background:var(--hairline);
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:26px;height:26px;border-radius:50%;
+    background:var(--verde);
+    border:3px solid #FFFFFF;
+    box-shadow:0 1px 4px rgba(0,0,0,.25);
+    margin-top:-9px;
+  }
+  input[type="range"]::-moz-range-track{ height:8px;border-radius:999px;background:var(--hairline); }
+  input[type="range"]::-moz-range-thumb{
+    width:26px;height:26px;border-radius:50%;background:var(--verde);border:3px solid #FFFFFF;
+  }
+  .campo .rango-labels{ display:flex; justify-content:space-between; font-size:13px; margin-top:6px; }
+  .campo .rango-labels span{ color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important; }
+
+  input[type="number"]{
+    width:100%; min-height:48px; font-size:18px; font-weight:700;
+    border:2px solid var(--hairline); border-radius:10px; padding:0 14px;
+    color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important;
+    background:var(--canvas) !important;
+    font-family:var(--font-display);
+  }
+  input[type="number"]:focus{ outline:none; border-color:var(--verde); }
+
+  .resultado{
+    margin-top:28px;
+    background:linear-gradient(135deg, rgba(0,200,122,.10), rgba(82,148,172,.08));
+    border:2px solid var(--verde);
+    border-radius:16px;
+    padding:22px;
+    text-align:center;
+  }
+  .resultado .r-label{ font-size:.9rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--verde-dk) !important; -webkit-text-fill-color:var(--verde-dk) !important; margin-bottom:8px; }
+  .resultado .r-num{
+    font-family:var(--font-display); font-weight:700; font-variant-numeric:tabular-nums;
+    font-size:40px; font-size:clamp(34px,9vw,52px);
+    color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important;
+    line-height:1.05; margin-bottom:6px;
+  }
+  .resultado .r-detalle{ font-size:15px; }
+  .resultado-grid{ display:grid; grid-template-columns:1fr; gap:14px; margin-top:16px; }
+  @media (min-width:520px){ .resultado-grid{ grid-template-columns:1fr 1fr; } }
+  .mini-resultado{
+    background:var(--card); border:1px solid var(--hairline); border-radius:12px; padding:14px;
+  }
+  .mini-resultado .m-num{
+    font-family:var(--font-display); font-weight:700; font-size:24px; font-variant-numeric:tabular-nums;
+    color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important;
+  }
+  .mini-resultado .m-label{ font-size:13px; margin-top:2px; }
+
+  .calc-nota{ font-size:13px; text-align:center; margin-top:16px; }
+
+  /* ---------- Solución ---------- */
+  .solucion{ background:var(--negro); }
+  .solucion h2{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; text-align:center; font-size:26px; font-size:clamp(24px,5vw,32px); margin-bottom:12px; }
+  .solucion .lead{ color:#E8E4DC !important; -webkit-text-fill-color:#E8E4DC !important; text-align:center; font-size:17px; max-width:560px; margin:0 auto 32px; }
+  @media (prefers-color-scheme: dark){
+    .solucion h2{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+    .solucion .lead{ color:#E8E4DC !important; -webkit-text-fill-color:#E8E4DC !important; }
+  }
+  .features{ display:grid; grid-template-columns:1fr; gap:14px; max-width:600px; margin:0 auto; }
+  @media (min-width:600px){ .features{ grid-template-columns:1fr 1fr; } }
+  .feature{
+    background:#171A24; border:1px solid #2E3448; border-radius:14px; padding:18px;
+  }
+  .feature .f-dot{ width:12px;height:12px;border-radius:50%; margin-bottom:10px; }
+  .feature h3{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; font-size:16px; margin-bottom:6px; }
+  .feature p{ color:#B8B3BF !important; -webkit-text-fill-color:#B8B3BF !important; font-size:14px; line-height:1.45; }
+  @media (prefers-color-scheme: dark){
+    .feature h3{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+    .feature p{ color:#B8B3BF !important; -webkit-text-fill-color:#B8B3BF !important; }
+  }
+
+  /* ---------- Implicacion (costo de no resolverlo) ---------- */
+  .implicacion{ background:var(--card); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline); }
+  /* ---------- Microelementos de conversion (JFC 2026-08-11) ---------- */
+  .hero-atajo{ font-size:14px; margin-top:16px; }
+
+  /* Tesis en el primer viewport: lo mas caracteristico de este producto es que
+     el inventario habla en colores. Antes eso recien aparecia varias secciones
+     abajo, asi que la portada podia ser la de cualquier software. Aqui el color
+     se usa con su significado real (es el semaforo Simon, no decoracion). */
+  .tesis{ margin-top:30px; padding-top:22px; border-top:1px solid var(--hairline); }
+  .tesis-linea{ font-size:15px; margin-bottom:12px; }
+  .tesis-chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .tchip{
+    font-family:var(--font-mono); font-size:14px; font-weight:700;
+    letter-spacing:.03em; padding:7px 13px; border-radius:8px;
+  }
+  .tchip-verde{ background:var(--verde-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .tchip-dorado{ background:var(--amarillo); color:#3D2E00 !important; -webkit-text-fill-color:#3D2E00 !important; }
+  .tchip-naranja{ background:var(--naranja-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .tchip-rojo{ background:var(--rojo-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .tchip-negro{ background:var(--negro); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  @media (prefers-color-scheme: dark){
+    .tchip-verde,.tchip-naranja,.tchip-rojo,.tchip-negro{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+    .tchip-dorado{ color:#3D2E00 !important; -webkit-text-fill-color:#3D2E00 !important; }
+  }
+  .hero-atajo a{ color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+
+  .campo-ref{ font-size:13px; margin-top:10px; line-height:1.45; }
+  .campo-ref strong{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+
+  .barras{ margin:20px 0 4px; display:flex; flex-direction:column; gap:10px; }
+  .barra-fila{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; }
+  .barra-label{ font-size:13px; text-align:left; white-space:nowrap; }
+  .barra-riel{ height:14px; background:var(--hairline); border-radius:999px; overflow:hidden; }
+  .barra-fill{ height:100%; border-radius:999px; transition:width .35s ease; }
+  .barra-antes{ background:var(--rojo); }
+  .barra-despues{ background:var(--verde); }
+  .barra-cifra{ font-family:var(--font-mono); font-weight:700; font-size:15px; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+
+  .calc-cta{ display:flex; width:100%; margin-top:20px; }
+  .calc-wa-link{ display:block; margin-top:12px; font-size:14px; color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+
+  .factoids{
+    display:grid; grid-template-columns:1fr; gap:12px;
+    max-width:640px; margin:34px auto 0;
+  }
+  @media (min-width:600px){ .factoids{ grid-template-columns:1fr 1fr; } }
+  .factoid{
+    background:var(--card); border:1px solid var(--hairline); border-radius:12px;
+    padding:18px; text-align:center;
+  }
+  .factoid-n{
+    display:block; font-family:var(--font-display); font-weight:700; font-size:32px;
+    font-variant-numeric:tabular-nums; line-height:1.1; margin-bottom:6px;
+    color:var(--verde-dk) !important; -webkit-text-fill-color:var(--verde-dk) !important;
+  }
+  .factoid-l{ display:block; font-size:14px; line-height:1.45; }
+  .factoid-usa{ text-align:center; font-size:15px; margin-top:16px; }
+  .factoid-usa a{ color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+
+  .checklist-cta{ text-align:center; padding:8px 0 4px; }
+  .checklist-cta-txt{ font-size:16px; margin-bottom:14px; }
+  .checklist-cta .btn{ display:inline-flex; }
+
+  .flecha-abajo{ text-align:center; font-size:14px; margin-top:28px; }
+
+  .victoria{ background:var(--card); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline); }
+  .victoria h2{ text-align:center; font-size:24px; font-size:clamp(22px,5vw,28px); margin-bottom:14px; }
+  .victoria .lead{ text-align:center; font-size:17px; max-width:560px; margin:0 auto; }
+
+  .plan h2{ text-align:center; font-size:24px; font-size:clamp(22px,5vw,28px); margin-bottom:28px; }
+  .pasos{ display:grid; grid-template-columns:1fr; gap:16px; max-width:640px; margin:0 auto; }
+  @media (min-width:640px){ .pasos{ grid-template-columns:repeat(3,1fr); } }
+  .paso{ background:var(--card); border:1px solid var(--hairline); border-radius:12px; padding:20px; text-align:center; }
+  .paso-num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:36px; height:36px; border-radius:50%; background:var(--verde);
+    color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+    font-family:var(--font-display); font-weight:700; font-size:18px; margin-bottom:12px;
+  }
+  .paso h3{ font-size:17px; margin-bottom:8px; }
+  .paso p{ font-size:14px; }
+
+  .fundador{ max-width:640px; margin:0 auto 28px; background:var(--canvas); border:1px solid var(--hairline); border-radius:12px; padding:20px; }
+  .fundador h3{ font-size:17px; margin-bottom:10px; }
+  .fundador p{ font-size:15px; margin-bottom:10px; }
+
+  .objeciones{ display:grid; grid-template-columns:1fr; gap:16px; max-width:640px; margin:0 auto 28px; }
+  @media (min-width:600px){ .objeciones{ grid-template-columns:1fr 1fr; } }
+  .objecion{ background:var(--card); border:1px solid var(--hairline); border-radius:12px; padding:20px; }
+  .objecion h3{ font-size:16px; margin-bottom:8px; }
+  .objecion p{ font-size:14px; }
+
+  .demo-pin{ border:1px solid var(--hairline); cursor:pointer; font-family:inherit; width:100%; }
+  .demo-pin-copiar{ font-size:14px; color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; margin-top:4px; }
+
+  .salida-secundaria{ font-size:14px; margin-top:14px; }
+  .salida-secundaria a{ color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+
+  .inversion-lista{ text-align:left; margin:0 0 20px; padding-left:20px; }
+  .inversion-lista li{ font-size:14px; margin-bottom:7px; line-height:1.45; }
+  .inversion-garantia{ font-size:13px; margin-top:14px; line-height:1.5; }
+  .inversion-garantia a{ color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+  .inversion-cupo{ font-size:13px; margin-top:12px; line-height:1.5; padding-top:12px; border-top:1px solid var(--hairline); }
+
+  .implicacion h2{ text-align:center; font-size:24px; font-size:clamp(22px,5vw,28px); margin-bottom:14px; }
+  .implicacion .lead{ text-align:center; font-size:17px; max-width:560px; margin:0 auto; }
+
+  /* ---------- Confianza: testimonios, respaldo, soporte, hecho por ---------- */
+  .confianza h2{ text-align:center; font-size:24px; font-size:clamp(22px,5vw,28px); margin-bottom:28px; }
+  .testimonios{ display:grid; grid-template-columns:1fr; gap:16px; max-width:640px; margin:0 auto 40px; }
+  @media (min-width:600px){ .testimonios{ grid-template-columns:1fr 1fr; } }
+  .testimonio{
+    background:var(--card); border:1px solid var(--hairline); border-left:4px solid var(--verde);
+    border-radius:12px; padding:20px;
+  }
+  .testimonio-cita{ font-family:var(--font-display); font-weight:700; font-size:18px; margin-bottom:10px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  .testimonio-autor{ font-size:14px; }
+
+  .respaldo-grid{ display:grid; grid-template-columns:1fr; gap:16px; max-width:640px; margin:0 auto 28px; }
+  @media (min-width:600px){ .respaldo-grid{ grid-template-columns:1fr 1fr; } }
+  .respaldo-item{ background:var(--canvas); border:1px solid var(--hairline); border-radius:12px; padding:20px; }
+  .respaldo-item h3{ font-size:16px; margin-bottom:8px; }
+  .respaldo-item p{ font-size:14px; margin-bottom:12px; }
+  .btn-whatsapp{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-height:44px; padding:10px 18px; border-radius:10px;
+    /* Bloque 2 legibilidad: blanco sobre el verde WhatsApp #25D366 da 2.4:1;
+       el verde oscuro oficial #0F7A6C da 5.3:1 y se sigue leyendo como WhatsApp. */
+    background:#0F7A6C !important; color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+    font-weight:700; font-size:14px; text-decoration:none;
+  }
+
+  .hecho-por{ text-align:center; font-size:13px; }
+  .hecho-por a{ color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+
+  /* ---------- Oferta / CTA final ---------- */
+  /* ---------- Galeria: recreaciones de pantallas reales ---------- */
+  .galeria h2{ text-align:center; margin-bottom:12px; font-size:26px; font-size:clamp(24px,5vw,30px); }
+  .galeria .lead{ text-align:center; font-size:16px; max-width:520px; margin:0 auto 28px; }
+
+  .galeria-grid{ display:grid; grid-template-columns:1fr; gap:14px; max-width:640px; margin:0 auto; }
+  @media (min-width:640px){ .galeria-grid{ grid-template-columns:1fr 1fr; } }
+  .mini-card{
+    border-radius:14px; padding:16px;
+    display:flex; flex-direction:column; gap:4px;
+    box-shadow:0 2px 0 rgba(0,0,0,.08);
+  }
+  .mini-estado{ font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .mini-nombre{ font-family:var(--font-display); font-weight:700; font-size:16px; margin-top:4px; }
+  .mini-stock{ font-family:var(--font-display); font-weight:700; font-size:32px; font-variant-numeric:tabular-nums; line-height:1.1; margin-top:6px; }
+  .mini-detalle{ font-size:13px; margin-top:2px; }
+
+  .mini-rojo{ background:var(--rojo-ink); }
+  .mini-rojo *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .mini-naranja{ background:var(--naranja-ink); }
+  .mini-naranja *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .mini-verde{ background:var(--verde-ink); }
+  .mini-verde *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .mini-dorado{ background:var(--amarillo); }
+  .mini-dorado *{ color:#3D2E00 !important; -webkit-text-fill-color:#3D2E00 !important; }
+  .mini-negro{ background:var(--negro); }
+  .mini-negro *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+
+  .bcg-grid{ display:grid; grid-template-columns:1fr; gap:14px; max-width:640px; margin:0 auto; }
+  @media (min-width:640px){ .bcg-grid{ grid-template-columns:1fr 1fr; } }
+  .bcg-cuad{
+    border-radius:14px; padding:18px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .bcg-titulo{ font-family:var(--font-display); font-weight:700; font-size:18px; }
+  .bcg-sub{ font-size:13px; margin-bottom:8px; }
+  .bcg-item{ font-size:14px; font-weight:600; background:rgba(255,255,255,.18); border-radius:8px; padding:6px 10px; }
+
+  .bcg-azul{ background:var(--azul-ink); }
+  .bcg-azul *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .bcg-verde{ background:var(--verde-ink); }
+  .bcg-verde *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .bcg-dorado{ background:var(--amarillo); }
+  .bcg-dorado *{ color:#3D2E00 !important; -webkit-text-fill-color:#3D2E00 !important; }
+  .bcg-dorado .bcg-item{ background:rgba(61,46,0,.10); }
+  .bcg-gris{ background:#5C6B7A; }
+  .bcg-gris *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+
+  /* FAQ (Opus 5.5, 2026-09-24): tinta de verdad, 4 esquinas, 15-17 px, sin JS. */
+  .faq{ max-width:640px; margin:0 auto; padding:8px 16px 48px; box-sizing:border-box; }
+  .faq h2{ font-size:24px; font-size:clamp(22px,5vw,28px); text-align:center; margin-bottom:18px; }
+  .faq details{ background:var(--card); border:1px solid var(--hairline); border-radius:12px; padding:14px 18px; margin-bottom:10px; }
+  .faq summary{ cursor:pointer; font-weight:700; font-size:17px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; list-style-position:inside; }
+  .faq details p{ font-size:16px; line-height:1.6; margin-top:10px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  .faq details a{ color:var(--verde-ink) !important; -webkit-text-fill-color:var(--verde-ink) !important; font-weight:700; text-decoration:underline; }
+  .oferta{ text-align:center; padding:56px 0; }
+  .oferta h2{ font-size:28px; font-size:clamp(24px,6vw,36px); margin-bottom:14px; }
+  .oferta .lead{ font-size:17px; max-width:500px; margin:0 auto 28px; }
+
+  .demo-box{
+    background:var(--canvas);
+    border:2px dashed var(--verde);
+    border-radius:16px;
+    padding:20px;
+    max-width:560px;
+    margin:0 auto 28px;
+  }
+  .demo-box-titulo{
+    font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--verde-dk) !important;-webkit-text-fill-color:var(--verde-dk) !important;
+    margin-bottom:14px;
+  }
+  .demo-pines{ display:grid; grid-template-columns:1fr; gap:10px; }
+  @media (min-width:560px){ .demo-pines{ grid-template-columns:1fr 1fr 1fr; } }
+  .demo-pin{
+    background:var(--card); border:1px solid var(--hairline); border-radius:10px;
+    padding:12px; display:flex; flex-direction:column; gap:4px; align-items:center; text-align:center;
+  }
+  .demo-pin-num{
+    font-family:var(--font-mono);font-weight:700;font-size:22px;font-variant-numeric:tabular-nums;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
+    letter-spacing:.02em;
+  }
+  .demo-pin-rol{ font-size:13px; }
+
+  .community-box{
+    background:var(--canvas);
+    border:2px solid var(--azul);
+    border-radius:16px;
+    padding:20px;
+    max-width:560px;
+    margin:0 auto 20px;
+    text-align:center;
+  }
+  .community-box-titulo{
+    font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--azul-dk) !important;-webkit-text-fill-color:var(--azul-dk) !important;
+    margin-bottom:10px;
+  }
+  .community-box-texto{ font-size:15px; margin-bottom:16px; }
+  .community-pin{
+    background:var(--card); border:1px solid var(--hairline); border-radius:10px;
+    padding:12px; display:flex; flex-direction:column; gap:4px; align-items:center;
+  }
+  .community-pin-num{
+    font-family:var(--font-mono);font-weight:700;font-size:24px;font-variant-numeric:tabular-nums;
+    color:var(--azul-dk) !important;-webkit-text-fill-color:var(--azul-dk) !important;
+    letter-spacing:.02em;
+  }
+  .community-pin-rol{ font-size:13px; }
+
+  .inversion-box{
+    background:var(--card);
+    border:2px solid var(--verde);
+    border-radius:20px;
+    padding:28px 22px;
+    max-width:420px;
+    margin:0 auto;
+    text-align:center;
+    box-shadow:0 4px 0 var(--hairline);
+  }
+  .inversion-box-titulo{ font-size:14px; margin-bottom:10px; }
+  .inversion-monto{
+    font-family:var(--font-display); font-weight:700; font-variant-numeric:tabular-nums;
+    font-size:52px;
+    color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important;
+    line-height:1; margin-bottom:14px;
+  }
+  .inversion-signo{ font-size:28px; vertical-align:top; position:relative; top:8px; }
+  .inversion-detalle{ font-size:14px; margin-bottom:20px; }
+  .inversion-detalle strong{ color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  .btn-comprar{ width:100%; font-size:18px; min-height:54px; padding:15px 26px; }
+  .inversion-metodos{ font-size:14px; margin-top:12px; }
+
+  .separador-o{
+    max-width:200px; margin:28px auto; text-align:center; position:relative;
+    font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--body-c) !important; -webkit-text-fill-color:var(--body-c) !important;
+  }
+  .separador-o::before, .separador-o::after{
+    content:""; position:absolute; top:50%; width:70px; height:1px; background:var(--hairline);
+  }
+  .separador-o::before{ left:-84px; }
+  .separador-o::after{ right:-84px; }
+
+  .community-section{ padding:32px 0 56px; }
+  .community-section .community-box{ max-width:460px; padding:18px; border-color:var(--hairline); }
+
+  footer{
+    border-top:1px solid var(--hairline);
+    padding:28px 0;
+    text-align:center;
+  }
+  footer p{ font-size:13px; }
+  footer a{ color:var(--azul-dk) !important; -webkit-text-fill-color:var(--azul-dk) !important; text-decoration:underline; }
+
+  /* Touch targets */
+  a,button,input,select{ min-height:44px; }
+  .hero .cta-row .btn{ min-height:48px; }
+</style>
+<!-- Bloque 2 SEO (JFC 2026-09-24): canonical + datos estructurados. -->
+<link rel="canonical" href="https://jfcarpiopuntocom.github.io/friendly-123/save.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"How much time are you losing counting by hand? friendly-123","url":"https://jfcarpiopuntocom.github.io/friendly-123/save.html","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"friendly-123","url":"https://jfcarpiopuntocom.github.io/friendly-123/"},"about":{"@type":"SoftwareApplication","name":"friendly-123","applicationCategory":"BusinessApplication","operatingSystem":"Any (web, offline-capable)","offers":{"@type":"Offer","price":"399","priceCurrency":"USD","description":"One-time payment, 5-year license, support and updates included"}}}
+</script>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <img class="logo" alt="friendly-123" width="2088" height="427" src="./img/logo-720.png">
+    
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <span class="eyebrow">10-second calculator</span>
+    <h1>How many hours a year is it costing you <span class="hl">to track inventory by hand</span>?</h1>
+    <p class="sub">A notebook only records. It does not think, it does not warn you, it does not add up. Clothing, food, crafts or services, it makes no difference: work out below what it actually costs you today, and how much you get back with friendly-123.</p>
+    <div class="cta-row">
+      <a href="#calculadora" class="btn btn-primary">Calculate my savings</a>
+    </div>
+    <p class="hero-atajo">Already heard about friendly-123? <a href="#probar">Skip straight to the demo</a>.</p>
+
+    <div class="tesis">
+      <p class="tesis-linea">Inside, every product lights up on its own:</p>
+      <div class="tesis-chips">
+        <span class="tchip tchip-verde">Healthy</span>
+        <span class="tchip tchip-dorado">Opportunity</span>
+        <span class="tchip tchip-naranja">Check soon</span>
+        <span class="tchip tchip-rojo">Urgent</span>
+        <span class="tchip tchip-negro">Sleeping</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="problema section">
+    <div class="wrap">
+      <h2>The real cost is not the time. It is the wear.</h2>
+      <p class="lead">It is not just counting. It is carrying in your head what is missing, what is piling up and what is about to expire, all day, every day.</p>
+      <div class="checks">
+        <div class="item">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#E8365D" stroke-width="1.6"/><path d="M7 7l6 6M13 7l-6 6" stroke="#E8365D" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Closing up and not knowing whether the register or the stock actually balanced.</span>
+        </div>
+        <div class="item">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#E8365D" stroke-width="1.6"/><path d="M7 7l6 6M13 7l-6 6" stroke="#E8365D" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Sunday with a calculator, recounting everything from scratch.</span>
+        </div>
+        <div class="item">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#E8365D" stroke-width="1.6"/><path d="M7 7l6 6M13 7l-6 6" stroke="#E8365D" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Someone asking "did the order come in?" and nobody knows for sure.</span>
+        </div>
+        <div class="item">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#E8365D" stroke-width="1.6"/><path d="M7 7l6 6M13 7l-6 6" stroke="#E8365D" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>That product sitting there dead for three months, and nobody caught it in time.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="calc-section wrap" id="calculadora">
+    <div class="calc-card">
+      <h2 class="calc-title">Your <span class="hl">hours-recovered</span> calculator</h2>
+      <p class="calc-sub">Set the values to your real business. The math updates instantly.</p>
+
+      <div class="calc-grid">
+        <div>
+          <div class="campo">
+            <label for="horas">Hours a week on the notebook and counting by hand</label>
+            <div class="valor-grande"><span id="horas-out">6</span> hours/week</div>
+            <input type="range" id="horas" min="1" max="20" value="6" step="1">
+            <div class="rango-labels"><span>1h</span><span>20h</span></div>
+          </div>
+          <div class="campo">
+            <label for="valorhora">What is your hour worth?</label>
+            <div class="valor-grande">$<span id="valorhora-out">4</span> per hour</div>
+            <input type="range" id="valorhora" min="2" max="35" value="4" step="0.5">
+            <div class="rango-labels"><span>$2</span><span>$35</span></div>
+            <p class="campo-ref">Use your own estimate of an hour's value. The calculator shows a scenario, not a guaranteed saving.</p>
+          </div>
+        </div>
+
+        <div class="resultado">
+          <div class="r-label">You get back per year</div>
+          <div class="r-num" id="horas-ano">156 horas</div>
+          <div class="r-detalle">with friendly-123 versus doing it by hand*</div>
+
+          <div class="barras">
+            <div class="barra-fila">
+              <span class="barra-label">Today, by hand</span>
+              <div class="barra-riel"><div class="barra-fill barra-antes" id="barra-antes"></div></div>
+              <span class="barra-cifra" id="barra-antes-cifra">312 h</span>
+            </div>
+            <div class="barra-fila">
+              <span class="barra-label">With friendly-123</span>
+              <div class="barra-riel"><div class="barra-fill barra-despues" id="barra-despues"></div></div>
+              <span class="barra-cifra" id="barra-despues-cifra">156 h</span>
+            </div>
+          </div>
+
+          <div class="resultado-grid">
+            <div class="mini-resultado">
+              <div class="m-num" id="dias-recuperados">19.5 days</div>
+              <div class="m-label">full 8-hour days, free</div>
+            </div>
+            <div class="mini-resultado">
+              <div class="m-num" id="valor-ahorrado">$468</div>
+              <div class="m-label">value of that time, at your own rate</div>
+            </div>
+          </div>
+
+          <a href="#probar" class="btn btn-primary calc-cta">See this working in the demo</a>
+          <a href="#" id="calc-wa" class="calc-wa-link">Send me this calculation on WhatsApp</a>
+        </div>
+      </div>
+      <p class="calc-nota">*Illustrative estimate assuming you spend 50% less time on this task. This is a scenario, not a measured result; your actual savings may differ.</p>
+    </div>
+    <div class="factoids">
+      <div class="factoid">
+        <span class="factoid-n">6 h</span>
+        <span class="factoid-l">a week in this example; enter your own time above</span>
+      </div>
+      <div class="factoid">
+        <span class="factoid-n">156 h</span>
+        <span class="factoid-l">recovered per year in this example: 19.5 full 8-hour days</span>
+      </div>
+      <div class="factoid">
+        <span class="factoid-n">$3,900</span>
+        <span class="factoid-l">value of that time in the United States, at $25 an owner-operator hour</span>
+      </div>
+      <div class="factoid">
+        <span class="factoid-n">$468</span>
+        <span class="factoid-l">the same time in Latin America, at $3 an hour</span>
+      </div>
+    </div>
+    <p class="factoid-usa">Is your business in Latin America? <a href="https://jfcarpiopuntocom.github.io/AMIGABLE/ahorra.html" target="_blank" rel="noopener">amigable-123 is the Spanish version</a>, built for that market.</p>
+    <p class="flecha-abajo" aria-hidden="true">↓ And this is what you see when you open the app</p>
+  </section>
+
+  <section class="solucion section">
+    <div class="wrap">
+      <h2>This is what replaces the notebook</h2>
+      <p class="lead">No training. No manual needed to start. You learn it in 10 minutes.</p>
+      <div class="features">
+        <div class="feature">
+          <div class="f-dot" style="background:#00C87A;"></div>
+          <h3>Colors you already know how to read</h3>
+          <p>Green, gold, orange, red, black. You see the product's color and you know what to do, without thinking.</p>
+        </div>
+        <div class="feature">
+          <div class="f-dot" style="background:#5294AC;"></div>
+          <h3>Customers the app remembers for you</h3>
+          <p>It remembers who buys what, so you do not have to.</p>
+        </div>
+        <div class="feature">
+          <div class="f-dot" style="background:#FFC700;"></div>
+          <h3>Light accounting, honest</h3>
+          <p>Real margin, expenses prorated across the days of the month. Nothing that makes you feel better off than you are.</p>
+        </div>
+        <div class="feature">
+          <div class="f-dot" style="background:#F97316;"></div>
+          <h3>Your data, your device</h3>
+          <p>Nothing goes to the cloud. It works offline. Nobody else sees your business.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="galeria section">
+    <div class="wrap">
+      <h2>This is what your inventory looks like</h2>
+      <p class="lead">Each color tells you what to do before you have thought about it.</p>
+      <div class="galeria-grid">
+        <div class="mini-card mini-rojo">
+          <span class="mini-estado">Urgent</span>
+          <span class="mini-nombre">T-shirt: Iron Maiden — The Trooper</span>
+          <span class="mini-stock">4</span>
+          <span class="mini-detalle">4 left, restock now</span>
+        </div>
+        <div class="mini-card mini-naranja">
+          <span class="mini-estado">Check soon</span>
+          <span class="mini-nombre">T-shirt: Led Zeppelin — Icarus</span>
+          <span class="mini-stock">12</span>
+          <span class="mini-detalle">12 left, check soon</span>
+        </div>
+        <div class="mini-card mini-dorado">
+          <span class="mini-estado">Opportunity</span>
+          <span class="mini-nombre">Chordeleg Filigree Earrings</span>
+          <span class="mini-stock">15</span>
+          <span class="mini-detalle">Good margin, there is money waiting for you</span>
+        </div>
+        <div class="mini-card mini-verde">
+          <span class="mini-estado">Healthy</span>
+          <span class="mini-nombre">Rock 2026 Hardcover Planner</span>
+          <span class="mini-stock">25</span>
+          <span class="mini-detalle">Healthy stock</span>
+        </div>
+        <div class="mini-card mini-negro">
+          <span class="mini-estado">Sleeping</span>
+          <span class="mini-nombre">Hand-carved Wooden Chess Set</span>
+          <span class="mini-stock">5</span>
+          <span class="mini-detalle">No sales in 128 days, your money is resting there</span>
+        </div>
+      </div>
+      
+
+      <h2 style="margin-top:48px;">It knows which products feed you</h2>
+      <p class="lead">Automatic BCG matrix from the last 60 days of sales, without you writing a single formula.</p>
+      <div class="bcg-grid">
+        <div class="bcg-cuad bcg-azul">
+          <span class="bcg-titulo">Question marks</span>
+          <span class="bcg-sub">They sell little but they are climbing. Give them shelf space.</span>
+          <span class="bcg-item">Vinyl: Soda Estéreo — Canción Animal · $40.00</span>
+          <span class="bcg-item">Cajas Highlands Honey 300g · $17.00</span>
+        </div>
+        <div class="bcg-cuad bcg-verde">
+          <span class="bcg-titulo">Stars</span>
+          <span class="bcg-sub">They sell a lot and they are climbing. Protect their stock.</span>
+          <span class="bcg-item">Vinyl: The Clash — London Calling · $192.00</span>
+          <span class="bcg-item">T-shirt: Pink Floyd — The Dark Side · $132.00</span>
+        </div>
+        <div class="bcg-cuad bcg-gris">
+          <span class="bcg-titulo">Dead weight</span>
+          <span class="bcg-sub">No movement in 60 days. Free up that capital.</span>
+          <span class="bcg-item">Chordeleg Filigree Earrings · $22.00</span>
+          <span class="bcg-item">T-shirt: Metallica — Master of Puppets · $—</span>
+        </div>
+        <div class="bcg-cuad bcg-dorado">
+          <span class="bcg-titulo">Cash cows</span>
+          <span class="bcg-sub">They sell a lot, steadily. They fund everything else.</span>
+          <span class="bcg-item">Printed Rock Tote Bag · $136.00</span>
+          <span class="bcg-item">Panama Hat, Toquilla Straw · $90.00</span>
+        </div>
+      </div>
+      <p class="flecha-abajo" aria-hidden="true">↓ But inventory is only half the story</p>
+    </div>
+  </section>
+
+  <section class="implicacion section">
+    <div class="wrap">
+      <h2>What that time is really costing you</h2>
+      <p class="lead">It is not just the time spent counting. It is the customer you told "we are out" when it was in the back room all along. It is the sale that went to another store because you took too long to confirm. It is the Sunday that was not a Sunday. If any of this happened to you this week, you already know why you are still reading.</p>
+      <div class="cta-row" style="margin-top:26px;">
+        <a href="#probar" class="btn btn-primary">Try the demo now</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="victoria section">
+    <div class="wrap">
+      <h2>What Sunday feels like when this stops happening</h2>
+      <p class="lead">You close up on Saturday and you already know what is missing, what is piling up and what you made. No recount, no calculator, no "I will check on Monday". Sunday goes back to being Sunday.</p>
+    </div>
+  </section>
+
+  <section class="plan section">
+    <div class="wrap">
+      <h2>Three steps, that is all</h2>
+      <div class="pasos">
+        <div class="paso">
+          <span class="paso-num">1</span>
+          <h3>Try it</h3>
+          <p>Open the demo with a code, no signup and no card. Ten seconds.</p>
+        </div>
+        <div class="paso">
+          <span class="paso-num">2</span>
+          <h3>Activate it</h3>
+          <p>With code 789 you start your own instance with your real products: a full 30-day trial.</p>
+        </div>
+        <div class="paso">
+          <span class="paso-num">3</span>
+          <h3>Close the notebook</h3>
+          <p>When the business grows, you pay once and carry on. The notebook becomes a decoration.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="confianza section">
+    <div class="wrap">
+      <h2>Businesses that already closed the notebook</h2>
+      <!-- Nombres con permiso de Belen (idiomARTE) y Jose (Olimpo Chess Club), JFC 2026-09-24. Texto en tinta: la regla prohibe gris. -->
+      <p style="text-align:center;font-size:15px;color:var(--ink);margin:-8px auto 18px;max-width:640px;">Reviews based on the twin app amigable-123 — the Spanish-market sibling of friendly-123, same codebase, same operators.</p>
+      <div class="testimonios">
+        <div class="testimonio">
+          <p class="testimonio-cita">"It is exactly what I was looking for"</p>
+          <p class="testimonio-autor">Belén — idiomARTE, Cuenca</p>
+        </div>
+        <div class="testimonio">
+          <p class="testimonio-cita">"This saves me from using the notebook"</p>
+          <p class="testimonio-autor">José — Olimpo Chess Club, Cuenca, Ecuador</p>
+        </div>
+      </div>
+
+      <div class="respaldo-grid">
+        <div class="respaldo-item">
+          <h3>Your data, backed up</h3>
+          <p>An encrypted backup you export yourself whenever you want, to your own messages or email. Change phones and your business does not get lost.</p>
+        </div>
+        <div class="respaldo-item">
+          <h3>Real support, direct</h3>
+          <p>WhatsApp and email, no help desk and no tickets. The app stays updated for as long as your license runs.</p>
+        </div>
+      </div>
+
+      <div class="fundador">
+        <h3>Who is behind this</h3>
+        <p>I have researched hundreds of businesses and advised dozens, from small to mid-sized. This came out of that: I would rather specialize and do a few things well than promise you a suite that does everything halfway.</p>
+        <p class="hecho-por">A project by <a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener">avatiun.com</a>.</p>
+      </div>
+
+      <div class="objeciones">
+        <div class="objecion">
+          <h3>"I tried an app once and it was impossibly complicated"</h3>
+          <p>Most of them make you configure categories, taxes and workflows before they let you see anything. Here you open it, you see colors, and you have understood. If you have not gotten the hang of it in ten minutes, it was not for you and you did not lose a dollar finding out.</p>
+        </div>
+        <div class="objecion">
+          <h3>Who this is NOT for</h3>
+          <p>If you need e-invoicing filed with your tax authority, a multi-store chain with a central warehouse, or real-time integration with your accountant, this will fall short. It is a shared digital notebook, not an ERP. Better you hear it now.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="oferta wrap" id="probar">
+    <h2>Stop guessing. Start seeing.</h2>
+    <p class="lead">Try it first, no signup and no card, in 10 seconds.</p>
+
+    <div class="demo-box">
+      <div class="demo-box-titulo">Enter the demo with any of these codes</div>
+      <div class="demo-pines">
+        <button type="button" class="demo-pin" data-copiar="456">
+          <span class="demo-pin-num">4-5-6</span>
+          <span class="demo-pin-rol">Demo, full control, in detail</span>
+          <span class="demo-pin-copiar">Tap to copy</span>
+        </button>
+        <button type="button" class="demo-pin" data-copiar="260">
+          <span class="demo-pin-num">2-6-0</span>
+          <span class="demo-pin-rol">Employee, sells and counts stock</span>
+          <span class="demo-pin-copiar">Tap to copy</span>
+        </button>
+        <button type="button" class="demo-pin" data-copiar="357">
+          <span class="demo-pin-num">3-5-7</span>
+          <span class="demo-pin-rol">Bookkeeper, the accounting layer</span>
+          <span class="demo-pin-copiar">Tap to copy</span>
+        </button>
+      </div>
+    </div>
+    <div class="cta-row">
+      <a href="./index.html" class="btn btn-primary">Open the demo now</a>
+    </div>
+    <p class="salida-secundaria"><a href="./manual.html">Or read the full manual first</a></p>
+
+    <div class="separador-o">o</div>
+
+    <p class="lead" style="margin-bottom:18px;">You tried it and it convinced you. One payment, a 5-year license, yours from today.</p>
+    <div class="inversion-box">
+      <div class="inversion-monto"><span class="inversion-signo">$</span>399</div>
+      <p class="inversion-detalle">Your one-time investment.</p>
+      <ul class="inversion-lista">
+        <li>5-year license, no subscription and no monthly payments</li>
+        <li>Direct support from the person who built it</li>
+        <li>Updates included for the full 5 years</li>
+        <li>No cap on products, sales or employees</li>
+        <li>Your data always on your device, exportable whenever you want</li>
+      </ul>
+      <a href="https://www.paypal.me/jfcarpio/399" target="_blank" rel="noopener" class="btn btn-primary btn-comprar" id="btn-comprar-paypal" data-pago="paypal">Yes, I want my 5-year license</a>
+      <p class="inversion-metodos">Pay with PayPal. Stripe and Bitcoin coming.</p>
+      <!-- JFC 2026-09-24: promesa post-pago (24 h). Decision de JFC en DECISIONES-JFC.md "Post-pago". -->
+      <p class="inversion-metodos"><strong>After payment you get your license by WhatsApp or email within 24 hours.</strong></p>
+      <p class="inversion-cupo">I personally walk the first businesses of each month through setup. For as long as I am the only one giving support, that one-to-one time has a real limit.</p>
+      <p class="inversion-garantia">If something does not add up, you message me and we sort it out. You deal directly with <a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a>, not with a call center.</p>
+    </div>
+  </section>
+
+  <!-- FAQ (Bloque 7, Opus 5.5, 2026-09-24). Solo hechos que ya dice esta pagina o la app
+       (precio, licencia de 5 anos, prueba de 30 dias -> solo lectura sin borrar nada (shell 342),
+       datos en el aparato, entrega en 24 h). No agregar promesas nuevas aqui sin decision de JFC. -->
+  <section class="faq wrap" id="faq">
+    <h2>Questions people ask before paying</h2>
+    <details>
+      <summary>Is it really a single payment?</summary>
+      <p>Yes. $399 once, for a 5-year license. No subscription, no monthly payments and no per-user fees.</p>
+    </details>
+    <details>
+      <summary>What do the 5 years include?</summary>
+      <p>Every update for the full 5 years, and support by WhatsApp and email directly with me. No help desk and no tickets.</p>
+    </details>
+    <details>
+      <summary>What happens when the 30-day trial ends?</summary>
+      <p>If you have not bought a license, the app switches to read-only: you can still see and export everything. Nothing is deleted.</p>
+    </details>
+    <details>
+      <summary>Where is my business data kept?</summary>
+      <p>On your own device. You can export an encrypted backup whenever you want, to your own messages or email.</p>
+    </details>
+    <details>
+      <summary>How do I get my license after paying?</summary>
+      <p>By WhatsApp or email within 24 hours. Questions before that? <a href="https://wa.me/593999905080?text=Hola%2C%20tengo%20una%20pregunta%20sobre%20friendly-123" target="_blank" rel="noopener">Write me on WhatsApp</a>.</p>
+    </details>
+  </section>
+
+  <!-- (Embudo, JFC 2026-09-24) Se quito "Answer 12 questions" (checklist.html): sacaba al visitante justo despues de la oferta. La pagina sigue existiendo. -->
+
+  <section class="community-section wrap">
+    <div class="community-box">
+      <!-- 2026-09-25 (JFC): el viejo "Community tier" gratis para siempre ya no existe en friendly-123 (eso es amigable-123). Modelo vigente: 30 dias completos, luego solo lectura, datos nunca se borran (licencia-prueba.js). -->
+      <div class="community-box-titulo">Try everything free for 30 days</div>
+      <p class="community-box-texto">Every feature, no limits: products, sales, team and sync. After 30 days without a license the app switches to read-only. Your data is never deleted.</p>
+      <div class="community-pin">
+        <span class="community-pin-num">7-8-9</span>
+        <span class="community-pin-rol">Start using it: activate your own instance (full 30-day trial)</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>friendly-123 — Your business, in color. <a href="./manual.html">User manual</a> · <a href="https://github.com/jfcarpiopuntocom/friendly-123" target="_blank" rel="noopener">Code</a></p>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var horasInput = document.getElementById("horas");
+  var valorHoraInput = document.getElementById("valorhora");
+  var horasOut = document.getElementById("horas-out");
+  var valorHoraOut = document.getElementById("valorhora-out");
+  var horasAno = document.getElementById("horas-ano");
+  var diasRecuperados = document.getElementById("dias-recuperados");
+  var valorAhorrado = document.getElementById("valor-ahorrado");
+  var barraAntes = document.getElementById("barra-antes");
+  var barraDespues = document.getElementById("barra-despues");
+  var barraAntesCifra = document.getElementById("barra-antes-cifra");
+  var barraDespuesCifra = document.getElementById("barra-despues-cifra");
+  var calcWa = document.getElementById("calc-wa");
+
+  var TASA_AHORRO = 0.5; // 50%, mismo numero que ya usa la app en help-ui.js ("Te ahorra 50% de tu tiempo")
+  var SEMANAS_ANO = 52;
+  var HORAS_JORNADA = 8;
+  var _ultimo = null; // ultimo calculo, para el envio por WhatsApp
+
+  function fmtMoney(n){
+    try { return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 0 }); }
+    catch (_) { return "$" + Math.round(n); }
+  }
+
+  function calcular(){
+    var horasSemana = parseFloat(horasInput.value) || 0;
+    var valorHora = parseFloat(valorHoraInput.value) || 0;
+
+    var horasAnoActual = horasSemana * SEMANAS_ANO;
+    var horasAhorradasAnoNum = horasAnoActual * TASA_AHORRO;
+    var horasAnoConApp = horasAnoActual - horasAhorradasAnoNum;
+    var diasNum = horasAhorradasAnoNum / HORAS_JORNADA;
+    var valorNum = horasAhorradasAnoNum * valorHora;
+
+    horasOut.textContent = horasSemana;
+    valorHoraOut.textContent = valorHora % 1 === 0 ? valorHora : valorHora.toFixed(1).replace(".", ",");
+    horasAno.textContent = Math.round(horasAhorradasAnoNum).toLocaleString("en-US") + " hours";
+    diasRecuperados.textContent = diasNum.toFixed(1) + " days";
+    valorAhorrado.textContent = fmtMoney(valorNum);
+
+    // Barras: "hoy" siempre al 100% del riel, "con la app" proporcional.
+    barraAntes.style.width = "100%";
+    barraDespues.style.width = (100 * (1 - TASA_AHORRO)) + "%";
+    barraAntesCifra.textContent = Math.round(horasAnoActual).toLocaleString("en-US") + " h";
+    barraDespuesCifra.textContent = Math.round(horasAnoConApp).toLocaleString("en-US") + " h";
+
+    _ultimo = {
+      horasSemana: horasSemana,
+      horasAno: Math.round(horasAhorradasAnoNum),
+      dias: diasNum.toFixed(1),
+      valor: fmtMoney(valorNum)
+    };
+  }
+
+  horasInput.addEventListener("input", calcular);
+  valorHoraInput.addEventListener("input", calcular);
+  calcular();
+
+  // Compartir el calculo por WhatsApp (JFC: "para persuadir a mi esposa/o o
+  // socio(s)"). Abre el compositor de WhatsApp del propio usuario con el
+  // resultado ya escrito -- no manda nada a ningun servidor nuestro.
+  if (calcWa) {
+    calcWa.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      if (!_ultimo) return;
+      var txt = "Look at what I worked out for our business:\n\n"
+        + "Today we lose about " + _ultimo.horasSemana + " hours a week tracking inventory by hand.\n"
+        + "With friendly-123 we would get back about " + _ultimo.horasAno + " hours a year "
+        + "(" + _ultimo.dias + " días completos), que a nuestra tarifa son " + _ultimo.valor + ".\n\n"
+        + "La demo es gratis y sin registro: https://jfcarpiopuntocom.github.io/friendly-123/save.html";
+      window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank", "noopener");
+    });
+  }
+
+  // Boton de compra (JFC 2026-08-11): PayPal se conecta aparte, en las
+  // proximas 24h -- despues Stripe y Bitcoin. Hasta que eso este listo,
+  // el boton no debe hacer nada roto (un href="#" solo saltaria al tope
+  // de la pagina). Para conectar PayPal: reemplazar este handler por el
+  // boton/checkout real de PayPal (o cambiar el <a> por su botón nativo).
+  // Copiar el PIN de un toque: al cambiar de pestaña hacia la app, tener el
+  // codigo en el portapapeles evita memorizarlo.
+  Array.prototype.forEach.call(document.querySelectorAll("[data-copiar]"), function (btn) {
+    btn.addEventListener("click", function () {
+      var pin = btn.getAttribute("data-copiar");
+      var aviso = btn.querySelector(".demo-pin-copiar");
+      function ok(){ if (aviso) { aviso.textContent = "Copied"; setTimeout(function(){ aviso.textContent = "Tap to copy"; }, 1600); } }
+      // Fallback real: si la Clipboard API existe pero rechaza (permisos,
+      // contexto no seguro, Safari quisquilloso), hay que caer al metodo
+      // viejo — no dejar el boton mudo.
+      function copiarViejo(){
+        try {
+          var tmp = document.createElement("input");
+          tmp.value = pin; document.body.appendChild(tmp); tmp.select();
+          tmp.setSelectionRange(0, 99);
+          document.execCommand("copy"); document.body.removeChild(tmp); ok();
+        } catch (_) {}
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(pin).then(ok, copiarViejo);
+          return;
+        }
+      } catch (_) {}
+      copiarViejo();
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>
