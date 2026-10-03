@@ -1,0 +1,35 @@
+/* vEXP003 — professional UX/conversion layer. Presentation only. */
+:root{--exp3-navy:#0F1923;--exp3-blue:#2E6278;--exp3-line:#D7E0E8;--exp3-bg:#F8F9FB;--exp3-white:#fff;--exp3-rust:#C0472B;}
+#exp003-trust{position:fixed;z-index:1200;right:14px;bottom:14px;max-width:320px;background:#fff;border:1px solid var(--exp3-line);border-radius:12px;box-shadow:0 8px 28px rgba(15,25,35,.16);padding:9px 12px;font:700 12px/1.35 var(--font-mono,monospace);color:var(--exp3-navy);cursor:pointer}
+#exp003-trust small{display:none;font:500 12px/1.4 var(--font-body,sans-serif);margin-top:6px;color:#425466}
+#exp003-trust.expanded small{display:block}
+.exp003-mission{margin:0 0 14px;background:#fff;border:1px solid var(--exp3-line);border-left:5px solid var(--exp3-blue);border-radius:14px;padding:14px 16px;box-shadow:0 5px 18px rgba(15,25,35,.07)}
+.exp003-kicker{font:700 11px/1.2 var(--font-mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--exp3-blue)}
+.exp003-mission h3{margin:5px 0 4px;font:700 20px/1.2 var(--font-display,sans-serif);color:var(--exp3-navy)}
+.exp003-mission p{margin:0 0 12px;color:#425466;font-size:14px}
+.exp003-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.exp003-step{appearance:none;border:1px solid var(--exp3-line);background:#F8FAFC;border-radius:10px;padding:10px;text-align:left;cursor:pointer;color:var(--exp3-navy);min-height:58px;font:700 13px/1.25 var(--font-body,sans-serif)}
+.exp003-step span{display:block;font:700 10px/1 var(--font-mono,monospace);color:#66788A;margin-bottom:5px}
+.exp003-step.done{border-color:#0FA46A;background:#F0FBF6}
+.exp003-command{display:flex;gap:8px;flex-wrap:wrap;margin:-2px 0 14px}
+.exp003-command button{min-height:44px;border:1px solid var(--exp3-line);background:#fff;border-radius:10px;padding:9px 13px;font:700 13px var(--font-body,sans-serif);color:var(--exp3-navy);cursor:pointer}
+.exp003-command button.primary{background:var(--exp3-navy);color:#fff;border-color:var(--exp3-navy)}
+.exp003-outcome{margin:-6px 0 12px;color:#425466;font-size:14px;line-height:1.4;max-width:760px}
+.exp003-proof{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 16px}
+.exp003-proof>div{border:1px solid var(--exp3-line);border-radius:12px;padding:13px 14px;background:#fff}
+.exp003-proof strong{display:block;font:700 11px var(--font-mono,monospace);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;color:var(--exp3-blue)}
+.exp003-proof p{margin:0;color:var(--exp3-navy);font-size:14px;line-height:1.35}
+.exp003-upsell{margin:18px 0 0;border:1px solid var(--exp3-line);border-radius:14px;background:#fff;padding:15px 16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.exp003-upsell h4{margin:0 0 3px;font:700 16px var(--font-display,sans-serif);color:var(--exp3-navy)}
+.exp003-upsell p{margin:0;font-size:13px;color:#425466}
+.exp003-upsell a{display:inline-flex;align-items:center;min-height:44px;padding:9px 14px;border-radius:9px;background:var(--exp3-navy);color:#fff!important;-webkit-text-fill-color:#fff!important;text-decoration:none;font-weight:700}
+.exp003-empty{border:1px dashed #9AA9B7;border-radius:12px;padding:14px;margin:10px 0;background:#FBFCFD;color:var(--exp3-navy)}
+.exp003-empty p{margin:0 0 8px;font-size:14px}
+.exp003-empty button{min-height:42px;border:1px solid var(--exp3-blue);background:#fff;border-radius:8px;padding:8px 12px;font-weight:700;color:var(--exp3-navy)}
+.exp003-disclosure{border:1px solid var(--exp3-line);border-radius:12px;margin:12px 0;background:#fff;overflow:hidden}
+.exp003-disclosure>summary{cursor:pointer;padding:12px 14px;font:700 14px var(--font-body,sans-serif);color:var(--exp3-navy);background:#F8FAFC}
+.exp003-disclosure>.exp003-disclosure-body{padding:0 12px 12px}
+.exp003-pulse{animation:exp003pulse 1.2s ease-out 1}
+@keyframes exp003pulse{0%{box-shadow:0 0 0 0 rgba(46,98,120,.35)}100%{box-shadow:0 0 0 14px rgba(46,98,120,0)}}
+@media(max-width:700px){#exp003-trust{left:10px;right:10px;bottom:10px;max-width:none}.exp003-steps{grid-template-columns:1fr}.exp003-proof{grid-template-columns:1fr}.exp003-command{display:grid;grid-template-columns:1fr 1fr}.exp003-command button{width:100%}}
+@media(prefers-reduced-motion:reduce){.exp003-pulse{animation:none}}

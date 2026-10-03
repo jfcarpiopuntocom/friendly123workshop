@@ -1,0 +1,19 @@
+{
+  "experiment": "vEXP002",
+  "source_repo": "jfcarpiopuntocom/friendly-123",
+  "source_commit": "dd3a0e1819be3b1bbdc88ed700f4f01606a0164a",
+  "source_file_count": 158,
+  "storage_namespace": "f123exp002",
+  "legacy_storage_migration": false,
+  "copy_date": "2026-10-02",
+  "checks": {
+    "requiredEN": true,
+    "requiredES": true,
+    "moveDisabled": true,
+    "emptyShelf": true,
+    "saved": true,
+    "duplicateGuard": true,
+    "ns": true,
+    "noMigration": true
+  }
+}
