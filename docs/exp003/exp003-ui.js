@@ -135,7 +135,8 @@
   }
   function watchAha(){
     var count=document.getElementById("resVentasCount");
-    if(count){
+    if(count&&!count.dataset.exp003Watched){
+      count.dataset.exp003Watched="1";
       new MutationObserver(function(){
         if(!armedSale)return;
         var now=count.textContent||"";
@@ -144,18 +145,21 @@
         }
       }).observe(count,{childList:true,characterData:true,subtree:true});
     }
-    new MutationObserver(function(ms){
-      ms.forEach(function(m){
-        Array.prototype.slice.call(m.addedNodes||[]).forEach(function(n){
-          var t=(n&&n.textContent)||"";
-          if(/Product saved\.|Producto guardado\./i.test(t)){
-            nav("inventario");setTimeout(function(){pulse(document.getElementById("gridInventario"));},120);
-          }
+    if(!window.__EXP003_AHA_OBSERVER__){
+      window.__EXP003_AHA_OBSERVER__=true;
+      new MutationObserver(function(ms){
+        ms.forEach(function(m){
+          Array.prototype.slice.call(m.addedNodes||[]).forEach(function(n){
+            var t=(n&&n.textContent)||"";
+            if(/Product saved\.|Producto guardado\./i.test(t)){
+              nav("inventario");setTimeout(function(){pulse(document.getElementById("gridInventario"));},120);
+            }
+          });
         });
-      });
-    }).observe(document.body,{childList:true,subtree:true});
+      }).observe(document.documentElement,{childList:true,subtree:true});
+    }
   }
-  function init(){
+  function ensureShell(){
     detectLang();trust();mission();command();proof();upsell();
     addOutcome("vista-inventario","inv","whyInv");
     addOutcome("vista-vender","sold","whySold");
@@ -163,7 +167,14 @@
     addOutcome("vista-comisiones","commOut","whyComm");
     addOutcome("vista-perchas","shelves",null);
     wrapCards();applyText(document);watchAha();empties();
-    var timer=null;new MutationObserver(function(){clearTimeout(timer);timer=setTimeout(empties,180);}).observe(document.body,{childList:true,subtree:true});
+  }
+  function init(){
+    ensureShell();
+    var timer=null;
+    new MutationObserver(function(){
+      clearTimeout(timer);
+      timer=setTimeout(ensureShell,120);
+    }).observe(document.documentElement,{childList:true,subtree:true});
     window.addEventListener("oc-lang-change",function(){setTimeout(function(){applyText(document)},20);});
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
