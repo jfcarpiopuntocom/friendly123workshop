@@ -4778,7 +4778,7 @@ document.addEventListener("click", function (ev) {
       + (esES ? 'Ya hay una sesión de friendly-123 abierta en otra pestaña. Para no pisar los datos, usa una sola a la vez.' : 'friendly-123 is already open in another tab. To avoid overwriting your data, use just one at a time.')
       + '</p><button id="oc-doble-usar" style="min-height:48px;padding:12px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">'
       + (esES ? 'Usar aquí de todos modos' : 'Use here anyway') + '</button>';
-    document.body.appendChild(d);
+    var host=document.getElementById("vista-hoy")||document.querySelector("main")||document.body; host.insertBefore(d,host.firstChild);
     document.getElementById("oc-doble-usar").addEventListener("click", function () {
       if (typeof alUsarIgual === "function") { try { alUsarIgual(); } catch (_) {} }
       d.remove();
