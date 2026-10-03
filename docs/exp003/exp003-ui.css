@@ -1,6 +1,6 @@
 /* vEXP003 — professional UX/conversion layer. Presentation only. */
 :root{--exp3-navy:#0F1923;--exp3-blue:#2E6278;--exp3-line:#D7E0E8;--exp3-bg:#F8F9FB;--exp3-white:#fff;--exp3-rust:#C0472B;}
-#exp003-trust{position:fixed;z-index:1200;right:14px;bottom:14px;max-width:320px;background:#fff;border:1px solid var(--exp3-line);border-radius:12px;box-shadow:0 8px 28px rgba(15,25,35,.16);padding:9px 12px;font:700 12px/1.35 var(--font-mono,monospace);color:var(--exp3-navy);cursor:pointer}
+#exp003-trust{position:static;z-index:auto;max-width:none;background:#F8FAFC;border:1px solid var(--exp3-line);border-radius:10px;box-shadow:none;padding:8px 10px;margin:0 0 12px;font:700 11px/1.35 var(--font-mono,monospace);color:var(--exp3-navy);cursor:pointer}
 #exp003-trust small{display:none;font:500 12px/1.4 var(--font-body,sans-serif);margin-top:6px;color:#425466}
 #exp003-trust.expanded small{display:block}
 .exp003-mission{margin:0 0 14px;background:#fff;border:1px solid var(--exp3-line);border-left:5px solid var(--exp3-blue);border-radius:14px;padding:14px 16px;box-shadow:0 5px 18px rgba(15,25,35,.07)}
@@ -31,5 +31,5 @@
 .exp003-disclosure>.exp003-disclosure-body{padding:0 12px 12px}
 .exp003-pulse{animation:exp003pulse 1.2s ease-out 1}
 @keyframes exp003pulse{0%{box-shadow:0 0 0 0 rgba(46,98,120,.35)}100%{box-shadow:0 0 0 14px rgba(46,98,120,0)}}
-@media(max-width:700px){#exp003-trust{left:10px;right:10px;bottom:10px;max-width:none}.exp003-steps{grid-template-columns:1fr}.exp003-proof{grid-template-columns:1fr}.exp003-command{display:grid;grid-template-columns:1fr 1fr}.exp003-command button{width:100%}}
+@media(max-width:700px){#exp003-trust{margin:0 0 10px}.exp003-steps{grid-template-columns:1fr}.exp003-proof{grid-template-columns:1fr}.exp003-command{display:grid;grid-template-columns:1fr 1fr}.exp003-command button{width:100%}}
 @media(prefers-reduced-motion:reduce){.exp003-pulse{animation:none}}

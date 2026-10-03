@@ -63,7 +63,7 @@
     if(document.getElementById("exp003-trust"))return;
     var d=document.createElement("div");d.id="exp003-trust";d.tabIndex=0;d.innerHTML='<span data-e3="trust"></span><small data-e3="trustMore"></small>';
     d.onclick=function(){d.classList.toggle("expanded")};d.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();d.click();}};
-    document.body.appendChild(d);
+    var host=document.getElementById("vista-hoy")||document.querySelector("main")||document.body; host.insertBefore(d,host.firstChild);
   }
   function addOutcome(sectionId,key,whyKey){
     var s=document.getElementById(sectionId);if(!s)return;
