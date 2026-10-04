@@ -1,0 +1,292 @@
+{
+  "meta": {
+    "title": "friendly-123 · Architecture Atlas",
+    "type": "architecture",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "pinned_source_commit": "3bbe5da157886eeb0c43a0b7994a37126e14e23f",
+    "generated_for": "friendly123workshop",
+    "note": "Source-backed communication artifact. No customer data. Viewer routes represent authored relationships, not runtime telemetry."
+  },
+  "legend": [
+    {
+      "id": "ux",
+      "label": "Browser / UX",
+      "color": "#FFC700"
+    },
+    {
+      "id": "app",
+      "label": "Application",
+      "color": "#F97316"
+    },
+    {
+      "id": "core",
+      "label": "Domain / rules",
+      "color": "#E8365D"
+    },
+    {
+      "id": "data",
+      "label": "Local durability",
+      "color": "#00C87A"
+    },
+    {
+      "id": "sync",
+      "label": "Sync / relay",
+      "color": "#5294AC"
+    },
+    {
+      "id": "safety",
+      "label": "Safety / evidence",
+      "color": "#9B7CFF"
+    },
+    {
+      "id": "delivery",
+      "label": "Delivery",
+      "color": "#00D4FF"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "people",
+      "title": "Owner + team",
+      "role": "human",
+      "summary": "The people who run inventory, sales and consignment.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/README.md"
+    },
+    {
+      "id": "ui",
+      "title": "Browser UI",
+      "role": "frontend",
+      "summary": "Offline-capable client surface, bilingual EN/ES.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/docs/index.html"
+    },
+    {
+      "id": "application",
+      "title": "Application use cases",
+      "role": "application",
+      "summary": "Coordinates use cases through ports; infrastructure stays outside.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/ARCHITECTURE-HEXAGONAL.md"
+    },
+    {
+      "id": "domain",
+      "title": "Domain core",
+      "role": "domain",
+      "summary": "Pure invariants, ordering and conflict policy. No DOM, fetch, storage or Yjs.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/ARCHITECTURE-HEXAGONAL.md"
+    },
+    {
+      "id": "engine",
+      "title": "Business engine",
+      "role": "backend",
+      "summary": "Inventory, one-tap sales, commissions and local business state.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/docs/mock-backend.js"
+    },
+    {
+      "id": "idb",
+      "title": "Durability mirror",
+      "role": "database",
+      "summary": "IndexedDB mirror backs durable local business state.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/docs/estado-idb.js"
+    },
+    {
+      "id": "photos",
+      "title": "Photo evidence vault",
+      "role": "database",
+      "summary": "Append-only/copy-only shelf-photo evidence and exact recovery.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/DATA-INTEGRITY-PRIME-DIRECTIVE.md"
+    },
+    {
+      "id": "yjs",
+      "title": "Yjs sync document",
+      "role": "messagebus",
+      "summary": "Collaborative state used for multi-device convergence.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/docs/sync-yjs.js"
+    },
+    {
+      "id": "sync",
+      "title": "Realtime sync",
+      "role": "messagebus",
+      "summary": "Queues and transmits operations with offline resilience.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/docs/sync-realtime.js"
+    },
+    {
+      "id": "relay",
+      "title": "Zero-knowledge relay",
+      "role": "cloud",
+      "summary": "Moves encrypted envelopes; does not retain/decrypt notebook contents.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/cloudflare-sync-relay/worker.js"
+    },
+    {
+      "id": "journal",
+      "title": "Tamper-evident journal",
+      "role": "security",
+      "summary": "Hash-chained history makes ordinary silent edits detectable.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/docs/audit-store.js"
+    },
+    {
+      "id": "golden",
+      "title": "v448 GOLDEN gate",
+      "role": "security",
+      "summary": "Frozen public identity; internal golden cache generations carry hotfixes.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/V448-GOLDEN.md"
+    },
+    {
+      "id": "delivery",
+      "title": "Verified delivery",
+      "role": "external",
+      "summary": "Service worker + version manifest + SHA-256 integrity checks.",
+      "source": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3bbe5da157886eeb0c43a0b7994a37126e14e23f/check-sw.sh"
+    }
+  ],
+  "relationships": [
+    {
+      "from": "people",
+      "to": "ui",
+      "label": "uses"
+    },
+    {
+      "from": "ui",
+      "to": "application",
+      "label": "requests"
+    },
+    {
+      "from": "application",
+      "to": "domain",
+      "label": "depends inward"
+    },
+    {
+      "from": "application",
+      "to": "engine",
+      "label": "orchestrates"
+    },
+    {
+      "from": "engine",
+      "to": "idb",
+      "label": "persists"
+    },
+    {
+      "from": "engine",
+      "to": "journal",
+      "label": "records"
+    },
+    {
+      "from": "application",
+      "to": "photos",
+      "label": "recovers exact evidence"
+    },
+    {
+      "from": "engine",
+      "to": "yjs",
+      "label": "shares state"
+    },
+    {
+      "from": "yjs",
+      "to": "sync",
+      "label": "encodes updates"
+    },
+    {
+      "from": "sync",
+      "to": "relay",
+      "label": "encrypted envelopes"
+    },
+    {
+      "from": "relay",
+      "to": "sync",
+      "label": "fan-out"
+    },
+    {
+      "from": "sync",
+      "to": "yjs",
+      "label": "applies remote updates"
+    },
+    {
+      "from": "golden",
+      "to": "delivery",
+      "label": "pins shell"
+    },
+    {
+      "from": "delivery",
+      "to": "ui",
+      "label": "serves verified shell"
+    },
+    {
+      "from": "domain",
+      "to": "photos",
+      "label": "non-destructive policy"
+    },
+    {
+      "from": "journal",
+      "to": "golden",
+      "label": "evidence for safe change"
+    },
+    {
+      "from": "idb",
+      "to": "application",
+      "label": "recovery source"
+    }
+  ],
+  "stories": [
+    {
+      "id": "daily",
+      "title": "Daily business",
+      "path": [
+        "people",
+        "ui",
+        "application",
+        "engine",
+        "idb"
+      ]
+    },
+    {
+      "id": "money",
+      "title": "Money integrity",
+      "path": [
+        "people",
+        "ui",
+        "application",
+        "engine",
+        "journal"
+      ]
+    },
+    {
+      "id": "photo",
+      "title": "Photo recovery",
+      "path": [
+        "ui",
+        "application",
+        "domain",
+        "photos"
+      ]
+    },
+    {
+      "id": "sync",
+      "title": "Multi-device sync",
+      "path": [
+        "engine",
+        "yjs",
+        "sync",
+        "relay",
+        "sync",
+        "yjs"
+      ]
+    },
+    {
+      "id": "release",
+      "title": "Safe release",
+      "path": [
+        "journal",
+        "golden",
+        "delivery",
+        "ui"
+      ]
+    }
+  ],
+  "invariants": [
+    "Preserve > clean up.",
+    "Migrations are copy-only.",
+    "Render never destroys evidence.",
+    "Sync uses versioned state/tombstones, not physical deletion.",
+    "Automatic recovery requires exact identity evidence.",
+    "Dependencies point inward: adapters → application → domain."
+  ]
+}
