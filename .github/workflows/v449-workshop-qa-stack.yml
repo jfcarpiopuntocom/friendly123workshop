@@ -1,0 +1,60 @@
+name: v449 WORKSHOP QA stack
+
+on:
+  push:
+    branches: ["v449-workshop-qa-stack"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v449-workshop-qa-stack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install workshop baseline
+        run: npm install --no-audit --no-fund
+
+      - name: Install pinned QA laboratory tools
+        run: npm install --no-save --no-audit --no-fund e2b@2.52.0 @langfuse/tracing@5.11.1 @langfuse/otel@5.11.1 @opentelemetry/sdk-trace-node@2.11.0
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Deterministic regression tests
+        run: npm test
+
+      - name: Local capability + browser smoke
+        run: node scripts/qa-stack-smoke.mjs
+
+      - name: E2B isolated execution smoke
+        env:
+          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+        run: node scripts/e2b-smoke.mjs
+
+      - name: Langfuse synthetic trace smoke
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+        run: node scripts/langfuse-smoke.mjs
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v449-workshop-qa-evidence
+          path: artifacts/
+          if-no-files-found: warn
