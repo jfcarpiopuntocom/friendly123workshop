@@ -39,6 +39,19 @@ jobs:
       - name: Local capability + browser smoke
         run: node scripts/qa-stack-smoke.mjs
 
+      - name: Serve real workshop UI
+        run: |
+          python3 -m http.server 4173 --directory docs >/tmp/v449-workshop-http.log 2>&1 &
+          for i in {1..20}; do
+            curl -fsS http://127.0.0.1:4173/index.html >/dev/null && exit 0
+            sleep 0.25
+          done
+          cat /tmp/v449-workshop-http.log
+          exit 1
+
+      - name: Real workshop UI desktop + mobile smoke
+        run: node scripts/workshop-ui-smoke.mjs
+
       - name: E2B isolated execution smoke
         env:
           E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
