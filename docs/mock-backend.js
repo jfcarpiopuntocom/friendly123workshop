@@ -4407,10 +4407,24 @@
           const _ceroLegadoSospechoso = _stockR === 0 && Number(mio.stockActual) > 0;
           if (_tsFuturoImposible) {
             try { window.dispatchEvent(new CustomEvent("oc-stock-ts-futuro-ignorado", { detail: { productoId: mio.id, stockTs: _tsR, ahoraRelay: _ahoraComun } })); } catch (_) {}
+            /* MEJORA 5 (JFC "sellar hacia adelante"): registro auditable del rechazo.
+               Aditivo y determinista: la clave se deriva del stockTs rechazado para no
+               acumular duplicados en re-merges. NO cambia stockActual/Base/PN/Ts.
+               huellaInventario cuenta stockEvidencias no vacio como conflicto (correcto:
+               un rechazo ES conciliacion pendiente). El shape base:null/pn:{} no fabrica
+               una base en _pruebasStockUnir (guardar() lo salta). */
+            if (!mio.stockEvidencias || typeof mio.stockEvidencias !== "object" || Array.isArray(mio.stockEvidencias)) mio.stockEvidencias = {};
+            mio.stockEvidencias["rechazo:ts-futuro:" + _tsR] = { tipo: "ts-futuro", base: null, pn: {}, ts: Number(_tsR) || 0, epoch: "", stockTsRechazado: Number(_tsR) || 0, fecha: new Date().toISOString() };
+            actualizados++;
           } else if (!_ceroLegadoSospechoso) {
             mio.stockActual = _stockR; mio.stockTs = _tsR; actualizados++;
           } else {
             try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
+            /* MEJORA 5 (JFC "sellar hacia adelante"): mismo registro auditable para el
+               cero legado sospechoso. No muta stock; solo deja constancia de conciliacion pendiente. */
+            if (!mio.stockEvidencias || typeof mio.stockEvidencias !== "object" || Array.isArray(mio.stockEvidencias)) mio.stockEvidencias = {};
+            mio.stockEvidencias["rechazo:cero-legado:" + _tsR] = { tipo: "cero-legado", base: null, pn: {}, ts: Number(_tsR) || 0, epoch: "", stockTsRechazado: Number(_tsR) || 0, fecha: new Date().toISOString() };
+            actualizados++;
           }
         } else if (_baseL === null && _baseR === null && !_pnL && !_pnR && _tsR >= _tsL &&
             (!epochLocal || !epochRemote || epochLocal === epochRemote) &&
@@ -5779,6 +5793,30 @@
         guardarEstadoLocal();
         return { ok: true };
       } catch (err) { return { ok: false, error: String(err) }; }
+    },
+    /* MEJORA 2 (JFC "sellar hacia adelante"): huella canónica del paquete de respaldo
+       de DESCARGA/WhatsApp. SHA-256 del JSON.stringify con claves ordenadas recursivamente,
+       para que dos serializaciones del MISMO paquete den la MISMA huella sin importar el
+       orden de inserción. La arma la UI en avanzado-extra.js (Export via WhatsApp ~:1014 y
+       Export backup ~:3063); este helper queda expuesto para que la UI lo consuma en la
+       mejora 3/4 y selle el paquete SIN tocar /api/respaldo/exportar ni su retorno.
+       Devuelve null (no finge un sello) si no hay SubtleCrypto o TextEncoder. */
+    async huellaDePaquete(obj) {
+      const canon = (v) => {
+        if (Array.isArray(v)) return v.map(canon);
+        if (v && typeof v === "object") {
+          const o = {};
+          Object.keys(v).sort().forEach((k) => { o[k] = canon(v[k]); });
+          return o;
+        }
+        return v;
+      };
+      try {
+        if (!window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined") return null;
+        const bytes = new TextEncoder().encode(JSON.stringify(canon(obj)));
+        const hash = await window.crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(hash), (n) => n.toString(16).padStart(2, "0")).join("");
+      } catch (_) { return null; }
     },
   };
   // === FIN PUENTE DE SYNC ======================================================
@@ -8989,8 +9027,25 @@
         }
         const colaOk = ruptura ? false : (sellados === 0 || prev === selloUltimo);
         const compartido = _actividadEstado(_actividadExportable());
+        /* MEJORA 1 (JFC "sellar hacia adelante"): diagnostico unificado, aditivo.
+           `inventario` = huella de stock/ledger (existencias, movimientos, conflictos,
+           sinEpoca, productos). `fotosHuerfanas` = punteros fotoHash cuyo contenido NO
+           esta en OCFotos. Solo lectura: no muta estado, no toca los campos que lee el
+           panel anti-fraude de avanzado-extra.js. */
+        const inventario = await huellaInventario();
+        let fotosHuerfanas = 0;
+        const _tieneHash = (window.OCFotos && typeof window.OCFotos.tieneHash === "function") ? window.OCFotos.tieneHash : null;
+        if (_tieneHash) {
+          const _candidatos = [];
+          filtrar("todas").forEach((p) => { if (p && p.fotoHash) _candidatos.push(p.fotoHash); });
+          ubicaciones.filter((u) => u && !u.borrado && !_demoOculto("ubicaciones", u)).forEach((u) => { if (u.fotoHash) _candidatos.push(u.fotoHash); });
+          for (const h of _candidatos) {
+            try { if (!(await _tieneHash(h))) fotosHuerfanas++; } catch (_) {}
+          }
+        }
         return J({ ok: !ruptura && colaOk && compartido.ok, total: movimientos.length, sellados: sellados, historico: historico, ruptura: ruptura, colaOk: colaOk,
-          actividadCompleta: compartido.completa, origenes: compartido.origenes, actividadProblemas: compartido.problemas, totalCompartido: _actividadVista().length });
+          actividadCompleta: compartido.completa, origenes: compartido.origenes, actividadProblemas: compartido.problemas, totalCompartido: _actividadVista().length,
+          inventario: inventario, fotosHuerfanas: fotosHuerfanas });
       }
 
       // GET /api/stock/conflictos — visibilidad de stock en conflicto (Frente 2).
@@ -9011,6 +9066,26 @@
           };
         }).filter((r) => r.enConflicto || r.sinEpoca);
         return J({ total: conflictos.length, productos: conflictos });
+      }
+
+      // GET /api/fotos/huerfanas — recuperacion de fotos con puntero pero sin
+      // contenido (MEJORA 3). Solo lectura: lista plana de productos (no borrados,
+      // no demo-ocultos) y perchas (no borradas, no demo-ocultas) que tienen un
+      // fotoHash no vacio pero cuyo contenido NO esta en OCFotos (puntero huerfano).
+      // No muta estado, no escribe en OCFotos ni en el negocio. Si OCFotos no
+      // existe, total 0 (conservador: no se puede comprobar, no se inventa).
+      if (path === "/api/fotos/huerfanas" && (!opts || !opts.method || opts.method === "GET")) {
+        const fotos = [];
+        const _tieneHash = (window.OCFotos && typeof window.OCFotos.tieneHash === "function") ? window.OCFotos.tieneHash : null;
+        if (_tieneHash) {
+          const _hu = [];
+          filtrar("todas").forEach((p) => { if (p && p.fotoHash) _hu.push({ id: String(p.id || ""), tipo: "producto", nombre: p.nombre || "", fotoHash: p.fotoHash }); });
+          ubicaciones.filter((u) => u && !u.borrado && !_demoOculto("ubicaciones", u)).forEach((u) => { if (u.fotoHash) _hu.push({ id: String(u.id || ""), tipo: "percha", nombre: u.nombre || "", fotoHash: u.fotoHash }); });
+          for (const c of _hu) {
+            try { if (!(await _tieneHash(c.fotoHash))) fotos.push(c); } catch (_) {}
+          }
+        }
+        return J({ total: fotos.length, fotos: fotos });
       }
       // =========================================================================
 

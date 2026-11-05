@@ -1012,6 +1012,13 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             /* v449: fotosBlobs conserva evidencia hash->bytes aunque el pointer
                de una percha se haya perdido. No crea ninguna asociacion nueva. */
             var paquete = { schemaVersion: 2, fecha: new Date().toISOString(), _formaB: true, datos: datos, fotosPerchas: _fotosLocales(), fotosIDB: _fotosIDB, fotosBlobs: _fotosBlobs };
+            /* MEJORA 2 (consumidor de huellaDePaquete): sella el paquete con la
+               huella canonica de su contenido (schemaVersion/datos/fotos), SIN
+               tocar /api/respaldo/exportar ni su retorno. Sin SubtleCrypto la
+               huella es null y el paquete sale sin sello (retrocompatible). */
+            if (window.OCSync && typeof window.OCSync.huellaDePaquete === "function") {
+              try { var _huella = await window.OCSync.huellaDePaquete(paquete); if (_huella) paquete.huella = _huella; } catch (_) {}
+            }
             var blob = new Blob([JSON.stringify(paquete)], { type: "application/json" });
             var url = URL.createObjectURL(blob);
             var a = document.createElement("a"); a.href = url; a.download = "friendly-copy-" + stamp + ".json";
@@ -1041,6 +1048,17 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               var paquete = JSON.parse(await file.text());
               if (!paquete || !paquete.datos) { _copiaMsg("This file does not look like a friendly-123 copy.", false); return; }
               if ((paquete.schemaVersion || 1) > 2) { _copiaMsg("This copy is from a newer version — update the app first.", false); return; }
+              /* MEJORA 2 (consumidor de huellaDePaquete): si el paquete trae
+                 `huella`, se recalcula sobre el MISMO contenido (sin huella) y se
+                 exige que coincida. Desajuste = archivo alterado/corrupto: se
+                 rechaza ANTES de importar. Sin huella (respaldo viejo) se importa
+                 igual (fail-open retrocompatible). */
+              if (paquete.huella && window.OCSync && typeof window.OCSync.huellaDePaquete === "function") {
+                var _restoHuella = Object.assign({}, paquete); delete _restoHuella.huella;
+                var _huellaOk = false;
+                try { _huellaOk = (await window.OCSync.huellaDePaquete(_restoHuella)) === paquete.huella; } catch (_) {}
+                if (!_huellaOk) { _copiaMsg("This copy failed its fingerprint check — the file may have been altered. Nothing was imported.", false); return; }
+              }
               if (!confirm("This REPLACES your current products, sales and inventory with the copy. Your PIN and keys stay as they are. Continue?")) return;
               var res = await fetch(API + "/respaldo/importar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
               var rr = await res.json();
@@ -2255,6 +2273,12 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
                 : (d.colaOk === false ? "end of history was trimmed" : "inconsistency detected");
               cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#fdecea;border:2px solid #a3392a;"><strong style="color:#a3392a;">History has been altered</strong> <span style="color:#0F1923;font-size:14px;">— ${det}.</span></div>`;
             }
+            // MEJORA 4: resumen legible y discreto de la cadena sellada (aditivo,
+            // no cambia el bloque de arriba). Usa los campos que YA devuelve
+            // /api/integridad: total, sellados y si la cadena esta completa
+            // (colaOk + actividadCompleta).
+            const _cadenaCompleta = (d.colaOk !== false) && (d.actividadCompleta !== false);
+            cont.innerHTML += `<div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${d.total} movement(s) total, ${d.sellados} sealed — chain ${_cadenaCompleta ? "complete" : "incomplete"}.</div>`;
           } catch (_) { cont.innerHTML = ""; }
         }
         // 2) Señales del día por persona
@@ -2358,6 +2382,46 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
       window.addEventListener("oc-login", renderStockConflictos);
     } catch (e) { console.error("Panel conflictos de stock no cargó (aislado, no rompe Avanzado):", e); }
     // === FIN CONFLICTOS DE STOCK =============================================
+
+    // === RECUPERACION DE FOTOS (MEJORA 3) ====================================
+    // Punteros fotoHash cuyo contenido NO esta en OCFotos en este aparato (foto
+    // perdida o no sincronizada). Solo lectura. Bloque en su propio try/catch:
+    // si falla, NO tumba el resto de Avanzado.
+    try {
+      const fhPanel = document.createElement("div");
+      fhPanel.className = "tag-card";
+      fhPanel.id = "oc-fotos-huerfanas-panel";
+      fhPanel.style.cssText = "text-align:left;margin-top:22px;";
+      fhPanel.innerHTML = `
+        <h3 class="seccion" style="margin-top:0;">Photo recovery</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Products and shelves whose photo pointer exists but whose image is missing on this device.</p>
+        <div id="oc-fh-resultado"></div>
+        <button id="oc-fh-refrescar" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Refresh</button>`;
+      vista.appendChild(fhPanel);
+
+      async function renderFotosHuerfanas() {
+        const rolFH = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual();
+        if (rolFH === "empleado" || rolFH === "contador") return;
+        const cont = $("oc-fh-resultado");
+        if (!cont) return;
+        try {
+          const d = await (await fetch("/api/fotos/huerfanas")).json();
+          if (!d || !d.total) {
+            cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#e7f7ee;border:2px solid #1a6e3c;"><strong style="color:#1a6e3c;">✓ No missing photos</strong></div>`;
+            return;
+          }
+          const filas = (d.fotos || []).map((f) =>
+            `<div style="font-size:14px;color:#0F1923;padding:2px 0;">• ${escHtml(f.nombre)} (${escHtml(f.tipo)}): <span style="color:var(--rojo-ink,#a3392a);font-weight:700;">missing photo</span></div>`
+          ).join("");
+          cont.innerHTML = `<p style="font-size:14px;font-weight:700;color:var(--ink);margin:6px 0 2px;">${d.total} photo(s) missing on this device:</p>` + filas;
+        } catch (_) { cont.innerHTML = ""; }
+      }
+      const btnFH = $("oc-fh-refrescar");
+      if (btnFH) btnFH.addEventListener("click", renderFotosHuerfanas);
+      renderFotosHuerfanas();
+      window.addEventListener("oc-login", renderFotosHuerfanas);
+    } catch (e) { console.error("Panel recuperacion de fotos no cargó (aislado, no rompe Avanzado):", e); }
+    // === FIN RECUPERACION DE FOTOS ===========================================
 
 
     // FIX (JFC 2026-07-03): el gestor de perchas (crear/renombrar/desactivar)
@@ -3067,6 +3131,13 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
           // el proximo cambio de PIN tras restaurar.
           try { const s = JSON.parse(localStorage.getItem("f123_secure")); if (s) delete s.ownerPinR; return s ? JSON.stringify(s) : null; } catch (_) { return localStorage.getItem("f123_secure"); }
         })(), fotosPerchas, fotosIDB, fotosBlobs };
+        /* MEJORA 2: sella el paquete con huellaDePaquete ANTES de calcular el
+           checksum y de cifrar, para que el checksum cubra tambien la huella y la
+           huella cubra schemaVersion/datos/fotos. Sin SubtleCrypto devuelve null
+           y no sella (retrocompatible). */
+        if (window.OCSync && typeof window.OCSync.huellaDePaquete === "function") {
+          try { const _huella = await window.OCSync.huellaDePaquete(paquete); if (_huella) paquete.huella = _huella; } catch (_) {}
+        }
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
         // Contraseña de exportación OPCIONAL: si el dueño la pone, el archivo
@@ -3143,6 +3214,16 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         }
         if (!paquete.datos) { msg("oc-respaldo-msg", "This file does not look like a friendly-123 backup.", "var(--rojo)"); return; }
         if ((paquete.schemaVersion || 1) > 2) { msg("oc-respaldo-msg", "This backup is from a newer version of friendly-123 — update the app before importing it.", "var(--rojo)"); return; }
+        /* MEJORA 2: verifica la huella del paquete si viene presente. Se recalcula
+           sobre el contenido SIN huella ni checksum (ambos se agregan tras sellar).
+           Desajuste o fallo = archivo alterado: se rechaza ANTES de importar. Sin
+           huella (respaldo viejo) se importa igual (fail-open retrocompatible). */
+        if (paquete.huella && window.OCSync && typeof window.OCSync.huellaDePaquete === "function") {
+          const _restoHuella = Object.assign({}, paquete); delete _restoHuella.huella; delete _restoHuella.checksum;
+          let _huellaOk = false;
+          try { _huellaOk = (await window.OCSync.huellaDePaquete(_restoHuella)) === paquete.huella; } catch (_) {}
+          if (!_huellaOk) { msg("oc-respaldo-msg", "This backup failed its fingerprint check — the file may have been altered. Nothing was imported.", "var(--rojo)"); e.target.value = ""; return; }
+        }
         if (!confirm("This REPLACES all current data (products, sales, keys) with the backup data. Continue?")) return;
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
