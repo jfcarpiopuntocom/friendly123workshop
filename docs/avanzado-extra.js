@@ -2316,6 +2316,49 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
     } catch (e) { console.error("Panel anti fraude no cargó (aislado, no rompe Avanzado):", e); }
     // === FIN CONTROL ANTI FRAUDE ===========================================
 
+    // === CONFLICTOS DE STOCK (Frente 2) ======================================
+    // Visibilidad de productos con stock en conflicto (stockEvidencias no vacio)
+    // o sin epoca (stockEpochId vacio = conciliacion pendiente). Solo lectura.
+    // Bloque en su propio try/catch: si falla, NO tumba el resto de Avanzado.
+    try {
+      const scPanel = document.createElement("div");
+      scPanel.className = "tag-card";
+      scPanel.id = "oc-stock-conflictos-panel";
+      scPanel.style.cssText = "text-align:left;margin-top:22px;";
+      scPanel.innerHTML = `
+        <h3 class="seccion" style="margin-top:0;">Stock conflicts</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Products whose stock is still being reconciled between devices (conflict) or whose reconciliation epoch is missing (pending).</p>
+        <div id="oc-sc-resultado"></div>
+        <button id="oc-sc-refrescar" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Refresh</button>`;
+      vista.appendChild(scPanel);
+
+      async function renderStockConflictos() {
+        const rolSC = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual();
+        if (rolSC === "empleado" || rolSC === "contador") return;
+        const cont = $("oc-sc-resultado");
+        if (!cont) return;
+        try {
+          const d = await (await fetch("/api/stock/conflictos")).json();
+          if (!d || d.total === 0) {
+            cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#e7f7ee;border:2px solid #1a6e3c;"><strong style="color:#1a6e3c;">✓ No stock conflicts</strong></div>`;
+            return;
+          }
+          const filas = (d.productos || []).map((p) => {
+            const marca = p.enConflicto
+              ? `<span style="color:var(--rojo-ink,#a3392a);font-weight:700;">conflict</span>`
+              : `<span style="color:var(--rojo-ink,#a3392a);font-weight:700;">sin época</span>`;
+            return `<div style="font-size:14px;color:#0F1923;padding:2px 0;">• ${escHtml(p.nombre)}: <strong>${Number(p.stockActual)}</strong> — ${marca}</div>`;
+          }).join("");
+          cont.innerHTML = `<p style="font-size:14px;font-weight:700;color:var(--ink);margin:6px 0 2px;">${d.total} producto(s) con stock por conciliar:</p>` + filas;
+        } catch (_) { cont.innerHTML = ""; }
+      }
+      const btnSC = $("oc-sc-refrescar");
+      if (btnSC) btnSC.addEventListener("click", renderStockConflictos);
+      renderStockConflictos();
+      window.addEventListener("oc-login", renderStockConflictos);
+    } catch (e) { console.error("Panel conflictos de stock no cargó (aislado, no rompe Avanzado):", e); }
+    // === FIN CONFLICTOS DE STOCK =============================================
+
 
     // FIX (JFC 2026-07-03): el gestor de perchas (crear/renombrar/desactivar)
     // vivia duplicado aqui en Avanzado ("mala idea mia" -- JFC). Se quito: el
