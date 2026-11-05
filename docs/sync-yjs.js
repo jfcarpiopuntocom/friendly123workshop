@@ -2371,6 +2371,19 @@
     return sorted;
   }
 
+  /* v651 (JFC 2026-11-01): entre un epoch explicito y un legacy SIN epoch, el
+     legacy gana SOLO si trae una base fisica DISTINTA y un stockTs MAYOR (un
+     recuento nuevo). Misma base legacy no es recuento nuevo: no gana. Regla
+     identica a _gana en mock-backend.js (aplicarCatalogo): los dos motores
+     deben decidir igual el mismo conflicto. Dos epochs explicitos NO pasan por
+     aqui (siguen _ganaMio). */
+  function _ganaLegacySinEpoca(epoca, legacy) {
+    var baseE = epoca && epoca.stockBase != null && Number.isFinite(Number(epoca.stockBase)) ? Number(epoca.stockBase) : null;
+    var baseL = legacy && legacy.stockBase != null && Number.isFinite(Number(legacy.stockBase)) ? Number(legacy.stockBase) : null;
+    var tsE = Number(epoca && epoca.stockTs) || 0, tsL = Number(legacy && legacy.stockTs) || 0;
+    return baseL !== null && baseL !== baseE && tsL > tsE;
+  }
+
   /*
    * P0 forensic candidate: monotonically growing, per-actor stock witnesses.
    * Y.Map("productos").set(productId, wholeProduct) has LAST-WRITER conflicts:
@@ -2688,11 +2701,13 @@
                 // the owner must reconcile their physical movement histories.
                 // JFC 2026-11-01: between two explicit epochs the latest physical count wins (stockTs, then epoch id),
                 // the same rule as aplicarCatalogo in mock-backend; the loser stays in stockEvidencias below.
+                // v651: un legacy SIN epoch con base fisica DISTINTA y stockTs MAYOR es un recuento nuevo
+                // y gana sobre el epoch anterior (regla identica a _gana en mock-backend; ver _ganaLegacySinEpoca).
                 var _tsMine = Number(r.stockTs) || 0, _tsDoc = Number(prev.stockTs) || 0;
                 var _ganaMio = _tsMine > _tsDoc || (_tsMine === _tsDoc && _stockEpochMine > _stockEpochDoc);
                 var _epochPreferred = _samePhysicalEpoch ? null :
-                  (_stockEpochMine && !_stockEpochDoc ? r :
-                    (!_stockEpochMine && _stockEpochDoc ? prev :
+                  (_stockEpochMine && !_stockEpochDoc ? (_ganaLegacySinEpoca(r, prev) ? prev : r) :
+                    (!_stockEpochMine && _stockEpochDoc ? (_ganaLegacySinEpoca(prev, r) ? r : prev) :
                       (_stockEpochMine && _stockEpochDoc ? (_ganaMio ? r : prev) : null)));
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
