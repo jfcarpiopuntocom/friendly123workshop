@@ -8992,6 +8992,26 @@
         return J({ ok: !ruptura && colaOk && compartido.ok, total: movimientos.length, sellados: sellados, historico: historico, ruptura: ruptura, colaOk: colaOk,
           actividadCompleta: compartido.completa, origenes: compartido.origenes, actividadProblemas: compartido.problemas, totalCompartido: _actividadVista().length });
       }
+
+      // GET /api/stock/conflictos — visibilidad de stock en conflicto (Frente 2).
+      // Solo lectura: lista plana de los productos (no borrados, no demo ocultos,
+      // no archivados) que estan en conflicto (stockEvidencias no vacio) o sin
+      // epoca (stockEpochId vacio = conciliacion pendiente). No muta estado, no
+      // toca el merge ni el calculo de stock. Solo devuelve los que aplican.
+      if (path === "/api/stock/conflictos" && (!opts || !opts.method || opts.method === "GET")) {
+        const conflictos = filtrar(uid).filter((p) => !p.archivado).map((p) => {
+          const epoch = typeof (p && p.stockEpochId) === "string" ? p.stockEpochId : "";
+          return {
+            id: String(p && p.id || ""),
+            nombre: p && p.nombre || "",
+            stockActual: Number(p && p.stockActual),
+            stockEpochId: epoch,
+            enConflicto: !!(p && p.stockEvidencias && Object.keys(p.stockEvidencias).length),
+            sinEpoca: !epoch
+          };
+        }).filter((r) => r.enConflicto || r.sinEpoca);
+        return J({ total: conflictos.length, productos: conflictos });
+      }
       // =========================================================================
 
       return J({ error: "Route not found in the demo." }, 404);
