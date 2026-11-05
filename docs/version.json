@@ -1,10 +1,10 @@
 {
-  "version": "shell v667",
-  "fecha": "2026-11-03",
-  "changelog": "A device that had lost the link to a product or shelf photo takes it back from the sync and shows the photo again. Nothing is replaced or deleted. Everything in v666 is kept.",
+  "version": "shell v672",
+  "fecha": "2026-11-05",
+  "changelog": "Workshop only: daily relay budgets reset at local midnight without discarding usage on upgrade; the existing sync diagnostics explain paused or exhausted layers. Preserves the v671 workshop changes.",
   "requerida": false,
-  "shell": "f123-shell-v667",
+  "shell": "f123-shell-v672",
   "apagar": [],
-  "releaseName": "shell v667",
-  "cacheGeneration": "golden213"
+  "releaseName": "shell v672",
+  "cacheGeneration": "golden218"
 }

@@ -868,6 +868,18 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               if (_sn.otraCapa) { lat += " · another device is writing on the other sync layer"; _alertaSonda = true; }
               if (_sn.sinRecibir) { lat += " · relay moved and nothing arrived here"; _alertaSonda = true; }
               if (window.__ocMezcla) { lat += " · this device did not update"; _alertaSonda = true; }
+              var _cupos = window.F123Relay && window.F123Relay.estadoCupo ? window.F123Relay.estadoCupo() : [];
+              var _esC = window.OCI18n && window.OCI18n.getLang() === "es";
+              _cupos.forEach(function (c) {
+                var nombre = c.capa === "f123_relay_cupo_fb_v1" ? "Firebase" : "Supabase";
+                if (c.cupoAgotado) {
+                  lat += " · " + nombre + (_esC ? ": cupo diario agotado; se renueva a medianoche local" : ": daily budget exhausted; resets at local midnight");
+                  _alertaSonda = true;
+                } else if (c.pausaHasta > Date.now()) {
+                  lat += " · " + nombre + (_esC ? ": pausa temporal hasta " : ": temporarily paused until ") + new Date(c.pausaHasta).toLocaleTimeString(_esC ? "es" : "en", { hour: "2-digit", minute: "2-digit" });
+                  _alertaSonda = true;
+                }
+              });
             } catch (_) {}
             /* v645: huella del inventario que ESTE aparato muestra. Igual en dos aparatos = mismas cantidades. */
             try { var _hu = window.OCHuellaStock(); lat += " · stock print " + _hu.v + " (" + _hu.n + " items, " + ((d && d.ops) || 0) + " moves)"; } catch (_) {}

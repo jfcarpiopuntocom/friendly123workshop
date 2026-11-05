@@ -22,12 +22,15 @@
   var capas = [];
   if (sb && sb !== fb && typeof sb.connect === "function") capas.push({ relay: sb, key: "f123_relay_cupo_v1" });
   if (fb && typeof fb.connect === "function") capas.push({ relay: fb, key: "f123_relay_cupo_fb_v1" });
-  // TODO (OpenCode review 2026-11-04): this UTC date resets the budget at 7 pm in Ecuador; move to local midnight together with the tests that seed it.
-  function hoy() { return new Date().toISOString().slice(0, 10); }
+  function hoy() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
   function leer(key) {
     var c = null; try { c = JSON.parse(localStorage.getItem(key) || "null"); } catch (_) {}
     var pausa = c && Number(c.pausaHasta) || 0;
-    return c && c.dia === hoy() ? c : { dia: hoy(), up: 0, down: 0, pausaHasta: pausa };
+    // Keep the current UTC budget on upgrade; switching calendars must not grant extra bytes.
+    if (c && !c.localDay && (c.dia === hoy() || c.dia === new Date().toISOString().slice(0, 10))) {
+      c.dia = hoy(); c.localDay = true; guardar(key, c);
+    }
+    return c && c.dia === hoy() ? c : { dia: hoy(), localDay: true, up: 0, down: 0, pausaHasta: pausa };
   }
   function guardar(key, c) { try { localStorage.setItem(key, JSON.stringify(c)); } catch (_) {} }
   function bytes(v) { return v == null ? 0 : v.byteLength != null ? v.byteLength : v.size != null ? v.size : String(v).length; }
@@ -374,7 +377,7 @@
   }
   window.F123Relay = {
     ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
-    estadoCupo: function () { return capas.map(function (capa) { var c = leer(capa.key); return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa) }; }); },
+    estadoCupo: function () { return capas.map(function (capa) { var c = leer(capa.key); return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa), pausaHasta: c.pausaHasta, cupoAgotado: c.down >= CAP_DOWN || c.up >= (capa.relay === fb ? CAP_UP_RESERVA : CAP_UP) }; }); },
     estadoSondas: function () {
       var ahora = Date.now();
       return {
