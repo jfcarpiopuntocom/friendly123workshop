@@ -1,0 +1,27 @@
+name: Sync3 PR589 current SHA fa622f7f audit ZIP
+on:
+  push:
+    paths:
+      - ".github/workflows/sync3-verified-zip-fa622f7f.yml"
+permissions:
+  contents: write
+jobs:
+  archive-reviewed-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build SHA-pinned bundle, verify and archive (no production clients)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 audit-tools/build-sync3-review-zip-fa622f7f.py | tee /tmp/sync3-audit-output.json
+          file="audit-packets/sync3-pr589-v673/sync3-review-589-sha-fa622f7f.zip"
+          unzip -t -q "$file"
+          sha256sum "$file"
+          git config user.name "sync3-packet-handoff[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$file"
+          git diff --cached --quiet && exit 0
+          git commit -m "docs(sync3): archive current PR589 SHA fa622f7f packet"
+          git push origin HEAD:main
