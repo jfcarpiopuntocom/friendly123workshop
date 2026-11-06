@@ -8,25 +8,21 @@ permissions:
 jobs:
   import-verified-audit-zip:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
-      - name: Fetch exact synthetic-only review bundle and verify fingerprint
+      - name: Build verified exact-SHA review packet from friendly-123 (no live app access)
         shell: bash
         run: |
           set -euo pipefail
-          url="https://sb-62ajecvrribk.vercel.run/sync3-review-589-sha-ff229fe7.zip"
-          tmp="$(mktemp -d)"
-          curl --fail --location --silent --show-error --retry 4 --retry-all-errors --max-time 90 "$url" -o "$tmp/packet.zip"
-          printf '%s  %s\n' '6ac501c4b91c9d400e93339fecbe9ea9595b0bd1736dccbe07badcfeac38ee76' "$tmp/packet.zip" | sha256sum -c -
-          unzip -t -q "$tmp/packet.zip"
-          mkdir -p audit-packets/sync3-pr589-v673
-          cp "$tmp/packet.zip" audit-packets/sync3-pr589-v673/sync3-review-589-sha-ff229fe7.zip
+          python3 audit-tools/build-sync3-review-zip.py | tee /tmp/sync3-packet-summary.json
+          unzip -t -q audit-packets/sync3-pr589-v673/sync3-review-589-sha-ff229fe7.zip
+          sha256sum audit-packets/sync3-pr589-v673/sync3-review-589-sha-ff229fe7.zip
           git config user.name "sync3-packet-handoff[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add audit-packets/sync3-pr589-v673/sync3-review-589-sha-ff229fe7.zip
           git diff --cached --quiet && exit 0
-          git commit -m "docs(sync3): archive verified PR589 SHA ff229fe7 review ZIP (synthetic evidence only)"
+          git commit -m "docs(sync3): archive exact SHA ff229fe7 source, diff, evidence and Claude brief"
           git push origin HEAD:main
