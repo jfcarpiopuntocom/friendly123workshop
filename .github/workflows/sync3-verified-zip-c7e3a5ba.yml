@@ -1,0 +1,27 @@
+name: Sync3 PR589 current SHA c7e3a5ba audited ZIP
+on:
+  push:
+    paths:
+      - ".github/workflows/sync3-verified-zip-c7e3a5ba.yml"
+permissions:
+  contents: write
+jobs:
+  save-current-audit-zip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build exact source+evidence ZIP, verify integrity, archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 audit-tools/build-sync3-review-zip-c7e3a5ba.py
+          file="audit-packets/sync3-pr589-v673/sync3-review-589-sha-c7e3a5ba.zip"
+          unzip -t -q "$file"
+          sha256sum "$file"
+          git config user.name "sync3-packet-handoff[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$file"
+          git diff --cached --quiet && exit 0
+          git commit -m "docs(sync3): archive latest PR #589 SHA c7e3a5ba for Claude review"
+          git push origin HEAD:main
