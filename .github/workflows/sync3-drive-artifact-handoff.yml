@@ -1,0 +1,27 @@
+name: Sync3 PR589 current ZIP handoff to Drive
+on:
+  push:
+    paths:
+      - ".github/workflows/sync3-drive-artifact-handoff.yml"
+permissions:
+  contents: read
+jobs:
+  prepare-downloadable-reviewed-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expand the SHA-pinned reviewed ZIP (no live client access)
+        run: |
+          set -euo pipefail
+          unzip -t -q audit-packets/sync3-pr589-v673/sync3-review-589-sha-c7e3a5ba.zip
+          mkdir -p /tmp/review
+          unzip -q audit-packets/sync3-pr589-v673/sync3-review-589-sha-c7e3a5ba.zip -d /tmp/review
+          test -f /tmp/review/SYNC3-PR589-review-c7e3a5ba/CLAUDE_PONYTAIL_BRIEF.md
+          test -f /tmp/review/SYNC3-PR589-review-c7e3a5ba/PACKAGE_METADATA.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sync3-review-589-sha-c7e3a5ba
+          path: /tmp/review/SYNC3-PR589-review-c7e3a5ba/
+          retention-days: 30
+          if-no-files-found: error
