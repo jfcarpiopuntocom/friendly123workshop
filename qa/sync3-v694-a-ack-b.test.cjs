@@ -111,7 +111,12 @@ test('A hydrated -> checkpoint queued -> relay persist ACK -> new B consumes ful
  b.socket.onmessage({data:packed.buffer,relaySource:'pull'});
  b.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:relay.rev,seq:relay.seq,n:0,more:false})});
  await until(()=>b.doc.getMap('records').get('synthetic-item-01')===15,'B applied first fact');
- await until(()=>b.channel.recuperando===false,'B causal recovery complete');
+ // Modern Sync3 requires a SECOND HEAD equality proof after the final page;
+ // a single payload applied to Y.Doc is not enough to unlock a cold device.
+ await until(()=>jsonSent(b).filter(x=>x.k==='head').length>=2,'B requests final HEAD validation');
+ assert.equal(b.channel.recuperando,true,'facts applied without final HEAD must remain recovery-only');
+ b.socket.onmessage({data:JSON.stringify({k:'head-result',rev:relay.rev,seq:relay.seq})});
+ await until(()=>b.channel.recuperando===false,'B causal recovery complete after verified HEAD');
  assert.equal(b.doc.getMap('records').get('synthetic-item-02'),3);
  assert.equal(b.doc.store.pendingStructs,null,'no unresolved parent on B');
  assert.equal(b.doc.store.pendingDs,null,'no unresolved delete on B');
