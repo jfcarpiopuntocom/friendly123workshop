@@ -293,3 +293,79 @@ test('P0 3212 sequential causal operations after an old checkpoint recover compl
  }));
  C.channel.pausar();
 });
+
+test('P0 8489 Yjs updates after stale checkpoint -> fully recovered writer compacts -> fast brand-new D cold join', {timeout:330000}, async()=>{
+ const backend=rest();
+ const A=device(backend,doc=>doc.getMap('identity').set('latest-synthetic-count',33));
+ await until(()=>A.channel.recuperando===false,'A recovers initial empty room');
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'A checkpoint timer after recovery');
+ A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+ await until(()=>backend.ckpts.has('1'),'initial checkpoint stored by real Firebase adapter');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'initial remote ACK applied to A outbox');
+ A.channel.pausar();
+
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'B retrieves old checkpoint');
+ const history=B.doc.getMap('rollingCatalog');
+ for(let i=0;i<8488;i++){
+   const before=backend.ops.size;
+   history.set('synthetic-product-'+String(i%15).padStart(2,'0'),i);
+   await until(()=>backend.ops.size>before,'operation '+i+' must be durable');
+ }
+ const beforeFinal=backend.ops.size;
+ B.doc.getMap('identity').set('latest-synthetic-count',15);
+ await until(()=>backend.ops.size>beforeFinal,'final count update must be stored');
+ assert.equal(backend.ops.size,8489,'exactly 8489 synthetic Yjs ops after old checkpoint');
+ assert.equal(backend.ckpts.size,1,'no accidental new checkpoint before C full hydration');
+ B.channel.pausar();
+
+ const beforeReplay=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ const C=device(backend);
+ const start=Date.now();
+ while(C.channel.recuperando!==false&&Date.now()-start<120000)
+   await new Promise(resolve=>setTimeout(resolve,5));
+ assert.equal(C.channel.recuperando,false,'C must complete *all* old history before attempting compaction');
+ assert.equal(C.doc.getMap('identity').get('latest-synthetic-count'),15,
+   'latest count 15 must override checkpoint 33');
+ assert.equal(C.doc.getMap('rollingCatalog').size,15,'all 15 rolling synthetic products recovered');
+ for(let p=0;p<15;p++){
+   const last=8487-((8487-p+15)%15);
+   assert.equal(C.doc.getMap('rollingCatalog').get('synthetic-product-'+String(p).padStart(2,'0')),last,
+     'newest update of each synthetic product must survive long replay');
+ }
+ assert.equal(C.doc.store.pendingStructs,null);
+ assert.equal(C.doc.store.pendingDs,null);
+ const replayReads=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length-beforeReplay;
+ assert.ok(replayReads>300,'must exercise a genuinely long replay, not shortcut to old snapshot');
+ const snapshotBytes=C.Y.encodeStateAsUpdate(C.doc).byteLength;
+ // Existing unchanged v694 cap. Oversized state may reveal why a checkpoint cannot be generated.
+ await until(()=>C.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),
+   'fresh checkpoint should be scheduled only after full catch-up');
+ C.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+ await until(()=>backend.ckpts.has('2'),'fully recovered C must persist a second revision');
+ await until(()=>C.storage.get('f123_relay_outbox_v1-y')?.checkpoint==='2' ||
+   (C.storage.get('f123_relay_outbox_v1-y')?.pending||[]).filter(x=>x.k==='ckpt').length===0,
+   'CKPT must be remote ACKed and retired from outbox');
+ assert.equal(backend.ckpts.size,2);
+ const cipherBytes=Buffer.from(backend.ckpts.get('2').c,'base64').byteLength;
+ assert.ok(cipherBytes<=768*1024,'do not bypass the existing encrypted checkpoint cap');
+ C.channel.pausar();
+
+ const beforeD=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ const D=device(backend);
+ await until(()=>D.channel.recuperando===false,'D must complete from fresh CKPT after final HEAD');
+ assert.equal(D.doc.getMap('identity').get('latest-synthetic-count'),15);
+ assert.equal(D.doc.getMap('rollingCatalog').size,15);
+ assert.equal(D.doc.store.pendingStructs,null);
+ assert.equal(D.doc.store.pendingDs,null);
+ assert.equal(D.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,2);
+ const freshReads=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length-beforeD;
+ assert.equal(freshReads,3,'D must use HEAD, checkpoint pull, final HEAD, not thousands of old ops');
+ console.log('SYNTHETIC_8489_COMPACTION',JSON.stringify({
+  oldCheckpointRev:1,opsAfterOldCheckpoint:8489,
+  longReaderPages:replayReads,compactSourceBytes:snapshotBytes,
+  checkpointCipherBytes:cipherBytes,newCheckpointRev:2,
+  freshReaderGETs:freshReads,latestCount:15,pendingParents:0
+ }));
+ D.channel.pausar();
+});
