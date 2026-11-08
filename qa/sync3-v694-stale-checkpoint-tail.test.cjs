@@ -1,0 +1,245 @@
+// Additional stale-checkpoint causal test on immutable v694; lab-only fixture, no external network.
+'use strict';
+// End-to-end seam: actual published v694 sync-yjs + actual v694 Firebase REST
+// adapter + production Yjs bundle, with a STRICT IN-MEMORY REST fixture.
+// No network, no production Firebase URL, no PIN, no real business data.
+const test=require('node:test').test,assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {execFileSync}=require('node:child_process');
+const sourceRoot=process.env.F123_SOURCE_ROOT;
+const SHA='dbc361a01bc0b97b90ccfe9bd86379c20639cc29';
+assert.ok(sourceRoot,'Pinned source checkout is mandatory');
+assert.equal(execFileSync('git',['-C',sourceRoot,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),SHA);
+const yjs=fs.readFileSync(path.join(sourceRoot,'docs/sync-yjs.js'),'utf8');
+const firebase=fs.readFileSync(path.join(sourceRoot,'docs/firebase-relay.js'),'utf8');
+const vendor=fs.readFileSync(path.join(sourceRoot,'docs/vendor/yjs-bundle.min.js'),'utf8');
+const x=yjs.indexOf('  function _frame('),y=yjs.indexOf('  // Carga perezosa',x);
+assert.ok(x>=0&&y>x,'must execute actual production Yjs transport');
+const transport=yjs.slice(x,y);
+const room='a'.repeat(40),server='https://synthetic.invalid';
+async function until(condition,label){
+ for(let i=0;i<500;i++){if(condition())return;await new Promise(r=>setTimeout(r,2));}
+ assert.ok(condition(),label);
+}
+function rest(){
+ const ckpts=new Map(),ops=new Map(),calls=[]; let clock=1000;
+ const answer=(v,status=200)=>new Response(JSON.stringify(v),{status});
+ async function fetch(url,opts={}){
+  const u=new URL(url);assert.equal(u.origin,server,'NO REAL NETWORK');
+  const m=/^\/f123\/([a-f0-9]{40}-y)\/(k|o)(?:\/([^/]+))?\.json$/.exec(u.pathname);
+  assert.ok(m,'invalid synthetic Firebase path');
+  const [_,locator,type,key]=m;
+  assert.equal(locator,room+'-y');
+  const written=opts.method==='POST'&&u.searchParams.get('x-http-method-override')==='PUT';
+  calls.push({type,key:key||null,method:written?'PUT':'GET'});
+  const map=type==='k'?ckpts:ops;
+  if(written){
+   assert.ok(key,'writes require explicit synthetic key');
+   assert.equal(map.has(key),false,'no overwriting an existing checkpoint revision or op');
+   const value=JSON.parse(opts.body);
+   if(type==='o'&&typeof value.s==='object')value.s=++clock; // monotonic synthetic server timestamp
+   map.set(key,value);
+   return answer(value);
+  }
+  assert.equal(opts.method,'GET');
+  if(key)return answer(map.get(key)||null);
+  if(type==='k'&&u.searchParams.get('shallow')==='true')
+   return answer(Object.fromEntries([...map.keys()].map(k=>[k,true])));
+  let records=[...map.entries()];
+  if(type==='o'){
+    records.sort((a,b)=>a[1].s-b[1].s||a[0].localeCompare(b[0]));
+    const queryNumber=(name)=>{
+      const raw=u.searchParams.get(name);
+      if(raw===null)return null;
+      const parsed=JSON.parse(raw);
+      assert.ok(Number.isSafeInteger(parsed),'only integer synthetic timestamp filters');
+      return parsed;
+    };
+    const start=queryNumber('startAt'),end=queryNumber('endAt'),equal=queryNumber('equalTo');
+    if(start!==null)records=records.filter(([,r])=>r.s>=start);
+    if(end!==null)records=records.filter(([,r])=>r.s<=end);
+    if(equal!==null)records=records.filter(([,r])=>r.s===equal);
+    const limitFirst=Number(u.searchParams.get('limitToFirst')||0);
+    const limitLast=Number(u.searchParams.get('limitToLast')||0);
+    if(limitFirst>0)records=records.slice(0,limitFirst);
+    if(limitLast>0)records=records.slice(-limitLast);
+  }
+  return answer(Object.fromEntries(records));
+ }
+ return {ckpts,ops,calls,fetch};
+}
+function device(api,seed){
+ const timers=[],storage=new Map();
+ const db={objectStoreNames:{contains:key=>key==='updates'},
+  transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
+ const persist={whenSynced:Promise.resolve(),db,
+   get:async key=>structuredClone(storage.get(key)),
+   set:async(key,value)=>{storage.set(key,structuredClone(value));}};
+ const ctx={ API:{clave:'synthetic-only',roomId:room,_store:{aplicar(){}},
+      rollout:{outboxV2:false,gzipWrite:false}},
+    RELAY_URL:'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/',
+    crypto:require('node:crypto').webcrypto,
+    window:{dispatchEvent(){}},navigator:{},
+    document:{hidden:false,visibilityState:'visible',addEventListener(){},
+      getElementById(){return null},body:{appendChild(){}}},
+    CustomEvent:class{constructor(type){this.type=type}},
+    WebSocket:class{constructor(){throw Error('network socket forbidden')}},
+    Response,URL,TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,Date,
+    JSON,Math,Promise,DOMException,console,
+    setTimeout(fn,ms){timers.push({fn,ms,cancelled:false});return timers.length;},
+    clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true;},
+    setInterval(){return 1;},clearInterval(){},
+    btoa:s=>Buffer.from(s,'binary').toString('base64'),
+    atob:s=>Buffer.from(s,'base64').toString('binary'),
+    fetch(){throw Error('global fetch forbidden');},
+    log(){},
+    cifrarBin:async(_,buffer)=>buffer.slice().buffer,
+    descifrarBin:async(_,buffer)=>new Uint8Array(buffer)
+ };
+ vm.createContext(ctx);
+ vm.runInContext(firebase,ctx);
+ ctx.window.F123Relay=ctx.window.F123FirebaseRelay.create({
+   db:server,fetch:api.fetch,EventSource:null});
+ vm.runInContext(transport+'\nthis.make=crearCanal;',ctx);
+ vm.runInContext(vendor,ctx);
+ const Y=ctx.Y,doc=new Y.Doc();
+ if(seed)seed(doc);
+ const channel=ctx.make(Y,doc,'-y','catalogo',true,null,persist);
+ // Mirror the actual production app's Y.Doc update bridge; remote ('red') must never echo.
+ doc.on('update',(update,origin)=>{if(origin!=='red'&&origin!==persist)channel.enviarUpdate(update);});
+ channel.conectar();
+ return {Y,doc,channel,timers,storage};
+}
+test('v694 Yjs → Firebase REST adapter → stored ckpt ACK → B full cold join without P2P', {timeout:30000},async()=>{
+ const backend=rest();
+ const A=device(backend,doc=>{
+  doc.getMap('products').set('synthetic-15',15);
+  doc.getMap('products').set('synthetic-3',3);
+ });
+ await until(()=>A.channel.recuperando===false,'A completes remote empty pull and final HEAD');
+ assert.equal(A.doc.store.pendingStructs,null);
+ assert.equal(A.doc.store.pendingDs,null);
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'A checkpoint timer');
+ const selected=A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1);
+ selected.fn();
+ await until(()=>backend.ckpts.has('1'),'actual Firebase adapter persisted checkpoint under revision 1');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,
+    'A confirmed CKPT through real adapter persistence ACK');
+ assert.equal(A.storage.get('f123_relay_outbox_v1-y').pending.filter(x=>x.k==='ckpt').length,0,
+   'confirmed checkpoint retired from outbox');
+ A.channel.pausar(); // close A before B connects
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'B cold-join ends after final verified HEAD');
+ assert.equal(B.doc.getMap('products').get('synthetic-15'),15);
+ assert.equal(B.doc.getMap('products').get('synthetic-3'),3);
+ assert.equal(B.doc.store.pendingStructs,null);
+ assert.equal(B.doc.store.pendingDs,null);
+ assert.equal(B.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,1);
+ assert.equal(backend.ckpts.size,1,'one persisted checkpoint; no duplicate/rewrite');
+ assert.ok(backend.calls.some(c=>c.method==='PUT'&&c.type==='k'));
+ assert.ok(backend.calls.some(c=>c.method==='GET'&&c.type==='k'&&c.key==='1'));
+ B.channel.pausar();
+});
+
+
+test('v694 checkpoint compacts a ~250 KB synthetic catalog; fresh B hydrates with one checkpoint', {timeout:45000},async()=>{
+ const cryptoHash=require('node:crypto').createHash;
+ const syntheticData=new Map();
+ for(let i=0;i<220;i++){
+  let payload='';
+  for(let j=0;j<18;j++){
+   payload+=cryptoHash('sha256').update('SYNTHETIC-ONLY-'+i+'-'+j).digest('hex');
+  }
+  syntheticData.set('fake-product-'+String(i).padStart(4,'0'),payload);
+ }
+ const backend=rest();
+ const A=device(backend,doc=>{
+  const catalog=doc.getMap('largeCatalog');
+  for(const [key,value] of syntheticData)catalog.set(key,value);
+ });
+ const snapshotBytes=A.Y.encodeStateAsUpdate(A.doc).byteLength;
+ assert.ok(snapshotBytes>220*1024,'must test catalog comparable to reported large histories');
+ assert.ok(snapshotBytes<750*1024,'synthetic fixture must fit the existing checkpoint cap');
+ await until(()=>A.channel.recuperando===false,'large A completes pull and final HEAD');
+ assert.equal(A.doc.store.pendingStructs,null);
+ assert.equal(A.doc.store.pendingDs,null);
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),
+   'large A schedules checkpoint after hydration');
+ const timer=A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1);
+ timer.fn();
+ await until(()=>backend.ckpts.has('1'),'large catalog checkpoint persisted by real Firebase adapter');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,
+   'large checkpoint receives matching remote ACK');
+ assert.equal(A.storage.get('f123_relay_outbox_v1-y').pending.filter(x=>x.k==='ckpt').length,0);
+ const checkpoint=backend.ckpts.get('1');
+ assert.ok(Buffer.from(checkpoint.c,'base64').byteLength<=768*1024,
+   'full snapshot obeys the existing 768 KiB encrypted checkpoint ceiling');
+ A.channel.pausar();
+ const readsBeforeB=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'fresh B finishes large checkpoint recovery');
+ const got=B.doc.getMap('largeCatalog');
+ assert.equal(got.size,syntheticData.size,'all 220 synthetic records present');
+ for(const [key,value] of syntheticData)assert.equal(got.get(key),value,
+   'large checkpoint must preserve every byte without dropped records');
+ assert.equal(B.doc.store.pendingStructs,null);
+ assert.equal(B.doc.store.pendingDs,null);
+ assert.equal(B.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,1);
+ assert.equal(backend.ckpts.size,1);
+ const pullReads=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ console.log('SYNTHETIC_250K_READ_COUNTS', JSON.stringify({beforeB:readsBeforeB,afterTotal:pullReads,newB:pullReads-readsBeforeB}));
+ assert.equal(pullReads-readsBeforeB,3,'B should need HEAD, checkpoint pull and final HEAD only');
+ B.channel.pausar();
+});
+
+
+test('P0 stale Firebase checkpoint + 31 distinct causal updates: newest 15 survives cold reopen, older 33 never resurrects', {timeout:120000}, async()=>{
+ const backend=rest();
+ const A=device(backend,doc=>doc.getMap('products').set('count-synthetic',33));
+ await until(()=>A.channel.recuperando===false,'A initial HEAD and hydration');
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'A checkpoint timer');
+ A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+ await until(()=>backend.ckpts.has('1'),'A persisted original checkpoint containing 33');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'A received the actual adapter persist-result ACK');
+ A.channel.pausar();
+
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'B finishes cold join from rev1 checkpoint');
+ assert.equal(B.doc.getMap('products').get('count-synthetic'),33,'baseline must really be 33');
+ const m=B.doc.getMap('products');
+ for(let i=0;i<30;i++){
+   const prior=backend.ops.size;
+   m.set('tail-synthetic-'+i,i);
+   await until(()=>backend.ops.size>prior,'tail event '+i+' durable on synthetic REST');
+ }
+ const beforeLast=backend.ops.size;
+ m.set('count-synthetic',15);
+ await until(()=>backend.ops.size>beforeLast,'newer count 15 has its own durable operation');
+ assert.equal(backend.ops.size,31,'real transport published 31 distinct operations after old checkpoint');
+ assert.equal(backend.ckpts.size,1,'no fresh checkpoint: force stale snapshot + paged op replay');
+ B.channel.pausar();
+
+ // Negative causal control: with newest op absent, a brand-new device still sees old 33.
+ const [lastId,lastOp]=[...backend.ops.entries()].at(-1);
+ backend.ops.delete(lastId);
+ const Missing=device(backend);
+ await until(()=>Missing.channel.recuperando===false,'negative-control cold join completes without newest write');
+ assert.equal(Missing.doc.getMap('products').get('count-synthetic'),33,
+   'dropping the most recent op must be detected as stale state, not fake convergence');
+ Missing.channel.pausar();
+ backend.ops.set(lastId,lastOp);
+
+ const readsBeforeC=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ const C=device(backend);
+ await until(()=>C.channel.recuperando===false,'C completes stale checkpoint and 31-op paginated recovery');
+ const final=C.doc.getMap('products');
+ assert.equal(final.get('count-synthetic'),15,'last causal count wins after reconnection');
+ for(let i=0;i<30;i++)assert.equal(final.get('tail-synthetic-'+i),i,'no history omissions');
+ assert.equal(C.doc.store.pendingStructs,null,'no causal parents missing');
+ assert.equal(C.doc.store.pendingDs,null,'no pending deleted structures');
+ assert.equal(C.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,1);
+ const reads=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length-readsBeforeC;
+ assert.ok(reads>3,'old checkpoint forces an actual multi-page catch-up, not a new compact snapshot');
+ console.log('STALE_CHECKPOINT_SYNTHETIC_ONLY',JSON.stringify({newBData:31,legacySnapshot:true,newCReads:reads,postReplayLatestValue:15}));
+ C.channel.pausar();
+});
