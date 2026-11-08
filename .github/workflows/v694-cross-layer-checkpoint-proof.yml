@@ -1,0 +1,33 @@
+name: Exact-v694 cross-layer checkpoint provenance (RED-first QA)
+on:
+  pull_request:
+    paths:
+      - 'qa/v694-cross-layer-checkpoint-provenance.test.cjs'
+      - '.github/workflows/v694-cross-layer-checkpoint-proof.yml'
+permissions:
+  contents: read
+jobs:
+  v694-regression-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: workshop
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reproduce cross-layer dedup bug using real published source (EXPECTED RED)
+        env:
+          F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
+          F123_EXPECTED_SHA: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
+        run: |
+          set -euo pipefail
+          node --test workshop/qa/v694-cross-layer-checkpoint-provenance.test.cjs
