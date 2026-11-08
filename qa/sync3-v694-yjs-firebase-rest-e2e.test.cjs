@@ -65,7 +65,7 @@ function device(api,seed){
     CustomEvent:class{constructor(type){this.type=type}},
     WebSocket:class{constructor(){throw Error('network socket forbidden')}},
     Response,URL,TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,Date,
-    JSON,Math,Number,String,Promise,DOMException,console,
+    JSON,Math,Promise,DOMException,console,
     setTimeout(fn,ms){timers.push({fn,ms,cancelled:false});return timers.length;},
     clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true;},
     setInterval(){return 1;},clearInterval(){},
