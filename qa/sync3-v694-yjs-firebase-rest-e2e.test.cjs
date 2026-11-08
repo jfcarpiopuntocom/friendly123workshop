@@ -166,6 +166,6 @@ test('v694 checkpoint compacts a ~250 KB synthetic catalog; fresh B hydrates wit
  assert.equal(backend.ckpts.size,1);
  const pullReads=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
  console.log('SYNTHETIC_250K_READ_COUNTS', JSON.stringify({beforeB:readsBeforeB,afterTotal:pullReads,newB:pullReads-readsBeforeB}));
- assert.ok(pullReads<=3,'new B must not need hundreds of history pages after good checkpoint');
+ assert.equal(pullReads-readsBeforeB,3,'B should need HEAD, checkpoint pull and final HEAD only');
  B.channel.pausar();
 });
