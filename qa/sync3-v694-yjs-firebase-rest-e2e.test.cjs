@@ -118,3 +118,52 @@ test('v694 Yjs → Firebase REST adapter → stored ckpt ACK → B full cold joi
  assert.ok(backend.calls.some(c=>c.method==='GET'&&c.type==='k'&&c.key==='1'));
  B.channel.pausar();
 });
+
+
+test('v694 checkpoint compacts a ~250 KB synthetic catalog; fresh B hydrates with one checkpoint', {timeout:45000},async()=>{
+ const cryptoHash=require('node:crypto').createHash;
+ const syntheticData=new Map();
+ for(let i=0;i<220;i++){
+  let payload='';
+  for(let j=0;j<18;j++){
+   payload+=cryptoHash('sha256').update('SYNTHETIC-ONLY-'+i+'-'+j).digest('hex');
+  }
+  syntheticData.set('fake-product-'+String(i).padStart(4,'0'),payload);
+ }
+ const backend=rest();
+ const A=device(backend,doc=>{
+  const catalog=doc.getMap('largeCatalog');
+  for(const [key,value] of syntheticData)catalog.set(key,value);
+ });
+ const snapshotBytes=A.Y.encodeStateAsUpdate(A.doc).byteLength;
+ assert.ok(snapshotBytes>220*1024,'must test catalog comparable to reported large histories');
+ assert.ok(snapshotBytes<750*1024,'synthetic fixture must fit the existing checkpoint cap');
+ await until(()=>A.channel.recuperando===false,'large A completes pull and final HEAD');
+ assert.equal(A.doc.store.pendingStructs,null);
+ assert.equal(A.doc.store.pendingDs,null);
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),
+   'large A schedules checkpoint after hydration');
+ const timer=A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1);
+ timer.fn();
+ await until(()=>backend.ckpts.has('1'),'large catalog checkpoint persisted by real Firebase adapter');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,
+   'large checkpoint receives matching remote ACK');
+ assert.equal(A.storage.get('f123_relay_outbox_v1-y').pending.filter(x=>x.k==='ckpt').length,0);
+ const checkpoint=backend.ckpts.get('1');
+ assert.ok(Buffer.from(checkpoint.c,'base64').byteLength<=768*1024,
+   'full snapshot obeys the existing 768 KiB encrypted checkpoint ceiling');
+ A.channel.pausar();
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'fresh B finishes large checkpoint recovery');
+ const got=B.doc.getMap('largeCatalog');
+ assert.equal(got.size,syntheticData.size,'all 220 synthetic records present');
+ for(const [key,value] of syntheticData)assert.equal(got.get(key),value,
+   'large checkpoint must preserve every byte without dropped records');
+ assert.equal(B.doc.store.pendingStructs,null);
+ assert.equal(B.doc.store.pendingDs,null);
+ assert.equal(B.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,1);
+ assert.equal(backend.ckpts.size,1);
+ const pullReads=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ assert.ok(pullReads<=3,'new B must not need hundreds of history pages after good checkpoint');
+ B.channel.pausar();
+});
