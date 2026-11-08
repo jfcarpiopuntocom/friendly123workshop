@@ -91,12 +91,15 @@ test('A hydrated -> checkpoint queued -> relay persist ACK -> new B consumes ful
  assert.equal(ck.rev,0);
  assert.equal(ck.seq,0);
  const local=a.stored.get('f123_relay_outbox_v1-y');
- assert.ok(local.pending.some(x=>x.id===ck.id),'checkpoint must first exist in local durable outbox');
- assert.notEqual(local.checkpoint,ck.state,'send alone is NOT remote persistence proof');
+ const pending=local.pending.find(x=>x.id===ck.id);
+ assert.ok(pending,'checkpoint must first exist in local durable outbox');
+ assert.match(pending.state,/^(sha256:)?/, 'local fingerprint is retained only in the outbox');
+ assert.equal(Object.hasOwn(ck,'state'),false,'wire deliberately omits local state fingerprint');
+ assert.notEqual(local.checkpoint,pending.state,'send alone is NOT remote persistence proof');
  // The test relay explicitly accepts this ciphertext and acknowledges it.
  const relay={rev:1,seq:0,checkpoint:structuredClone(ck)};
  a.socket.onmessage({data:JSON.stringify({k:'persist-result',kind:'ckpt',id:ck.id,ok:true})});
- await until(()=>a.stored.get('f123_relay_outbox_v1-y')?.checkpoint===ck.state,
+ await until(()=>a.stored.get('f123_relay_outbox_v1-y')?.checkpoint===pending.state,
   'only a matching persist-result commits checkpoint fingerprint');
  assert.equal(a.stored.get('f123_relay_outbox_v1-y').pending.some(x=>x.id===ck.id),false);
  a.channel.pausar(); // A closed before B cold-joins: never relies on direct peer.
