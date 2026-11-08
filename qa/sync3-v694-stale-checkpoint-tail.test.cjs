@@ -243,3 +243,53 @@ test('P0 stale Firebase checkpoint + 31 distinct causal updates: newest 15 survi
  console.log('STALE_CHECKPOINT_SYNTHETIC_ONLY',JSON.stringify({newBData:31,legacySnapshot:true,newCReads:reads,postReplayLatestValue:15}));
  C.channel.pausar();
 });
+
+test('P0 3212 sequential causal operations after an old checkpoint recover completely from scratch', {timeout:240000}, async()=>{
+ const backend=rest();
+ const A=device(backend,doc=>doc.getMap('longHistory').set('latest-synthetic-count',33));
+ await until(()=>A.channel.recuperando===false,'A hydrated from empty remote room');
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'A checkpoint timer');
+ A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+ await until(()=>backend.ckpts.has('1'),'initial old checkpoint persisted');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'initial checkpoint ACKed by actual adapter');
+ A.channel.pausar();
+
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'B hydrated old checkpoint');
+ const map=B.doc.getMap('longHistory');
+ assert.equal(map.get('latest-synthetic-count'),33,'baseline old physical count');
+ for(let i=0;i<3211;i++){
+   const prior=backend.ops.size;
+   map.set('history-'+String(i).padStart(4,'0'),i);
+   await until(()=>backend.ops.size>prior,'durable operation '+i+' recorded by synthetic REST');
+ }
+ const beforeFinal=backend.ops.size;
+ map.set('latest-synthetic-count',15);
+ await until(()=>backend.ops.size>beforeFinal,'final recent count durable');
+ assert.equal(backend.ops.size,3212,'all 3212 synthetic causal operations stored');
+ assert.equal(backend.ckpts.size,1,'snapshot deliberately stale; no hidden re-compaction');
+ B.channel.pausar();
+
+ const beforeReads=backend.calls.filter(c=>c.type==='o'&&c.method==='GET').length;
+ const C=device(backend);
+ const start=Date.now();
+ while(C.channel.recuperando!==false&&Date.now()-start<60000){
+   await new Promise(resolve=>setTimeout(resolve,5));
+ }
+ assert.equal(C.channel.recuperando,false,'C must complete remote pull and final HEAD, not merely receive some pages');
+ assert.equal(C.doc.getMap('longHistory').get('latest-synthetic-count'),15,
+   'newest count remains authoritative, without a fabricated delta');
+ assert.equal(C.doc.getMap('longHistory').size,3212,'no dropped historical values');
+ for(let i=0;i<3211;i++)assert.equal(C.doc.getMap('longHistory').get('history-'+String(i).padStart(4,'0')),i);
+ assert.equal(C.doc.store.pendingStructs,null,'all causal parents available after full replay');
+ assert.equal(C.doc.store.pendingDs,null,'no pending deletes');
+ assert.equal(C.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,1,'real durable cursor retained');
+ const reads=backend.calls.filter(c=>c.type==='o'&&c.method==='GET').length-beforeReads;
+ assert.ok(reads>100,'force extended paginated replay, not checkpoint shortcut');
+ console.log('SYNTHETIC_DEEP_REPLAY',JSON.stringify({
+  storedOperations:backend.ops.size, pagesRead:reads,
+  finalCount:15, receivedAll:true, pendingParents:0,
+  elapsedMs:Date.now()-start
+ }));
+ C.channel.pausar();
+});
