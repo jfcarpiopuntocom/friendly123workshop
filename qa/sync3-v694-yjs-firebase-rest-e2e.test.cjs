@@ -153,6 +153,7 @@ test('v694 checkpoint compacts a ~250 KB synthetic catalog; fresh B hydrates wit
  assert.ok(Buffer.from(checkpoint.c,'base64').byteLength<=768*1024,
    'full snapshot obeys the existing 768 KiB encrypted checkpoint ceiling');
  A.channel.pausar();
+ const readsBeforeB=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
  const B=device(backend);
  await until(()=>B.channel.recuperando===false,'fresh B finishes large checkpoint recovery');
  const got=B.doc.getMap('largeCatalog');
@@ -164,6 +165,7 @@ test('v694 checkpoint compacts a ~250 KB synthetic catalog; fresh B hydrates wit
  assert.equal(B.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,1);
  assert.equal(backend.ckpts.size,1);
  const pullReads=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ console.log('SYNTHETIC_250K_READ_COUNTS', JSON.stringify({beforeB:readsBeforeB,afterTotal:pullReads,newB:pullReads-readsBeforeB}));
  assert.ok(pullReads<=3,'new B must not need hundreds of history pages after good checkpoint');
  B.channel.pausar();
 });
