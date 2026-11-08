@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'qa/sync3-v694-a-ack-b.test.cjs'
+      - 'qa/sync3-v694-firebase-rest-contract.test.cjs'
       - '.github/workflows/sync3-v694-a-ack-b.yml'
   workflow_dispatch:
 permissions:
@@ -39,6 +40,10 @@ jobs:
         env:
           F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
         run: node --test workshop/qa/sync3-v694-a-ack-b.test.cjs
+      - name: Real production Firebase REST adapter, synthetic in-memory service
+        env:
+          F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
+        run: node --test workshop/qa/sync3-v694-firebase-rest-contract.test.cjs
       - name: Existing pinned production causal regression controls
         run: |
           node --test \
