@@ -369,3 +369,65 @@ test('P0 8489 Yjs updates after stale checkpoint -> fully recovered writer compa
  }));
  D.channel.pausar();
 });
+
+
+test('P0 intentionally missing Yjs causal parent: final HEAD must remain RED until parent OP is restored', {timeout:45000},async()=>{
+ const backend=rest();
+ const A=device(backend,doc=>doc.getMap('identity').set('initial-count',33));
+ await until(()=>A.channel.recuperando===false,'A hydrates initial empty room');
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'initial CKPT timer');
+ A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+ await until(()=>backend.ckpts.has('1'),'initial CKPT persisted');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'CKPT ACK persisted');
+ A.channel.pausar();
+
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'writer B hydrates remote checkpoint');
+ const doc=B.doc.getMap('causalChain');
+ const firstCount=backend.ops.size;
+ doc.set('parent','PARENT-ONLY-SYNTHETIC');
+ await until(()=>backend.ops.size===firstCount+1,'parent Yjs op persisted');
+ const parentId=[...backend.ops.keys()].at(-1);
+ const parent=structuredClone(backend.ops.get(parentId));
+ doc.set('child','CHILD-ONLY-SYNTHETIC');
+ await until(()=>backend.ops.size===firstCount+2,'child Yjs op persisted');
+ // Simulate the actual root cause hypothesis: the parent was lost on the durable relay,
+ // but a later child still exists and HEAD correctly advertises it.
+ backend.ops.delete(parentId);
+ B.channel.pausar();
+
+ const readBefore=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ const C=device(backend);
+ await until(()=>!!(C.doc.store.pendingStructs&&C.doc.store.pendingStructs.missing?.size),
+   'child without parent must produce an unresolved Yjs causal dependency');
+ // Let the real Firebase-adapter HEAD/PULL path reach its end.
+ await until(()=>backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length>=readBefore+3,
+   'new reader attempts HEAD, historical pull, and final HEAD');
+ assert.equal(C.channel.recuperando,true,'reaching HEAD must NOT make incomplete Yjs state safe');
+ assert.ok(C.doc.store.pendingStructs.missing.size>0,'parent dependency remains missing');
+ assert.equal(C.doc.getMap('causalChain').get('child'),undefined,
+   'Yjs must never expose a child whose causal parent is absent');
+ const timer=C.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1);
+ assert.ok(timer,'checkpoint timer is present but does not certify incomplete history');
+ timer.fn();
+ await new Promise(resolve=>setTimeout(resolve,20));
+ assert.equal(backend.ckpts.size,1,
+   'never persist a new checkpoint containing unresolved Yjs causal parents');
+ console.log('SYNTHETIC_MISSING_PARENT_REMAINS_RED',JSON.stringify({
+  serverLastHeadReached:true,pendingParents:C.doc.store.pendingStructs.missing.size,
+  checkpointAfterBrokenHistory:false
+ }));
+ C.channel.pausar();
+
+ // Restore EXACT original synthetic durable parent with same server timestamp.
+ backend.ops.set(parentId,parent);
+ const D=device(backend);
+ await until(()=>D.channel.recuperando===false,'fresh D completely hydrates when missing parent is restored');
+ assert.equal(D.doc.getMap('causalChain').get('parent'),'PARENT-ONLY-SYNTHETIC');
+ assert.equal(D.doc.getMap('causalChain').get('child'),'CHILD-ONLY-SYNTHETIC');
+ assert.equal(D.doc.store.pendingStructs,null);
+ assert.equal(D.doc.store.pendingDs,null);
+ assert.equal(backend.ckpts.size,1,'do not need to falsify checkpoint or history');
+ D.channel.pausar();
+ console.log('SYNTHETIC_PARENT_RESTORED_GREEN',JSON.stringify({pendingParents:0,coldJoin:true}));
+});
