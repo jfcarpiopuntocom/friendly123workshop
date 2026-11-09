@@ -1,4 +1,4 @@
-name: Sync3 v694 stale-checkpoint causal replay (synthetic)
+name: Sync3 v696 genesis ancestor auto-repair RED-first (synthetic)
 on:
   pull_request:
     paths:
@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jfcarpiopuntocom/friendly-123
-          ref: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
+          ref: 901ad6aa8dbf0b926815e8281f3b80fe7894ffd5
           path: candidate
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -30,8 +30,9 @@ jobs:
       - name: Prove exact source and run stale-checkpoint, negative-control and pagination test
         env:
           F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
+          F123_EXPECTED_SHA: 901ad6aa8dbf0b926815e8281f3b80fe7894ffd5
         run: |
           set -euo pipefail
-          test "$(git -C candidate rev-parse HEAD)" = "dbc361a01bc0b97b90ccfe9bd86379c20639cc29"
+          test "$(git -C candidate rev-parse HEAD)" = "901ad6aa8dbf0b926815e8281f3b80fe7894ffd5"
           echo 'LAB ONLY: no production Firebase/Supabase, no license, PIN, customer or shop data'
           node --test workshop/qa/sync3-v694-stale-checkpoint-tail.test.cjs
