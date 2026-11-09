@@ -524,3 +524,71 @@ test('P0 AUTOMATIC Firebase-only pre-CKPT ancestor rescue: bad cut but parent OP
  console.log('AUTO_GENESIS_BACKFILL',JSON.stringify({recovered:true,causalDebt:0,initialCKPTUnchanged:true,totalGets:gets}));
  C.channel.pausar();
 });
+
+
+test('P0 RED: Firebase pre-CKPT causal rescue must finish all historical pages after finding the parent early', {timeout:65000},async()=>{
+  const backend=rest();
+  const A=device(backend,d=>d.getMap('identity').set('oldSyntheticCount',33));
+  await until(()=>A.channel.recuperando===false,'A initial clean hydration');
+  await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'A first CKPT timer');
+  A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+  await until(()=>backend.ckpts.has('1'),'A original CKPT persisted');
+  await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'A CKPT ACKed');
+  A.channel.pausar();
+
+  const B=device(backend);
+  await until(()=>B.channel.recuperando===false,'B initial CKPT hydrated');
+  B.doc.getMap('causalChain').set('parent','EARLY-PARENT-SYNTHETIC');
+  await until(()=>backend.ops.size===1,'early parent Yjs op stored');
+  const rows=B.doc.getMap('precheckpointHistory');
+  const totalHistory=95; // 96 pre-cut ops => >4 Firebase pages at 12 ops/page.
+  for(let i=0;i<totalHistory;i++){
+    rows.set('prior-'+i,i);
+    await until(()=>backend.ops.size===i+2,'pre-cut operation '+i+' stored');
+  }
+  const oldCut=[...backend.ops.values()].at(-1).s;
+  B.doc.getMap('causalChain').set('child','LATE-CHILD-SYNTHETIC');
+  await until(()=>backend.ops.size===totalHistory+2,'child after synthetic old cutoff stored');
+  // Malformed checkpoint deliberately claims to include 96 ops while its
+  // ciphertext contains only rev1 baseline. Every pre-cut op still exists.
+  backend.ckpts.set('2',{...structuredClone(backend.ckpts.get('1')),s:oldCut});
+  B.channel.pausar();
+
+  const before=backend.calls.filter(x=>x.type==='o'&&x.method==='GET').length;
+  const C=device(backend);
+  // Advance only the synthetic transport's bounded retry/backoff clock.
+  // The production timer remains unchanged; this in-memory device harness
+  // never executes timers unless the test explicitly advances its fake time.
+  let simulatedBackoffMs=0,resumeCount=0;
+  for(let i=0;i<1800 && C.channel.recuperando!==false;i++){
+    const timer=C.timers.find(t=>!t.cancelled&&!t.fired&&
+      (t.ms===8000||t.ms===30000||t.ms===60000||t.ms===120000||t.ms===240000||t.ms===300000));
+    if(timer){
+      timer.fired=true;timer.cancelled=true;
+      simulatedBackoffMs+=timer.ms;resumeCount++;
+      timer.fn();
+    }
+    await new Promise(resolve=>setTimeout(resolve,2));
+  }
+  const parents=C.doc.store.pendingStructs?.missing?.size||0;
+  const historyRecovered=C.doc.getMap('precheckpointHistory').size;
+  const reads=backend.calls.filter(x=>x.type==='o'&&x.method==='GET').length-before;
+  console.log('SYNTHETIC_MULTIPAGE_PRECUT',JSON.stringify({
+    preCutOps:totalHistory+1,readPages:reads,simulatedBackoffMs,resumeCount,
+    historicalRowsRecovered:historyRecovered,
+    causalParentsPending:parents,
+    recoveryComplete:C.channel.recuperando===false,
+    pendingBackoffTimers:C.timers.filter(t=>!t.cancelled&&t.ms===8000).length
+  }));
+  assert.equal(backend.ckpts.size,2,'no checkpoint may overwrite incomplete state');
+  assert.equal(C.channel.recuperando,false,
+    'after recovering early parent, a 4-page throttle must not strand later historical ops');
+  assert.equal(historyRecovered,totalHistory,'every post-rev1 op hidden by bad rev2 CKPT must be reconstructed');
+  assert.equal(C.doc.getMap('causalChain').get('parent'),'EARLY-PARENT-SYNTHETIC');
+  assert.equal(C.doc.getMap('causalChain').get('child'),'LATE-CHILD-SYNTHETIC');
+  assert.equal(parents,0);
+  assert.equal(C.doc.store.pendingDs,null);
+  assert.equal(C.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,2,
+    'historical replay must never roll back durable revision');
+  C.channel.pausar();
+});
