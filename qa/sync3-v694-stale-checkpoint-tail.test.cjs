@@ -464,6 +464,10 @@ test('P0 BAD CKPT cut hides a preserved parent OP: explicit raw-history proof ma
  assert.equal(backend.ops.size,2,'both ciphertext ops remain available for rescue');
  B.channel.pausar();
  const C=device(backend);
+ // Cross-relay negative control: selector did not certify the Firebase layer.
+ // The new AUTOMATIC ancestor rescue must NOT fire on a peer/unknown source;
+ // the explicit old-op transport probe still demonstrates the parent is stored.
+ C.channel.ws.relayLayer='unknown';
  await until(()=>!!(C.doc.store.pendingStructs&&C.doc.store.pendingStructs.missing?.size),
   'old checkpoint + recent child alone leaves causal parent missing');
  assert.equal(C.channel.recuperando,true,'must not falsely certify snapshot with invalid cut');
