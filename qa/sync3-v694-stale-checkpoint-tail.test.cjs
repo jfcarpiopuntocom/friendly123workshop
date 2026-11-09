@@ -431,3 +431,47 @@ test('P0 intentionally missing Yjs causal parent: final HEAD must remain RED unt
  D.channel.pausar();
  console.log('SYNTHETIC_PARENT_RESTORED_GREEN',JSON.stringify({pendingParents:0,coldJoin:true}));
 });
+
+
+test('P0 BAD CKPT cut hides a preserved parent OP: explicit raw-history proof may recover it', {timeout:35000},async()=>{
+ const backend=rest();
+ const A=device(backend,doc=>doc.getMap('identity').set('baseline',33));
+ await until(()=>A.channel.recuperando===false,'A initial join');
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'A ckpt timer');
+ A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+ await until(()=>backend.ckpts.has('1'),'legitimate rev1 checkpoint');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'ACK for rev1');
+ A.channel.pausar();
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'B hydrated rev1');
+ const map=B.doc.getMap('causalChain');
+ map.set('parent','REAL-STORED-PARENT-SYNTHETIC');
+ await until(()=>backend.ops.size===1,'parent stored');
+ const parent=structuredClone([...backend.ops.values()][0]);
+ map.set('child','REAL-STORED-CHILD-SYNTHETIC');
+ await until(()=>backend.ops.size===2,'child stored');
+ // Invalid historical rev2 snapshot: copied old rev1 state but falsely claims
+ // to cover parent.s. Real append-only op history retains BOTH parent and child.
+ backend.ckpts.set('2',{...structuredClone(backend.ckpts.get('1')),s:parent.s});
+ assert.equal(backend.ops.size,2,'both ciphertext ops remain available for rescue');
+ B.channel.pausar();
+ const C=device(backend);
+ await until(()=>!!(C.doc.store.pendingStructs&&C.doc.store.pendingStructs.missing?.size),
+  'old checkpoint + recent child alone leaves causal parent missing');
+ assert.equal(C.channel.recuperando,true,'must not falsely certify snapshot with invalid cut');
+ assert.equal(C.doc.getMap('causalChain').get('child'),undefined);
+ // Controlled *manual* transport-only experiment: on the current revision,
+ // seq:0 means replay all still-stored ops WITHOUT injecting the bad checkpoint.
+ // This does not change any production source or server state.
+ C.channel.ws.send(JSON.stringify({k:'pull',v:2,rev:2,seq:0,limit:12}));
+ await until(()=>!C.doc.store.pendingStructs,
+  'manual in-memory full append-only op replay resolves missing parent');
+ assert.equal(C.doc.getMap('causalChain').get('parent'),'REAL-STORED-PARENT-SYNTHETIC');
+ assert.equal(C.doc.getMap('causalChain').get('child'),'REAL-STORED-CHILD-SYNTHETIC');
+ assert.equal(backend.ckpts.size,2,'manual rescue must never emit unsafe checkpoint');
+ console.log('SYNTHETIC_BAD_CHECKPOINT_RECOVERED_MANUALLY',JSON.stringify({
+  priorParentStillStored:true,missingParentsAfterFullOpReplay:0,
+  wouldNeedAutomaticBoundedFallback:true
+ }));
+ C.channel.pausar();
+});
