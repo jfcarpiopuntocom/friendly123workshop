@@ -7,7 +7,7 @@ const test=require('node:test').test,assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {execFileSync}=require('node:child_process');
 const sourceRoot=process.env.F123_SOURCE_ROOT;
-const SHA='dbc361a01bc0b97b90ccfe9bd86379c20639cc29';
+const SHA=process.env.F123_EXPECTED_SHA || 'dbc361a01bc0b97b90ccfe9bd86379c20639cc29';
 assert.ok(sourceRoot,'Pinned source checkout is mandatory');
 assert.equal(execFileSync('git',['-C',sourceRoot,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),SHA);
 const yjs=fs.readFileSync(path.join(sourceRoot,'docs/sync-yjs.js'),'utf8');
@@ -473,5 +473,42 @@ test('P0 BAD CKPT cut hides a preserved parent OP: explicit raw-history proof ma
   priorParentStillStored:true,missingParentsAfterFullOpReplay:0,
   wouldNeedAutomaticBoundedFallback:true
  }));
+ C.channel.pausar();
+});
+
+
+test('P0 AUTOMATIC Firebase-only pre-CKPT ancestor rescue: bad cut but parent OP retained; no manual commands', {timeout:40000},async()=>{
+ const backend=rest();
+ const A=device(backend,doc=>doc.getMap('identity').set('baseline',33));
+ await until(()=>A.channel.recuperando===false,'A initial join');
+ await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'A checkpoint timer');
+ A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+ await until(()=>backend.ckpts.has('1'),'A rev1 CKPT');
+ await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'A CKPT ACK');
+ A.channel.pausar();
+ const B=device(backend);
+ await until(()=>B.channel.recuperando===false,'B hydrated initial state');
+ B.doc.getMap('causalChain').set('parent','PARENT-IN-EARLY-OP-SYNTHETIC');
+ await until(()=>backend.ops.size===1,'parent persisted as OP');
+ const parent=structuredClone([...backend.ops.values()][0]);
+ B.doc.getMap('causalChain').set('child','CHILD-IN-LATE-OP-SYNTHETIC');
+ await until(()=>backend.ops.size===2,'child persisted as OP');
+ backend.ckpts.set('2',{...structuredClone(backend.ckpts.get('1')),s:parent.s});
+ B.channel.pausar();
+
+ const C=device(backend); // MUST NEVER manually call channel.ws.send('pull')
+ await until(()=>C.channel.recuperando===false,
+   'one-time autonomous Firebase-only ancestor scan must complete after a final page with Yjs pending');
+ assert.equal(C.doc.getMap('causalChain').get('parent'),'PARENT-IN-EARLY-OP-SYNTHETIC',
+   'older causal parent retained on server must be recovered automatically');
+ assert.equal(C.doc.getMap('causalChain').get('child'),'CHILD-IN-LATE-OP-SYNTHETIC');
+ assert.equal(C.doc.store.pendingStructs,null);
+ assert.equal(C.doc.store.pendingDs,null);
+ assert.equal(backend.ckpts.size,2,'never rewrite CKPT while uncertain');
+ assert.equal(C.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,2,
+  'durable revision must not roll back to unverified checkpoint cut');
+ const gets=backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length;
+ assert.ok(gets<=24,'one-time rescue must not explode remote GET budget for this two-OP case');
+ console.log('AUTO_GENESIS_BACKFILL',JSON.stringify({recovered:true,causalDebt:0,initialCKPTUnchanged:true,totalGets:gets}));
  C.channel.pausar();
 });
