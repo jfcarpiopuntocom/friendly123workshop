@@ -1,0 +1,61 @@
+name: P0 A-B v694 published vs v698 DRAFT · same local event and +1 stock browser gate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v694-v698-local-browser-ab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare-single-device:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: published-v694
+            sha: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
+          - label: draft-v698
+            sha: d56872beaed03efbdd1942fb8bcf52c966676ec9
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - name: Checkout exact app source without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: ${{ matrix.sha }}
+          path: app
+          persist-credentials: false
+      - name: Checkout immutable shared v698 QA fixture (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: d56872beaed03efbdd1942fb8bcf52c966676ec9
+          path: fixture
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify SHA pins and install local dependencies
+        shell: bash -e {0}
+        run: |
+          set -euo pipefail
+          test "$(git -C app rev-parse HEAD)" = "${{ matrix.sha }}"
+          test "$(git -C fixture rev-parse HEAD)" = "d56872beaed03efbdd1942fb8bcf52c966676ec9"
+          cd app
+          npm ci
+      - name: Run identical synthetic ticket + physical stock button + cash payout after reload
+        working-directory: app
+        shell: bash -e {0}
+        run: |
+          set -euo pipefail
+          cp ../fixture/test/p0-one-device-browser-ticket-event-v698.test.cjs test/p0-one-device-browser-ticket-event-v698.test.cjs
+          cmp test/p0-one-device-browser-ticket-event-v698.test.cjs ../fixture/test/p0-one-device-browser-ticket-event-v698.test.cjs
+          echo "QA A/B: ${{ matrix.label }} exact SHA ${{ matrix.sha }}"
+          echo "Isolated localhost app only; external relay/network blocked; no real licence/PIN, customer stock or sales."
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/p0-one-device-browser-ticket-event-v698.test.cjs
