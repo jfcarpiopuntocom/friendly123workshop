@@ -100,6 +100,14 @@ function device(api,seed){
  vm.runInContext(firebase,ctx);
  ctx.window.F123Relay=ctx.window.F123FirebaseRelay.create({
    db:server,fetch:api.fetch,EventSource:null});
+ // Production relay-selector.js exposes this exact source-specific relayLayer
+ // on the returned hub; direct Firebase adapters otherwise lack that property.
+ const connectFirebase=ctx.window.F123Relay.connect;
+ ctx.window.F123Relay.connect=function(url) {
+   const socket=connectFirebase(url);
+   socket.relayLayer='f123_relay_cupo_fb_v1';
+   return socket;
+ };
  vm.runInContext(transport+'\nthis.make=crearCanal;',ctx);
  vm.runInContext(vendor,ctx);
  const Y=ctx.Y,doc=new Y.Doc();
