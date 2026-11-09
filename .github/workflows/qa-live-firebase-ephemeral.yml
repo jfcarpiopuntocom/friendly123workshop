@@ -1,0 +1,36 @@
+name: P0 REAL Firebase disposable synthetic CKPT ACK HEAD (NO client rooms)
+on:
+  pull_request:
+    paths:
+      - 'qa/live-firebase-ephemeral-ckpt.test.cjs'
+      - '.github/workflows/qa-live-firebase-ephemeral.yml'
+permissions:
+  contents: read
+jobs:
+  real-firebase-ephemeral:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: workshop
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Real Firebase provider under random isolated synthetic room and verified cleanup
+        env:
+          F123_SOURCE_ROOT: ${{ github.workspace }}/source
+          F123_EXPECTED_SHA: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
+          F123_FIREBASE_EPHEMERAL: '1'
+        run: |
+          set -euo pipefail
+          node --test workshop/qa/live-firebase-ephemeral-ckpt.test.cjs
+          echo 'QA-only real Firebase disposable room passed. Not existing-room recovery, PIN, PWA or physical acceptance.' >> "$GITHUB_STEP_SUMMARY"
