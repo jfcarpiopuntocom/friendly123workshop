@@ -1,0 +1,40 @@
+name: P0 v698 REAL Firebase one fresh encrypted QA room CKPT ACK HEAD (NO release)
+on:
+  pull_request:
+    paths:
+      - 'qa/sync3-real-firebase-fresh-room.test.cjs'
+      - '.github/workflows/sync3-real-firebase-fresh-room.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-firebase-checkpoint:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: Checkout synthetic QA test, no persisted credentials
+        uses: actions/checkout@v4
+        with:
+          path: workshop
+          persist-credentials: false
+      - name: Checkout exact DRAFT v698 source for read-only execution
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 496a82b815b13ec250b1f7b1e549962e95102b0d
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: One freshly random 40-hex room, encrypted synthetic changes ONLY
+        env:
+          F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
+          F123_EXPECTED_SHA: 496a82b815b13ec250b1f7b1e549962e95102b0d
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "496a82b815b13ec250b1f7b1e549962e95102b0d"
+          echo "TEST ONLY: no customer license, PIN, shared QA room, deletion or elevated Firebase quota"
+          echo "Hard boundaries: <=8 synthetic immutable REST PUTs, <=1MiB uploads, <=6MiB downloads"
+          node --test workshop/qa/sync3-real-firebase-fresh-room.test.cjs
