@@ -1,4 +1,4 @@
-name: Sync3 v697 genesis ancestor auto-repair GREEN experiment (synthetic)
+name: Sync3 v698 cross-writer pre-CKPT completeness RED-to-GREEN (synthetic)
 on:
   pull_request:
     paths:
@@ -17,11 +17,11 @@ jobs:
         with:
           path: workshop
           persist-credentials: false
-      - name: Checkout immutable published production source (read-only)
+      - name: Checkout immutable v698 experimental source (read-only)
         uses: actions/checkout@v4
         with:
           repository: jfcarpiopuntocom/friendly-123
-          ref: 3936de09164c2c867b8698b7092d7638f47c46a1
+          ref: 0d2203a30ed2d42dea3c5caead97da00631125b6
           path: candidate
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -30,9 +30,9 @@ jobs:
       - name: Prove exact source and run stale-checkpoint, negative-control and pagination test
         env:
           F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
-          F123_EXPECTED_SHA: 3936de09164c2c867b8698b7092d7638f47c46a1
+          F123_EXPECTED_SHA: 0d2203a30ed2d42dea3c5caead97da00631125b6
         run: |
           set -euo pipefail
-          test "$(git -C candidate rev-parse HEAD)" = "3936de09164c2c867b8698b7092d7638f47c46a1"
+          test "$(git -C candidate rev-parse HEAD)" = "0d2203a30ed2d42dea3c5caead97da00631125b6"
           echo 'LAB ONLY: no production Firebase/Supabase, no license, PIN, customer or shop data'
           node --test workshop/qa/sync3-v694-stale-checkpoint-tail.test.cjs
