@@ -3,7 +3,7 @@
 // Yjs-only data, explicit GET/POST budgets, no customer license, PIN or deletions.
 const test=require('node:test').test;
 const assert=require('node:assert/strict');
-const {webcrypto,randomBytes}=require('node:crypto');
+const {webcrypto,randomBytes,createHash}=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 
@@ -23,7 +23,7 @@ const transport=yjs.slice(beginning,ending);
 const room=randomBytes(20).toString('hex');
 const origin='https://friendly-123-ab7b3-default-rtdb.firebaseio.com';
 const prefix='/f123/'+room+'-y/';
-const MAX_DOWN=4*1024*1024,MAX_UP=384*1024,MAX_WRITES=8;
+const MAX_DOWN=6*1024*1024,MAX_UP=1024*1024,MAX_WRITES=8;
 const metrics={readBytes:0,uploadBytes:0,writes:0,requests:0,opWrites:0,ckptWrites:0};
 const events=[];
 const dbFetch=async (url,opts={})=>{
@@ -141,9 +141,21 @@ test('fresh REAL Firebase synthetic A→checkpoint ACK→B→operation ACK→C�
   assert.deepEqual(await shallow('k'),[],'random room must start without checkpoints');
   assert.deepEqual(await shallow('o'),[],'random room must start without operations');
   const aesKey=await webcrypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+  // Production-like catalog near 250 KiB, without any customer fields.
+  const syntheticCatalog=new Map();
+  for(let i=0;i<220;i++){
+    let content='';
+    for(let j=0;j<18;j++)
+      content+=createHash('sha256').update('ISOLATED-REAL-FIREBASE-'+i+'-'+j).digest('hex');
+    syntheticCatalog.set('synthetic-product-'+String(i).padStart(4,'0'),content);
+  }
+  assert.ok(Buffer.byteLength(JSON.stringify([...syntheticCatalog]))>220*1024,
+    'large fixture must not be a tiny smoke test');
   const A=device(aesKey,doc=>{
     doc.getMap('identity').set('synthetic-count',33);
     doc.getMap('identity').set('synthetic-other',3);
+    const map=doc.getMap('largeCatalog');
+    for(const [key,value] of syntheticCatalog)map.set(key,value);
   });
   await until(()=>hydrated(A),'A initial remote HEAD and hydration');
   await checkpoint(A,1);
@@ -152,6 +164,7 @@ test('fresh REAL Firebase synthetic A→checkpoint ACK→B→operation ACK→C�
   const B=device(aesKey);
   await until(()=>hydrated(B),'B cold-joins real checkpoint v1');
   assert.equal(B.doc.getMap('identity').get('synthetic-count'),33);
+  assert.equal(B.doc.getMap('largeCatalog').size,220,'B recovers all large records');
   B.doc.getMap('identity').set('synthetic-count',15);
   await until(()=>metrics.opWrites>=1,'B submits encrypted newest movement');
   await until(()=>B.storage.get('f123_relay_outbox_v1-y')?.pending.filter(v=>v.k==='op').length===0,
@@ -163,6 +176,7 @@ test('fresh REAL Firebase synthetic A→checkpoint ACK→B→operation ACK→C�
   await until(()=>hydrated(C),'C cold-joins v1 and newest op');
   assert.equal(C.doc.getMap('identity').get('synthetic-count'),15);
   assert.equal(C.doc.getMap('identity').get('synthetic-other'),3);
+  assert.equal(C.doc.getMap('largeCatalog').size,220,'C retains all records from CKPT1');
   assert.equal(C.doc.store.pendingStructs,null);
   assert.equal(C.doc.store.pendingDs,null);
   assert.equal(C.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,1);
@@ -176,6 +190,10 @@ test('fresh REAL Firebase synthetic A→checkpoint ACK→B→operation ACK→C�
   const durationMs=Date.now()-started;
   assert.equal(D.doc.getMap('identity').get('synthetic-count'),15);
   assert.equal(D.doc.getMap('identity').get('synthetic-other'),3);
+  const finalCatalog=D.doc.getMap('largeCatalog');
+  assert.equal(finalCatalog.size,220,'D receives complete ~250KiB catalog from CKPT2');
+  for(const [key,value] of syntheticCatalog)
+    assert.equal(finalCatalog.get(key),value,'large synthetic record must survive byte-for-byte');
   assert.equal(D.doc.store.pendingStructs,null);
   assert.equal(D.doc.store.pendingDs,null);
   assert.equal(D.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,2);
@@ -185,7 +203,7 @@ test('fresh REAL Firebase synthetic A→checkpoint ACK→B→operation ACK→C�
   assert.ok(metrics.readBytes<MAX_DOWN&&metrics.uploadBytes<MAX_UP);
   console.log('REAL_FIREBASE_ISOLATED_CKPT',JSON.stringify({
     acknowledgedCheckpointRevisions:2,acknowledgedOps:1,
-    latestSyntheticCount:15,missingParents:0,
+    catalogRecords:220,latestSyntheticCount:15,missingParents:0,
     freshReaderMs:durationMs,freshReaderRequests:metrics.requests-readsBeforeD,
     totalReadKiB:Math.ceil(metrics.readBytes/1024),
     totalUploadKiB:Math.ceil(metrics.uploadBytes/1024),
