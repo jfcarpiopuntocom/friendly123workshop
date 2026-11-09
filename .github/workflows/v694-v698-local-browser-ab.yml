@@ -20,6 +20,8 @@ jobs:
             sha: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
           - label: draft-v698
             sha: d56872beaed03efbdd1942fb8bcf52c966676ec9
+          - label: hotfix-v700-v694-base
+            sha: 38a1d15b530b7fe4918204d4263babec79d48bb9
     defaults:
       run:
         shell: bash -e {0}
