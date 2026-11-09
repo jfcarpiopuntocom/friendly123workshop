@@ -401,8 +401,8 @@ test('P0 intentionally missing Yjs causal parent: final HEAD must remain RED unt
  await until(()=>!!(C.doc.store.pendingStructs&&C.doc.store.pendingStructs.missing?.size),
    'child without parent must produce an unresolved Yjs causal dependency');
  // Let the real Firebase-adapter HEAD/PULL path reach its end.
- await until(()=>backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length>=readBefore+3,
-   'new reader attempts HEAD, historical pull, and final HEAD');
+ await until(()=>backend.calls.filter(c=>c.method==='GET'&&c.type==='o').length>=readBefore+2,
+   'new reader attempts initial HEAD and historical pull; final HEAD is NOT promised while Yjs has debt');
  assert.equal(C.channel.recuperando,true,'reaching HEAD must NOT make incomplete Yjs state safe');
  assert.ok(C.doc.store.pendingStructs.missing.size>0,'parent dependency remains missing');
  assert.equal(C.doc.getMap('causalChain').get('child'),undefined,
