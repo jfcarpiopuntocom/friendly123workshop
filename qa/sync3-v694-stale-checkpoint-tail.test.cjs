@@ -556,13 +556,25 @@ test('P0 RED: Firebase pre-CKPT causal rescue must finish all historical pages a
 
   const before=backend.calls.filter(x=>x.type==='o'&&x.method==='GET').length;
   const C=device(backend);
-  for(let i=0;i<800 && C.channel.recuperando!==false;i++)
+  // Advance only the synthetic transport's bounded retry/backoff clock.
+  // The production timer remains unchanged; this in-memory device harness
+  // never executes timers unless the test explicitly advances its fake time.
+  let simulatedBackoffMs=0,resumeCount=0;
+  for(let i=0;i<1800 && C.channel.recuperando!==false;i++){
+    const timer=C.timers.find(t=>!t.cancelled&&!t.fired&&
+      (t.ms===8000||t.ms===30000||t.ms===60000||t.ms===120000||t.ms===240000||t.ms===300000));
+    if(timer){
+      timer.fired=true;timer.cancelled=true;
+      simulatedBackoffMs+=timer.ms;resumeCount++;
+      timer.fn();
+    }
     await new Promise(resolve=>setTimeout(resolve,2));
+  }
   const parents=C.doc.store.pendingStructs?.missing?.size||0;
   const historyRecovered=C.doc.getMap('precheckpointHistory').size;
   const reads=backend.calls.filter(x=>x.type==='o'&&x.method==='GET').length-before;
   console.log('SYNTHETIC_MULTIPAGE_PRECUT',JSON.stringify({
-    preCutOps:totalHistory+1,readPages:reads,
+    preCutOps:totalHistory+1,readPages:reads,simulatedBackoffMs,resumeCount,
     historicalRowsRecovered:historyRecovered,
     causalParentsPending:parents,
     recoveryComplete:C.channel.recuperando===false,
