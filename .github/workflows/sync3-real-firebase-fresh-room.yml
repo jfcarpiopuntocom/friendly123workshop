@@ -36,5 +36,5 @@ jobs:
           set -euo pipefail
           test "$(git -C candidate rev-parse HEAD)" = "496a82b815b13ec250b1f7b1e549962e95102b0d"
           echo "TEST ONLY: no customer license, PIN, shared QA room, deletion or elevated Firebase quota"
-          echo "Hard boundaries: <=8 synthetic immutable REST PUTs, <=384KiB uploads, <=4MiB downloads"
+          echo "Hard boundaries: <=8 synthetic immutable REST PUTs, <=1MiB uploads, <=6MiB downloads"
           node --test workshop/qa/sync3-real-firebase-fresh-room.test.cjs
