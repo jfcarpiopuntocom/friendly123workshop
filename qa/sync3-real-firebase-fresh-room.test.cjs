@@ -200,14 +200,63 @@ test('fresh REAL Firebase synthetic A→checkpoint ACK→B→operation ACK→C�
   assert.equal((await shallow('k')).length,2);
   assert.equal((await shallow('o')).length,1);
   assert.ok(durationMs<10000,'fresh real Firebase join must finish <10 seconds');
+
+  // Two real durable REST A→B→A cycles on the SAME remote synthetic room.
+  // Resume previously paused Y.Docs instead of manufacturing new writers;
+  // each step must be ACKed before the next device is allowed to edit.
+  let expectedOpWrites=1;
+  async function confirmedEdit(writer,count){
+    writer.doc.getMap('identity').set('synthetic-count',count);
+    expectedOpWrites++;
+    await until(()=>metrics.opWrites>=expectedOpWrites,
+      'writer submits the next append-only encrypted operation');
+    await until(()=>writer.storage.get('f123_relay_outbox_v1-y')?.pending
+      .filter(v=>v.k==='op').length===0,
+      'writer receives durable operation ACK');
+    assert.equal((await shallow('o')).length,expectedOpWrites,
+      'server operation count must match acknowledged edits');
+  }
+  async function resumeAndSee(writer,count){
+    writer.channel.reanudar();
+    await until(()=>writer.doc.getMap('identity').get('synthetic-count')===count&&
+      !writer.doc.store.pendingStructs&&!writer.doc.store.pendingDs,
+      'resumed device must causally converge to latest count '+count);
+  }
+  await confirmedEdit(D,14); D.channel.pausar();
+  await resumeAndSee(B,14);
+  await confirmedEdit(B,13); B.channel.pausar();
+  await resumeAndSee(D,13);
+  await confirmedEdit(D,12); D.channel.pausar();
+  await resumeAndSee(B,12);
+  await confirmedEdit(B,11); B.channel.pausar();
+  await resumeAndSee(D,11); D.channel.pausar();
+  // The original A (which held 33 and published CKPT1) must finally recover
+  // the newest value after two full alternating rounds, without new mutations.
+  await resumeAndSee(A,11); A.channel.pausar();
+
+  // Brand-new E must also see all five post-v1 encrypted operations from
+  // the real server, not merely the last live peer value from prior readers.
+  const E=device(aesKey),freshEStarted=Date.now();
+  await until(()=>hydrated(E),'E cold joins rev2 checkpoint plus four durable edits');
+  const freshEMs=Date.now()-freshEStarted;
+  assert.equal(E.doc.getMap('identity').get('synthetic-count'),11);
+  assert.equal(E.doc.getMap('largeCatalog').size,220);
+  assert.equal(E.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,2);
+  assert.equal(E.doc.store.pendingStructs,null);
+  assert.equal(E.doc.store.pendingDs,null);
+  assert.equal((await shallow('k')).length,2);
+  assert.equal((await shallow('o')).length,5);
+  assert.ok(freshEMs<10000,'new reader after two A→B→A rounds must finish <10s');
   assert.ok(metrics.readBytes<MAX_DOWN&&metrics.uploadBytes<MAX_UP);
   console.log('REAL_FIREBASE_ISOLATED_CKPT',JSON.stringify({
-    acknowledgedCheckpointRevisions:2,acknowledgedOps:1,
-    catalogRecords:220,latestSyntheticCount:15,missingParents:0,
-    freshReaderMs:durationMs,freshReaderRequests:metrics.requests-readsBeforeD,
+    acknowledgedCheckpointRevisions:2,acknowledgedOps:5,
+    catalogRecords:220,latestSyntheticCount:11,missingParents:0,
+    twoBidirectionalRounds:true,
+    freshReaderMs:durationMs,freshReaderAfterRoundsMs:freshEMs,
+    freshReaderRequests:metrics.requests-readsBeforeD,
     totalReadKiB:Math.ceil(metrics.readBytes/1024),
     totalUploadKiB:Math.ceil(metrics.uploadBytes/1024),
     noClientLicenseOrPin:true
   }));
-  D.channel.pausar();
+  E.channel.pausar();
 });
