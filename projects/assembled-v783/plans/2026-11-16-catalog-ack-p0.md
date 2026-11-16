@@ -9,3 +9,6 @@ In the assembled browser `app/docs/mock-backend.js`, `_fetchInterno` returns HTT
 4. Run focused browser, 585 CI target, full comparison and review; merge only proven GREEN, with reversible diff. Never edit customer data, PIN, issuer, production SW/Pages or relay.
 ## Admission criteria
 A success response means the rack exists in read-back-verified local durable storage, with no overwritten peer rack. Rejections do not silently persist an unconfirmed rack later. No UI reset on unverified writes. Stock is derived from events, never fixed to a snapshot value.
+
+## Harness correction before rerun
+CI [43950605371](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43950605371) was RED solely because test tried to replace `window.OCEstadoAB.guardarAhora`, but public `OCEstadoAB` only exposes `crear` and `avisarConflicto`: the private A/B instance owns guardarAhora. **Not evidence of false ACK**. Use `Storage.prototype.setItem` only for A/B state keys (`f123_estado_v4..._journal/_A/_B/_ptr`) and patch public `OCEstadoIDB.guardar` so both normal persistence paths fail. Keep the test assertion unchanged; distinguish harness RED vs functional RED. 
