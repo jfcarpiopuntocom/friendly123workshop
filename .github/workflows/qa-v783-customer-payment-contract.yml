@@ -1,0 +1,47 @@
+name: QA v783 customer payment opId + inbox boundary (synthetic no deploy)
+on:
+  push:
+    branches: [sol/v783-customer-payment-contract-20261116]
+    paths:
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger-workerd.test.mjs
+      - projects/assembled-v783/app/src/credit-payment-command.mjs
+      - projects/assembled-v783/app/test/p0-customer-payment-command.test.cjs
+      - .github/workflows/qa-v783-customer-payment-contract.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger-workerd.test.mjs
+      - projects/assembled-v783/app/src/credit-payment-command.mjs
+      - projects/assembled-v783/app/test/p0-customer-payment-command.test.cjs
+      - .github/workflows/qa-v783-customer-payment-contract.yml
+permissions:
+  contents: read
+jobs:
+  payment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing relay dev deps for real Workerd test
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Syntax of existing and new contract components
+        run: |
+          node --check projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs
+          if test -f projects/assembled-v783/app/src/credit-payment-command.mjs; then node --check projects/assembled-v783/app/src/credit-payment-command.mjs; fi
+      - name: Real JS typed ledger security, prior replay, new contract
+        run: node --test --test-timeout=45000 projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-command-payload.test.mjs
+      - name: Real Workerd SQLite persistence and restart
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: node --test --test-timeout=45000 qa/p0-typed-commercial-ledger-workerd.test.mjs
+      - name: Browser fact readback projection and legacy cents (synthetic)
+        run: node --test --test-timeout=45000 projects/assembled-v783/app/test/p0-customer-payment-command.test.cjs
