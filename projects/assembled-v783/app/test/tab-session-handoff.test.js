@@ -295,6 +295,14 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     assert.equal(current.nombre,before.nombre,'400 must not retain a partial rename');
     assert.equal(current.comisionSocio,before.comisionSocio,'400 must not retain a partial commission');
    }
+   const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   await cold.waitForFunction(async id=>{
+    const r=await fetch('/api/ubicaciones');if(!r.ok)return false;
+    return (await r.json()).some(u=>u.id===id);
+   },ids.rack,{timeout:7000,polling:100});
+   const readback=(await api(cold,'/api/ubicaciones')).find(u=>u.id===ids.rack);
+   assert.equal(readback.nombre,before.nombre,'cold start cannot resurrect an invalid rename');
+   assert.equal(readback.comisionSocio,before.comisionSocio,'cold start cannot resurrect an invalid commission');
    const accepted=await api(page,'/api/ubicaciones/'+ids.rack,'PUT',{nombre:'Accepted rack edit',pctQuedaEnCasa:15});
    assert.equal(accepted.nombre,'Accepted rack edit','valid rename must remain supported');
    assert.equal(accepted.comisionSocio,85,'valid house-share edit keeps original percent semantics');
