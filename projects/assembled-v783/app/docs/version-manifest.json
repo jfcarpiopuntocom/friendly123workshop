@@ -28,7 +28,7 @@
     "./vendor/money-imported.min.js": "sha256-571da731b0ac32151eba878b2d067b22a8ed6af72e269c435c94ec8a06c89a17",
     "./vendor/workbox-imported.min.js": "sha256-baad3de8960a3865b2f8f9c6ee0ca95f953252289a8f470a5647273472bcd968",
     "./team-authority-client.js": "sha256-8df9583c993730438bf0550374611efa7a7c824ca95db302b67bdc3ccba1f5f1",
-    "./mock-backend.js": "sha256-d413ae729512204b8229b722536b5dd6612b4a1c82acf6f7b71ebc3175268e53",
+    "./mock-backend.js": "sha256-053cbee9f6bdd65f6bd71b203e7d6668e0ba56e42f44f6610cc58c114477f3b3",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
