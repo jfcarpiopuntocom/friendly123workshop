@@ -21,7 +21,7 @@ node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1
   test/peer-sync-browser.test.js 2>&1 | tee "../evidence/webkit-p0/$stamp-peer.log"
 peer_status=${PIPESTATUS[0]}
 node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
-  --test-name-pattern='Fable P1-4 storage pressure on the old lease keys \\(WebKit, lease\\)' \
+  --test-name-pattern='Fable P1-4 storage pressure on the old lease keys \(WebKit, lease\)' \
   test/tab-session-handoff.test.js 2>&1 | tee "../evidence/webkit-p0/$stamp-lease.log"
 lease_status=${PIPESTATUS[0]}
 set -e
