@@ -6,7 +6,7 @@ const LICENSE='F123-SYNTHETIC-LEDGER';
 const sale=(over={})=>({opId:'synthetic-op-001',license:LICENSE,kind:'sale.record',productId:'sku-1',quantity:1,amountCents:1999,...over});
 const expense=(over={})=>({opId:'synthetic-expense-002',license:LICENSE,kind:'expense.record',categoryId:'rent',amountCents:235,...over});
 const payment=(over={})=>({opId:'synthetic-payment-003',license:LICENSE,kind:'credit.payment.record',receivableId:'synthetic-debt-1',amountCents:505,...over});
-function fixture({authorize,insertFails=false,clock=()=>1730000000000}={}) {
+function fixture({authorize,authorizeCustomer=async ({license,clienteId,principal})=>license===LICENSE&&clienteId==='client_1'&&principal?.subject==='owner-account',insertFails=false,clock=()=>1730000000000}={}) {
  const rows=new Map(),payloads=new Map(),invocations={auth:[],writes:0,reads:0};
  const sql={exec(query,...params){
   if(/^\s*CREATE TABLE/i.test(query))return [];
@@ -43,7 +43,7 @@ function fixture({authorize,insertFails=false,clock=()=>1730000000000}={}) {
   invocations.auth.push({ticket,license,scope});
   return ticket==='synthetic-signed-ticket' ? {ok:true,principal:{license,subject:'owner-account',scopes:[scope]}}:{ok:false};
  });
- return {api:createTypedCommercialLedger({sql,transactionSync,authorize:verify,clock}),rows,payloads,invocations};
+ return {api:createTypedCommercialLedger({sql,transactionSync,authorize:verify,authorizeCustomer,clock}),rows,payloads,invocations};
 }
 const send=(f,command,ticket='synthetic-signed-ticket')=>f.api.submit({ticket,command});
 test('reject unknown operation before reading or writing storage',async()=>{
@@ -230,4 +230,66 @@ test('RED: revoked actor must not retrieve prior customer payment receipt',async
  const retry=await send(f,customerPayment());
  assert.equal(retry.status,403);
  assert.equal(f.invocations.writes,1);
+});
+
+test('RED: customer payment requires explicit trusted membership provider, not just issuer scope',async()=>{
+ const f=fixture({authorizeCustomer:null});
+ const r=await send(f,customerPayment());
+ assert.equal(r.ok,false);assert.equal(r.status,503);
+ assert.equal(r.reason,'customer-authority-unavailable');
+ assert.equal(f.rows.size,0);assert.equal(f.invocations.reads,0);
+ for(const cmd of [sale(),expense(),payment()]){
+  const pass=await send(f,cmd);
+  assert.equal(pass.ok,true,'old kind remains usable without customer owner lookup');
+ }
+});
+test('RED: false or nonboolean membership and thrown authority never write an inbox receipt',async()=>{
+ for(const [checker,status,reason] of [
+  [async()=>false,403,'customer-not-authorized'],
+  [async()=>({ok:true}),403,'customer-not-authorized'],
+  [async()=>{throw Error('synthetic owner lookup unavailable')},503,'customer-authority-unavailable'],
+ ]){
+  const f=fixture({authorizeCustomer:checker});
+  const result=await send(f,customerPayment());
+  assert.equal(result.ok,false);assert.equal(result.status,status);
+  assert.equal(result.reason,reason);
+  assert.equal(f.rows.size,0);
+  assert.equal(f.invocations.reads,0);
+ }
+});
+test('RED: customer owner lookup sees only server-authenticated principal, tenant and customer id',async()=>{
+ const calls=[];
+ const f=fixture({authorizeCustomer:async input=>{calls.push(input);return true;}});
+ const result=await send(f,customerPayment());
+ assert.equal(result.status,200);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].license,LICENSE);
+ assert.equal(calls[0].clienteId,'client_1');
+ assert.equal(calls[0].principal.subject,'owner-account');
+ assert.equal(calls[0].principal.license,LICENSE);
+ assert.deepEqual(calls[0].principal.scopes,['ops:payment']);
+});
+test('RED: revoking customer membership prevents even reading an earlier duplicate receipt',async()=>{
+ let member=true,calls=0;
+ const f=fixture({authorizeCustomer:async()=>{calls++;return member;}});
+ const first=await send(f,customerPayment());
+ assert.equal(first.status,200);
+ const readsBefore=f.invocations.reads;
+ member=false;
+ const revoked=await send(f,customerPayment());
+ assert.equal(revoked.ok,false);assert.equal(revoked.status,403);
+ assert.equal(f.invocations.reads,readsBefore,'no SQLite lookup after membership revocation');
+ assert.equal(f.rows.size,1);assert.equal(calls,2);
+});
+test('RED: issuer denial wins before customer membership inquiry or storage access',async()=>{
+ let calls=0;
+ const f=fixture({authorizeCustomer:async()=>{calls++;return true;}});
+ const denied=await send(f,customerPayment(),'unsigned-browser-assertion');
+ assert.equal(denied.status,403);
+ assert.equal(calls,0);assert.equal(f.invocations.reads,0);assert.equal(f.rows.size,0);
+});
+test('RED: customer moved to another valid ID in same licence is rejected before storage',async()=>{
+ const f=fixture({authorizeCustomer:async ({clienteId})=>clienteId==='client_1'});
+ const result=await send(f,customerPayment({clienteId:'client_2'}));
+ assert.equal(result.status,403);assert.equal(f.invocations.reads,0);assert.equal(f.rows.size,0);
 });
