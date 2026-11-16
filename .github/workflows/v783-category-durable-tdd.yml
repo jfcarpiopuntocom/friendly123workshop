@@ -1,0 +1,44 @@
+name: v783 category batch durability RED-GREEN (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/ui-integrity-v341.test.js'
+      - 'projects/assembled-v783/app/docs/mock-backend.js'
+      - '.github/workflows/v783-category-durable-tdd.yml'
+permissions:
+  contents: read
+jobs:
+  category-batch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact dependencies and browser engines
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+      - name: Native browser RED-GREEN with offline production block
+        run: |
+          mkdir -p ../evidence/category-batch-p0
+          git rev-parse HEAD | tee ../evidence/category-batch-p0/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000             --test-name-pattern='P0 category batch rejects false ACK'             test/ui-integrity-v341.test.js             2>&1 | tee ../evidence/category-batch-p0/red-green.log
+      - name: Preserve exact failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-category-batch-p0-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/category-batch-p0/
+          if-no-files-found: warn
+          retention-days: 14
