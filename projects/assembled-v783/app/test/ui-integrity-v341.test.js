@@ -255,15 +255,22 @@ test('failed business rename keeps the old identity and informs the owner', asyn
     const name = document.getElementById('oc-negocio-nombre');
     const originalName = window.OCTienda.nombreActivo;
     window.OCTienda.nombreActivo = () => 'Original fixture business';
-    window.dispatchEvent(new CustomEvent('oc-negocio-actualizado',
-      { detail: { nombre: 'Original fixture business' } }));
     const originalPrompt = window.prompt;
     const originalFetch = window.fetch;
     window.prompt = () => 'New fixture business';
-    window.fetch = (url, options) => String(url).includes('/api/instancia/nombre') && options?.method === 'POST'
-      ? Promise.resolve(new Response(JSON.stringify({ error: 'Fixture reject' }),
-        { status: 503, headers: { 'Content-Type': 'application/json' } }))
-      : originalFetch(url, options);
+    window.fetch = (url, options) => {
+      const path = new URL(String(url), location.href).pathname;
+      if (path === '/api/instancia' && (!options || !options.method || options.method === 'GET'))
+        return Promise.resolve(new Response(JSON.stringify({ nombreNegocio: 'Original fixture business' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      if (path === '/api/instancia/nombre' && options?.method === 'POST')
+        return Promise.resolve(new Response(JSON.stringify({ error: 'Fixture reject' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }));
+      return originalFetch(url, options);
+    };
+    // Both the event and the canonical GET must describe the same synthetic notebook.
+    window.dispatchEvent(new CustomEvent('oc-negocio-actualizado',
+      { detail: { nombre: 'Original fixture business' } }));
     document.getElementById('oc-negocio-editar').click();
     await new Promise(resolve => setTimeout(resolve, 50));
     window.prompt = originalPrompt;
