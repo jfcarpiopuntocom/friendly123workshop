@@ -28,3 +28,15 @@ jobs:
           node-version: "22"
       - name: Unit tests (red then green)
         run: node --test qa/coordination/no-clobber.test.mjs
+      - name: "Check current branch diff against frozen ownership ledger"
+        shell: bash
+        env:
+          WORK_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          git fetch origin +refs/heads/integrate/browser-injertos-20261116:refs/remotes/origin/integrate/browser-injertos-20261116
+          BASE="$(git merge-base HEAD origin/integrate/browser-injertos-20261116)"
+          AGENT="${WORK_BRANCH%%/*}"
+          echo "Working agent: $AGENT"
+          echo "Tracked baseline: $BASE"
+          node qa/coordination/no-clobber.mjs --actor "$AGENT" --base "$BASE" --head HEAD
