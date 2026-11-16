@@ -254,6 +254,9 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
 test(`failed business rename keeps the old identity and informs the owner (${browserName})`, async () => {
   const result = await withPage(page => page.evaluate(async () => {
     const name = document.getElementById('oc-negocio-nombre');
+    const history = [], requests = [];
+    const nameObserver = new MutationObserver(() => history.push(name.textContent));
+    nameObserver.observe(name, { childList: true, subtree: true, characterData: true, attributes: true });
     const originalName = window.OCTienda.nombreActivo;
     window.OCTienda.nombreActivo = () => 'Original fixture business';
     const originalPrompt = window.prompt;
@@ -261,6 +264,7 @@ test(`failed business rename keeps the old identity and informs the owner (${bro
     window.prompt = () => 'New fixture business';
     window.fetch = (url, options) => {
       const path = new URL(String(url), location.href).pathname;
+      if (path.includes('/api/instancia')) requests.push({ path, method: options?.method || 'GET' });
       if (path === '/api/instancia' && (!options || !options.method || options.method === 'GET'))
         return Promise.resolve(new Response(JSON.stringify({ nombreNegocio: 'Original fixture business' }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }));
@@ -277,11 +281,12 @@ test(`failed business rename keeps the old identity and informs the owner (${bro
     window.prompt = originalPrompt;
     window.fetch = originalFetch;
     window.OCTienda.nombreActivo = originalName;
-    return { name: name.textContent,
+    nameObserver.disconnect();
+    return { name: name.textContent, history, requests,
       message: document.getElementById('oc-negocio-estado')?.textContent || '',
       visible: document.getElementById('oc-negocio-estado')?.style.display };
   }), engine);
-  assert.equal(result.name, 'Original fixture business');
+  assert.equal(result.name, 'Original fixture business', JSON.stringify(result));
   assert.match(result.message, /name|nombre/i);
   assert.notEqual(result.visible, 'none');
 });}
