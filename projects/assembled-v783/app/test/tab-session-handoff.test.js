@@ -283,22 +283,27 @@ test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
    if(typeof idb?.guardar!=='function'||typeof window.OCEstadoAB?.crear!=='function')
      throw new Error('synthetic persistence adapters missing');
    const oldIdb=idb.guardar,oldWrite=Storage.prototype.setItem;
-   idb.guardar=async()=>false;
+   let idbDenied=0,abDenied=0;
+   idb.guardar=async()=>{idbDenied++;return false;};
    Storage.prototype.setItem=function(key,value){
      const k=String(key);
-     if(k.includes('f123_estado_v4') && /_(?:journal|A|B|ptr)$/.test(k))
+     if(k.includes('f123_estado_v4') && /_(?:journal|A|B|ptr)$/.test(k)){
+       abDenied++;
        throw new DOMException('Synthetic A/B store failure','QuotaExceededError');
+     }
      return oldWrite.call(this,key,value);
    };
    try{
     const r=await fetch('/api/ubicaciones',{
       method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})
     });
-    return {status:r.status};
+    return {status:r.status,idbDenied,abDenied};
    }finally{
     idb.guardar=oldIdb;Storage.prototype.setItem=oldWrite;
    }
   });
+  assert.ok(result.idbDenied>0,'IndexedDB rejection injector must be exercised');
+  assert.ok(result.abDenied>0,'A/B rejection injector must be exercised');
   assert.ok(result.status>=400,'HTTP success cannot acknowledge a rack when both independent local stores reject persistence');
  }finally{await web.close();}
 });
