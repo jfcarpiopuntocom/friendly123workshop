@@ -7,7 +7,7 @@ const KINDS=Object.freeze({
   'expense.record':{scope:'ops:expense',detail:'categoryId',quantity:false},
   'credit.payment.record':{scope:'ops:payment',detail:'receivableId',quantity:false}
 });
-const LICENSE=/^F123-[A-Z0-9-]{8,48}$/;
+const LICENSE=/^F123-[A-Z0-9*~$=-]{8,34}$/;
 const ID=/^[A-Za-z0-9_-]{1,64}$/;
 const OP_ID=/^[A-Za-z0-9_-]{8,96}$/;
 const MAX_AMOUNT=10_000_000_000;

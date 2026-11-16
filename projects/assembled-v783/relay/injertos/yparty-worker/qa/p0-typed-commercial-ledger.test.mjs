@@ -126,3 +126,24 @@ test('authorization is rechecked on every idempotent retry, not cached by opId',
  const denied=await send(f,sale());assert.equal(denied.ok,false);assert.equal(denied.status,403);
  assert.equal(f.invocations.writes,1);
 });
+
+test('valid license alphabet from the existing WS issuer is accepted byte-for-byte',async()=>{
+ const allowed='F123-AB*~$=-CDE123';
+ const f=fixture();
+ const cmd=sale({license:allowed});
+ const result=await send(f,cmd);
+ assert.equal(result.ok,true);
+ assert.equal(result.receipt.license,allowed);
+ assert.equal((await send(f,cmd)).duplicate,true);
+ assert.equal(f.invocations.writes,1);
+});
+test('license boundary exactly follows existing issuer limit of 8..34 characters after F123-',async()=>{
+ for(const code of ['F123-'+'A'.repeat(7),'F123-'+'A'.repeat(35)]){
+  const f=fixture(),r=await send(f,sale({license:code}));
+  assert.equal(r.ok,false);assert.equal(r.status,400);assert.equal(f.rows.size,0);
+ }
+ for(const code of ['F123-'+'A'.repeat(8),'F123-'+'A'.repeat(34)]){
+  const f=fixture(),r=await send(f,sale({license:code}));
+  assert.equal(r.ok,true,code);
+ }
+});
