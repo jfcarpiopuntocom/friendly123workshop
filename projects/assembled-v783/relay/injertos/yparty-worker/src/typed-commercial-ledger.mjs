@@ -52,7 +52,7 @@ function fail(status,reason){return {ok:false,status,reason};}
 function sha256Hex(buffer){
   return Array.from(new Uint8Array(buffer),x=>x.toString(16).padStart(2,'0')).join('');
 }
-export function createTypedCommercialLedger({sql,transactionSync,authorize,clock=Date.now}={}){
+export function createTypedCommercialLedger({sql,transactionSync,authorize,authorizeCustomer,clock=Date.now}={}){
   if(!sql||typeof sql.exec!=='function'||typeof transactionSync!=='function'||
      typeof authorize!=='function'||typeof clock!=='function')
     throw new TypeError('trusted server-only SQL storage and authorization are required');
@@ -73,6 +73,24 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,clock
          typeof principal.subject!=='string'||!principal.subject||
          !Array.isArray(principal.scopes)||!principal.scopes.includes(validated.contract.scope))
         return fail(403,'not-authorized');
+      // A browser's clienteId and locally-stored facts cannot prove tenant
+      // ownership (the old IndexedDB namespace is app-scoped, not license-
+      // scoped). Require an independent server-owned customer registry before
+      // even LOOKING UP a payment inbox receipt, including on duplicate opIds.
+      // No provider => fail closed. Never read a customer role from the command.
+      if(validated.contract.customerPayment){
+        if(typeof authorizeCustomer!=='function')
+          return fail(503,'customer-authority-unavailable');
+        let member;
+        try{
+          member=await authorizeCustomer({
+            license:validated.record.license,
+            clienteId:validated.record.clienteId,
+            principal
+          });
+        }catch(_){return fail(503,'customer-authority-unavailable');}
+        if(member!==true)return fail(403,'customer-not-authorized');
+      }
       let digest,now;
       try{
         const bytes=new TextEncoder().encode(JSON.stringify(validated.record));

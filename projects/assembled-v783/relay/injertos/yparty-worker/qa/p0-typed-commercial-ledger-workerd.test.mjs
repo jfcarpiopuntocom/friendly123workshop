@@ -84,6 +84,10 @@ test('real Workerd SQLite: one durable inbox row survives reopen and conflicting
   assert.deepEqual(again.body.receipt,first.body.receipt);
   assert.equal(await count(),2);
   assert.equal(JSON.parse(await payloadReadback(originalOpId)).amountCents,101);
+  const wrongCustomer=await send({...customer,opId:'customer-payment:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',clienteId:'client_2'});
+  assert.equal(wrongCustomer.status,403,'same license must not imply arbitrary customer membership');
+  assert.equal(wrongCustomer.body.reason,'customer-not-authorized');
+  assert.equal(await count(),2);
   const deniedCustomer=await send({...customer,opId:'customer-payment:99999999-9999-4999-8999-999999999999'},'synthetic-expired');
   assert.equal(deniedCustomer.status,403);assert.equal(await count(),2);
  }finally{
