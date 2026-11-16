@@ -20,3 +20,9 @@ Run from app/: npm ci; then node --require ./test/helpers/sin-red-produccion.cjs
 Run from relay/injertos/yparty-worker/: npm ci; node --test --test-concurrency=1 --test-timeout=45000 qa/*.test.mjs. A positive inbox receipt is stored-for-application, not business-committed. QA authority fixtures never enable a production role.
 
 Integrity: app/scripts/gen-manifest.js regenerates laboratory hashes, app/check-sw.sh and git diff --check verify consistency. Current JFC AGENTS defers PWA/SW changes. Follow the existing plan/STATUS and exact SHA, not old summaries. Do not reintroduce an unsafe sender to make a test green; never delete historical facts or loosen limits.
+
+## Additional real data-loss regression
+
+app/test/p0-stale-fichas-peer-save.test.cjs and p0-stale-fichas-browser.test.cjs: a stale fichas receiver must preserve the peer's rack/product/sale and stock2 on cold readback; wait behind an in-flight local sale; snapshot incoming intent; reject obsolete notebook or connection generation before PIN adoption. Sole production caller awaits before receive signatures. Node emulator plus native Chromium/WebKit. See fichas-final.txt30/30 including stock-union-fria-v644.
+
+Historical compatibility CI restores exact sources from public jfcarpiopuntocom/friendly-123 commits; the original Git-show assertions and v606/v607 loaders remain intact. Never replace historical bytes with the candidate just to obtain green.

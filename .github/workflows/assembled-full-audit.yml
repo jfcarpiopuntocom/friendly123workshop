@@ -35,7 +35,21 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npx playwright install --with-deps chromium webkit
+      - name: Restore exact public historical sources used by compatibility tests
+        run: |
+          git fetch --no-tags --depth=1 https://github.com/jfcarpiopuntocom/friendly-123.git \
+            b8bd538dff03569a965cfabfe5faf46f81edc626 \
+            962ebb3a657f4651f0dd879eebefd11326ee5a3a \
+            94877828be4da2541f25a142e26ad181e4b3d332 \
+            795635ea0b0de262cd982d9a5dc828fd8cffcfba \
+            82952a84958641010c48bfbee6aab80007ba12e9 \
+            7e51ed51560d6138866dae98e4a01ff1772db51c
+          mkdir -p "$RUNNER_TEMP/f123-historical"
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > "$RUNNER_TEMP/f123-historical/v607-sync-yjs.js"
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > "$RUNNER_TEMP/f123-historical/v606-sync-yjs.js"
       - name: Run the complete existing app test command with imported money present
         env:
           F123_QA_IMPORTED_MONEY: '1'
+          F123_V607_SYNC_FILE: ${{ runner.temp }}/f123-historical/v607-sync-yjs.js
+          F123_V606_SYNC_FILE: ${{ runner.temp }}/f123-historical/v606-sync-yjs.js
         run: npm test

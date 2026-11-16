@@ -1,0 +1,100 @@
+✔ stale durable fichas receiver preserves a peer tab rack, sale and stock on cold readback (82.878146ms)
+✖ queued fichas cannot enter a changed notebook or adopt its PIN (26.846569ms)
+✖ queued fichas cannot enter a changed generation or adopt its PIN (13.995724ms)
+✔ fichas wait behind an in-flight local sale and keep the incoming intention stable (28.623775ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 583.013473
+
+✖ failing tests:
+
+test at test/p0-stale-fichas-peer-save.test.cjs:28:47
+✖ queued fichas cannot enter a changed notebook or adopt its PIN (26.846569ms)
+  AssertionError [ERR_ASSERTION]: obsolete context must not apply queued content
+  + actual - expected
+  
+  + {
+  +   actividadCompleta: true,
+  +   actualizados: 0,
+  +   agregadasU: 1,
+  +   agregadosP: 0,
+  +   clientesAgregados: 0,
+  +   huella: {
+  +     completa: 'HZ7TYE',
+  +     corta: '#7TYE',
+  +     perchas: 5,
+  +     productos: 39
+  +   },
+  +   miembrosActualizados: 0,
+  +   miembrosAgregados: 0,
+  +   miembrosQuitados: 0,
+  +   ok: true,
+  +   pinsConfirmados: Promise {
+  +     Symbol(async_id_symbol): 436,
+  +     Symbol(trigger_async_id_symbol): 435,
+  +     true
+  +   },
+  +   promotorasAgregadas: 0,
+  +   sucursalesAgregadas: 0,
+  +   ventasAgregadas: 0
+  + }
+  - false
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs:48:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [Object],
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/p0-stale-fichas-peer-save.test.cjs:28:47
+✖ queued fichas cannot enter a changed generation or adopt its PIN (13.995724ms)
+  AssertionError [ERR_ASSERTION]: obsolete context must not apply queued content
+  + actual - expected
+  
+  + {
+  +   actividadCompleta: true,
+  +   actualizados: 0,
+  +   agregadasU: 1,
+  +   agregadosP: 0,
+  +   clientesAgregados: 0,
+  +   huella: {
+  +     completa: '14UOMTL',
+  +     corta: '#OMTL',
+  +     perchas: 5,
+  +     productos: 39
+  +   },
+  +   miembrosActualizados: 0,
+  +   miembrosAgregados: 0,
+  +   miembrosQuitados: 0,
+  +   ok: true,
+  +   pinsConfirmados: Promise {
+  +     Symbol(async_id_symbol): 546,
+  +     Symbol(trigger_async_id_symbol): 545,
+  +     true
+  +   },
+  +   promotorasAgregadas: 0,
+  +   sucursalesAgregadas: 0,
+  +   ventasAgregadas: 0
+  + }
+  - false
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs:48:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [Object],
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

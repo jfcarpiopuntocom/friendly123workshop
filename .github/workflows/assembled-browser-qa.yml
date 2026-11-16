@@ -82,6 +82,10 @@ jobs:
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
             test/p0-payment-atomic-facts.test.cjs test/p0-payment-atomic-browser.test.cjs \
             test/hechos-import-recovery.test.cjs test/hechos-sync.test.js
+      - name: Stale fichas receiver preserves peer sales, racks and physical stock
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
+            test/p0-stale-fichas-peer-save.test.cjs test/p0-stale-fichas-browser.test.cjs test/stock-union-fria-v644.test.js
       - name: Existing expense allocation from the real browser UI
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 test/expense-presale-allocation-browser.test.js
       - name: Photo bytes, hash, fallback and backup

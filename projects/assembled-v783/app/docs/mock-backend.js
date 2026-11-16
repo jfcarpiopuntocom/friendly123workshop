@@ -6015,12 +6015,25 @@
       };
     },
     /* v651: changes that arrive by the durable op lane while Yjs is stuck. Same merge rule as the catalog: nothing is wiped. */
-    aplicarFichas(f) {
+    aplicarFichas(f, vigente) {
       if (!f || typeof f !== "object") return false;
-      const r = aplicarCatalogo({ ubicaciones: Array.isArray(f.ubicaciones) ? f.ubicaciones : [], productos: Array.isArray(f.productos) ? f.productos : [], usuarios: Array.isArray(f.usuarios) ? f.usuarios : undefined, pinsRol: f.pinsRol || null }, null);
-      _adoptarPinDeFoto(f);
-      guardarEstadoLocal();
-      return r;
+      const recibido = clonar(f);
+      const licencia = _licenciaPropia(), tienda = _sufijoTiendaActiva();
+      // A stale sync receiver must rebase like an API writer, after its own
+      // pending commit settles; otherwise it can erase another tab's sale.
+      const aplicar = async () => {
+        if (_guardadoCatalogoPendiente) await _guardadoCatalogoPendiente;
+        if (_licenciaPropia() !== licencia || _sufijoTiendaActiva() !== tienda ||
+            (typeof vigente === "function" && vigente() !== true)) return false;
+        _recargarSiOtraPestanaEscribio();
+        const r = aplicarCatalogo({ ubicaciones: Array.isArray(recibido.ubicaciones) ? recibido.ubicaciones : [], productos: Array.isArray(recibido.productos) ? recibido.productos : [], usuarios: Array.isArray(recibido.usuarios) ? recibido.usuarios : undefined, pinsRol: recibido.pinsRol || null }, null);
+        _adoptarPinDeFoto(recibido);
+        await guardarEstadoLocal();
+        return r;
+      };
+      const operacion = _colaEscriturasLocal.then(aplicar);
+      _colaEscriturasLocal = operacion.catch(() => {});
+      return operacion;
     },
     /* Restaura un checkpoint — SOLO en un dispositivo FRESCO, definido como uno
        que NUNCA registro una venta propia (ventas.length === 0). Asi es

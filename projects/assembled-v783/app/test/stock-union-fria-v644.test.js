@@ -278,9 +278,9 @@ test('v651: a device with its own epoch adopts a newer count that has none, and 
 
 test('v651: fichas merge with the catalog rule and create what this device lacks; the photo carries the product image', async () => {
   const { dest, stock, shelf, product } = await montar();
-  dest.OCSync.aplicarFichas({ productos: [{ ...product, stockActual: 33, stockBase: 33, stockPN: {}, stockTs: 7000, stockEpochId: 'ep-x', fotoHash: 'a'.repeat(64) }] });
+  await dest.OCSync.aplicarFichas({ productos: [{ ...product, stockActual: 33, stockBase: 33, stockPN: {}, stockTs: 7000, stockEpochId: 'ep-x', fotoHash: 'a'.repeat(64) }] });
   assert.equal((await stock()).stockActual, 33);
-  dest.OCSync.aplicarFichas({ productos: [{ ...product, id: 'prod-nuevo-ficha', barcode: 'N-1', sku: 'N', stockActual: 4, stockBase: 4, stockPN: {}, stockTs: 7000 }] });
+  await dest.OCSync.aplicarFichas({ productos: [{ ...product, id: 'prod-nuevo-ficha', barcode: 'N-1', sku: 'N', stockActual: 4, stockBase: 4, stockPN: {}, stockTs: 7000 }] });
   const todos = (await dest.request('/api/respaldo/exportar')).productos;
   assert.equal(todos.find(p => p.id === 'prod-nuevo-ficha').stockActual, 4);
   const foto = dest.OCSync.estadoParaCheckpoint().productos.find(p => p.id === product.id);

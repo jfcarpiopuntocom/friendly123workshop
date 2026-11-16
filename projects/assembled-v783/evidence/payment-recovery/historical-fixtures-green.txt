@@ -1,0 +1,92 @@
+✔ the 108 -> 18 case: correcting the sale price in Sold corrects the customer debt, writing no new fact (81.253623ms)
+✔ repeating the same correction changes nothing (never +72 or a second discount) (50.261793ms)
+✔ two devices correct 108->18 and 108->20 concurrently: the debt follows the sale final version, never +70 (68.044719ms)
+✔ v459 reader on data from the new mechanic: keeps the old balance, no double discount, no invented cash, no crash (52.326223ms)
+✔ an abono-correction is never read as cash: a price correction leaves no abono, cash stays 0 and receivables follow the sale (69.85249ms)
+✔ old device + new device on the same data: the new mechanic fixes the debt, the old one keeps working with real payments (38.84867ms)
+✔ overpaid: payments above the sale current value show CREDIT in favor; received money is never deleted (39.421841ms)
+✔ a voided fiado sale stops being debt (20.035446ms)
+✔ manual link of an old charge: before/after balances, same-customer fiado sales only, owner/admin only, undo is append-only (70.455003ms)
+✔ a sale that already has its own charge is not offered to a second charge (no double debt) (46.453957ms)
+P0_STOCK_11_VS_2_BOUNDARY {"emitterAccepted":11,"emitterYjs":{"stock":11,"base":2,"pn":{"device-ba9048be-fea5-4619-959e-316ef814396d":{"add":9,"sub":0}},"ts":1794858191303},"receiverYjs":{"stock":11,"base":2,"pn":{"device-ba9048be-fea5-4619-959e-316ef814396d":{"add":9,"sub":0}},"ts":1794858191303},"receiverStore":{"stock":11,"base":2,"pn":{"device-ba9048be-fea5-4619-959e-316ef814396d":{"add":9,"sub":0}},"ts":1794858191303},"receiverYjsRevision":2}
+✔ accepted stock republishes after a previous background save failure without waiting for the sweep (172.444581ms)
+✔ P0 independent PN witnesses converge two offline additions and repeated replay exactly once (107.064889ms)
+✔ P0 distinct physical baselines preserve BOTH witnesses, never fabricate summed stock (119.984821ms)
+✔ P0 two offline sales preserve money IDs once and both physical decrements (130.754089ms)
+✔ P0 third peer adopting two disconnected sales retains both receipts exactly once (203.802725ms)
+✔ v670 three disconnected devices converge on 72 stock and three unique paid sales A→B→C→A ×2 (271.774768ms)
+P0_300_PRODUCT_NOTEBOOK_SYNTHETIC_REPLAY_MS 639
+✔ P0 300-product notebook: remote PN update converges without full-item write loss (867.444461ms)
+✔ P0 same-base PN witness does not duplicate its counter into stockEvidencias of ordinary catalog (84.215721ms)
+✔ P0 Yjs witness remains unique and idempotent on many same-actor counter updates (144.669029ms)
+✔ P0 offline last unit: two distinct sales are both recorded, negative physical count remains visible as deficit (121.682056ms)
+✔ P0 adversarial replay order: 4 deterministic disconnect/reconnect schedules preserve same-base PN facts (538.495758ms)
+P0_1000_PRODUCT_RECEIVER_APPLY_ROWS [{"productos":1000,"actividad":3}]
+P0_1000_PRODUCT_BOOTSTRAP_MS 2094
+P0_1000_PRODUCT_INCREMENTAL_DELTA_METRICS {"bytesA":1833,"bytesB":11,"encodeMs":1,"applyYjsMs":0,"receiverStoreMs":502,"totalMs":503}
+✔ P0 1000-product notebook: one remote PN change must be preserved without destructive catalog overwrite (3199.18471ms)
+✔ P0 hot-path witness scan: increment only one product without walking every historical witness (220.335419ms)
+✔ P0 unexpected Yjs witness rewrite invalidates cache but does not alter committed stock (87.824151ms)
+✔ P0 pinned v607 bridge with new bridge: two disconnected sales retain each physical decrement and both receipts (156.73297ms)
+✔ P0 pinned v606 Yjs bridge versus new bridge: two offline sales remain unique (123.373279ms)
+✔ P0 RED epoch ABA: same numeric recount base must not inherit old physical epoch witnesses (77.145815ms)
+✔ P0 two peers retain E2 physical recount and its subsequent movement (161.84543ms)
+✔ P0 epoch-tagged backup retains identity after local restore and Yjs publication (90.640972ms)
+P0_COMPETING_EPOCH_BEFORE {"a":{"epoch":"E2-local","stock":5,"ts":10},"b":{"epoch":"E3-remote","stock":9,"ts":100}}
+P0_EPOCH_ROUND {"round":0,"a":{"e":"E2-local","s":5,"b":5,"pn":{},"ts":10},"b":{"e":"E3-remote","s":9,"b":9,"pn":{},"ts":100}}
+P0_EPOCH_ROUND {"round":1,"a":{"e":"E3-remote","s":9,"b":9,"pn":{},"ts":100},"b":{"e":"E3-remote","s":9,"b":9,"pn":{},"ts":100}}
+P0_EPOCH_ROUND {"round":2,"a":{"e":"E3-remote","s":9,"b":9,"pn":{},"ts":100},"b":{"e":"E3-remote","s":9,"b":9,"pn":{},"ts":100}}
+P0_EPOCH_ROUND {"round":3,"a":{"e":"E3-remote","s":9,"b":9,"pn":{},"ts":100},"b":{"e":"E3-remote","s":9,"b":9,"pn":{},"ts":100}}
+P0_COMPETING_EPOCH_AFTER {"a":{"epoch":"E3-remote","stock":9,"base":9,"ts":100},"remote":"E3-remote"}
+✔ P0 explicit competing physical epochs converge on the latest count on every device (134.870726ms)
+P0_EQUAL_EPOCH_BOUNDARIES {"a":{"epoch":"E3-B","base":5,"pn":{"stock-device-5d446bb6-e075-403a-ab72-81ec10848561":{"add":4,"sub":0}},"stock":9},"b":{"epoch":"E3-B","base":5,"pn":{"stock-device-5d446bb6-e075-403a-ab72-81ec10848561":{"add":4,"sub":0}},"stock":9},"yA":{"id":"p0-epoch-equal","nombre":"Synthetic equal base epochs","sku":"ART-OIL-001","barcode":"SYN-EQUAL-EPOCH","categoria":"Paintings","creadoEn":null,"precio":420,"precioCasa":null,"precioReserva":null,"precioWalkIn":null,"costo":180,"ubicacionId":"galeria","umbralRojo":1,"umbralAmarillo":2,"exentoImpuesto":false,"piezaUnica":null,"stockActual":9,"stockTs":1794858198230,"stockCountTs":0,"stockBase":5,"stockEpochId":"E3-B","stockPN":{"stock-device-5d446bb6-e075-403a-ab72-81ec10848561":{"add":4,"sub":0}},"stockEvidencias":null,"stockCountWitness":null,"stockReconciliacionPendiente":true,"fotoHash":null,"rev":{"c":1,"d":"fixture"},"borrado":false,"proveedor":"In-house studio","metodoCosteo":"FIFO","tipoProveedor":"compra","tipoProducto":"normal","servingMl":50,"botellaMl":750,"comisionProveedorPct":0,"comisionistaId":null,"pctAsociado":null,"direccionComision":"casaPaga","fechaEvento":"","chip":"","familiaId":"","productoBaseId":null,"varianteAtributo":"","varianteValor":"","archivado":false},"yB":{"id":"p0-epoch-equal","nombre":"Synthetic equal base epochs","sku":"ART-OIL-001","barcode":"SYN-EQUAL-EPOCH","categoria":"Paintings","creadoEn":null,"precio":420,"precioCasa":null,"precioReserva":null,"precioWalkIn":null,"costo":180,"ubicacionId":"galeria","umbralRojo":1,"umbralAmarillo":2,"exentoImpuesto":false,"piezaUnica":null,"stockActual":9,"stockTs":1794858198230,"stockCountTs":0,"stockBase":5,"stockEpochId":"E3-B","stockPN":{"stock-device-5d446bb6-e075-403a-ab72-81ec10848561":{"add":4,"sub":0}},"stockEvidencias":null,"stockCountWitness":null,"stockReconciliacionPendiente":true,"fotoHash":null,"rev":{"c":1,"d":"fixture"},"borrado":false,"proveedor":"In-house studio","metodoCosteo":"FIFO","tipoProveedor":"compra","tipoProducto":"normal","servingMl":50,"botellaMl":750,"comisionProveedorPct":0,"comisionistaId":null,"pctAsociado":null,"direccionComision":"casaPaga","fechaEvento":"","chip":"","familiaId":"","productoBaseId":null,"varianteAtributo":"","varianteValor":"","archivado":false}}
+✔ P0 same numeric base with two explicit epochs converges on the latest without merging counter witnesses (98.67469ms)
+✔ P0 newly created products issue distinct persistent physical epochs (61.178937ms)
+✔ P0 invalid physical epoch in backup rejects import before any mutation (34.056439ms)
+✔ P0 new product keeps physical epoch after sale and two-peer stock publication (140.612728ms)
+✔ P0 new product has independent offline adjustments on both peers and stable replay (194.408899ms)
+✔ P0 reboot from persisted local state plus restored Yjs snapshot retains epoch and stock exactly once (162.133471ms)
+✔ P0 v607 stale same-number legacy stock cannot contaminate explicit physical epoch (86.748837ms)
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_OLD_SALE_BOUNDARY {"current":{"s":5,"b":5,"e":"E2-physical-recount","pn":{},"ts":1794858199006},"old":{"s":4,"b":5,"pn":{"device-83c51d2c-5cca-455b-9409-ccd2adf28236":{"add":0,"sub":1}},"ts":1794858199006},"yCurrent":{"id":"p0-mixed-sale-epochs","nombre":"Synthetic legacy sale preservation","sku":"ART-OIL-001","barcode":"SYN-MIXED-EPOCH-SALE","categoria":"Paintings","creadoEn":null,"precio":420,"precioCasa":null,"precioReserva":null,"precioWalkIn":null,"costo":180,"ubicacionId":"galeria","umbralRojo":1,"umbralAmarillo":2,"exentoImpuesto":false,"piezaUnica":null,"stockActual":4,"stockTs":1794858199006,"stockCountTs":0,"stockBase":5,"stockEpochId":"E2-physical-recount","stockPN":{"device-83c51d2c-5cca-455b-9409-ccd2adf28236":{"add":0,"sub":1}},"stockEvidencias":null,"stockCountWitness":null,"stockReconciliacionPendiente":false,"fotoHash":null,"rev":{"c":1,"d":"synthetic"},"borrado":false,"proveedor":"In-house studio","metodoCosteo":"FIFO","tipoProveedor":"compra","tipoProducto":"normal","servingMl":50,"botellaMl":750,"comisionProveedorPct":0,"comisionistaId":null,"pctAsociado":null,"direccionComision":"casaPaga","fechaEvento":"","chip":"","familiaId":"","productoBaseId":null,"varianteAtributo":"","varianteValor":"","archivado":false},"witnesses":0,"saleCount":1}
+P0_MIXED_SALE_BOUNDARY {"item":{"base":5,"epoch":"E2-physical-recount","pn":{},"stock":5,"ts":1794858199006},"legacy":{"id":"p0-mixed-sale-epochs","nombre":"Synthetic legacy sale preservation","categoria":"Paintings","sku":"ART-OIL-001","barcode":"SYN-MIXED-EPOCH-SALE","ubicacionId":"galeria","precio":420,"costo":180,"stockActual":4,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"In-house studio","foto":"./demo/p01.webp","stockBase":5,"stockPN":{"device-83c51d2c-5cca-455b-9409-ccd2adf28236":{"add":0,"sub":1}},"stockTs":1794858199006,"rev":{"c":1,"d":"synthetic"}},"winning":{"id":"p0-mixed-sale-epochs","nombre":"Synthetic legacy sale preservation","sku":"ART-OIL-001","barcode":"SYN-MIXED-EPOCH-SALE","categoria":"Paintings","creadoEn":null,"precio":420,"precioCasa":null,"precioReserva":null,"precioWalkIn":null,"costo":180,"ubicacionId":"galeria","umbralRojo":1,"umbralAmarillo":2,"exentoImpuesto":false,"piezaUnica":null,"stockActual":4,"stockTs":1794858199006,"stockCountTs":0,"stockBase":5,"stockEpochId":"E2-physical-recount","stockPN":{"device-83c51d2c-5cca-455b-9409-ccd2adf28236":{"add":0,"sub":1}},"stockEvidencias":null,"stockCountWitness":null,"stockReconciliacionPendiente":false,"fotoHash":null,"rev":{"c":1,"d":"synthetic"},"borrado":false,"proveedor":"In-house studio","metodoCosteo":"FIFO","tipoProveedor":"compra","tipoProducto":"normal","servingMl":50,"botellaMl":750,"comisionProveedorPct":0,"comisionistaId":null,"pctAsociado":null,"direccionComision":"casaPaga","fechaEvento":"","chip":"","familiaId":"","productoBaseId":null,"varianteAtributo":"","varianteValor":"","archivado":false}}
+P0_MIXED_CURRENT_YMAP_WRITE {"s":4,"e":"E2-physical-recount","pn":{"device-83c51d2c-5cca-455b-9409-ccd2adf28236":{"add":0,"sub":1}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+P0_MIXED_BACKEND_MERGE {"before":{"s":5,"e":"E2-physical-recount","pn":{}},"remote":{"s":5,"e":"E2-physical-recount","pn":{}},"after":{"s":5,"e":"E2-physical-recount","pn":{}}}
+✔ P0 a v607 offline sale is not erased by a competing modern physical epoch (114.23477ms)
+✔ P0 late third peer converges explicit-epoch stock after independent offline movements and stale replay (242.515615ms)
+✔ P0 third late peer converges on the latest count and never sums rival counts (218.019985ms)
+✔ P0 same catalog fingerprint cannot masquerade as equal physical stock (60.164171ms)
+✔ P0 historical untagged inventory checksum refuses a verified verdict (29.479058ms)
+✔ P0 stock fingerprint refuses PN arithmetic inconsistent with the displayed quantity (29.004844ms)
+✔ P0 legitimate physical deficit retains a consistent read-only digest (32.336018ms)
+✔ P0 watchdog does not trigger repair when peer heartbeat and local metadata fingerprints are equal (6.150118ms)
+✔ P0 watchdog must not repeatedly resync for a peer offline longer than a day (5.238728ms)
+✔ P0 watchdog still detects a freshly seen genuinely different catalog (5.345316ms)
+✔ P0 snapshot transport preserves multibyte product names crossing 200 KiB UTF-8 boundary (214.386339ms)
+✔ P0 team panel does not claim inventory equality from a metadata heartbeat (7.018285ms)
+limpia1 (41 productos, 2100 actividades) {"planoB":1079461,"sobres":1,"cifradoB":271123,"logs":["ckpt comprimido 1079461B -> 271094B en catalogo"]}
+✔ v763 limpia1 (41 productos, 2100 actividades): checkpoint en Firebase cabe y un aparato nuevo reconstruye el mismo estado (1735.596351ms)
+limpia3 (7 productos) {"planoB":22287,"sobres":1,"cifradoB":22316,"logs":[]}
+✔ v763 limpia3 (7 productos): checkpoint en Firebase cabe y un aparato nuevo reconstruye el mismo estado (1569.520152ms)
+✔ v765: el checkpoint comprimido solo sale por Firebase; en Supabase o peer se retira y la operacion sigue (36.419025ms)
+✔ v765: todo shell con el adaptador Firebase ya lee el marco 7 (commit 962ebb3a, shell v639) (21.792089ms)
+✔ v765: sin DecompressionStream el lector JS reconstruye el mismo estado y rechaza un CRC alterado (1629.027037ms)
+✔ v763: en Supabase (aparatos <636 que ignoran el marco 7) no se escribe gzip; el motivo queda en el log (1601.899989ms)
+✔ first same-store join starts Yjs once when its license becomes available (85.010187ms)
+✔ a failed Yjs bundle load leaves startup retryable on the next license event (46.987449ms)
+✔ the Lord stable-entry guard no longer redirects, while historical routes remain noindex (25.386764ms)
+ℹ tests 58
+ℹ suites 0
+ℹ pass 58
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17800.805725

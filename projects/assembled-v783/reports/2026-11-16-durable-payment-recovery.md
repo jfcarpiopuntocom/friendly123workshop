@@ -1,6 +1,6 @@
 # Durable payment recovery — 16 November 2026
 
-Status: laboratory integration, no production GO. Runtime validation and full-audit readback in progress; do not treat this report as a release approval.
+Status: laboratory integration, no production GO. The payment runtime e9ff257 has verified 554/554 integrated checks. The newer fichas receiver fix below has 30/30 local checks and requires its own exact-SHA CI; never transfer the earlier green to it.
 
 ## Recovered context and durable delivery
 
@@ -53,3 +53,19 @@ Runtime SHA e9ff257f0b768adf6a41029994eef03400440578: integrated CI43937264730 c
 Full CI43937264804 completed FAILURE in both targets: candidate3207 tests/3144pass/59fail/1cancel/3skip; baseline3148/3075/69/1/3. Complete failure names, shared and exclusive sets in full-ci-comparison.json. A single candidate-exclusive name in this run: Fable P1-4 WebKit lease storage-pressure, two racks observed then a later read lost one. No causal link to the payment change is claimed; investigate before classifying. Missing git b8bd538 and loteAnexosPiloto in extracted VM fixtures explain some shared failures, not all.
 
 GitHub connector independently read back six critical code/test/integrity files from e9ff257; all Git blob hashes match local (github-readback.json). Further work explicitly authorized by JFC is recorded as Tasks5–7 in the persisted plan.
+
+## Followup: actual stale fichas receiver data loss
+
+While investigating the candidate-only WebKit cold-load occurrence, a deterministic independent route was reproduced through the REAL backend: two tabs share A/B; A commits a rack/product/17-dollar cash sale; stale B receives fichas and saves its old complete snapshot with a newer revision. A cold reader loses A's rack/product/sale. This is confirmed through the public OCSync.aplicarFichas interface, not an extracted mock of the save function. The exact WebKit lease audit occurrence is not yet causally attributed to this path.
+
+Minimum integration: aplicarFichas reuses the existing local-write FIFO, snapshots the incoming payload, waits its own pending save, then uses the SAME reload-before-write helper as API mutations. The production sync-realtime caller now awaits it before recording receive signatures. Stock test callers also await the new asynchronous completion. No new accounting/sync engine or storage format.
+
+Independent review found an Important lifecycle edge in that asynchronous change: an old-room payload could wait behind a sale, then apply after a notebook switch and tag the CURRENT license's factory PIN. Actual VM reproduction confirmed old-room rack plus wrong-license PIN marker. Added separate RED notebook/generation tests; backend captures license/namespace and checks them after waits, accepts a connection-validity callback, and the sole sync caller checks its existing generation/socket/notebook before execution and again before signatures. GREEN final30/30 (4 VM cases,2 native Chromium/WebKit cases,24 existing stock/checkpoint cases), zero skips. Relevant logs: stale-fichas-red.txt, fichas-context-red.txt, fichas-final.txt. The39-case tab/fiado/stock group also passed before the final lifecycle guard; its exact timing is preserved, not presented as verification of the later guard.
+
+The returned result remains a local merge result, NOT a remote commercial ACK. A durable local sale is never rolled back due to later connection change; obsolete queued incoming content is rejected before merge/PIN adoption.
+
+## Followup: historical verification sources
+
+Three shared VM failures were missing actual helper dependencies after extracting sembrar from sync-yjs.js. Fixtures now include the real adjacent helper source (no stubbed allow/deny),19/19 pass. Tests that read old code were failing because workshop history is a different repository. Recovered exact public friendly-123 commits for v459, v606/v607, v636/v639 and the pinned old HTML. Full-audit workflow fetches those immutable refs and supplies the two existing historical-bridge environment variables to BOTH candidate and baseline. Nothing is replaced with current code. Local historical suites58/58 plus mixed-v6364/4 pass; prior RED traces are in the full audit logs.
+
+Current-source identity and public readback must be updated after this followup commit. Global suite still has unclassified/missing-hosting-source/PWA/static failures; do not call those fixed or delete their assertions.

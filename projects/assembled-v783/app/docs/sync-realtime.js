@@ -655,7 +655,10 @@
           try {
             if (op.deviceId !== deviceId() && window.OCSync && window.OCSync.aplicarFichas) {
               var _antes = firmasActuales();
-              window.OCSync.aplicarFichas(op.payload);
+              const vigente = () => miGeneracion === _conexionGeneracion &&
+                ws === _socketDeEstaConexion && codigoCuadernoActivo() === codigoNorm;
+              const aplicado = await window.OCSync.aplicarFichas(op.payload, vigente);
+              if (!vigente() || !aplicado || aplicado.ok === false) return;
               marcarFichasRecibidas(_antes, op.payload);
               if (typeof window.cargarInventario === "function") window.cargarInventario();
             }

@@ -1,0 +1,14 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ stale sync tab rebases before saving fichas; peer sale survives cold reload (Chromium) (3837.716214ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ stale sync tab rebases before saving fichas; peer sale survives cold reload (WebKit) (11305.412913ms)
+✔ stale durable fichas receiver preserves a peer tab rack, sale and stock on cold readback (88.095405ms)
+✔ fichas wait behind an in-flight local sale and keep the incoming intention stable (34.015927ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16316.862591

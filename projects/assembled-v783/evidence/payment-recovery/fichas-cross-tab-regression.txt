@@ -1,0 +1,84 @@
+✔ fiado obligation is durable as part of the sale before a separate receipt (70.750041ms)
+✔ an ordinary receipt of the same sale replaces, not adds to, durable debt (28.271385ms)
+✔ editing price and voiding a marked sale updates the debt without new fact (42.368782ms)
+✔ real customer payment offsets the sale obligation without a fabricated receipt (15.463802ms)
+✔ old unmarked sales retain prior behavior, preserving regression contracts (15.147033ms)
+✔ a marker is rejected by backend unless credit sale has a customer (16.669711ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ dos pestanas venden la ultima unidad a la vez: las dos ventas se aceptan, stock 0 y faltante 1 (10680.766079ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TWO-TAB-FORENSIC {"engineName":"Chromium","firstStatuses":[200,200],"thirdStatus":200,"a":{"count":3,"byProduct":[2,1],"ids":["vd8f0bbde-9c27-4353-9e7f-f06514e27b22","v4580471b-0ea8-42e4-8ad8-ece49d0a0632","vb673661e-d20f-4d69-8be2-26c83ae2510a"]},"b":{"count":3,"byProduct":[2,1],"ids":["vd8f0bbde-9c27-4353-9e7f-f06514e27b22","v4580471b-0ea8-42e4-8ad8-ece49d0a0632","vb673661e-d20f-4d69-8be2-26c83ae2510a"]}}
+✔ dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes una borraba la otra) (5466.712262ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ dos pestanas venden la ultima unidad a la vez: las dos ventas se aceptan, stock 0 y faltante 1 (WebKit) (12041.170146ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TWO-TAB-FORENSIC {"engineName":"WebKit","firstStatuses":[200,200],"thirdStatus":200,"a":{"count":3,"byProduct":[2,1],"ids":["v95cf76b5-5cbb-4d18-bd93-81c1df4b0cf8","v1eb853f7-af1f-4ea8-89ed-6318970100a5","vb1dfc0b2-a814-4573-aab2-dc7af3215f39"]},"b":{"count":3,"byProduct":[2,1],"ids":["v95cf76b5-5cbb-4d18-bd93-81c1df4b0cf8","v1eb853f7-af1f-4ea8-89ed-6318970100a5","vb1dfc0b2-a814-4573-aab2-dc7af3215f39"]}}
+✔ dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes una borraba la otra) (WebKit) (7740.76999ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ without Web Locks the compatibility tab guard remains available (2791.097259ms)
+✔ a rejected late cancellation keeps the sale and stock and sends no sync movement (56.250977ms)
+✔ real Yjs: two disconnected peers converge on two preorders without double selling (57.335185ms)
+✔ real Yjs: three peers, offline operations in different orders and duplicate reconnects (55.230138ms)
+✔ Yjs quarantine: two peers preserve a rejected batch without applying physical events (20.343646ms)
+✔ Yjs quarantine: external cross-product collision invalidates BOTH products remotely (14.378881ms)
+✔ Yjs quarantine: verified rejected envelope restores after Y.Map deletion (7.32493ms)
+✔ Yjs quarantine: tampered or forged rejected-batch key never enters journal (5.845538ms)
+✔ Yjs: quarantined inventory NEVER blocks preorders or loses new physical facts (20.5155ms)
+✔ real Yjs: SAME ID with DIFFERENT payload survives on separate witness keys and is quarantined (13.878158ms)
+✔ rejected local collision is still propagated as a quarantined witness to the other peer (14.140899ms)
+✔ Yjs: a sequence-only rejected witness reaches peers and survives rehydration (24.217659ms)
+✔ Yjs: overwrite of a known immutable witness repairs its bytes and preserves peer state (15.068143ms)
+✔ real Yjs: forged or corrupted event witness cannot enter journal (6.511195ms)
+✔ real Yjs: one new product event updates only one Y.Map key, not other 1000 products (231.615794ms)
+✔ P0 Yjs tombstone: accidental deletion of a known immutable witness must self-heal (14.449034ms)
+✔ restored local backup reseeds all witnesses, including multiple divergent payloads (19.068414ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE first initial PIN
+TAB_PIN_STAGE second screen signs in
+✔ P0 2026-11-12 (Chromium): two screens stay signed in with no turn, no panel; sales alternate 1,2,1 and each is saved once (3673.459148ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE queued sale
+✔ P0 2026-11-12 (Chromium): a stale lease left by an older version and a moved session epoch do not reject a queued sale (1285.979377ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE real changes
+✔ P0 2026-11-12 (Chromium): a REAL role change or sign-out still rejects the queued write with 403, without the forbidden message (1857.649154ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+Chromium durable action-to-DOM: 12.0ms
+✔ same-browser durable edit reaches inventory DOM directly (Chromium) (1358.866313ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE first initial PIN
+TAB_PIN_STAGE second screen signs in
+✔ P0 2026-11-12 (WebKit): two screens stay signed in with no turn, no panel; sales alternate 1,2,1 and each is saved once (16575.493097ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE queued sale
+✔ P0 2026-11-12 (WebKit): a stale lease left by an older version and a moved session epoch do not reject a queued sale (6272.087462ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE real changes
+✔ P0 2026-11-12 (WebKit): a REAL role change or sign-out still rejects the queued write with 403, without the forbidden message (9653.831357ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+WebKit durable action-to-DOM: 10.0ms
+✔ same-browser durable edit reaches inventory DOM directly (WebKit) (5961.514268ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE quota first owner (Chromium, intent)
+TAB_PIN_STAGE quota contender (Chromium, intent)
+✔ Fable P1-4 storage pressure on the old lease keys (Chromium, intent): nobody is expelled, both screens keep writing, no lease or intent is stranded (3393.937036ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE quota first owner (Chromium, lease)
+TAB_PIN_STAGE quota contender (Chromium, lease)
+✔ Fable P1-4 storage pressure on the old lease keys (Chromium, lease): nobody is expelled, both screens keep writing, no lease or intent is stranded (3409.763569ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE quota first owner (WebKit, intent)
+TAB_PIN_STAGE quota contender (WebKit, intent)
+✔ Fable P1-4 storage pressure on the old lease keys (WebKit, intent): nobody is expelled, both screens keep writing, no lease or intent is stranded (16993.176754ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+TAB_PIN_STAGE quota first owner (WebKit, lease)
+TAB_PIN_STAGE quota contender (WebKit, lease)
+✔ Fable P1-4 storage pressure on the old lease keys (WebKit, lease): nobody is expelled, both screens keep writing, no lease or intent is stranded (15809.745876ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 127748.165004

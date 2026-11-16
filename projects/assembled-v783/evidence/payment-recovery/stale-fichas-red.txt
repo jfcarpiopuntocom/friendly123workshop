@@ -1,0 +1,28 @@
+✖ stale durable fichas receiver preserves a peer tab rack, sale and stock on cold readback (118.341539ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 740.486766
+
+✖ failing tests:
+
+test at test/p0-stale-fichas-peer-save.test.cjs:4:1
+✖ stale durable fichas receiver preserves a peer tab rack, sale and stock on cold readback (118.341539ms)
+  AssertionError [ERR_ASSERTION]: peer committed rack must survive the incoming sync lane
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs:23:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

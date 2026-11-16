@@ -1,0 +1,12 @@
+✔ real published v636 applies legacy tag0 and cannot apply new tag7 (13.249384ms)
+✔ new reader and staged writer protect any old shell in shared room (0.594932ms)
+✔ mixed-shell: a compacted tag0 Yjs update keeps old v636 reader semantics (17.982192ms)
+✔ published v636 reader applies a 786432-byte ciphertext-budget tag0 Yjs checkpoint (16.492744ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 604.170389
