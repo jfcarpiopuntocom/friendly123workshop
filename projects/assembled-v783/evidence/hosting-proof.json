@@ -1,0 +1,14 @@
+{
+  "candidate": {
+    "status": 404
+  },
+  "existingWorkshop": {
+    "status": 200,
+    "sha256": "f3d4b56ac09d6f789d62d44e5eb6a1abd0d3cd815aaf792c0c73d58481e6e95f"
+  },
+  "existingWorkshopSourceHash": "f3d4b56ac09d6f789d62d44e5eb6a1abd0d3cd815aaf792c0c73d58481e6e95f",
+  "existingWorkshopByteIdentical": true,
+  "beforeExclusionCandidateStatus": 200,
+  "hostingCommit": "3d747be4ce15d153bc965e222ae110f7014eb39a",
+  "candidateCodeStillInGitHub": true
+}

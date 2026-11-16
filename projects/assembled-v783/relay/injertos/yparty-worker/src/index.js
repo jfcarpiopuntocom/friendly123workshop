@@ -21,6 +21,7 @@ export class Tienda extends YServer {
   comprobacionEnCurso = null;
 
   secureReady = false;
+  pendingAdmissions = new Map();
   outboundQueue = Promise.resolve();
   outboundViews = new WeakMap();
   outboundViewSet = new WeakSet();
@@ -66,10 +67,17 @@ export class Tienda extends YServer {
 
   async onConnect(conexion, contexto) {
     if (secureMode(this.env)) {
-      const access = await askAuthority(this.env,'check',ticketRequest(contexto.request,this.name));
-      if (!access || conexion.readyState !== 1) { conexion.close(1008,'Acceso no autorizado'); return; }
-      conexion.setState(previous => ({...previous,accesoFirmado:access}));
-      super.onConnect(this.salidaSegura(conexion),contexto);
+      // A different peer can trigger a recipient sweep while this admission awaits
+      // authority. Pending is not revoked, and it must remain unreadable until verified.
+      const pending = Promise.resolve().then(async () => {
+        const access = await askAuthority(this.env,'check',ticketRequest(contexto.request,this.name));
+        if (!access || conexion.readyState !== 1) { conexion.close(1008,'Acceso no autorizado'); return; }
+        conexion.setState(previous => ({...previous,accesoFirmado:access}));
+        super.onConnect(this.salidaSegura(conexion),contexto);
+      });
+      this.pendingAdmissions.set(conexion.id,pending);
+      try { await pending; }
+      finally { if (this.pendingAdmissions.get(conexion.id) === pending) this.pendingAdmissions.delete(conexion.id); }
       return;
     }
     conexion.setState(previo => ({ ...previo, accesoPiloto: identidad(contexto.request) }));
@@ -78,6 +86,8 @@ export class Tienda extends YServer {
 
   async onMessage(conexion, mensaje) {
     if (secureMode(this.env)) {
+      const admission = this.pendingAdmissions.get(conexion.id);
+      if (admission) await admission;
       if (this.falloPersistencia || !unexpired(conexion.state?.accesoFirmado)) { conexion.close(1008,'Acceso no autorizado'); return; }
       await this.comprobarConexiones();
       if (!this.falloPersistencia && conexion.readyState === 1 && unexpired(conexion.state?.accesoFirmado)) super.onMessage(this.salidaSegura(conexion),mensaje);
@@ -97,7 +107,7 @@ export class Tienda extends YServer {
 
   async comprobarConexiones() {
     if (secureMode(this.env)) {
-      const connections=Array.from(super.getConnections()).filter(c=>c.readyState===1);
+      const connections=Array.from(super.getConnections()).filter(c=>c.readyState===1&&!this.pendingAdmissions.has(c.id));
       const live=connections.filter(c=>unexpired(c.state?.accesoFirmado));
       const grants=live.length ? await askAuthorityBatch(this.env,live.map(c=>c.state.accesoFirmado)) : [];
       const byConnection=new Map(live.map((c,i)=>[c,grants?.[i]||null]));

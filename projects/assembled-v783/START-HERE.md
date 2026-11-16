@@ -1,5 +1,13 @@
 # friendly-123 assembled v783 — entrada compartida
 
+## Estado vigente: conexión pendiente corregida; investigación CI abierta
+
+Todo el código ejecutable está en [app/](app/) y [relay/](relay/). Esta carpeta es el punto de relevo; no hace falta recuperar otro contenedor. El archivo que sigue conserva la historia del rescate inicial. Para la situación actual, leer [STATUS.md](STATUS.md) y [el diagnóstico de admisiones](reports/2026-11-16-pending-admission.md).
+
+La autorización de JFC resolvió la promoción antes bloqueada: `effee3a` ya está en main. Su CI pasó 222 casos. La repetición posterior sobre `3d747be` falló en dos casos del relay, por lo que ese verde no certifica ausencia de intermitencias. Se reprodujo y corrigió una carrera de admisión con test RED→GREEN; el lote local actualizado pasa 12/12. El frame de awareness observado en CI sigue bajo investigación, con trazas sintéticas y la aserción de cero frames conservada. Consultar el informe antes de dar un GO.
+
+Pages excluye `projects/`: código accesible por GitHub, candidata sin servir bajo el mismo origen de la app histórica. El testigo Chromium de colisión de namespace se conserva como vulnerabilidad reproducida, no como aceptación de seguridad. La app histórica publicada mantiene bytes idénticos. No hay despliegue del nuevo relay ni cambio de clientes.
+
 Orden de JFC, 16 noviembre 2026: todo el coding de esta misión pasa al repositorio friendly123workshop, organizado en subcarpetas. Los paths de un contenedor no son una entrega. Código y evidencia deben quedar en commits accesibles; Notion enlaza esos commits.
 
 Este primer checkpoint rescata exactamente el trabajo Team revisado que otras sesiones no podían descargar:

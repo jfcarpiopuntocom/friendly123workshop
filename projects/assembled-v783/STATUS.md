@@ -1,5 +1,11 @@
 # Estado compartido · 16 noviembre 2026
 
+## Actualización vigente: admisión corregida, CI siguiente pendiente
+
+La aprobación de JFC permitió promover effee3a a main y su CI 43842018630 pasó222 casos. El siguiente commit 3d747be protegió Pages excluyendo projects/, mantuvo la app histórica byte a byte y su repetición CI 43843328597 mostró dos fallos intermitentes del relay. Los resultados anteriores quedan conservados abajo como historia, no como certificación actual.
+
+Se corrigió con RED→GREEN la carrera que cerraba una conexión válida pendiente de autoridad. El lote local actualizado pasa12/12; sintaxis y diff pasan. Se añadieron trazas sintéticas para investigar el frame awareness observado en CI, sin quitar la aserción cero frames ni ampliar límites. Falta nueva CI y revisión independiente final. Ver [informe completo](reports/2026-11-16-pending-admission.md), con logs verdes, fallidos y error de preparación diferenciados. Estado global: WIP, sin GO de clientes ni despliegue del nuevo relay.
+
 JFC ordenó concentrar coding aquí para evitar otra pérdida de accesibilidad. Prioridad inmediata: archivos accesibles por Sol6/Claude/Codex, luego seguir navegador con todos los injertos; PWA aplazada.
 
 ## Disponible en esta carpeta
