@@ -6,6 +6,7 @@ on:
       - projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs
       - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs
       - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger-workerd.test.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/fixtures/typed-ledger-worker.mjs
       - projects/assembled-v783/app/src/credit-payment-command.mjs
       - projects/assembled-v783/app/test/p0-customer-payment-command.test.cjs
       - .github/workflows/qa-v783-customer-payment-contract.yml
@@ -15,6 +16,7 @@ on:
       - projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs
       - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs
       - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger-workerd.test.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/fixtures/typed-ledger-worker.mjs
       - projects/assembled-v783/app/src/credit-payment-command.mjs
       - projects/assembled-v783/app/test/p0-customer-payment-command.test.cjs
       - .github/workflows/qa-v783-customer-payment-contract.yml
