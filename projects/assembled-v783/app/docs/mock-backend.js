@@ -6697,6 +6697,12 @@
     // P0 v689: +1/-1 manual stock deltas need the same bounded CAS rebase as
     // a sale, on THIS DEVICE too. Never auto-replay absolute physical counts:
     // they establish a new epoch and require explicit human intent.
+    const ubicacionConcurrente = (() => {
+      try {
+        const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
+        return path === "/api/ubicaciones" && ((opts && opts.method) || "GET").toUpperCase() === "POST";
+      } catch (_) { return false; }
+    })();
     const ajusteDeltaConcurrente = (() => {
       try {
         const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
@@ -6795,18 +6801,20 @@
         try { _rechazoReintentable = (await primero.clone().json()).code !== "SALE_STORAGE_QUOTA"; }
         catch (_) { _rechazoReintentable = true; }
       }
-      if ((ventaConcurrente || ajusteDeltaConcurrente) && primero.status === 503) {
+      if ((ventaConcurrente || ajusteDeltaConcurrente || ubicacionConcurrente) && primero.status === 503) {
         try {
           const codigo = (await primero.clone().json()).code;
           _rechazoReintentable = ventaConcurrente
             ? codigo === "SALE_DURABILITY_UNCONFIRMED"
-            : codigo === "STOCK_DURABILITY_UNCONFIRMED";
+            : ajusteDeltaConcurrente
+              ? codigo === "STOCK_DURABILITY_UNCONFIRMED"
+              : codigo === "RACK_DURABILITY_UNCONFIRMED";
         } catch (_) { _rechazoReintentable = false; }
       }
       // Only an explicit non-quota stock CAS refusal may be replayed. 507 from
       // genuine storage quota is NEVER retried here. The handler has rolled back.
       if (ajusteDeltaConcurrente && primero.status !== 503) _rechazoReintentable = false;
-      if (!(ventaConcurrente || ajusteDeltaConcurrente) || !_rechazoReintentable || _estadoLecturaBloqueada ||
+      if (!(ventaConcurrente || ajusteDeltaConcurrente || ubicacionConcurrente) || !_rechazoReintentable || _estadoLecturaBloqueada ||
           _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
       // A local mirror may still be settling after the first durable ACK.
       // Wait for it only on this failed path, before replacing any in-memory copy.
@@ -7113,8 +7121,9 @@
             _estadoLecturaBloqueada = true; // ambiguous interleaving: preserve evidence, block unsafe subsequent writes.
             _errorBloqueoLectura = new Error("Rack commit failed with concurrent changes");
           }
+          const cuota = _esErrorDeCuota(_causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB()));
           return J({ error: "The location was NOT saved. Retry after checking your locations.",
-            code: "RACK_DURABILITY_UNCONFIRMED" }, 503);
+            code: cuota ? "RACK_STORAGE_QUOTA" : "RACK_DURABILITY_UNCONFIRMED" }, cuota ? 507 : 503);
         }
         avisarCatalogoCambiado(); // publication is after durable commit, once.
         return J(nueva);
