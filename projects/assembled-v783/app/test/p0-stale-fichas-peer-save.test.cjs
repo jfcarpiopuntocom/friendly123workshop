@@ -25,6 +25,24 @@ test('stale durable fichas receiver preserves a peer tab rack, sale and stock on
  assert.equal(products.find(p=>p.id===product.id)?.stockActual,2,'do not erase peer product or replay its stock delta');
  assert.equal(sales.filter(s=>s.productoId===product.id).length,1,'peer sale must remain exactly once');
 });
+test('failed fichas persistence is not confirmed; the same incoming record retries once after recovery',async()=>{
+ const w=browser();w.OCAuth={rolActual:()=> 'dueno'};
+ const set=w.localStorage.setItem;
+ w.localStorage.setItem=(key,value)=>{
+  if(String(key).startsWith('f123_estado_v4'))throw new DOMException('synthetic disk refusal','SecurityError');
+  return set(key,value);
+ };
+ const incoming={ubicaciones:[{
+  id:'synthetic-recovery-rack',nombre:'Synthetic recovery rack',tipo:'propio',activa:true,rev:{c:99,d:'synthetic'}
+ }]};
+ const failed=await w.OCSync.aplicarFichas(incoming);
+ assert.equal(failed.ok,false,'a merged RAM snapshot is not a confirmed save');
+ w.localStorage.setItem=set;
+ const recovered=await w.OCSync.aplicarFichas(incoming);
+ assert.equal(recovered.ok,true);
+ const cold=browser(w.localStorage);cold.OCAuth={rolActual:()=> 'dueno'};
+ assert.equal((await cold.request('/api/ubicaciones')).filter(r=>r.id==='synthetic-recovery-rack').length,1);
+});
 for(const change of ['notebook','generation'])test(`queued fichas cannot enter a changed ${change} or adopt its PIN`,async()=>{
  const w=browser();w.OCAuth={rolActual:()=> 'dueno'};
  const product=await w.request('/api/productos','POST',{

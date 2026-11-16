@@ -6028,8 +6028,8 @@
         _recargarSiOtraPestanaEscribio();
         const r = aplicarCatalogo({ ubicaciones: Array.isArray(recibido.ubicaciones) ? recibido.ubicaciones : [], productos: Array.isArray(recibido.productos) ? recibido.productos : [], usuarios: Array.isArray(recibido.usuarios) ? recibido.usuarios : undefined, pinsRol: recibido.pinsRol || null }, null);
         _adoptarPinDeFoto(recibido);
-        await guardarEstadoLocal();
-        return r;
+        const guardado = await guardarEstadoLocal();
+        return guardado === true ? r : { ok: false, error: "Incoming records were not saved." };
       };
       const operacion = _colaEscriturasLocal.then(aplicar);
       _colaEscriturasLocal = operacion.catch(() => {});

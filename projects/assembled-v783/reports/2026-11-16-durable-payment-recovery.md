@@ -69,3 +69,9 @@ The returned result remains a local merge result, NOT a remote commercial ACK. A
 Three shared VM failures were missing actual helper dependencies after extracting sembrar from sync-yjs.js. Fixtures now include the real adjacent helper source (no stubbed allow/deny),19/19 pass. Tests that read old code were failing because workshop history is a different repository. Recovered exact public friendly-123 commits for v459, v606/v607, v636/v639 and the pinned old HTML. Full-audit workflow fetches those immutable refs and supplies the two existing historical-bridge environment variables to BOTH candidate and baseline. Nothing is replaced with current code. Local historical suites58/58 plus mixed-v6364/4 pass; prior RED traces are in the full audit logs.
 
 Current-source identity and public readback must be updated after this followup commit. Global suite still has unclassified/missing-hosting-source/PWA/static failures; do not call those fixed or delete their assertions.
+
+## Explicit failed-save result followup
+
+A final failure-path test reproduced ok:true from aplicarFichas while A/B rejected writes and IndexedDB could not commit. The merge result now explicitly returns ok:false on guardarEstadoLocal!==true; the already-updated production caller leaves receive signatures unchanged. No data is deleted, and retrying the identical incoming rack after storage recovery persists exactly one record. RED: fichas-save-failure-red.txt; GREEN final31/31 including native Chromium/WebKit and24 existing stock cases: fichas-final-save-verified.txt. The interim patch was independently backed up before waiting for the d132 global audit.
+
+The d132 integrated CI has now completed584/584,0fail/skip/cancel, but does not certify this later two-line failure-path change. The new exact runtime CI must be read after committing. This distinction is deliberate; no stale green is assigned to a later source.

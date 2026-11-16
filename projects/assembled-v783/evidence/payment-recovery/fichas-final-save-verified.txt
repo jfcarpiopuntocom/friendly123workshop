@@ -1,0 +1,41 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ stale sync tab rebases before saving fichas; peer sale survives cold reload (Chromium) (3664.051913ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ stale sync tab rebases before saving fichas; peer sale survives cold reload (WebKit) (10677.49099ms)
+✔ stale durable fichas receiver preserves a peer tab rack, sale and stock on cold readback (100.308153ms)
+✔ failed fichas persistence is not confirmed; the same incoming record retries once after recovery (33.734664ms)
+✔ queued fichas cannot enter a changed notebook or adopt its PIN (10.871081ms)
+✔ queued fichas cannot enter a changed generation or adopt its PIN (7.939345ms)
+✔ fichas wait behind an in-flight local sale and keep the incoming intention stable (40.051777ms)
+✔ a product that came at 0 from the checkpoint takes the shared stock on a stamp tie (59.741614ms)
+✔ the old checkpoint waits while Yjs recovers, and then adds nothing at 0 over what Yjs brought (16.812857ms)
+✔ fallback: with Yjs stuck, the checkpoint still applies after its last wait (14.608138ms)
+✔ v646: demo-seed sales do not make a joining device take the compact photo at stock 0 (9.517047ms)
+✔ v649: a strict save waits for this device's own save in flight instead of a false NOT saved (21.488042ms)
+✔ v649: by design, a photo with a newer rev updates the product as Yjs would; an older one changes nothing (25.493389ms)
+✔ Codex: a device adopts a photo with an epoch, a later sale of that epoch lands, and it survives a reload (77.212101ms)
+✔ Codex: a strict save behind a slow own save persists both, in order, and the last state is on disk (262.528169ms)
+✔ Codex: two strict saves against hung storage both answer, and none confirms what was not persisted (8083.85839ms)
+✔ v651: a product new to this device keeps an epoch only together with its base (22.85086ms)
+✔ v649: a 0 with its own stamp is a fact: an old photo cannot bring it back (18.843881ms)
+✔ v649: with storage hung, a strict save still answers within 5 s instead of freezing the sale (28.687142ms)
+✔ v649: an old photo with borrado cannot delete a live product, and an archived one stays archived (22.931795ms)
+✔ v649: rereading an old photo does not revert a newer physical count (26.87896ms)
+✔ v649: the photo carries deletions and rev decides (22.939627ms)
+✔ v648: a device with real sales takes the photo stock for a product it did not know (10.231256ms)
+✔ v648: a 0 with no base here takes the photo; a real count of 0 with a base is kept (14.91937ms)
+✔ v648: a photo with a newer physical base wins over this device, an older one does not (21.981284ms)
+✔ a real count of 0 here is kept: it created a base, so it is a fact (15.961325ms)
+✔ a remote stamp older than the local one does not win (16.331244ms)
+✔ a positive local stock is not touched by this path (15.601522ms)
+✔ v651: a device with its own epoch adopts a newer count that has none, and keeps its number against an older one (19.791196ms)
+✔ v651: fichas merge with the catalog rule and create what this device lacks; the photo carries the product image (16.085559ms)
+✔ v651: the latest explicit owner PIN change is adopted from the photo; the factory PIN or an older change never replaces it (6.16237ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29835.911372
