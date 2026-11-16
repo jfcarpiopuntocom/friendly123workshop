@@ -271,3 +271,30 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   });
  }
 }
+
+
+for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 invalid rack edits are atomic (${engineName})`,async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const ctx=await context(web),{page,ids}=await seed(ctx);
+   await ownerLogin(page,'rack PUT atomic validation '+engineName);
+   const before=(await api(page,'/api/ubicaciones')).find(u=>u.id===ids.rack);
+   assert.ok(before,'synthetic rack must exist');
+   const cases=[
+    {nombre:'REJECTED pct change',comisionSocio:37,pctQuedaEnCasa:101},
+    {nombre:'REJECTED tiers change',contribFija:10,escalasComision:[{hasta:100,comision:15}]}
+   ];
+   for(const body of cases){
+    const status=await page.evaluate(async({id,body})=>{
+     const r=await fetch('/api/ubicaciones/'+id,{method:'PUT',body:JSON.stringify(body)});
+     return r.status;
+    },{id:ids.rack,body});
+    assert.equal(status,400,'invalid rack terms must be rejected');
+    const current=(await api(page,'/api/ubicaciones')).find(u=>u.id===ids.rack);
+    assert.equal(current.nombre,before.nombre,'400 must not retain a partial rename');
+    assert.equal(current.comisionSocio,before.comisionSocio,'400 must not retain a partial commission');
+   }
+  }finally{await web.close();}
+ });
+}
