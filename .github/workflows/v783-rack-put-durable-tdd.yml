@@ -1,0 +1,55 @@
+name: v783 rack PUT strict durable ACK TDD (workshop only)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/tab-session-handoff.test.js'
+      - 'projects/assembled-v783/app/docs/mock-backend.js'
+      - 'projects/assembled-v783/app/docs/version-manifest.json'
+      - '.github/workflows/v783-rack-put-durable-tdd.yml'
+permissions:
+  contents: read
+jobs:
+  rack-put-durability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact dependencies and Chromium/WebKit
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+      - name: Run exact native-browser rack PUT durability regression
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/rack-put-durable
+          git rev-parse HEAD | tee ../evidence/rack-put-durable/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 \
+            --test-name-pattern='P0 rack PUT rejects a false durable ACK' test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/rack-put-durable/native-red-green.log
+      - name: Validate sealed manifest and adjacent rack/catalog fixtures
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs"),crypto=require("node:crypto");const m=JSON.parse(fs.readFileSync("docs/version-manifest.json","utf8"));const actual="sha256-"+crypto.createHash("sha256").update(fs.readFileSync("docs/mock-backend.js")).digest("hex");if(m.files["./mock-backend.js"]!==actual)throw Error("runtime manifest SHA256 mismatch");console.log("Verified",actual)'
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 \
+            --test-name-pattern='P0 rack POST rejects an unconfirmed local save|P0 concurrent rack CAS preserves both accepted writes|P0 invalid rack edits are atomic' \
+            test/tab-session-handoff.test.js 2>&1 | tee ../evidence/rack-put-durable/adjacent-rack.log
+      - name: Upload causal logs and exact source SHA even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-rack-put-durable-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/rack-put-durable/
+          if-no-files-found: warn
+          retention-days: 14
