@@ -282,9 +282,11 @@ test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
    const idb=window.OCEstadoIDB;
    if(typeof idb?.guardar!=='function'||typeof window.OCEstadoAB?.crear!=='function')
      throw new Error('synthetic persistence adapters missing');
-   const oldIdb=idb.guardar,oldWrite=Storage.prototype.setItem;
+   const oldIdb=idb.guardar,oldCas=idb.guardarConRevision,oldError=idb.ultimoError,oldWrite=Storage.prototype.setItem;
    let idbDenied=0,abDenied=0;
    idb.guardar=async()=>{idbDenied++;return false;};
+   idb.guardarConRevision=async()=>{idbDenied++;return false;};
+   idb.ultimoError=()=>new DOMException('Synthetic IDB failure','QuotaExceededError');
    Storage.prototype.setItem=function(key,value){
      const k=String(key);
      if(k.includes('f123_estado_v4') && /_(?:journal|A|B|ptr)$/.test(k)){
@@ -299,7 +301,7 @@ test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
     });
     return {status:r.status,idbDenied,abDenied};
    }finally{
-    idb.guardar=oldIdb;Storage.prototype.setItem=oldWrite;
+    idb.guardar=oldIdb;idb.guardarConRevision=oldCas;idb.ultimoError=oldError;Storage.prototype.setItem=oldWrite;
    }
   });
   assert.ok(result.idbDenied>0,'IndexedDB rejection injector must be exercised');
