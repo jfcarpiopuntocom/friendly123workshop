@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
+import {creditPaymentCommandFromDurableFact} from '../../../../app/src/credit-payment-command.mjs';
 import {Miniflare} from 'miniflare';
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
 const persist=fs.mkdtempSync(path.join(os.tmpdir(),'f123-typed-inbox-'));
@@ -20,7 +21,7 @@ const send=async(command,ticket='synthetic-signed-ticket')=>{
  const raw=await response.text();let body;try{body=JSON.parse(raw);}catch(_){throw Error('nonJSON Workerd reply HTTP '+response.status+': '+raw.slice(0,1200));}return{status:response.status,body};
 };
 const count=async()=>{const r=await fetch(new URL('/test-count',base));assert.equal(r.status,200);return (await r.json()).count};
-const payloadReadback=async()=>{const r=await fetch(new URL('/test-payload',base));assert.equal(r.status,200);return (await r.json()).payload};
+const payloadReadback=async(opId)=>{const url=new URL('/test-payload',base);if(opId)url.searchParams.set('op',opId);const r=await fetch(url);assert.equal(r.status,200);return (await r.json()).payload};
 async function start(){
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',
   compatibilityFlags:['nodejs_compat'],durableObjects:{COMMANDS:{className:'SyntheticCommands',useSQLite:true}},
@@ -56,6 +57,35 @@ test('real Workerd SQLite: one durable inbox row survives reopen and conflicting
   assert.equal(c.status,200);assert.equal(c.body.duplicate,true);assert.deepEqual(c.body.receipt,a.body.receipt);
   assert.equal(await count(),1);
   assert.equal(JSON.parse(await payloadReadback()).amountCents,1999);
+  // Browser fact projector -> real Workerd SQLite; TEST synthetic issuer only.
+  const originalOpId='customer-payment:8f79b07c-3db5-478f-ab69-59b0e483912b';
+  const storedFact={tipo:'cartera_abono',datos:{
+    opId:originalOpId,clienteId:'client_1',monto:1.01,
+    moneyEngine:'dinero-2.0.2-half-up',montoSolicitado:1.005
+  }};
+  const customer=await creditPaymentCommandFromDurableFact({
+    license:'F123-SYNTHETIC-LEDGER',opId:originalOpId,
+    readPersistedFacts:async()=>[storedFact]
+  });
+  assert.equal(customer.kind,'credit.customer.payment.record');
+  const first=await send(customer);
+  assert.equal(first.status,200);assert.equal(first.body.receipt.stage,'stored-for-application');
+  assert.equal(first.body.receipt.opId,originalOpId);
+  assert.equal((await send(customer)).body.duplicate,true);
+  assert.equal((await send({...customer,amountCents:100})).status,409);
+  assert.equal(await count(),2);
+  assert.deepEqual(JSON.parse(await payloadReadback(originalOpId)),{
+    license:'F123-SYNTHETIC-LEDGER',opId:originalOpId,
+    kind:'credit.customer.payment.record',clienteId:'client_1',amountCents:101
+  });
+  await mf.dispose();mf=null;await start();
+  const again=await send(customer);
+  assert.equal(again.status,200);assert.equal(again.body.duplicate,true);
+  assert.deepEqual(again.body.receipt,first.body.receipt);
+  assert.equal(await count(),2);
+  assert.equal(JSON.parse(await payloadReadback(originalOpId)).amountCents,101);
+  const deniedCustomer=await send({...customer,opId:'customer-payment:99999999-9999-4999-8999-999999999999'},'synthetic-expired');
+  assert.equal(deniedCustomer.status,403);assert.equal(await count(),2);
  }finally{
    await mf?.dispose();
    fs.rmSync(persist,{recursive:true,force:true});
