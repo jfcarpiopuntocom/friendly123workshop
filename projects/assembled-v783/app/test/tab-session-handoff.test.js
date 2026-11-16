@@ -319,3 +319,49 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  }finally{await web.close();}
 });
 }
+
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 concurrent rack CAS preserves both accepted writes (${name})`,{timeout:60000},async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const ctx=await context(web),{page:a}=await seed(ctx);
+   await ownerLogin(a,'synthetic rack CAS A');
+   const b=await ctx.newPage();await b.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   await ownerLogin(b,'synthetic rack CAS B',a);
+   for(const page of [a,b])await page.evaluate(()=>{
+    const idb=window.OCEstadoIDB,original=idb.guardarConRevision;
+    let release;const gate=new Promise(resolve=>{release=resolve;});
+    window.__testRackAtCAS=false;
+    window.__testRackRelease=()=>release();
+    idb.guardarConRevision=async(...args)=>{window.__testRackAtCAS=true;await gate;return original(...args);};
+   });
+   const submit=(page,rack)=>page.evaluate(async nombre=>{
+    const response=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre,tipo:'propio'})});
+    return {status:response.status,body:await response.json()};
+   },rack).catch(e=>({error:String(e)}));
+   const requestA=submit(a,'Synthetic concurrent rack A');
+   const requestB=submit(b,'Synthetic concurrent rack B');
+   try{
+    await Promise.all([a.waitForFunction(()=>window.__testRackAtCAS,{},{timeout:12000}),
+                       b.waitForFunction(()=>window.__testRackAtCAS,{},{timeout:12000})]);
+    await a.evaluate(()=>window.__testRackRelease());
+    const first=await requestA;
+    assert.ok(first.status>=200&&first.status<300,JSON.stringify(first));
+    await b.evaluate(()=>window.__testRackRelease());
+    const second=await requestB;
+    assert.ok(second.status>=200&&second.status<300,JSON.stringify(second));
+    const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+    const names=['Synthetic concurrent rack A','Synthetic concurrent rack B'];
+    await cold.waitForFunction(async required=>{
+     const saved=await window.OCEstadoIDB?.leer?.();
+     return required.every(n=>saved?.ubicaciones?.filter(u=>u.nombre===n&&!u.borrado).length===1);
+    },names,{timeout:8000,polling:100});
+    const racks=await api(cold,'/api/ubicaciones');
+    for(const n of names)assert.equal(racks.filter(r=>r.nombre===n).length,1,n+' cold-read once');
+   }finally{
+    await Promise.all([a,b].map(page=>page.evaluate(()=>window.__testRackRelease?.()).catch(()=>{})));
+   }
+  }finally{await web.close();}
+ });
+}
