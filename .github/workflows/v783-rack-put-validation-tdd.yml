@@ -1,0 +1,45 @@
+name: v783 rack PUT validation TDD (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/tab-session-handoff.test.js'
+      - 'projects/assembled-v783/app/docs/mock-backend.js'
+      - 'projects/assembled-v783/app/docs/version-manifest.json'
+      - '.github/workflows/v783-rack-put-validation-tdd.yml'
+permissions:
+  contents: read
+jobs:
+  rack-put-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install pinned test dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Install official Chromium and WebKit
+        working-directory: projects/assembled-v783/app
+        run: npx playwright install --with-deps chromium webkit
+      - name: Check rejected rack edits never mutate state
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/rack-put-validation
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 \
+            --test-name-pattern='P0 invalid rack edits are atomic' \
+            test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/rack-put-validation/native-browser.txt
+      - name: Archive RED and GREEN evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rack-put-validation-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/rack-put-validation/
+          if-no-files-found: warn
+          retention-days: 14
