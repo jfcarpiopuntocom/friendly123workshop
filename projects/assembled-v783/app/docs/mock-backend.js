@@ -6958,10 +6958,31 @@
         if (nueva.length > 120) return J({ error: "The category name is too long." }, 400);
         if (vieja.toLowerCase() === nueva.toLowerCase()) return J({ ok: true, actualizados: 0 });
         const afectados = productos.filter((p) => p && !p.borrado && categoriaCanonica(p.categoria).toLowerCase() === categoriaCanonica(vieja).toLowerCase());
-        afectados.forEach((p) => { p.categoria = nueva; p.rev = _revNueva(); });
         if (afectados.length) {
-          mov("edicion-categoria", { antes: vieja, ahora: nueva, productosAfectados: afectados.length });
-          avisarCatalogoCambiado();
+          const antes = afectados.map((p) => ({ p, categoria: p.categoria, rev: p.rev }));
+          const movimientosAntes = movimientos.length, selloAntes = selloUltimo;
+          afectados.forEach((p) => { p.categoria = nueva; p.rev = _revNueva(); });
+          const nuevasRevs = afectados.map((p) => p.rev);
+          mov("edicion-categoria", { antes: vieja, ahora: nueva, productosAfectados: afectados.length }, false);
+          const movimientoNuevo = movimientos[movimientosAntes];
+          debePersistir = false; // Strict commit replaces the generic asynchronous save.
+          const guardado = await guardarEstadoLocal(true);
+          if (guardado !== true) {
+            // Revert only our own edit; never erase a concurrent peer change.
+            if (movimientos.length === movimientosAntes + 1 && movimientos[movimientosAntes] === movimientoNuevo &&
+                afectados.every((p, i) => productos.includes(p) && p.rev === nuevasRevs[i] && p.categoria === nueva)) {
+              antes.forEach(({ p, categoria, rev }) => { p.categoria = categoria; p.rev = rev; });
+              movimientos.pop();
+              selloUltimo = selloAntes;
+            } else {
+              _estadoLecturaBloqueada = true;
+              _errorBloqueoLectura = new Error("Category batch commit failed with concurrent changes");
+            }
+            const cuota = _esErrorDeCuota(_causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB()));
+            return J({ error: "The category change was NOT saved. Check the product list before retrying.",
+              code: cuota ? "CATEGORY_STORAGE_QUOTA" : "CATEGORY_DURABILITY_UNCONFIRMED" }, cuota ? 507 : 503);
+          }
+          avisarCatalogoCambiado(); // Publish only after a durable local ACK.
         }
         return J({ ok: true, actualizados: afectados.length });
       }
