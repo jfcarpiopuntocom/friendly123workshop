@@ -182,11 +182,22 @@ test('RED: a persisted customer payment has its own clienteId contract and uncha
 test('RED: a customer payment keeps identity and cents under retries and rejects changed intentions',async()=>{
  const f=fixture(),base=customerPayment();
  assert.equal((await send(f,base)).status,200);
- for(const changed of [{clienteId:'client_2'},{amountCents:100},{amountCents:102}]){
+ for(const changed of [{amountCents:100},{amountCents:102}]){
   const result=await send(f,customerPayment(changed));
   assert.equal(result.status,409);
  }
+ // Membership is checked before the hash conflict; do not reveal whether a
+ // receipt for an unauthorized other customer exists.
+ const reads=f.invocations.reads;
+ assert.equal((await send(f,customerPayment({clienteId:'client_2'}))).status,403);
+ assert.equal(f.invocations.reads,reads);
  assert.equal(f.invocations.writes,1);
+ // When BOTH customers are legitimately in scope, changing clienteId under
+ // the same opId is a 409 conflict rather than another stored payment.
+ const both=fixture({authorizeCustomer:async()=>true});
+ assert.equal((await send(both,base)).status,200);
+ assert.equal((await send(both,customerPayment({clienteId:'client_2'}))).status,409);
+ assert.equal(both.invocations.writes,1);
 });
 test('RED: customer payment forbids receivableId and allocation, roles, PII and zero cents',async()=>{
  const f=fixture();
@@ -224,7 +235,7 @@ test('RED: colon opId is valid ONLY on customer payment kind; legacy receivable 
 });
 test('RED: revoked actor must not retrieve prior customer payment receipt',async()=>{
  let called=0;const f=fixture({authorize:async({license,scope})=>({
-  ok:++called===1,principal:{license,scopes:[scope],subject:'synthetic-owner'}
+  ok:++called===1,principal:{license,scopes:[scope],subject:'owner-account'}
  })});
  assert.equal((await send(f,customerPayment())).status,200);
  const retry=await send(f,customerPayment());
