@@ -1,6 +1,16 @@
 name: Assembled v783 browser and authority QA (no deploy)
 on:
   push:
+    # Validate integration work on agent branches before it reaches main.
+    branches: [main, "sol/**", "codex/**", "claude/**", "fable/**", "ponytail/**"]
+    paths:
+      - projects/assembled-v783/app/**
+      - projects/assembled-v783/relay/**
+      - projects/assembled-v783/qa/browser/**
+      - .github/workflows/assembled-browser-qa.yml
+  # Validate the exact proposed assembled app and issuer BEFORE merging.
+  # No secrets, releases, deployments, or activation of any customer.
+  pull_request:
     branches: [main]
     paths:
       - projects/assembled-v783/app/**
