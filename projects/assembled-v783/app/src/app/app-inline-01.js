@@ -2501,8 +2501,11 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
       // El merge ya trae el nombre confirmado: pintarlo en el mismo tick y
       // verificar después contra el namespace activo, sin exigir refresh.
       const nombre = ev && ev.detail && String(ev.detail.nombre || "").trim();
-      if (nombre) ponerNombre(nombre); // nombre llegado por sync: i18n ya no puede pisarlo
-      cargarNombre();
+      const activo = window.OCTienda && window.OCTienda.nombreActivo &&
+        String(window.OCTienda.nombreActivo() || "").trim();
+      // A confirmed event already matches the active notebook: don't let a stale GET repaint it.
+      if (nombre && activo === nombre) ponerNombre(nombre);
+      else cargarNombre();
     } catch (_) {}
   });
   window.addEventListener("oc-logout", () => { btn.style.display = "none"; const w = document.getElementById("oc-header-apodo"); if (w) w.style.display = "none"; const d = document.getElementById("oc-advanced-device-edit"); if (d) d.style.display = "none"; });
