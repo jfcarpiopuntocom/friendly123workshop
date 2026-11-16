@@ -39,4 +39,4 @@ jobs:
           AGENT="${WORK_BRANCH%%/*}"
           echo "Working agent: $AGENT"
           echo "Tracked baseline: $BASE"
-          node qa/coordination/no-clobber.mjs --actor "$AGENT" --base "$BASE" --head HEAD
+          node qa/coordination/no-clobber.mjs --actor "$AGENT" --base "$BASE" --head HEAD --target-ref origin/integrate/browser-injertos-20261116
