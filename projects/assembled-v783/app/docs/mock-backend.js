@@ -6697,6 +6697,12 @@
     // P0 v689: +1/-1 manual stock deltas need the same bounded CAS rebase as
     // a sale, on THIS DEVICE too. Never auto-replay absolute physical counts:
     // they establish a new epoch and require explicit human intent.
+    const ubicacionConcurrente = (() => {
+      try {
+        const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
+        return path === "/api/ubicaciones" && ((opts && opts.method) || "GET").toUpperCase() === "POST";
+      } catch (_) { return false; }
+    })();
     const ajusteDeltaConcurrente = (() => {
       try {
         const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
@@ -6795,18 +6801,20 @@
         try { _rechazoReintentable = (await primero.clone().json()).code !== "SALE_STORAGE_QUOTA"; }
         catch (_) { _rechazoReintentable = true; }
       }
-      if ((ventaConcurrente || ajusteDeltaConcurrente) && primero.status === 503) {
+      if ((ventaConcurrente || ajusteDeltaConcurrente || ubicacionConcurrente) && primero.status === 503) {
         try {
           const codigo = (await primero.clone().json()).code;
           _rechazoReintentable = ventaConcurrente
             ? codigo === "SALE_DURABILITY_UNCONFIRMED"
-            : codigo === "STOCK_DURABILITY_UNCONFIRMED";
+            : ajusteDeltaConcurrente
+              ? codigo === "STOCK_DURABILITY_UNCONFIRMED"
+              : codigo === "RACK_DURABILITY_UNCONFIRMED";
         } catch (_) { _rechazoReintentable = false; }
       }
       // Only an explicit non-quota stock CAS refusal may be replayed. 507 from
       // genuine storage quota is NEVER retried here. The handler has rolled back.
       if (ajusteDeltaConcurrente && primero.status !== 503) _rechazoReintentable = false;
-      if (!(ventaConcurrente || ajusteDeltaConcurrente) || !_rechazoReintentable || _estadoLecturaBloqueada ||
+      if (!(ventaConcurrente || ajusteDeltaConcurrente || ubicacionConcurrente) || !_rechazoReintentable || _estadoLecturaBloqueada ||
           _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
       // A local mirror may still be settling after the first durable ACK.
       // Wait for it only on this failed path, before replacing any in-memory copy.
@@ -7086,6 +7094,7 @@
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
+        const _racksAntes = ubicaciones.length, _movAntes = movimientos.length, _selloAntes = selloUltimo;
         const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0), baseComision: _baseComisionValida(body.baseComision) || null };
         nueva.rev = _revNueva();
         nueva.estadoRev = nueva.rev;
@@ -7094,8 +7103,29 @@
         // gastosMensuales, por lo que la suma "todas" las excluia hasta que se
         // guardara algun gasto para ellas. Se inicializa en 0 al crearlas.
         gastosMensuales[nueva.id] = 0;
-        mov("ubicacion-alta", { ubicacion: nueva.nombre });
-        avisarCatalogoCambiado(); // la percha nueva viaja al resto del negocio
+        // No release to Yjs before a verified local commit.
+        mov("ubicacion-alta", { ubicacion: nueva.nombre }, false);
+        debePersistir = false; // strict commit below replaces the generic fire-and-forget finally.
+        const _rackSaved = await guardarEstadoLocal(true);
+        if (_rackSaved !== true) {
+          // Only undo our exact provisional tail. Never truncate concurrent peer facts.
+          if (ubicaciones.length === _racksAntes + 1 &&
+              ubicaciones[_racksAntes] === nueva &&
+              movimientos.length === _movAntes + 1 &&
+              movimientos[_movAntes]?.tipo === "ubicacion-alta") {
+            ubicaciones.pop();
+            movimientos.pop();
+            selloUltimo = _selloAntes;
+            delete gastosMensuales[nueva.id];
+          } else {
+            _estadoLecturaBloqueada = true; // ambiguous interleaving: preserve evidence, block unsafe subsequent writes.
+            _errorBloqueoLectura = new Error("Rack commit failed with concurrent changes");
+          }
+          const cuota = _esErrorDeCuota(_causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB()));
+          return J({ error: "The location was NOT saved. Retry after checking your locations.",
+            code: cuota ? "RACK_STORAGE_QUOTA" : "RACK_DURABILITY_UNCONFIRMED" }, cuota ? 507 : 503);
+        }
+        avisarCatalogoCambiado(); // publication is after durable commit, once.
         return J(nueva);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "PUT") {

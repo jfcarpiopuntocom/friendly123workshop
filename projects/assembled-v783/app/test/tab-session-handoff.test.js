@@ -271,3 +271,98 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   });
  }
 }
+
+
+for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 rack POST rejects an unconfirmed local save (${engineName})`,async()=>{
+ const web=await engine.launch({headless:true});
+ try{
+  const ctx=await context(web),{page}=await seed(ctx);
+  await ownerLogin(page,'synthetic rack durability');
+  const result=await page.evaluate(async()=>{
+   const idb=window.OCEstadoIDB;
+   if(typeof idb?.guardar!=='function'||typeof window.OCEstadoAB?.crear!=='function')
+     throw new Error('synthetic persistence adapters missing');
+   const oldIdb=idb.guardar,oldCas=idb.guardarConRevision,oldError=idb.ultimoError,oldWrite=Storage.prototype.setItem;
+   let idbDenied=0,abDenied=0;
+   idb.guardar=async()=>{idbDenied++;return false;};
+   idb.guardarConRevision=async()=>{idbDenied++;return false;};
+   idb.ultimoError=()=>new DOMException('Synthetic IDB failure','QuotaExceededError');
+   Storage.prototype.setItem=function(key,value){
+     const k=String(key);
+     if(k.includes('f123_estado_v4') && /_(?:journal|A|B|ptr)$/.test(k)){
+       abDenied++;
+       throw new DOMException('Synthetic A/B store failure','QuotaExceededError');
+     }
+     return oldWrite.call(this,key,value);
+   };
+   try{
+    const r=await fetch('/api/ubicaciones',{
+      method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})
+    });
+    const current=await (await fetch('/api/ubicaciones')).json();
+    return {status:r.status,code:(await r.json()).code,idbDenied,abDenied,stillVisible:current.some(x=>x.nombre==='Synthetic unconfirmed rack')};
+   }finally{
+    idb.guardar=oldIdb;idb.guardarConRevision=oldCas;idb.ultimoError=oldError;Storage.prototype.setItem=oldWrite;
+   }
+  });
+  assert.ok(result.idbDenied>0,'IndexedDB rejection injector must be exercised');
+  assert.ok(result.abDenied>0,'A/B rejection injector must be exercised');
+  assert.equal(result.status,507,'confirmed quota must never be reported as HTTP success or replayed as CAS contention');
+  assert.equal(result.code,'RACK_STORAGE_QUOTA','quota is distinct from a recoverable revision conflict');
+  assert.equal(result.stillVisible,false,'failed rack must be rolled back from memory, not quietly saved later');
+  const retry=await page.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})});return r.status;});
+  assert.ok(retry>=200&&retry<300,'retry after storage recovery creates exactly one durable rack');
+  const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+  await cold.waitForFunction(async()=>{const snap=await window.OCEstadoIDB?.leer?.();return snap?.ubicaciones?.filter(u=>u.nombre==='Synthetic unconfirmed rack').length===1;},{},{timeout:7000});
+  const racks=await api(cold,'/api/ubicaciones');
+  assert.equal(racks.filter(u=>u.nombre==='Synthetic unconfirmed rack').length,1,'cold readback contains the rack once');
+ }finally{await web.close();}
+});
+}
+
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 concurrent rack CAS preserves both accepted writes (${name})`,{timeout:60000},async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const ctx=await context(web),{page:a}=await seed(ctx);
+   await ownerLogin(a,'synthetic rack CAS A');
+   const b=await ctx.newPage();await b.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   await ownerLogin(b,'synthetic rack CAS B',a);
+   for(const page of [a,b])await page.evaluate(()=>{
+    const idb=window.OCEstadoIDB,original=idb.guardarConRevision;
+    let release;const gate=new Promise(resolve=>{release=resolve;});
+    window.__testRackAtCAS=false;
+    window.__testRackRelease=()=>release();
+    idb.guardarConRevision=async(...args)=>{window.__testRackAtCAS=true;await gate;return original(...args);};
+   });
+   const submit=(page,rack)=>page.evaluate(async nombre=>{
+    const response=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre,tipo:'propio'})});
+    return {status:response.status,body:await response.json()};
+   },rack).catch(e=>({error:String(e)}));
+   const requestA=submit(a,'Synthetic concurrent rack A');
+   const requestB=submit(b,'Synthetic concurrent rack B');
+   try{
+    await Promise.all([a.waitForFunction(()=>window.__testRackAtCAS,{},{timeout:12000}),
+                       b.waitForFunction(()=>window.__testRackAtCAS,{},{timeout:12000})]);
+    await a.evaluate(()=>window.__testRackRelease());
+    const first=await requestA;
+    assert.ok(first.status>=200&&first.status<300,JSON.stringify(first));
+    await b.evaluate(()=>window.__testRackRelease());
+    const second=await requestB;
+    assert.ok(second.status>=200&&second.status<300,JSON.stringify(second));
+    const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+    const names=['Synthetic concurrent rack A','Synthetic concurrent rack B'];
+    await cold.waitForFunction(async required=>{
+     const saved=await window.OCEstadoIDB?.leer?.();
+     return required.every(n=>saved?.ubicaciones?.filter(u=>u.nombre===n&&!u.borrado).length===1);
+    },names,{timeout:8000,polling:100});
+    const racks=await api(cold,'/api/ubicaciones');
+    for(const n of names)assert.equal(racks.filter(r=>r.nombre===n).length,1,n+' cold-read once');
+   }finally{
+    await Promise.all([a,b].map(page=>page.evaluate(()=>window.__testRackRelease?.()).catch(()=>{})));
+   }
+  }finally{await web.close();}
+ });
+}
