@@ -10,6 +10,11 @@ function fixture({authorize,insertFails=false,clock=()=>1730000000000}={}) {
  const rows=new Map(),payloads=new Map(),invocations={auth:[],writes:0,reads:0};
  const sql={exec(query,...params){
   if(/^\s*CREATE TABLE/i.test(query))return [];
+  if(/^\s*SELECT payload_json FROM typed_commercial_payloads/i.test(query)){
+   invocations.reads++;
+   const payload=payloads.get(params[0]+'::'+params[1]);
+   return payload===undefined?[]:[{payload_json:payload}];
+  }
   if(/^\s*SELECT /i.test(query)){
    invocations.reads++;
    const row=rows.get(params[0]+'::'+params[1]);
