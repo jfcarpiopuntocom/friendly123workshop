@@ -22,7 +22,7 @@ const send=async(command,ticket='synthetic-signed-ticket')=>{
 const count=async()=>{const r=await fetch(new URL('/test-count',base));assert.equal(r.status,200);return (await r.json()).count};
 async function start(){
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',
-  compatibilityFlags:['nodejs_compat'],durableObjects:{SyntheticCommands:{className:'SyntheticCommands',useSQLite:true}},
+  compatibilityFlags:['nodejs_compat'],durableObjects:{COMMANDS:{className:'SyntheticCommands',useSQLite:true}},
   durableObjectsPersist:path.join(persist,'storage')});
  base=await mf.ready;
 }
