@@ -19,6 +19,13 @@ export class SyntheticCommands {
       const rows=Array.from(this.storage.sql.exec('SELECT COUNT(*) AS count FROM typed_commercial_ops'));
       return Response.json({count:rows[0]?.count||0});
     }
+    // QA-only readback endpoint; absent from the real Worker entrypoint.
+    if(new URL(request.url).pathname==='/test-payload'){
+      const rows=Array.from(this.storage.sql.exec(
+        'SELECT payload_json FROM typed_commercial_payloads WHERE license = ? AND op_id = ?',
+        LICENSE,'synthetic-op-001'));
+      return Response.json({payload:rows[0]?.payload_json||null});
+    }
     if(request.method!=='POST')return new Response('method',{status:405});
     try{
       const r=await this.inbox.submit(await request.json());

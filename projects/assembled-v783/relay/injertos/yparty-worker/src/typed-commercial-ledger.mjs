@@ -76,11 +76,23 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,clock
         // established when a typed business executor is wired.
         return transactionSync(()=>{
           sql.exec('CREATE TABLE IF NOT EXISTS typed_commercial_ops (license TEXT NOT NULL, op_id TEXT NOT NULL, payload_hash TEXT NOT NULL, receipt_json TEXT NOT NULL, PRIMARY KEY (license, op_id))');
+          // Keep the canonical command bytes in the same DO transaction as the
+          // inbox receipt. A digest alone cannot be replayed after a crash.
+          // Separate table preserves compatibility with existing receipt rows;
+          // historical hash-only rows remain non-executable until recovered.
+          sql.exec('CREATE TABLE IF NOT EXISTS typed_commercial_payloads (license TEXT NOT NULL, op_id TEXT NOT NULL, payload_json TEXT NOT NULL, PRIMARY KEY (license, op_id))');
           const existing=Array.from(sql.exec(
             'SELECT payload_hash, receipt_json FROM typed_commercial_ops WHERE license = ? AND op_id = ?',
             validated.record.license,validated.record.opId))[0];
           if(existing){
             if(existing.payload_hash!==digest)return fail(409,'operation-conflict');
+            // Hash-only legacy rows (or a damaged companion row) cannot be
+            // replayed safely. Never represent them as recoverable inbox ACKs.
+            const saved=Array.from(sql.exec(
+              'SELECT payload_json FROM typed_commercial_payloads WHERE license = ? AND op_id = ?',
+              validated.record.license,validated.record.opId))[0];
+            if(!saved || saved.payload_json!==JSON.stringify(validated.record))
+              return fail(409,'operation-recovery-required');
             const receipt=JSON.parse(existing.receipt_json);
             if(receipt.stage!=='stored-for-application'||receipt.opId!==validated.record.opId||
                receipt.license!==validated.record.license||receipt.kind!==validated.record.kind)
@@ -95,6 +107,9 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,clock
           });
           sql.exec('INSERT INTO typed_commercial_ops (license, op_id, payload_hash, receipt_json) VALUES (?, ?, ?, ?)',
             validated.record.license,validated.record.opId,digest,JSON.stringify(receipt));
+          // No duplicate writer: both rows commit or roll back together.
+          sql.exec('INSERT INTO typed_commercial_payloads (license, op_id, payload_json) VALUES (?, ?, ?)',
+            validated.record.license,validated.record.opId,JSON.stringify(validated.record));
           return {ok:true,status:200,duplicate:false,receipt};
         });
       }catch(_){return fail(503,'storage-unavailable');}
