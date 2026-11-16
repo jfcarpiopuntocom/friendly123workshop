@@ -62,8 +62,8 @@ test('RED: unsafe amounts and forged ids never produce a payment command',async(
   fact({},{moneyEngine:'unknown-rounding-engine'}),
  ];
  for(const bad of corrupt)await assert.rejects(project([bad]));
- await assert.rejects(project([fact()],[{license:'wrong-license'}]));
- await assert.rejects(project([fact()],[{opId:'customer-payment:../escape'}]));
+ await assert.rejects(project([fact()],{license:'wrong-license'}));
+ await assert.rejects(project([fact()],{opId:'customer-payment:../escape'}));
 });
 test('RED: real browser /abonar records a fact that projects with its original opId',async()=>{
  const {creditPaymentCommandFromDurableFact}=await moduleApi();
