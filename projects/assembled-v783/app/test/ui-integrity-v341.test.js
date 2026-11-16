@@ -250,7 +250,8 @@ test('a rejected location list preserves the selected shelf and shows an error',
   assert.match(result.message, /ubicaciones|locations/i);
 });
 
-test('failed business rename keeps the old identity and informs the owner', async () => {
+for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
+test(`failed business rename keeps the old identity and informs the owner (${browserName})`, async () => {
   const result = await withPage(page => page.evaluate(async () => {
     const name = document.getElementById('oc-negocio-nombre');
     const originalName = window.OCTienda.nombreActivo;
@@ -279,12 +280,11 @@ test('failed business rename keeps the old identity and informs the owner', asyn
     return { name: name.textContent,
       message: document.getElementById('oc-negocio-estado')?.textContent || '',
       visible: document.getElementById('oc-negocio-estado')?.style.display };
-  }));
+  }), engine);
   assert.equal(result.name, 'Original fixture business');
   assert.match(result.message, /name|nombre/i);
   assert.notEqual(result.visible, 'none');
-});
-
+});}
 test('an open sale receives a newly synchronized customer without losing the current selection', async () => {
   const result = await withPage(page => page.evaluate(async () => {
     const req = async (url, method = 'GET', body) => {
