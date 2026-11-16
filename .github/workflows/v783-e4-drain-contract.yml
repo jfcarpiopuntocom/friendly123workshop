@@ -1,0 +1,38 @@
+name: v783 E4 trusted catalog drain exact current paths (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/stable-review-integrity.test.js'
+      - '.github/workflows/v783-e4-drain-contract.yml'
+permissions:
+  contents: read
+jobs:
+  e4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact dependency lock
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Execute all original E4 and HEAD recovery cases without bypass
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/e4-drain
+          git rev-parse HEAD | tee ../evidence/e4-drain/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/stable-review-integrity.test.js 2>&1 | tee ../evidence/e4-drain/tap.log
+      - name: Archive evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-e4-drain-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/e4-drain/
+          if-no-files-found: warn
+          retention-days: 14
