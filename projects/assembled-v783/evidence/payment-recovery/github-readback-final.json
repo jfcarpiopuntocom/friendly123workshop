@@ -1,0 +1,39 @@
+{
+  "commit": "774558acac3802a1a0cdb8849cf3b9ed017610d3",
+  "files": [
+    {
+      "path": "projects/assembled-v783/app/docs/mock-backend.js",
+      "sha": "445f1fd56f0a88fbc912860d003b39d6f6a67573",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/774558acac3802a1a0cdb8849cf3b9ed017610d3/projects/assembled-v783/app/docs/mock-backend.js",
+      "error": false,
+      "localGitBlob": "445f1fd56f0a88fbc912860d003b39d6f6a67573",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/docs/sync-realtime.js",
+      "sha": "f23f075569d614c0d68ad3e283a22826cc342d0f",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/774558acac3802a1a0cdb8849cf3b9ed017610d3/projects/assembled-v783/app/docs/sync-realtime.js",
+      "error": false,
+      "localGitBlob": "f23f075569d614c0d68ad3e283a22826cc342d0f",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs",
+      "sha": "2e431a2d09879540f8a7d7508596e622e8d0d939",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/774558acac3802a1a0cdb8849cf3b9ed017610d3/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs",
+      "error": false,
+      "localGitBlob": "2e431a2d09879540f8a7d7508596e622e8d0d939",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/docs/version-manifest.json",
+      "sha": "e5582465729b525a1da244ce9879bc8d7fef436c",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/774558acac3802a1a0cdb8849cf3b9ed017610d3/projects/assembled-v783/app/docs/version-manifest.json",
+      "error": false,
+      "localGitBlob": "e5582465729b525a1da244ce9879bc8d7fef436c",
+      "match": true
+    }
+  ],
+  "allMatch": true,
+  "rootDocsUnchanged": true
+}

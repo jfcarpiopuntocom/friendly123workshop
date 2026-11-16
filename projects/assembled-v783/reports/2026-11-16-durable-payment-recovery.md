@@ -75,3 +75,9 @@ Current-source identity and public readback must be updated after this followup 
 A final failure-path test reproduced ok:true from aplicarFichas while A/B rejected writes and IndexedDB could not commit. The merge result now explicitly returns ok:false on guardarEstadoLocal!==true; the already-updated production caller leaves receive signatures unchanged. No data is deleted, and retrying the identical incoming rack after storage recovery persists exactly one record. RED: fichas-save-failure-red.txt; GREEN final31/31 including native Chromium/WebKit and24 existing stock cases: fichas-final-save-verified.txt. The interim patch was independently backed up before waiting for the d132 global audit.
 
 The d132 integrated CI has now completed584/584,0fail/skip/cancel, but does not certify this later two-line failure-path change. The new exact runtime CI must be read after committing. This distinction is deliberate; no stale green is assigned to a later source.
+
+## Second completed global audit (d132bf77)
+
+Run43942634062 finished RED on both sides after historical-source restoration: candidate3216 tests,3166pass,46fail,1cancel,3skip; baseline3151 tests,3088pass,59fail,1cancel,3skip. Candidate-only failed NAMES: NONE in this run; this is not a global green or proof all historical failures are harmless. Compare full-fichas-comparison.json and raw full-fichas-{candidate,baseline}.txt. The previous WebKit lease occurrence did not fail here; no unsupported causal/flakiness conclusion is inferred. The later explicit failed-save followup is runtime774558a and has its own pending CI43944394047/full43944393991.
+
+Correction/precision for next builder: a real server-side human-member Team authority already exists (team-authority.mjs). What is missing is its secure WS/role/data/action integration, not a reason to invent another roster/login. Detailed next-boundary sequence is now in the persisted plan.
