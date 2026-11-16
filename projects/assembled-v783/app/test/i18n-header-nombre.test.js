@@ -20,7 +20,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const { pathToFileURL } = require('node:url');
 const { browser: fixtureBrowser } = require('./helpers/browser.cjs');
 
@@ -120,8 +120,9 @@ test('a real business name is removed from static translation ownership', () => 
   assert.equal(span.textContent, 'Tienda fixture');
 });
 
-test('real language buttons preserve a synchronized name and translate the location selector after redraw', async () => {
-  const browser = await chromium.launch({ headless: true });
+for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
+test(`real language buttons preserve a synchronized name and translate the location selector after redraw (${browserName})`, async () => {
+  const browser = await engine.launch({ headless: true });
   try {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(path.join(__dirname, '../docs/index.html')).href,
@@ -146,23 +147,23 @@ test('real language buttons preserve a synchronized name and translate the locat
           renamePrompt
         };
         document.querySelector('.oc-lang-btn[data-lang="en"]').click();
-        return { spanish, englishHeader: document.getElementById('oc-negocio-nombre').textContent };
+        return { spanish, englishHeader: document.getElementById('oc-negocio-nombre').textContent,
+          workshop: /friendly123workshop/i.test(location.href) };
       } finally {
         window.OCTienda.nombreActivo = originalName;
         window.prompt = originalPrompt;
       }
     });
-    assert.equal(result.spanish.header, 'Fixture synchronized business');
+    assert.equal(result.spanish.header, result.workshop ? 'VERSIÓN DE PRUEBAS' : 'Fixture synchronized business');
     assert.equal(result.spanish.lang, 'es');
     assert.equal(result.spanish.saved, 'es');
     assert.equal(result.spanish.all, 'Todas las ubicaciones');
     assert.equal(result.spanish.renamePrompt, 'Nombre de tu negocio (mostrado arriba):');
-    assert.equal(result.englishHeader, 'Fixture synchronized business');
+    assert.equal(result.englishHeader, result.workshop ? 'VERSIÓN DE PRUEBAS' : 'Fixture synchronized business');
   } finally {
     await browser.close();
   }
-});
-
+});}
 test('sync carries the business name while each device keeps its own language', async () => {
   const englishDevice = fixtureBrowser();
   const spanishDevice = fixtureBrowser();
