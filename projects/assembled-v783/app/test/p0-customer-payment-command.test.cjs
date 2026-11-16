@@ -19,7 +19,7 @@ const fact=(over={},datum={})=>({
   montoSolicitado:1.005,...datum
  },...over
 });
-const project=async(facts,[over={}][0]=[{ }])=>{
+const project=async(facts,over={})=>{
  const {creditPaymentCommandFromDurableFact}=await moduleApi();
  return creditPaymentCommandFromDurableFact({
   license:LICENSE,opId:OP,readPersistedFacts:async()=>facts,...over
