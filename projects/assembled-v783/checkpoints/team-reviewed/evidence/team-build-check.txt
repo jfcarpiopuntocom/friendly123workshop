@@ -1,0 +1,1 @@
+App JS/CSS assets match src/app sources; local classic scripts are ordered defer; preload trio removed.

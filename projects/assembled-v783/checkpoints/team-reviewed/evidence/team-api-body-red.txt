@@ -1,0 +1,43 @@
+✔ HTTP API checks real Owner authority and preserves roles without returning PIN digests (47.081967ms)
+✔ disabled or non-pilot authority cannot mutate a customer record (2.525243ms)
+✔ missing or reused secret fails closed and stale revision is HTTP conflict (3.717284ms)
+✖ oversized streaming request is cancelled before consuming the full body (4.2999ms)
+✖ failed request body produces a closed rejection rather than an unhandled exception (2.465414ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 3
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 126.840694
+
+✖ failing tests:
+
+test at test/p0-team-worker-api.test.mjs:10:1
+✖ oversized streaming request is cancelled before consuming the full body (4.2999ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/work/assembled-candidate/app/test/p0-team-worker-api.test.mjs:14:43)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/p0-team-worker-api.test.mjs:16:1
+✖ failed request body produces a closed rejection rather than an unhandled exception (2.465414ms)
+  Error: synthetic body failure
+      at Object.start (file:///workspace/work/assembled-candidate/app/test/p0-team-worker-api.test.mjs:17:78)
+      at setupReadableStreamDefaultController (node:internal/webstreams/readablestream:2900:23)
+      at setupReadableStreamDefaultControllerFromSource (node:internal/webstreams/readablestream:2947:3)
+      at new ReadableStream (node:internal/webstreams/readablestream:280:7)
+      at TestContext.<anonymous> (file:///workspace/work/assembled-candidate/app/test/p0-team-worker-api.test.mjs:17:41)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

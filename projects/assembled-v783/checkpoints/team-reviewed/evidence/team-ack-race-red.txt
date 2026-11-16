@@ -1,0 +1,31 @@
+✔ durable Team save retains its retry intent but the shared catalog excludes it (91.892545ms)
+✔ ack for a different operation never clears the durable local intent (14.141155ms)
+✔ ack advances the CAS of the same local batch without rebasing another device (18.054985ms)
+✖ delayed ACK retains the intent after a higher revision remote credential change (24.481516ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 246.761592
+
+✖ failing tests:
+
+test at test/p0-team-authority-local-commit.test.cjs:10:1
+✖ delayed ACK retains the intent after a higher revision remote credential change (24.481516ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/workspace/work/assembled-candidate/app/test/p0-team-authority-local-commit.test.cjs:16:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

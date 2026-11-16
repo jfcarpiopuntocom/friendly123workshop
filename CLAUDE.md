@@ -1,3 +1,5 @@
+> Actualización JFC · 16 nov 2026: leer primero [AGENTS.md](AGENTS.md) y [projects/assembled-v783/START-HERE.md](projects/assembled-v783/START-HERE.md). Este repo es el taller común; las órdenes actuales allí sustituyen las notas históricas incompatibles. No sobrescribir la app de la raíz.
+
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
 Este archivo se carga solo en cada sesión. Los demás `.md` no. Por eso lo

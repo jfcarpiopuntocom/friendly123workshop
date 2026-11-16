@@ -1,0 +1,11 @@
+✔ assembled candidate creates a synthetic sale with imported money in Chromium (1288.993657ms)
+✔ Chromium Team change survives server failure and reload then reaches the real authority API once (1522.433852ms)
+✔ imported Workbox registers the local worker without reloading the active page (340.382824ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4181.21984

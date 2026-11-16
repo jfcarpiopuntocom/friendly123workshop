@@ -1,0 +1,13 @@
+✔ HTTP API checks real Owner authority and preserves roles without returning PIN digests (76.06369ms)
+✔ disabled or non-pilot authority cannot mutate a customer record (3.151554ms)
+✔ missing or reused secret fails closed and stale revision is HTTP conflict (3.130553ms)
+✔ oversized streaming request is cancelled before consuming the full body (3.703824ms)
+✔ failed request body produces a closed rejection rather than an unhandled exception (1.400605ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 158.477176
