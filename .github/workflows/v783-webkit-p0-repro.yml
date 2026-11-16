@@ -29,6 +29,14 @@ jobs:
         run: npx playwright install --with-deps webkit
       - name: Run exact isolated WebKit tests, preserve failures
         run: bash projects/assembled-v783/qa/reproduce-webkit-p0.sh
+      - name: Repeat isolated WebKit pair under bounded sequential load
+        run: |
+          set -euo pipefail
+          for i in 1 2 3; do
+            echo "::group::WebKit repetition $i/3"
+            bash projects/assembled-v783/qa/reproduce-webkit-p0.sh
+            echo "::endgroup::"
+          done
       - name: Archive forensic logs even on failure
         if: always()
         uses: actions/upload-artifact@v4
