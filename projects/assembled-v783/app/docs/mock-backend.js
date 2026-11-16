@@ -7248,12 +7248,49 @@
         const idx = ubicaciones.findIndex((x) => x.id === m[1]); if (idx < 0) return J({ error: "Shelf not found." }, 404);
         if (ubicaciones.filter((x) => !x.borrado).length <= 1) return J({ error: "At least one shelf has to remain." }, 400);
         const u = ubicaciones[idx];
-        // Borrado en cascada: la percha y TODOS sus productos. La UI ya lo advirtio.
-        const productosBorrados = productos.filter((p) => p.ubicacionId === u.id && !p.borrado).length;
-        for (const p of productos) if (p.ubicacionId === u.id && !p.borrado) { p.borrado = true; p.rev = _revNueva(); }
+        // The entire cascading tombstone is one durable local operation.
+        const productosAfectados = productos.filter((p) => p.ubicacionId === u.id && !p.borrado);
+        const productosBorrados = productosAfectados.length;
+        const uAntes = clonar(u), productosAntes = productosAfectados.map(clonar);
+        const movAntes = movimientos.length, selloAntes = selloUltimo;
+        const gastoExistia = Object.prototype.hasOwnProperty.call(gastosMensuales, u.id);
+        const gastoAntes = gastosMensuales[u.id];
+        for (const p of productosAfectados) { p.borrado = true; p.rev = _revNueva(); }
         u.borrado = true; u.activa = false; u.rev = _revNueva(); u.estadoRev = u.rev;
         delete gastosMensuales[u.id];
-        mov("ubicacion-borrada", { ubicacion: u.nombre, productosBorrados });
+        mov("ubicacion-borrada", { ubicacion: u.nombre, productosBorrados }, false);
+        const movimientoNuevo = movimientos[movAntes];
+        const uProvisional = JSON.stringify(u);
+        const productosProvisionales = productosAfectados.map((p) => JSON.stringify(p));
+        debePersistir = false; // No generic fire-and-forget save of provisional tombstones.
+        const borradoGuardado = await guardarEstadoLocal(true);
+        if (borradoGuardado !== true) {
+          // Undo only our unchanged provisional cascade; never delete peer changes.
+          if (ubicaciones[idx] === u && movimientos.length === movAntes + 1 &&
+              movimientos[movAntes] === movimientoNuevo && selloUltimo === movimientoNuevo.sello &&
+              JSON.stringify(u) === uProvisional &&
+              productosAfectados.every((p, j) => productos.includes(p) &&
+                JSON.stringify(p) === productosProvisionales[j]) &&
+              !productos.some((p) => p.ubicacionId === u.id && !p.borrado) &&
+              !Object.prototype.hasOwnProperty.call(gastosMensuales, u.id)) {
+            Object.keys(u).forEach((key) => { delete u[key]; });
+            Object.assign(u, uAntes);
+            productosAfectados.forEach((p, j) => {
+              Object.keys(p).forEach((key) => { delete p[key]; });
+              Object.assign(p, productosAntes[j]);
+            });
+            if (gastoExistia) gastosMensuales[u.id] = gastoAntes;
+            movimientos.pop();
+            selloUltimo = selloAntes;
+          } else {
+            _estadoLecturaBloqueada = true;
+            _errorBloqueoLectura = new Error("Rack DELETE commit failed with concurrent changes");
+          }
+          const cuota = _esErrorDeCuota(_causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB()));
+          return J({ error: "The rack and its products were NOT deleted. Check the current records before retrying.",
+            code: cuota ? "RACK_DELETE_STORAGE_QUOTA" : "RACK_DELETE_DURABILITY_UNCONFIRMED" }, cuota ? 507 : 503);
+        }
+        avisarCatalogoCambiado(); // Publish tombstones only after a verified local commit.
         return J({ ok: true, productosBorrados });
       }
       // ---- CAJA CHICA por percha — Roadmap Agosto 2026, Fase 2 ----
