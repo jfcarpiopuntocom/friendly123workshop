@@ -4,7 +4,17 @@ on:
     branches: [integrate/browser-injertos-20261116]
     paths:
       - "apps/friendly-123/**"
+      - "injertos/**"
       - "qa/browser/**"
+      - ".github/workflows/qa-browser-integration.yml"
+  # Validate the proposed Codex/Claude merge before accepting it, not afterwards.
+  pull_request:
+    branches: [integrate/browser-injertos-20261116]
+    paths:
+      - "apps/friendly-123/**"
+      - "injertos/**"
+      - "qa/browser/**"
+      - "qa/seguridad/**"
       - ".github/workflows/qa-browser-integration.yml"
   workflow_dispatch:
 permissions:
