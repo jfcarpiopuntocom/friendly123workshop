@@ -77,7 +77,7 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
         };
         const rack = await post('/api/ubicaciones',{nombre:'Synthetic category durability rack'});
         const product = await post('/api/productos',{
-          nombre:'Synthetic category durability item',sku:'CATEGORY-DURABLE-01',
+          nombre:'Synthetic category durability item',sku:'CATEGORY-DURABLE-01',barcode:'CATEGORY-DURABLE-01',
           categoria:'Category A',precio:25,stockInicial:2,ubicacionId:rack.id
         });
         const idb=window.OCEstadoIDB;
