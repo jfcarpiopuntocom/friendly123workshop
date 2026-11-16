@@ -19,8 +19,11 @@ In `app/docs/mock-backend.js`, rack PUT assigned `u.nombre` and `u.comisionSocio
 - [GREEN 43953943528](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43953943528) 2/2 Chromium/WebKit, 0 fail, 0 skips.
 - [Final focal 43954263653](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954263653) on updated regression with valid-edit assertions: 2/2, no fail/skip, both official native engines.
 - [Expense/money integrity 43954263904](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954263904) SUCCESS (exact source hash manifest).
-- [Credit/money 43954263822](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954263822): pending final result at report time.
-- [Integrated browser/authority 43954263657](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954263657): pending final result at report time.
+- [Credit/money 43954784899](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954784899): SUCCESS on exact source SHA `8710daa6017770bbb7e9780e184680fb44f85455`.
+- [Expense/integrity 43954784920](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954784920): SUCCESS on same SHA.
+- [Integrated browser/authority 43954785668](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954785668): **SUCCESS, 585/585 PASS, 0 FAIL/SKIP/CANCEL**, 15 groups. Independently counted TAP groups from job 133606380301 (105+8+5+22+28+248+7+8+31+1+33+21+6+27+35=585). The test with the third cold tab is included on this SHA.
+- [Latest focal 43954784965](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43954784965): 2/2 native Chromium and WebKit after rejecting partial updates, cold third-tab state inspection, and valid PUT 15% house / 85% partner.
+- Earlier integrated runs of older intermediate SHAs were cancelled by newer branch pushes: not evidence of test failure, not substitute for the SUCCESS run above.
 - Global `npm test` full candidate-vs-baseline audit still red historically, not newly certified by these focused tests.
 - PR #39 is concurrently changing rack POST; do **not** clobber its guarded strict commit. PR #40 is separate and remains DRAFT until fully integrated and reviewed. Explicitly cross-linked in PR #39 issue comment 6929018088.
 - **Not fixed here:** Valid PUT/DELETE can still respond HTTP 2xx before asynchronous generic save; business-global ACK, full roles, photos/relay, and physical PC→iPhone→PC convergence are not certified. No production deploy.
