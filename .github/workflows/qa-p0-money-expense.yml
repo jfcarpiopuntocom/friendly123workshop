@@ -28,5 +28,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install exact locked test dependencies (no browser binaries required)
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Execute real backend expense create/edit, fallback and historical invariants
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-expense-money-imported.test.cjs
