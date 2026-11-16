@@ -54,6 +54,15 @@ jobs:
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
             test/dinero-centavos.test.js test/dinero-paso-dolar.test.js test/medio-pago-comision.test.js test/comision-por-producto.test.js \
             test/p0-v778-comisiones-sin-recorrer.test.cjs test/p0-v779-resumen-pausa-venta.test.cjs test/p0-v780-comisiones-pinta-ultima.test.cjs
+      # Financial regression loads the real imported bundle into VM fixtures.
+      # Default browser coverage also runs without the older opt-in flag.
+      - name: Imported money default, sealed corrections and complete financial regression
+        env:
+          F123_QA_IMPORTED_MONEY: '1'
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/commissions-*.test.js test/comision-*.test.js test/dinero-*.test.js test/medio-pago-comision.test.js \
+            test/payout-ledger*.test.js test/p0-money-imported.test.cjs test/p0-restauracion-cierre-durable.test.cjs test/p0-money-default-browser.test.cjs
       - name: Photo bytes, hash, fallback and backup
         run: |
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \

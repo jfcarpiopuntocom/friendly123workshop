@@ -19,7 +19,10 @@ window.F123MoneyImported = Object.freeze({
   percentage(base, percentage) {
     if (percentage > 100) throw new RangeError('Invalid percentage');
     const input = decimal(base), ratio = decimal(percentage);
-    const commission = multiply(dinero({ ...input, currency: USD }), { amount: ratio.amount, scale: ratio.scale + 2n });
+    // Price × quantity and contribution subtraction can carry a binary tail.
+    // Normalize the currency base before applying a percentage to that base.
+    const currencyBase = transformScale(dinero({ ...input, currency: USD }), 2n, halfUp);
+    const commission = multiply(currencyBase, { amount: ratio.amount, scale: ratio.scale + 2n });
     const commissionCents = Number(toSnapshot(transformScale(commission, 2n, halfUp)).amount);
     const baseCents = Number(cents(base));
     if (!Number.isSafeInteger(commissionCents) || !Number.isSafeInteger(baseCents)) throw new RangeError('Unsafe money result');

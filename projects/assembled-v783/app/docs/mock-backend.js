@@ -2447,13 +2447,15 @@
        ahi, no parte de lo que vendio. Si el aporte supera la venta, la base es
        cero y no negativa — nadie le debe plata a la casa por vender poco. */
     var base = trato.contribFija > 0 ? Math.max(0, montoBase - trato.contribFija) : montoBase;
-    var comision = +(base * (pct / 100)).toFixed(2);
-    // Imported engine applies only to new QA sales; old splits and edits retain their sealed rules.
-    // Missing/unsupported component falls back to the existing calculator without changing history.
+    var comision = +(base * (pct / 100)).toFixed(2), moneyEngine;
+    // Only new sales opt in here; historical corrections keep their sealed rules.
+    // Override 0 or a missing/unsupported component retains the legacy recovery path.
     try {
-      if (imported && localStorage.getItem('f123_dinero_qa') === '1' && window.F123MoneyImported)
+      if (imported === 'sealed' || (imported && localStorage.getItem('f123_dinero_qa') !== '0' && window.F123MoneyImported)) {
         comision = window.F123MoneyImported.percentage(base, pct).commissionCents / 100;
-    } catch (_) {}
+        moneyEngine = 'dinero-2.0.2-half-up';
+      }
+    } catch (error) { if (imported === 'sealed') throw error; }
 
     if (trato.minimoGarantizado > 0 && comision < trato.minimoGarantizado) {
       comision = Math.min(trato.minimoGarantizado, bruto);   /* nunca mas que lo vendido */
@@ -2461,6 +2463,7 @@
     if (comision > bruto) comision = bruto;
 
     return {
+      ...(moneyEngine ? { moneyEngine } : {}),
       comisionPct: pct,
       origenComision: trato.origen,
       montoBruto: +bruto.toFixed(2),
@@ -2496,6 +2499,13 @@
     var total = Number(split.montoComisionSocio) || 0;
     var asi = +(total * pct / 100).toFixed(2);
     var ven = +(total - asi).toFixed(2);
+    try {
+      if (split.moneyEngine === 'dinero-2.0.2-half-up') {
+        var cents = window.F123MoneyImported.percentage(total, pct);
+        asi = cents.commissionCents / 100;
+        ven = (cents.baseCents - cents.commissionCents) / 100;
+      }
+    } catch (error) { if (split.moneyEngine === 'dinero-2.0.2-half-up') throw error; }
     split.reparto = [
       { rol: "vendedor", promotoraId: (u && u.promotoraId) || null, monto: ven },
       { rol: "asistente", promotoraId: pr.id, pct: pct, monto: asi }
@@ -2548,11 +2558,12 @@
     const pct = Math.max(0, Math.min(100, Number(s.comisionPct) || 0));
     const contrib = Math.max(0, Number(s.contribFijaAplicada) || 0);
     const baseOrig = Math.max(0, (Number(s.montoBaseComision != null ? s.montoBaseComision : s.montoBruto) || 0) - contrib);
-    const calcOrig = +(baseOrig * pct / 100).toFixed(2);
+    const sealed = s.moneyEngine === 'dinero-2.0.2-half-up';
+    const calcOrig = sealed ? window.F123MoneyImported.percentage(baseOrig, pct).commissionCents / 100 : +(baseOrig * pct / 100).toFixed(2);
     const minimo = (Number(s.montoComisionSocio) || 0) > calcOrig + 0.005 ? Number(s.montoComisionSocio) : 0;
     const trato = { pct, escalas: [], metaMensual: 0, contribFija: contrib, minimoGarantizado: minimo,
       base: s.baseComision === "margen" ? "margen" : "bruto", origen: s.origenComision || null };
-    return repartir(trato, montoBruto, 0, costoTotal);
+    return repartir(trato, montoBruto, 0, costoTotal, sealed ? 'sealed' : false);
   }
   // #19: agrupa ventas pendientes por producto -> lineas del recibo de liquidacion.
   function agruparPendientesPorProducto(pend) {
@@ -3065,17 +3076,21 @@
        se aplica sobre ESA misma base; nunca se cambia de base al corregir. */
     const baseCorr = Number.isFinite(Number(v.split.montoBaseComision)) && v.split.montoBaseComision !== null ? Number(v.split.montoBaseComision) : bruto;
     const antes = { comisionPct: v.split.comisionPct, montoComisionSocio: v.split.montoComisionSocio, montoNetoDueno: v.split.montoNetoDueno };
-    const comision = Math.min(bruto, +(baseCorr * (pct / 100)).toFixed(2));
-
-    v.split.comisionPct = pct;
-    v.split.montoComisionSocio = comision;
-    v.split.montoNetoDueno = +(bruto - comision).toFixed(2);
+    let comision, siguiente;
+    try {
+      const calculated = v.split.moneyEngine === 'dinero-2.0.2-half-up'
+        ? window.F123MoneyImported.percentage(baseCorr, pct).commissionCents / 100
+        : +(baseCorr * (pct / 100)).toFixed(2);
+      comision = Math.min(bruto, calculated);
+      siguiente = Object.assign({}, v.split, { comisionPct: pct, montoComisionSocio: comision, montoNetoDueno: +(bruto - comision).toFixed(2) });
+      if (siguiente.reparto) aplicarRepartoAsistente(siguiente, ubicaciones.find((x) => x.id === v.ubicacionId), v.asistenteId || (v.split.reparto[1] || {}).promotoraId, v.asistentePct != null ? v.asistentePct : (v.split.reparto[1] || {}).pct);
+    } catch (_) { return { error: "The receipt calculation could not be loaded. Reload and retry. Sale unchanged.", status: 503 }; }
+    v.split = siguiente;
     /* Marca permanente: esta venta ya no dice lo que dijo el dia que se hizo, y
        quien la mire dentro de seis meses tiene derecho a saberlo. */
     v.split.corregida = true;
     /* Bloque 4: si la venta se repartia entre dos personas, se re-parte con el
        mismo % del asistente sobre la comision nueva (sigue sumando exacto). */
-    if (v.split.reparto) aplicarRepartoAsistente(v.split, ubicaciones.find((x) => x.id === v.ubicacionId), v.asistenteId || (v.split.reparto[1] || {}).promotoraId, v.asistentePct != null ? v.asistentePct : (v.split.reparto[1] || {}).pct);
     v.split.correcciones = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
     const _correccion = {
       fecha: new Date().toISOString(),
@@ -7673,11 +7688,19 @@
               ? Object.assign({}, ubicP, { tipo: "socio", promotoraId: _prVenta.id, usarComisionPropia: false })
               : Object.assign({}, ubicP, { promotoraId: _prVenta.id }))
           : ubicP;
-        const split = modoComision === "counter"
+        let split = modoComision === "counter"
           ? null
           : (_ubicTrato ? calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado, true) : null);
         /* Bloque 4: asistente opcional por venta. COUNTER SALE lo ignora (split null). */
-        if (split && !_pedidoMostrador && body && body.asistenteId) aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct);
+        if (split && !_pedidoMostrador && body && body.asistenteId) {
+          try { aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct); }
+          catch (_) {
+            // Before a sale commits, fallback selects ONE calculator for the
+            // entire allocation; never mix an imported total with legacy parts.
+            split = calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado, false);
+            aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct);
+          }
+        }
         const _promotoraVenta = split ? ((_prVenta && _prVenta.id) || (_ubicTrato && _ubicTrato.promotoraId) || null) : null;
         let clienteVenta = null;
         if (body.clienteId) {
@@ -8038,6 +8061,21 @@
         if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
         if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);
         if (body.clienteId && !clientes.find((x) => x.id === body.clienteId)) return J({ error: "Customer not found." }, 404);
+        // Prepare sealed calculations before stock, credit or sale mutations.
+        // A missing component must not silently change this receipt's rounding.
+        let _splitSelladoCantidad = null, _splitSelladoPrecio = null;
+        if (venta.split && venta.split.moneyEngine === 'dinero-2.0.2-half-up' && (_hayCant || _hayPrecio)) {
+          const cantidadFinal = _hayCant ? Number(body.cantidad) : venta.cantidad;
+          const preparar = (precio, cantidad) => {
+            const split = _splitConTratoSellado(venta, precio * cantidad, (Number(venta.costoUnit) || 0) * cantidad);
+            if (venta.asistenteId) aplicarRepartoAsistente(split, ubicaciones.find(x => x.id === venta.ubicacionId), venta.asistenteId, venta.asistentePct);
+            return split;
+          };
+          try {
+            if (_hayCant && cantidadFinal !== venta.cantidad) _splitSelladoCantidad = preparar(venta.precioUnit || 0, cantidadFinal);
+            if (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit) _splitSelladoPrecio = preparar(+Number(body.precioUnit).toFixed(2), cantidadFinal);
+          } catch (_) { return J({ error: "The receipt calculation could not be loaded. Reload and retry. Sale and stock unchanged." }, 503); }
+        }
         let impuestoCorregido = venta.impuesto;
         if (_hayCant || _hayPrecio) {
           const lector = window.OCBusinessReadModel;
@@ -8131,8 +8169,8 @@
             venta.cantidad = nueva;
             const ubicP = ubicaciones.find((x) => x.id === venta.ubicacionId);
             if (venta.split) {
-              venta.split = _splitConTratoSellado(venta, (venta.precioUnit || 0) * nueva, (Number(venta.costoUnit) || 0) * nueva);
-              if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP, venta.asistenteId, venta.asistentePct);
+              venta.split = _splitSelladoCantidad || _splitConTratoSellado(venta, (venta.precioUnit || 0) * nueva, (Number(venta.costoUnit) || 0) * nueva);
+              if (venta.asistenteId && !_splitSelladoCantidad) aplicarRepartoAsistente(venta.split, ubicP, venta.asistenteId, venta.asistentePct);
             }
           }
         }
@@ -8147,8 +8185,8 @@
             venta.precioUnit = precioRedondo;
             const ubicP2 = ubicaciones.find((x) => x.id === venta.ubicacionId);
             if (venta.split) {
-              venta.split = _splitConTratoSellado(venta, precioRedondo * (venta.cantidad || 1), (Number(venta.costoUnit) || 0) * (venta.cantidad || 1));
-              if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP2, venta.asistenteId, venta.asistentePct);
+              venta.split = _splitSelladoPrecio || _splitConTratoSellado(venta, precioRedondo * (venta.cantidad || 1), (Number(venta.costoUnit) || 0) * (venta.cantidad || 1));
+              if (venta.asistenteId && !_splitSelladoPrecio) aplicarRepartoAsistente(venta.split, ubicP2, venta.asistenteId, venta.asistentePct);
             }
           }
         }
@@ -9056,7 +9094,7 @@
           for (const { p, cant } of validos) {
             const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
             const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
-            const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
+            const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado, true) : null;
             if (!deshacer.has(p)) deshacer.set(p, _marchaAtrasStock(p));
             p.stockActual -= cant;
             ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });

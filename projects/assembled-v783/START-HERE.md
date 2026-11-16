@@ -1,5 +1,9 @@
 # friendly-123 assembled v783 — entrada compartida
 
+## Continuación actual: Dinero por defecto en nuevas ventas de la candidata — WIP
+
+[Informe de dinero](reports/2026-11-16-money-default.md), [plan/ledger](plans/2026-11-16-money-default.md). Cambio real en backend y adaptador: comisión y asistente con Dinero disponible, regla sellada para editar, rollback0 para nuevas ventas y fallback coherente antes del commit. Focal16/16 pasa; financiero local231/234 con3 WebKit bloqueados por sistema. Chromium completo verifica recarga/opId/stock. npm test completo sigue en ejecución; CI ampliada todavía pendiente. **El238/238 anterior que sigue abajo no certifica este cambio nuevo.** No hay despliegue ni activación de clientes.
+
 ## Estado actual: cliente autorizado verificado238/238; cutover comercial pendiente
 
 Código exacto **c090914afe93e47d32a810b6307a24d2261deeaf**, [CI43865732869](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43865732869): **238/238**,0 fallos/omitidas. [Log completo](evidence/ci-43865732869.txt). Incluye Chromium y WebKit con Yjs/y-indexeddb existente, issuer real y Workerd: rechazo, edición local, recarga IndexedDB y recuperación del mismo opId sintético con otro cliente. Dos hallazgos Important del revisor del cliente fueron corregidos RED→GREEN. [Informe completo](reports/2026-11-16-authorized-client.md), [plan/ledger](plans/2026-11-16-authorized-client.md) y [reproducción](REPRODUCE.md).

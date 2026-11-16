@@ -1,0 +1,23 @@
+✔ decimal half-cent rounds explicitly up and conserves the whole sale (3.48199ms)
+✔ fractional percentage uses decimal scaling instead of binary percentage arithmetic (1.366793ms)
+✔ large scaled multiplication preserves the exact cent before rounding (1.281705ms)
+✔ invalid or unsafe amounts cannot become a plausible zero (1.890469ms)
+✔ new QA sale uses imported decimal rounding and preserves the previously stored split (73.545032ms)
+✔ new candidate sale uses the loaded imported component without a QA flag (25.373123ms)
+✔ new assistant allocation rounds once with imported decimals and gives the seller the exact remainder (42.89314ms)
+✔ explicit legacy rollback retains old rounding without altering an already sealed imported split (12.863011ms)
+✔ correcting a new imported receipt keeps its rounding rule after the new-sale rollback is enabled (15.188104ms)
+✔ editing a sealed imported receipt with no calculator cannot mutate sale or stock (21.205042ms)
+✔ legacy receipt corrections keep the old rule after the imported component is available (28.199698ms)
+✔ missing or failed component still commits one new legacy sale with the same opId (49.235847ms)
+✔ multi-unit currency base is normalized before multiplying its commission percentage (23.465608ms)
+✔ archiving an assistant cannot leave an obsolete allocation after commission correction (38.35913ms)
+✔ assistant calculation failure selects the legacy rule for the entire new sale exactly once (12.238884ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 920.011087

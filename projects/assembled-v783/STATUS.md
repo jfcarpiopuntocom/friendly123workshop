@@ -1,5 +1,9 @@
 # Estado compartido · 16 noviembre 2026
 
+## Continuación vigente: Dinero en ruta real de ventas — CI nueva pendiente
+
+Sobre base910affee se integra Dinero disponible por defecto solo en nuevas ventas/cierre del día, incluyendo asistente. split.moneyEngine conserva la regla al editar después de rollback; recibos viejos sin marca conservan la anterior. Ausencia de componente no bloquea venta nueva (fallback coherente completo), pero sí rechaza antes de mutar una edición marcada que necesite recálculo. Tres Important de revisor reproducidos y corregidos;16/16 focal pasa. Financiero local234:231 pasan,3 WebKit no arrancan por sistema; Chromium recarga y reintento pasan. npm test completo sigue corriendo a archivo. [Informe](reports/2026-11-16-money-default.md), [ledger](plans/2026-11-16-money-default.md). Los resultados238/238 de abajo acreditan el código anterior, no este cambio todavía pendiente de CI.
+
 ## Resultado vigente: cliente autorizado238/238; NO-GO comercial
 
 **c090914afe93e47d32a810b6307a24d2261deeaf** pasó [CI43865732869](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43865732869): **238/238,0 fallos/omitidas**. [Log íntegro](evidence/ci-43865732869.txt). App211 y cliente/relay27. Chromium y WebKit prueban IndexedDB, recarga y recuperación tras denegación real del issuer del laboratorio. No acredita UI comercial completa, dinero/outbox real, Cloudflare remoto o dispositivos físicos. Awareness intermitente anterior sigue abierto aunque esta repetición pasó. Fuentes/QA/workflow leídos desde segunda copia pública y comparados por bytes/SHA256:5/5 coinciden; [readback](evidence/issuer/authorized-client-public-readback.json).

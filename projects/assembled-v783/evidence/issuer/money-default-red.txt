@@ -1,0 +1,52 @@
+✔ decimal half-cent rounds explicitly up and conserves the whole sale (4.057724ms)
+✔ fractional percentage uses decimal scaling instead of binary percentage arithmetic (2.009598ms)
+✔ large scaled multiplication preserves the exact cent before rounding (1.376567ms)
+✔ invalid or unsafe amounts cannot become a plausible zero (1.429306ms)
+✔ new QA sale uses imported decimal rounding and preserves the previously stored split (75.341813ms)
+✖ new candidate sale uses the loaded imported component without a QA flag (26.776092ms)
+✖ new assistant allocation rounds once with imported decimals and gives the seller the exact remainder (43.998981ms)
+✔ explicit legacy rollback retains old rounding without altering an already sealed imported split (14.201991ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 739.796879
+
+✖ failing tests:
+
+test at test/p0-money-imported.test.cjs:51:1
+✖ new candidate sale uses the loaded imported component without a QA flag (26.776092ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0.01 !== 0.02
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-money-imported.test.cjs:58:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0.01,
+    expected: 0.02,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/p0-money-imported.test.cjs:62:1
+✖ new assistant allocation rounds once with imported decimals and gives the seller the exact remainder (43.998981ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0.01 !== 0.02
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-money-imported.test.cjs:71:55)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0.01,
+    expected: 0.02,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

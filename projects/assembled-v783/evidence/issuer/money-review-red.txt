@@ -1,0 +1,69 @@
+✖ multi-unit currency base is normalized before multiplying its commission percentage (79.571083ms)
+✖ archiving an assistant cannot leave an obsolete allocation after commission correction (46.017565ms)
+✖ assistant calculation failure selects the legacy rule for the entire new sale exactly once (39.592881ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 843.269169
+
+✖ failing tests:
+
+test at test/p0-money-imported.test.cjs:135:1
+✖ multi-unit currency base is normalized before multiplying its commission percentage (79.571083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0.43 !== 0.44
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-money-imported.test.cjs:141:47)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0.43,
+    expected: 0.44,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/p0-money-imported.test.cjs:144:1
+✖ archiving an assistant cannot leave an obsolete allocation after commission correction (46.017565ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     monto: 0.08,
+  +     promotoraId: null,
+  +     rol: 'vendedor'
+  +   },
+  +   {
+  +     monto: 0.02,
+  +     pct: 15,
+  +     promotoraId: 'pre11a9db5-9ba7-4226-9e50-3c3cee9b189f',
+  +     rol: 'asistente'
+  +   }
+  + ]
+  - undefined
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-money-imported.test.cjs:153:66)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { rol: 'vendedor', promotoraId: null, monto: 0.08 }, { rol: 'asistente', promotoraId: 'pre11a9db5-9ba7-4226-9e50-3c3cee9b189f', pct: 15, monto: 0.02 } ],
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/p0-money-imported.test.cjs:156:1
+✖ assistant calculation failure selects the legacy rule for the entire new sale exactly once (39.592881ms)
+  Error: POST /api/productos/pf96965bc-6d62-4060-8a33-ccbd215cc1d9/venta: 500 {"error":"Error: synthetic assistant component failure"}
+      at w.request (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/helpers/browser.cjs:50:39)
+      at async TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-money-imported.test.cjs:162:2)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

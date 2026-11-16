@@ -1,0 +1,16 @@
+✔ decimal half-cent rounds explicitly up and conserves the whole sale (3.899937ms)
+✔ fractional percentage uses decimal scaling instead of binary percentage arithmetic (1.303258ms)
+✔ large scaled multiplication preserves the exact cent before rounding (1.422166ms)
+✔ invalid or unsafe amounts cannot become a plausible zero (1.784991ms)
+✔ new QA sale uses imported decimal rounding and preserves the previously stored split (77.276349ms)
+✔ new candidate sale uses the loaded imported component without a QA flag (26.392266ms)
+✔ new assistant allocation rounds once with imported decimals and gives the seller the exact remainder (43.143422ms)
+✔ explicit legacy rollback retains old rounding without altering an already sealed imported split (13.310682ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 829.05466

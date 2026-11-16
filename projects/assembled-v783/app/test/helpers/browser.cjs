@@ -38,6 +38,11 @@ function browser(ls = storage()) {
   // mock-backend (index.html). Sin esto /api/dashboard corria aqui un camino de
   // respaldo que los clientes ya no usan y las pruebas de dinero de Today no lo veian.
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/core/business-read-model.js'), 'utf8'), w);
+  // Imported-money regression runs must exercise the bundle loaded by index.html,
+  // not silently keep testing the old branch with the component absent.
+  if (process.env.F123_QA_IMPORTED_MONEY === '1') {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/vendor/money-imported.min.js'), 'utf8'), w);
+  }
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/mock-backend.js'), 'utf8'), w);
   w.request = async (url, method = 'GET', body) => {
     const response = await w.fetch(url, { method, body: body === undefined ? undefined : JSON.stringify(body) });

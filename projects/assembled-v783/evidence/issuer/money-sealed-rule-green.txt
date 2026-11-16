@@ -1,0 +1,34 @@
+✔ decimal half-cent rounds explicitly up and conserves the whole sale (3.327699ms)
+✔ fractional percentage uses decimal scaling instead of binary percentage arithmetic (1.140003ms)
+✔ large scaled multiplication preserves the exact cent before rounding (1.056117ms)
+✔ invalid or unsafe amounts cannot become a plausible zero (1.516819ms)
+✔ new QA sale uses imported decimal rounding and preserves the previously stored split (82.530991ms)
+✔ new candidate sale uses the loaded imported component without a QA flag (32.758177ms)
+✔ new assistant allocation rounds once with imported decimals and gives the seller the exact remainder (46.581889ms)
+✔ explicit legacy rollback retains old rounding without altering an already sealed imported split (16.685376ms)
+✔ correcting a new imported receipt keeps its rounding rule after the new-sale rollback is enabled (17.272458ms)
+✖ editing a sealed imported receipt with no calculator cannot mutate sale or stock (21.163053ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 836.197255
+
+✖ failing tests:
+
+test at test/p0-money-imported.test.cjs:97:1
+✖ editing a sealed imported receipt with no calculator cannot mutate sale or stock (21.163053ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-money-imported.test.cjs:104:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /503/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
