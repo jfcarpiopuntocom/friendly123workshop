@@ -90,6 +90,9 @@ jobs:
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
             test/advanced-device-roles.test.cjs test/linus-roles-matriz.test.js test/p0-idb-closed-handle-reopen-sale.test.cjs \
             test/p0-sales-atomic-idb-webkit-browser.test.cjs test/p0-missing-pin-state.test.cjs test/incident-idb-payout-name-photo-race-4d-v2.test.cjs
+      - name: Durable typed-command payload and failure rollback (synthetic only)
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: node --test --test-concurrency=1 --test-timeout=45000 qa/p0-typed-command-payload.test.mjs
       - name: Imported YServer, real issuer and SQL cold recovery
         working-directory: projects/assembled-v783/relay/injertos/yparty-worker
         run: |
