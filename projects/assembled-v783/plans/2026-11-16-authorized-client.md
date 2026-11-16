@@ -30,3 +30,5 @@ Ruling: limitar a dos admisiones consecutivas sin sincronización — tolera un 
 Task3: parcial — Workerd real y Chromium real pasan; dos caducidades reales renuevan. Lote local completo25/27: awareness previo falla y WebKit no puede iniciar. No marcar completo hasta CI WebKit y aceptación de los gates abiertos.
 
 Task4: revisión independiente completada para este cliente; hallazgos Important corregidos con pruebas. Respaldo remoto/CI/documentación en curso. La revisión del servidor anterior continúa separada y no se presenta aceptada.
+
+CI3b1862a:237/238. WebKit corre en runner y encuentra429 por escenarios compartiendo instancia/cuota. Ruling: registrar instancias independientes para navegador/observador de cada motor, misma licencia/sala — corrige aislamiento de escenarios sin relajar límites ni borrar cuotas — coste si se interpreta como prueba de carga: no mide tasa global de producción; el test32/33 del emisor permanece y los costes reales siguen pendientes. Nueva CI requerida.

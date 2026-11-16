@@ -1,5 +1,22 @@
 # Recuperar y ejecutar sin depender de otro contenedor
 
+## Cliente autorizado añadido el16 de noviembre
+
+Leer primero [el informe de cliente](reports/2026-11-16-authorized-client.md), porque el resultado223/223 anterior no acredita los casos nuevos. Instalar ambos lockfiles con npm ci. Para ejecutar el conjunto ampliado en una máquina que ya disponga de las bibliotecas de sistema de Chromium/WebKit:
+
+```sh
+cd projects/assembled-v783/app
+npm ci --ignore-scripts --no-audit --no-fund
+npx playwright install chromium webkit
+cd ../relay/injertos/yparty-worker
+npm ci --ignore-scripts --no-audit --no-fund
+npm test
+```
+
+En CI, el workflow usa `playwright install --with-deps chromium webkit` para instalar también bibliotecas de sistema. No inventar un PASS si no pueden instalarse en un equipo local; conservar el error de entorno. Para foco sin browser se puede ejecutar `node --test --test-concurrency=1 qa/p0-authorized-provider.test.mjs`:11 casos de transporte/solicitud de pase. El lote de integración es `qa/p0-real-session-room.test.mjs`:16 casos, incluidos Chromium y WebKit. Los módulos del cliente se empaquetan en la fixture con esbuild resuelto desde el lockfile del relay, sin añadir paquetes ni reconstruir a mano el bundle histórico.
+
+Las pruebas solo usan identidades sintéticas y HTTP/WS locales. El adaptador de fixture intercepta la solicitud del endpoint de emisión antes de acceder a red externa; no se llama al Worker productivo. No abrir la app con perfiles reales para repetirlas. La aceptación comercial y el incidente awareness siguen pendientes aunque una repetición CI pase.
+
 Clonar `https://github.com/jfcarpiopuntocom/friendly123workshop.git`. Leer AGENTS.md y START-HERE. El commit inicial con fuentes completas es `44b93c9a2687f6a9eec222e2037d685e2dbeefd8`. El repositorio es público; los perfiles de prueba siempre son desechables y sintéticos.
 
 Desde `projects/assembled-v783/app`:

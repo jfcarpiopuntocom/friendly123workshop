@@ -1,5 +1,11 @@
 # Cliente importado: pases nuevos, pausa segura y recuperación del mismo documento
 
+## Primera CI del cliente y corrección del aislamiento de fixtures
+
+[CI43864873058](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43864873058), SHA3b1862ab1531b9eac6b78ca52028caeb5d9cb021, ejecutó238 pruebas: **237 pasan,1 falla**,0 omitidas. [Log íntegro](../evidence/ci-43864873058.txt). Los lotes de app211/211 pasan; cliente/relay26/27. El caso de awareness pasó en esa repetición, sin cerrar por ello su intermitencia. WebKit sí arrancó con las dependencias oficiales del runner: su fallo fue un429 real del emisor al solicitar el pase de un observador, no una incompatibilidad WebKit ni fallo de instalación en CI.
+
+La causa del429 es acumulación de los escenarios en una misma instancia ficticia durante una sola ventana de cuota. La fixture ahora registra instancias independientes de navegador y observador para cada motor, dentro de la **misma licencia y sala canónica**. Cada una obtiene pases por la autoridad real. No se aumenta el límite32/min, no se borra el registro de cuota, no se omiten casos ni se cambia la aserción HTTP200 esperada en un dispositivo legítimo. El test del núcleo que exige32 emisiones y rechazo de la33 permanece intacto y pasó en la CI. [Chromium tras aislar fixtures](../evidence/issuer/authorized-client-chromium-isolated.txt). Falta la siguiente CI para acreditar el nuevo SHA.
+
 ## Resultado y estado
 
 Se incorporaron fuentes de cliente, no un reemplazo casero de Yjs/WebSocket: `app/src/authorized-yprovider.mjs` adapta el proveedor importado2.2.0, y `app/src/ws-owner-ticket-params.mjs` solicita un pase al issuer ya implementado. Son componentes listos para continuar la integración, **sin activar el piloto comercial ni desplegar**. La app histórica, IndexedDB, opId/outbox, credenciales existentes y shell/PWA permanecen sin cambios. No confundir la fixture de un documento privado con la migración del catálogo o de las ventas reales.

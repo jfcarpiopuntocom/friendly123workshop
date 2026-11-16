@@ -2,6 +2,8 @@
 
 ## Continuación actual: adaptador cliente con recuperación — WIP
 
+Primera CI de cliente43864873058 sobre3b1862a: **237/238**, un429 en el caso WebKit por compartir cuota de una misma instancia sintética entre escenarios. WebKit ya no está bloqueado por entorno en CI. Se corrigió el aislamiento con instancias registradas distintas de navegador/observador por motor, misma licencia/sala, manteniendo límite32 y sus pruebas. Chromium focal posterior pasa. Ver [log completo](evidence/ci-43864873058.txt); todavía pendiente la siguiente CI.
+
 Se ensambló AuthorizedYProvider sobre el proveedor importado2.2.0 y un solicitante de pase Owner-private contra el issuer existente. RED original3, GREEN inicial3; issuer RED4, GREEN conjunto7; revisión independiente encontró pausa/reanudación inmediata y bucle de admisión, ambos corregidos con RED3→GREEN focal11. El nuevo cliente no elimina el documento del llamador ni cambia el negocio local. Dos caducidades reales renuevan con pases nuevos; Chromium demuestra IndexedDB→recarga→otro cliente Workerd con el mismo opId sintético.
 
 Lote local completo27:25 pasan,2 fallan. Awareness anterior volvió a observar un frame, con concesión ordinal anterior al bloqueo; no se cambió su aserción ni el relay servidor. WebKit local falla al iniciar por bibliotecas ausentes y su instalación falló por su: Authentication failure. La CI existente instalará sus dependencias y ejecutará los27 casos nuevos más los lotes de app. Estado todavía WIP/NO-GO; [informe ampliado](reports/2026-11-16-authorized-client.md), [plan/ledger](plans/2026-11-16-authorized-client.md). El apartado siguiente corresponde al checkpoint anterior.

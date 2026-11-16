@@ -2,6 +2,8 @@
 
 ## Continuación de cliente autorizado — WIP, CI nueva pendiente
 
+Actualización: la primera CI de cliente [43864873058](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43864873058) corrió238:237 pasan y1 falla por429 al acumular escenarios en una instancia sintética. WebKit sí arrancó. Se aislaron instancias registradas de cada motor/observador dentro del mismo negocio, sin aumentar límites ni quitar checks. La repetición del SHA de esta corrección todavía está pendiente; [detalle y log](reports/2026-11-16-authorized-client.md).
+
 [Informe del cliente importado](reports/2026-11-16-authorized-client.md) y [plan/ledger](plans/2026-11-16-authorized-client.md). Se añadieron renovación de pases, pausa/reanudación y recuperación de IndexedDB, con revisión independiente y dos hallazgos corregidos RED→GREEN. Focal11/11 y Chromium real pasan. El lote local completo nuevo registra25/27: awareness anterior volvió a fallar y WebKit local no inicia por dependencias de sistema. No confundir el verde223/223 histórico que sigue abajo con aceptación del código nuevo; leer el resultado CI del SHA nuevo cuando esté disponible. No se activó el piloto comercial, ni se cambió el servidor relay en esta continuación.
 
 ## Estado vigente: conexión pendiente corregida; CI 223/223; aceptación abierta
