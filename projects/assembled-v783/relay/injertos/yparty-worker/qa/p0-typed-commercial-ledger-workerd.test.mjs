@@ -20,6 +20,7 @@ const send=async(command,ticket='synthetic-signed-ticket')=>{
  const raw=await response.text();let body;try{body=JSON.parse(raw);}catch(_){throw Error('nonJSON Workerd reply HTTP '+response.status+': '+raw.slice(0,1200));}return{status:response.status,body};
 };
 const count=async()=>{const r=await fetch(new URL('/test-count',base));assert.equal(r.status,200);return (await r.json()).count};
+const payloadReadback=async()=>{const r=await fetch(new URL('/test-payload',base));assert.equal(r.status,200);return (await r.json()).payload};
 async function start(){
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',
   compatibilityFlags:['nodejs_compat'],durableObjects:{COMMANDS:{className:'SyntheticCommands',useSQLite:true}},
@@ -41,6 +42,10 @@ test('real Workerd SQLite: one durable inbox row survives reopen and conflicting
   const b=await send(sale());
   assert.equal(b.status,200);assert.equal(b.body.duplicate,true);assert.deepEqual(b.body.receipt,a.body.receipt);
   assert.equal(await count(),1);
+  assert.deepEqual(JSON.parse(await payloadReadback()),{
+    license:'F123-SYNTHETIC-LEDGER',opId:'synthetic-op-001',kind:'sale.record',
+    productId:'sku-1',quantity:1,amountCents:1999
+  });
   const conflict=await send(sale('synthetic-op-001',2000));
   assert.equal(conflict.status,409);assert.equal(await count(),1);
   const denied=await send(sale('synthetic-op-002'),'synthetic-expired');
@@ -50,6 +55,7 @@ test('real Workerd SQLite: one durable inbox row survives reopen and conflicting
   const c=await send(sale());
   assert.equal(c.status,200);assert.equal(c.body.duplicate,true);assert.deepEqual(c.body.receipt,a.body.receipt);
   assert.equal(await count(),1);
+  assert.equal(JSON.parse(await payloadReadback()).amountCents,1999);
  }finally{
    await mf?.dispose();
    fs.rmSync(persist,{recursive:true,force:true});
