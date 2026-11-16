@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'projects/assembled-v783/app/test/ui-integrity-v341.test.js'
+      - 'projects/assembled-v783/app/src/app/app-inline-01.js'
+      - 'projects/assembled-v783/app/docs/app-inline-01.min.js'
+      - 'projects/assembled-v783/app/docs/version-manifest.json'
+      - 'projects/assembled-v783/SOURCE-MANIFEST.json'
       - '.github/workflows/v783-business-rename-canonical.yml'
 permissions:
   contents: read
@@ -25,6 +29,13 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium webkit
+      - name: Assert exact source, minified JS and both manifests
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --check src/app/app-inline-01.js
+          node --check docs/app-inline-01.min.js
+          node -e 'const fs=require("node:fs"),crypto=require("node:crypto");const h=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");const v=JSON.parse(fs.readFileSync("docs/version-manifest.json","utf8")).files;const m=JSON.parse(fs.readFileSync("../SOURCE-MANIFEST.json","utf8"));if(v["./app-inline-01.min.js"]!=="sha256-"+h("docs/app-inline-01.min.js"))throw Error("browser manifest mismatch");for(const path of ["docs/app-inline-01.min.js","src/app/app-inline-01.js","docs/version-manifest.json"]){const actual=h(path);if(JSON.stringify(m).includes(path)&&m.files&&m.files[path]!==undefined&&m.files[path]!==actual)throw Error(path+" SOURCE-MANIFEST mismatch");}console.log("browser JS and manifests checked")'
       - name: Rejected rename keeps same canonical synthetic business in both browsers
         working-directory: projects/assembled-v783/app
         shell: bash
