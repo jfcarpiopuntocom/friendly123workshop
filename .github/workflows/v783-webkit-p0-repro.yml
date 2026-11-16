@@ -1,0 +1,39 @@
+name: v783 WebKit P0 isolated repro
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/qa/reproduce-webkit-p0.sh'
+      - '.github/workflows/v783-webkit-p0-repro.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  webkit-repro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install pinned dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Install official WebKit
+        working-directory: projects/assembled-v783/app
+        run: npx playwright install --with-deps webkit
+      - name: Run exact isolated WebKit tests, preserve failures
+        run: bash projects/assembled-v783/qa/reproduce-webkit-p0.sh
+      - name: Archive forensic logs even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-webkit-p0-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/webkit-p0/
+          if-no-files-found: warn
+          retention-days: 14
