@@ -402,3 +402,66 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   }finally{await web.close();}
  });
 }
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
+ test(`P0 valid rack PUT rejects an unconfirmed local save (${name})`,{timeout:60000},async()=>{
+  const web=await engine.launch({headless:true});
+  try {
+   const ctx=await context(web),{page,ids}=await seed(ctx);
+   await ownerLogin(page,'synthetic rack PUT durable '+name);
+   const before=(await api(page,'/api/ubicaciones')).find(u=>u.id===ids.rack);
+   assert.ok(before,'synthetic rack must exist');
+   const result=await page.evaluate(async id=>{
+    const idb=window.OCEstadoIDB;
+    if(typeof idb?.guardar!=='function'||typeof idb?.guardarConRevision!=='function'||
+       typeof window.OCEstadoAB?.crear!=='function')throw Error('strict persistence adapters missing');
+    const oldSave=idb.guardar,oldCAS=idb.guardarConRevision,oldError=idb.ultimoError;
+    const oldWrite=Storage.prototype.setItem;
+    let idbDenied=0,abDenied=0,catalogEvents=0;
+    const announced=()=>{catalogEvents++;};
+    window.addEventListener('oc-catalogo-cambiado',announced);
+    idb.guardar=async()=>{idbDenied++;return false;};
+    idb.guardarConRevision=async()=>{idbDenied++;return false;};
+    idb.ultimoError=()=>new DOMException('Synthetic IDB full','QuotaExceededError');
+    Storage.prototype.setItem=function(key,value){
+     if(String(key).includes('f123_estado_v4')&&/_(?:journal|A|B|ptr)$/.test(String(key))){
+       abDenied++;throw new DOMException('Synthetic A/B full','QuotaExceededError');
+     }
+     return oldWrite.call(this,key,value);
+    };
+    try {
+     const response=await fetch('/api/ubicaciones/'+id,{method:'PUT',
+       body:JSON.stringify({nombre:'Synthetic unconfirmed rack PUT',pctQuedaEnCasa:15})});
+     const resultBody=await response.json();
+     const racks=await(await fetch('/api/ubicaciones')).json();
+     const current=racks.find(u=>u.id===id);
+     return {status:response.status,code:resultBody.code,idbDenied,abDenied,catalogEvents,
+       name:current?.nombre,comision:current?.comisionSocio};
+    } finally {
+     idb.guardar=oldSave;idb.guardarConRevision=oldCAS;idb.ultimoError=oldError;
+     Storage.prototype.setItem=oldWrite;
+     window.removeEventListener('oc-catalogo-cambiado',announced);
+    }
+   },ids.rack);
+   assert.ok(result.idbDenied>0,'synthetic IndexedDB rejection injector must be exercised');
+   assert.ok(result.abDenied>0,'synthetic A/B rejection injector must be exercised');
+   assert.equal(result.status,507,'valid PUT must never ACK a dual-store quota failure');
+   assert.equal(result.code,'RACK_UPDATE_STORAGE_QUOTA');
+   assert.equal(result.name,before.nombre,'failed PUT must not change the rack name');
+   assert.equal(result.comision,before.comisionSocio,'failed PUT must not change commission');
+   assert.equal(result.catalogEvents,0,'a rejected PUT cannot publish catalog changes');
+   const accepted=await api(page,'/api/ubicaciones/'+ids.rack,'PUT',{
+      nombre:'Synthetic confirmed rack PUT',pctQuedaEnCasa:15});
+   assert.equal(accepted.nombre,'Synthetic confirmed rack PUT');
+   assert.equal(accepted.comisionSocio,85);
+   const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   await cold.waitForFunction(async id=>{
+    const state=await window.OCEstadoIDB?.leer?.();
+    return state?.ubicaciones?.some(u=>u.id===id&&u.nombre==='Synthetic confirmed rack PUT'&&u.comisionSocio===85);
+   },ids.rack,{timeout:10000,polling:100});
+   const verified=(await api(cold,'/api/ubicaciones')).find(u=>u.id===ids.rack);
+   assert.equal(verified.nombre,'Synthetic confirmed rack PUT');
+   assert.equal(verified.comisionSocio,85);
+  } finally { await web.close(); }
+ });
+}
