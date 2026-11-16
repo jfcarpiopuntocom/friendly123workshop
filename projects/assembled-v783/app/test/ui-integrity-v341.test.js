@@ -255,6 +255,9 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
     const result = await withPage(page => page.evaluate(async () => {
       const name = document.getElementById('oc-negocio-nombre');
       const originalRole = window.OCAuth.rolActual;
+      const trace = { before: name.textContent, updates: [] };
+      const observer = new MutationObserver(() => trace.updates.push({name:name.textContent,tag:name.hasAttribute('data-i18n')}));
+      observer.observe(name,{childList:true,subtree:true,characterData:true,attributes:true});
       const originalPrompt = window.prompt;
       const originalFetch = window.fetch;
       window.OCAuth.rolActual = () => 'dueno';
@@ -266,6 +269,10 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
         });
         if (!seed.ok) throw new Error('Could not seed real synthetic identity: ' + await seed.text());
         const saved = await seed.json();
+        trace.afterSeed=name.textContent;
+        trace.activeAfterSeed=window.OCTienda.nombreActivo();
+        window.dispatchEvent(new CustomEvent('oc-negocio-actualizado',{detail:{nombre:saved.nombreNegocio}}));
+        trace.afterExplicitEvent=name.textContent;
         if (!saved.ok || saved.nombreNegocio !== 'Original fixture business')
           throw new Error('Seed did not return a confirmed durable name: ' + JSON.stringify(saved));
         window.prompt = () => 'New fixture business';
@@ -276,7 +283,8 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
             : originalFetch(url, options);
         document.getElementById('oc-negocio-editar').click();
         await new Promise(resolve => setTimeout(resolve, 50));
-        return { name: name.textContent,
+        observer.disconnect();
+        return { name: name.textContent, trace,
           active: window.OCTienda.nombreActivo(),
           message: document.getElementById('oc-negocio-estado')?.textContent || '',
           visible: document.getElementById('oc-negocio-estado')?.style.display };
@@ -287,7 +295,7 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
       }
     }), engine);
     assert.equal(result.active, 'Original fixture business', 'rejected rename cannot change canonical notebook data');
-    assert.equal(result.name, 'Original fixture business', 'header must retain confirmed prior identity');
+    assert.equal(result.name, 'Original fixture business', JSON.stringify(result));
     assert.match(result.message, /name|nombre/i);
     assert.notEqual(result.visible, 'none');
   });
