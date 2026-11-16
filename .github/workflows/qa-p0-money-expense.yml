@@ -1,0 +1,32 @@
+name: QA P0 imported money expense rounding and durability (no deploy)
+on:
+  push:
+    branches: ["sol/v783-expenses-dinero-20261116"]
+    paths:
+      - "projects/assembled-v783/app/docs/mock-backend.js"
+      - "projects/assembled-v783/app/test/p0-expense-money-imported.test.cjs"
+      - ".github/workflows/qa-p0-money-expense.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/app/docs/mock-backend.js"
+      - "projects/assembled-v783/app/test/p0-expense-money-imported.test.cjs"
+      - ".github/workflows/qa-p0-money-expense.yml"
+permissions:
+  contents: read
+jobs:
+  expense-money:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Execute real backend expense create/edit, fallback and historical invariants
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-expense-money-imported.test.cjs
