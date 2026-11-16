@@ -47,6 +47,15 @@ jobs:
             --test-name-pattern='direct webkit: durable business/photo recovery without central payload|Fable P1-4 storage pressure on the old lease keys \(WebKit, lease\)' \
             test/peer-sync-browser.test.js test/tab-session-handoff.test.js \
             2>&1 | tee ../evidence/webkit-p0/concurrent-workers-4.log
+      - name: Cross-suite WebKit interaction under shared test runner
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/webkit-p0
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=4 --test-timeout=120000 \
+            --test-name-pattern='direct webkit: durable business/photo recovery without central payload|Fable P1-4 storage pressure on the old lease keys \\(WebKit, lease\\)' \
+            test/peer-sync-browser.test.js test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/webkit-p0/cross-suite-concurrency4.log
       - name: Archive forensic logs even on failure
         if: always()
         uses: actions/upload-artifact@v4
