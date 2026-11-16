@@ -1,0 +1,26 @@
+name: Yjs opsDoc actual listener VM fixture (no production)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/p0-s1-yjs-idb-replay.test.cjs'
+      - '.github/workflows/v783-s1-opsdoc-vm.yml'
+permissions:
+  contents: read
+jobs:
+  original-s1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install original locked dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Execute ALL original S1 assertions without skips or live network
+        working-directory: projects/assembled-v783/app
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-s1-yjs-idb-replay.test.cjs
