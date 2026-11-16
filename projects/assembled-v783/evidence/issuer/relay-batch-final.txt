@@ -1,0 +1,21 @@
+(node:12739) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/friendly123workshop/projects/assembled-v783/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/friendly123workshop/projects/assembled-v783/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ copied identifiers without a ticket receive zero Yjs frames (4131.930953ms)
+✔ real Owner ticket opens private YServer, persists facts, and cannot replay (162.524225ms)
+✔ missing authority fails closed before any Yjs state (5.568386ms)
+✔ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (12.691745ms)
+✔ a read-only Owner credential cannot persist or broadcast a raw private edit (111.44287ms)
+✔ expired idle recipient gets no binary update when a valid Owner publishes (765.589172ms)
+✔ revoked idle recipient gets no next update; valid instance still syncs (145.844708ms)
+✔ private facts survive full Workerd restart in SQL and require a fresh real ticket (3504.048479ms)
+✔ revoked recipient gets no awareness frame when another socket closes (54.717533ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10957.484331

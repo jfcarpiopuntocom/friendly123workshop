@@ -1,0 +1,8 @@
+✔ Chromium browser: synthetic sale persists across reload without service worker (2809.883721ms)
+✔ Chromium browser: local-first sale remains durable after temporary offline state (1218.973549ms)
+✖ WebKit browser: synthetic sale persists across reload without service worker (137.421194ms)
+✖ WebKit browser: local-first sale remains durable after temporary offline state (162.902913ms)
+✔ Chromium browser: credit sale, partial payment and expense remain exact after reload (1268.496217ms)
+✔ Chromium browser: commission payment method survives sale, settlement and cold reload (1198.934724ms)
+✖ WebKit browser: credit sale, partial payment and expense remain exact after reload (138.914847ms)
+✖ WebKit browser: commission payment method survives sale, settlement and cold reload (199.652023ms)

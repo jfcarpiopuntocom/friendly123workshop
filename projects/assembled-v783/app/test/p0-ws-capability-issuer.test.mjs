@@ -49,3 +49,13 @@ test('even valid HMAC cannot forge epoch, lifetime or an unissued payload',async
  }
  assert.equal((await c.ws.consume(use(c,r.token))).ok,true);
 });
+test('recipient batch has one final authority snapshot instead of mixing earlier grants with later revocations',async()=>{
+ const c=await setup(),one=await ticket(c),two=await ticket(c);await c.ws.consume(use(c,one.token));await c.ws.consume(use(c,two.token));let calls=0;
+ const ws=wsCapabilityAuthority({...c.options,storage:{...c.storage,transaction:async fn=>{if(++calls===2)await c.storage.transaction(tx=>tx.put('inst:'+instance,{licenseCode:license,instanceId:instance,estado:'bloqueada'}));return c.storage.transaction(fn);}}});
+ const result=await ws.checkMany({licenseCode:license,room:c.room+'-priv',requests:[use(c,one.token),use(c,two.token)]});
+ assert.equal(result.ok,true);assert.equal(result.results.length,2);assert.equal(result.results[0].ok,false,'first earlier grant cannot survive the later revocation');assert.equal(result.results[1].ok,false);
+});
+test('batch checks cannot cross business/room boundaries or accept unbounded input',async()=>{
+ const c=await setup();assert.equal((await c.ws.checkMany({licenseCode:license,room:c.room+'-priv',requests:Array(65).fill({})})).ok,false);
+ const r=await ticket(c);await c.ws.consume(use(c,r.token));assert.equal((await c.ws.checkMany({licenseCode:'F123-OTHER-FAKE',room:c.room+'-priv',requests:[use(c,r.token)]})).ok,false);
+});

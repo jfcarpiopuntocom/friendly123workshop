@@ -1,0 +1,35 @@
+✔ verified Owner receives a short room-bound credential with no echoed PIN (20.270861ms)
+✔ copied browser verification and arbitrary principal cannot mint credentials (2.320766ms)
+✔ cross-license room and invalid TTL are rejected without an issued nonce (2.757763ms)
+✔ a room ticket is single use even under concurrent consumers and factory restart (4.364717ms)
+✔ wrong key, altered payload, wrong room/instance/scope never consume the nonce (2.888339ms)
+✔ expiry and clock rollback reject issued and already consumed credentials (5.981225ms)
+✔ Owner PIN revision change revokes existing tickets and sessions (3.764305ms)
+✔ registered instance revocation is checked at consume and subsequent delivery checks (2.125563ms)
+✔ real Team credentials preserve admin/employee identity and need explicit trusted QA grants (8.102592ms)
+✔ Team revision and inactive member invalidate consumed sessions without deleting local business data (2.598774ms)
+✔ contador/artista/demo cannot inherit broad commercial rooms even from overbroad grants (3.585345ms)
+✔ separate WS secret is required and storage failure fails closed (0.982385ms)
+✔ a revocation between credential verification and ticket commit prevents issuance (1.299072ms)
+✔ failed nonce persistence rolls back the transaction without a false ticket (1.186141ms)
+✔ authenticated issuance is bounded and expired nonce records are cleaned without weakening replay (33.689668ms)
+✔ even valid HMAC cannot forge epoch, lifetime or an unissued payload (3.586788ms)
+✔ recipient batch has one final authority snapshot instead of mixing earlier grants with later revocations (3.278916ms)
+✔ batch checks cannot cross business/room boundaries or accept unbounded input (1.940986ms)
+(node:12708) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/friendly123workshop/projects/assembled-v783/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/friendly123workshop/projects/assembled-v783/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual API issues from real authority and only trusted service consumes/checks (63.962153ms)
+✔ disabled, wrong pilot, missing or reused secrets never call the authority (2.910653ms)
+✔ browser principal and role are not accepted in place of a real Owner PIN (1.995418ms)
+✔ invalid policy and request streams fail closed without forwarding (2.040956ms)
+✔ batch revalidation is server-only and preserves correlated room-bound decisions (5.512941ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 364.096016

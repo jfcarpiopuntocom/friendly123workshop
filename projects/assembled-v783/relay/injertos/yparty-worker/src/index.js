@@ -5,7 +5,7 @@ import { routePartykitRequest } from "partyserver";
 import { YServer } from "y-partyserver";
 import * as Y from "yjs";
 import { salaDeLicencia } from "./sala.js";
-import {secureMode,ticketRequest,askAuthority,unexpired} from "./ws-authority-client.js";
+import {secureMode,ticketRequest,askAuthority,askAuthorityBatch,unexpired} from "./ws-authority-client.js";
 
 export { salaDeLicencia };
 
@@ -65,14 +65,17 @@ export class Tienda extends YServer {
 
   async comprobarConexiones() {
     if (secureMode(this.env)) {
-      await Promise.all(Array.from(super.getConnections(),async connection => {
-        if (connection.readyState !== 1) return;
-        const access=connection.state?.accesoFirmado;
-        const current=unexpired(access) ? await askAuthority(this.env,'check',access) : null;
-        if (current && connection.readyState === 1) { connection.setState(p=>({...p,accesoFirmado:current})); return; }
+      const connections=Array.from(super.getConnections()).filter(c=>c.readyState===1);
+      const live=connections.filter(c=>unexpired(c.state?.accesoFirmado));
+      const grants=live.length ? await askAuthorityBatch(this.env,live.map(c=>c.state.accesoFirmado)) : [];
+      const byConnection=new Map(live.map((c,i)=>[c,grants?.[i]||null]));
+      for(const connection of connections){
+        if(connection.readyState!==1)continue;
+        const current=byConnection.get(connection);
+        if(current){connection.setState(p=>({...p,accesoFirmado:current}));continue;}
         connection.setState(p=>({...p,accesoFirmado:null}));
         connection.close(1008,'Acceso no autorizado');
-      }));
+      }
       return;
     }
     await Promise.all(Array.from(this.getConnections(), async conexion => {
@@ -83,6 +86,12 @@ export class Tienda extends YServer {
       conexion.setState(previo => ({ ...previo, accesoPiloto: null }));
       conexion.close(1008, "Acceso de la sala no válido");
     }));
+  }
+
+  async onClose(connection, code, reason, wasClean) {
+    // YServer removes awareness on close and can broadcast from that lifecycle hook.
+    if (secureMode(this.env)) await this.comprobarConexiones();
+    return super.onClose(connection,code,reason,wasClean);
   }
 
   async onCustomMessage(conexion, mensaje) {

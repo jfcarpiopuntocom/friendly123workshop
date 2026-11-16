@@ -1,0 +1,42 @@
+✔ verified Owner receives a short room-bound credential with no echoed PIN (45.130479ms)
+✔ copied browser verification and arbitrary principal cannot mint credentials (1.978909ms)
+✔ cross-license room and invalid TTL are rejected without an issued nonce (3.362051ms)
+✔ a room ticket is single use even under concurrent consumers and factory restart (5.028701ms)
+✔ wrong key, altered payload, wrong room/instance/scope never consume the nonce (3.147608ms)
+✔ expiry and clock rollback reject issued and already consumed credentials (6.151021ms)
+✔ Owner PIN revision change revokes existing tickets and sessions (3.718388ms)
+✔ registered instance revocation is checked at consume and subsequent delivery checks (2.586835ms)
+✔ real Team credentials preserve admin/employee identity and need explicit trusted QA grants (8.965259ms)
+✔ Team revision and inactive member invalidate consumed sessions without deleting local business data (3.074098ms)
+✔ contador/artista/demo cannot inherit broad commercial rooms even from overbroad grants (3.548322ms)
+✔ separate WS secret is required and storage failure fails closed (1.025103ms)
+✔ a revocation between credential verification and ticket commit prevents issuance (1.58739ms)
+✔ failed nonce persistence rolls back the transaction without a false ticket (1.508231ms)
+✔ authenticated issuance is bounded and expired nonce records are cleaned without weakening replay (27.906807ms)
+✔ even valid HMAC cannot forge epoch, lifetime or an unissued payload (3.042551ms)
+✖ recipient batch has one final authority snapshot instead of mixing earlier grants with later revocations (4.639305ms)
+✖ batch checks cannot cross business/room boundaries or accept unbounded input (1.978288ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 16
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 239.135804
+
+✖ failing tests:
+
+test at test/p0-ws-capability-issuer.test.mjs:52:1
+✖ recipient batch has one final authority snapshot instead of mixing earlier grants with later revocations (4.639305ms)
+  TypeError [Error]: ws.checkMany is not a function
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-ws-capability-issuer.test.mjs:55:24)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/p0-ws-capability-issuer.test.mjs:58:1
+✖ batch checks cannot cross business/room boundaries or accept unbounded input (1.978288ms)
+  TypeError [Error]: c.ws.checkMany is not a function
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-ws-capability-issuer.test.mjs:59:49)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

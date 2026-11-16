@@ -40,3 +40,15 @@ test('revoked idle recipient gets no next update; valid instance still syncs',{t
 test('private facts survive full Workerd restart in SQL and require a fresh real ticket',{timeout:20000},async()=>{
  const a=await connect(await issue());a.doc.getMap('private').set('cold-recovery',12345);const witness=await connect(await issue());await until(()=>witness.doc.getMap('private').get('cold-recovery')===12345,'before restart');a.close();witness.close();await mf.dispose();await startRelay();const cold=await connect(await issue());try{assert.equal(cold.doc.getMap('private').get('cold-recovery'),12345);assert.equal(cold.doc.getMap('private').has('forbidden-readonly-edit'),false);}finally{cold.close();}
 });
+test('revoked recipient gets no awareness frame when another socket closes',{timeout:15000},async()=>{
+ const sender=await connect(await issue()),receiver=await connect(await issue());let timer;
+ try{
+  sender.p.awareness.setLocalStateField('syntheticMarker','synthetic-presence');
+  await until(()=>[...receiver.p.awareness.getStates().values()].some(s=>s.syntheticMarker==='synthetic-presence'),'presence setup');
+  let binary=0,closed;
+  const observed=new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(Error('no revocation outcome')),5000);receiver.p.ws.on('message',(_,isBinary)=>{if(isBinary){binary++;resolve();}});receiver.p.ws.once('close',code=>{closed=code;resolve();});});
+  await db.transaction(tx=>tx.put('inst:'+instance,{licenseCode:license,instanceId:instance,estado:'bloqueada'}));
+  sender.p.ws.terminate();await observed;
+  assert.equal(binary,0,'revoked recipient must receive no lifecycle frame');assert.equal(closed,1008);
+ }finally{clearTimeout(timer);sender.close();receiver.close();await db.transaction(tx=>tx.put('inst:'+instance,{licenseCode:license,instanceId:instance}));}
+});

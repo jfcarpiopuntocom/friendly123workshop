@@ -1,0 +1,33 @@
+Playwright: installing only missing test browsers: webkit
+Downloading WebKit 26.5 (playwright webkit v2336)[2m from https://cdn.playwright.dev/dbazure/download/playwright/builds/webkit/2336/webkit-debian-13.zip[22m
+|                                                                                |   0% of 95.6 MiB
+|■■■■■■■■                                                                        |  10% of 95.6 MiB
+|■■■■■■■■■■■■■■■■                                                                |  20% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 95.6 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 95.6 MiB
+WebKit 26.5 (playwright webkit v2336) downloaded to /workspace/work/playwright-browsers/webkit-2336
+Playwright Host validation warning: 
+╔══════════════════════════════════════════════════════╗
+║ Host system is missing dependencies to run browsers. ║
+║ Missing libraries:                                   ║
+║     libgtk-4.so.1                                    ║
+║     libgraphene-1.0.so.0                             ║
+║     libharfbuzz-icu.so.0                             ║
+║     libmanette-0.2.so.0                              ║
+║     libhyphen.so.0                                   ║
+║     libGLESv2.so.2                                   ║
+╚══════════════════════════════════════════════════════╝
+    at validateDependenciesLinux (/workspace/work/friendly123workshop/projects/assembled-v783/app/node_modules/playwright-core/lib/coreBundle.js:31846:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Registry._validateHostRequirements (/workspace/work/friendly123workshop/projects/assembled-v783/app/node_modules/playwright-core/lib/coreBundle.js:33280:18)
+    at async Registry._validateHostRequirementsForExecutableIfNeeded (/workspace/work/friendly123workshop/projects/assembled-v783/app/node_modules/playwright-core/lib/coreBundle.js:33402:11)
+    at async Registry.validateHostRequirementsForExecutablesIfNeeded (/workspace/work/friendly123workshop/projects/assembled-v783/app/node_modules/playwright-core/lib/coreBundle.js:33391:11)
+    at async installBrowsers (/workspace/work/friendly123workshop/projects/assembled-v783/app/node_modules/playwright-core/lib/coreBundle.js:69417:5)
+    at async _Command.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/node_modules/playwright-core/lib/coreBundle.js:72930:7)
+Playwright browser preflight: PASS.

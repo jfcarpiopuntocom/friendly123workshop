@@ -97,5 +97,24 @@ export function wsCapabilityAuthority({storage,ownerAuthority,teamAuthority,secr
       });
     }catch(_){return deny('invalid-or-unavailable-ticket');}
   }
-  return Object.freeze({issue,consume:input=>validate(input,true),check:input=>validate(input,false)});
+  async function checkMany(input){
+    try{
+      const {licenseCode,room,requests}=input||{};
+      if(!LICENSE.test(licenseCode||'')||!ROOM.test(room||'')||!Array.isArray(requests)||!requests.length||requests.length>64||requests.some(r=>r?.licenseCode!==licenseCode||r?.room!==room))return deny('invalid-input');
+      const checked=await Promise.all(requests.map(r=>validate(r,false)));
+      // Cryptographic checks may finish at different times. Re-read every recipient in ONE
+      // final DO transaction so an earlier grant cannot outlive a later observed revocation.
+      return await storage.transaction(async tx=>{
+        const results=[];
+        for(let i=0;i<checked.length;i++){
+          const r=checked[i];if(!r.ok){results.push(r);continue;}
+          const p=r.principal,now=clock(),receiptRow=await tx.get(receipt(p.jti));
+          if(!timeValid(now)||now<p.iat||now>=p.exp||!receiptRow?.consumed||receiptRow.body!==requests[i].token.split('.')[0]||!await current(tx,p))results.push(deny('authority-changed'));
+          else results.push(r);
+        }
+        return{ok:true,results};
+      });
+    }catch(_){return deny('authority-unavailable');}
+  }
+  return Object.freeze({issue,consume:input=>validate(input,true),check:input=>validate(input,false),checkMany});
 }

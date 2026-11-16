@@ -2,7 +2,7 @@ import {pinAuthority} from './pin-authority.mjs';
 import {teamAuthority} from './team-authority.mjs';
 import {readAuthorityBody} from './team-worker-api.mjs';
 import {wsCapabilityAuthority} from './ws-capability-issuer.mjs';
-const paths={'/ws/ticket':'issue','/ws/consume':'consume','/ws/check':'check'};
+const paths={'/ws/ticket':'issue','/ws/consume':'consume','/ws/check':'check','/ws/check-many':'checkMany'};
 const H={'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
 const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:H});
 function config(env){
@@ -26,7 +26,7 @@ export async function wsPublicRoute(req,env,{getDo}){
   if(req.method!=='POST')return reply({ok:false,reason:'method-not-allowed'},405);
   // Issuance authenticates the end user; use/revalidation is available only to the private sync service.
   if(action!=='issue'&&!trustedService(req,env))return reply({ok:false,reason:'service-not-verified'},403);
-  const body=await readAuthorityBody(req,4096);if(!body)return reply({ok:false,reason:'invalid-input'},400);
+  const body=await readAuthorityBody(req,action==='checkMany'?65536:4096);if(!body)return reply({ok:false,reason:'invalid-input'},400);
   const license=action==='issue'?body.credentials?.licenseCode:body.licenseCode;
   if(typeof license!=='string'||license.trim().toUpperCase()!==env.TEAM_AUTHORITY_LICENSE)return reply({ok:false,reason:'not-found'},404);
   try{
@@ -42,8 +42,8 @@ export function wsDoRoute(req,storage,env){
     const cfg=config(env);if(!cfg)return reply({ok:false,reason:'authority-unavailable'},503);
     if(req.method!=='POST')return reply({ok:false,reason:'method-not-allowed'},405);
     if(!trustedService(req,env))return reply({ok:false,reason:'service-not-verified'},403);
-    const body=await readAuthorityBody(req,4096);
-    if(!body||!['issue','consume','check'].includes(body.action))return reply({ok:false,reason:'invalid-input'},400);
+    const body=await readAuthorityBody(req,65536);
+    if(!body||!['issue','consume','check','checkMany'].includes(body.action))return reply({ok:false,reason:'invalid-input'},400);
     const license=body.action==='issue'?body.credentials?.licenseCode:body.licenseCode;
     if(typeof license!=='string'||license.trim().toUpperCase()!==env.TEAM_AUTHORITY_LICENSE)return reply({ok:false,reason:'not-found'},404);
     const owner=pinAuthority(storage,env.PIN_PEPPER);
