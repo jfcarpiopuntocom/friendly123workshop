@@ -1,0 +1,45 @@
+name: v783 business rename canonical fixture (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/ui-integrity-v341.test.js'
+      - '.github/workflows/v783-business-rename-canonical.yml'
+permissions:
+  contents: read
+jobs:
+  rejected-rename:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install locked dependencies and browser engines
+        working-directory: projects/assembled-v783/app
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+      - name: Rejected rename keeps same canonical synthetic business in both browsers
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/rename-canonical
+          git rev-parse HEAD | tee ../evidence/rename-canonical/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 \
+            --test-name-pattern='failed business rename keeps the old identity' \
+            test/ui-integrity-v341.test.js 2>&1 | tee ../evidence/rename-canonical/rename.log
+      - name: Preserve exact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rename-canonical-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/rename-canonical/
+          if-no-files-found: warn
+          retention-days: 14
