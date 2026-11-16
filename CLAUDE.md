@@ -1,3 +1,7 @@
+> **DIRECTIVA NUEVA DE JFC (16-NOV-2026) — PREVALECE SOBRE INSTRUCCIONES ANTIGUAS EN ESTE ARCHIVO:** `jfcarpiopuntocom/friendly123workshop` es el **ÚNICO repositorio de coding/injertos** para Codex, Claude, ChatGPT/Sol y las demás IA. Código nuevo en `apps/friendly-123/`, `injertos/`, `qa/`, documentación en `docs/coordination/`. Los repos `friendly-123` y `friendly-123-injertos` quedan de referencia histórica; **no escribir código allí**. PWA aplazada, BROWSERS PRIMERO. Este repo es público: no subir bundles privados, PIN reales, licencias, fotografías ni credenciales. Leer `AGENTS.md` y `docs/coordination/ESTADO-UNIFICACION-2026-11-16.md`. Los apartados históricos de abajo que contradigan esta orden no son vigentes.
+
+---
+
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
 Este archivo se carga solo en cada sesión. Los demás `.md` no. Por eso lo
