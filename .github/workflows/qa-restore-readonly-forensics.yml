@@ -1,0 +1,91 @@
+name: Sol QA · Restore three exact read-only forensic modules (NO APP LOGIC / NO DEPLOY)
+on:
+  push:
+    branches: [sol/assembled-v783-restore-readonly-forensics-20261116]
+    paths:
+      - ".github/workflows/qa-restore-readonly-forensics.yml"
+permissions:
+  contents: write
+jobs:
+  restore-three-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sol/assembled-v783-restore-readonly-forensics-20261116
+          path: workshop
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 94a4e047cdb0b2b14cbab004de599d7e43fef79b
+          path: public-source
+          persist-credentials: false
+      - name: Read-only provenance: source pinned, no other app changes
+        shell: bash
+        working-directory: workshop
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "jfcarpiopuntocom/friendly123workshop"
+          git merge-base --is-ancestor 68c20fe7e2f3ebcac0fd39f7d8d1a61123818450 HEAD
+          test "$(git -C ../public-source rev-parse HEAD)" = "94a4e047cdb0b2b14cbab004de599d7e43fef79b"
+          git diff --quiet 68c20fe7e2f3ebcac0fd39f7d8d1a61123818450 HEAD -- projects/assembled-v783/app
+          test -z "$(git status --porcelain)"
+          test -s projects/assembled-v783/app/lab/stock-journal/engine.cjs
+          test ! -e projects/assembled-v783/app/scripts/forensics/fiados-readonly.cjs
+          test ! -e projects/assembled-v783/app/lab/stock-journal/forensic-reconciliation.cjs
+          test ! -e projects/assembled-v783/app/lab/stock-journal/legacy-preflight.cjs
+      - name: Verify RED is missing exact audited sources, not a money regression
+        shell: bash
+        working-directory: workshop/projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          set +e
+          node --test --test-concurrency=1 test/fiados-forensics-readonly-4d.test.js test/stock-journal-forensic-reconciliation.test.cjs test/stock-journal-legacy-preflight.test.cjs > /tmp/forensics-red.txt 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          grep -F "Cannot find module" /tmp/forensics-red.txt >/dev/null
+          grep -F "forensic-reconciliation.cjs" /tmp/forensics-red.txt >/dev/null
+          grep -F "legacy-preflight.cjs" /tmp/forensics-red.txt >/dev/null
+          grep -F "fiados-readonly.cjs" /tmp/forensics-red.txt >/dev/null
+          grep -F "# fail 3" /tmp/forensics-red.txt >/dev/null
+          echo "RED: exactly three missing legacy test-only forensic dependencies"
+      - name: Restore byte-identical PUBLIC source files, no business state
+        shell: bash
+        working-directory: workshop
+        run: |
+          set -euo pipefail
+          TARGET="projects/assembled-v783/app"
+          for rel in scripts/forensics/fiados-readonly.cjs lab/stock-journal/forensic-reconciliation.cjs lab/stock-journal/legacy-preflight.cjs; do
+            mkdir -p "$TARGET/$(dirname "$rel")"
+            cp "../public-source/$rel" "$TARGET/$rel"
+            cmp "../public-source/$rel" "$TARGET/$rel"
+            node --check "$TARGET/$rel"
+          done
+          git add -- "$TARGET/scripts/forensics/fiados-readonly.cjs" "$TARGET/lab/stock-journal/forensic-reconciliation.cjs" "$TARGET/lab/stock-journal/legacy-preflight.cjs"
+          ACTUAL="$(git diff --cached --name-only | sort)"
+          EXPECTED="$(printf '%s\n' "$TARGET/lab/stock-journal/forensic-reconciliation.cjs" "$TARGET/lab/stock-journal/legacy-preflight.cjs" "$TARGET/scripts/forensics/fiados-readonly.cjs" | sort)"
+          test "$ACTUAL" = "$EXPECTED" || { printf 'unexpected changes:\n%s\n' "$ACTUAL"; exit 1; }
+          test -z "$(git diff --name-only)"
+      - name: Verify GREEN all original read-only forensic regression tests
+        shell: bash
+        working-directory: workshop/projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 test/fiados-forensics-readonly-4d.test.js test/stock-journal-forensic-reconciliation.test.cjs test/stock-journal-legacy-preflight.test.cjs
+      - name: Persist only those files in isolated branch (NO deploy/main)
+        shell: bash
+        working-directory: workshop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "friendly123workshop forensic QA"
+          git config user.email "f123-qa@users.noreply.github.com"
+          git commit -m "test(assembled-v783): restore 3 byte-exact read-only forensic modules from public v781"
+          gh auth setup-git
+          git remote set-url origin "https://github.com/jfcarpiopuntocom/friendly123workshop.git"
+          git push origin HEAD:refs/heads/sol/assembled-v783-restore-readonly-forensics-20261116
