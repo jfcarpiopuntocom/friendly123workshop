@@ -71,8 +71,16 @@
     var existente = hechos.find(function (h) { return _d(h).opId === String(relacion.opId); });
     if (!existente) return null;
     var d = _d(existente);
+    // A new imported payment retains its ORIGINAL intention in the immutable
+    // receipt. On retries, even after rollback0 or loss of the imported module,
+    // compare that original request, never the current rounding rule.
+    // Historical facts without a seal keep the legacy toFixed contract.
+    var mismoMonto = d.moneyEngine === 'dinero-2.0.2-half-up'
+      ? Number.isFinite(Number(monto)) && typeof d.montoSolicitado === 'number' &&
+        d.montoSolicitado === Number(monto)
+      : !d.moneyEngine && Number(d.monto) === Number(Number(monto).toFixed(2));
     if (existente.tipo !== TIPOS[tipo] || d.clienteId !== String(clienteId) ||
-        Number(d.monto) !== Number(Number(monto).toFixed(2)) || d.motivo !== String(motivo || '').slice(0,300) ||
+        !mismoMonto || d.motivo !== String(motivo || '').slice(0,300) ||
         String(d.ventaId || '') !== String(relacion.ventaId || '')) {
       var conflicto = new Error('This payment reference already belongs to a different movement.');
       conflicto.status = 409; throw conflicto;
@@ -148,7 +156,22 @@
       return Promise.reject(new Error("cartera: tipo debe ser 'cargo' o 'abono'"));
     }
     var m = Number(monto);
-    var redondeado = Number(m.toFixed(2));
+    var redondeado = Number(m.toFixed(2)), motorImportado = false;
+    // Only NEW abonos use the already-imported BigInt/Dinero.js 2.0.2
+    // adapter. Manual charges and all historical receipts are unaffected.
+    // The explicit rollback switch and a missing/throwing adapter preserve
+    // the complete legacy path BEFORE writing any fact.
+    try {
+      if (tipo === 'abono' && Number.isFinite(m) && m > 0 &&
+          global.localStorage && global.localStorage.getItem('f123_dinero_qa') !== '0' &&
+          global.F123MoneyImported && typeof global.F123MoneyImported.percentage === 'function') {
+        var centavos = global.F123MoneyImported.percentage(m, 100).baseCents;
+        if (Number.isSafeInteger(centavos) && centavos > 0) {
+          redondeado = centavos / 100;
+          motorImportado = true;
+        }
+      }
+    } catch (_) { /* fallback legacy for a NEW payment; never replay under a new rule */ }
     if (!Number.isFinite(m) || !Number.isSafeInteger(Math.round(redondeado * 100)) || !(redondeado > 0)) {
       return Promise.reject(new Error("cartera: monto debe ser finito y de al menos un centavo"));
     }
@@ -156,7 +179,7 @@
 
     var payload = {
       clienteId: String(clienteId),
-      monto: +m.toFixed(2),
+      monto: redondeado,
       motivo: String(motivo || "").slice(0, 300),
       quien: (function () {
         try {
@@ -170,6 +193,10 @@
       payload.ventaId = String(relacion.ventaId);
     }
     if (relacion && relacion.opId) payload.opId = String(relacion.opId);
+    if (motorImportado) {
+      payload.moneyEngine = 'dinero-2.0.2-half-up';
+      payload.montoSolicitado = m;
+    }
 
     /* UN SOLO CAMINO DE ESCRITURA (fix 2026-08-13). Antes esto emitia
        ":completado" ANTES de registrar, y hechos.js lo persistia por su cuenta:

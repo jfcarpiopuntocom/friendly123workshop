@@ -1,0 +1,50 @@
+name: QA v783 imported Dinero credit payments (synthetic, no deploy)
+on:
+  push:
+    branches: [sol/v783-credit-dinero-20261116]
+    paths:
+      - projects/assembled-v783/app/docs/cartera.js
+      - projects/assembled-v783/app/docs/version-manifest.json
+      - projects/assembled-v783/app/test/p0-credit-payment-money-imported.test.cjs
+      - .github/workflows/qa-v783-credit-money.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/app/docs/cartera.js
+      - projects/assembled-v783/app/docs/version-manifest.json
+      - projects/assembled-v783/app/test/p0-credit-payment-money-imported.test.cjs
+      - .github/workflows/qa-v783-credit-money.yml
+permissions:
+  contents: read
+jobs:
+  credit-money:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked packages
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install official Chromium and WebKit binaries with system dependencies
+        run: npx playwright install --with-deps chromium webkit
+      - name: Credit payment new engine, historical replay, failback, idempotency
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 test/p0-credit-payment-money-imported.test.cjs
+      - name: Existing credit ledger and durable sale regressions
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 \
+            test/fiado-durable-venta-v519.test.js test/fiados-pagado-por-consumo-v557.test.js \
+            test/fiados-quota-cliente-4d.test.js test/sale-credit-browser-v489.test.js \
+            test/sale-credit-corrections-v489.test.js test/sold-walkin-to-fiado-v489.test.js
+      - name: Exact source SHA for manifest review
+        run: node -e "const fs=require('fs'),c=require('crypto'),b=fs.readFileSync('docs/cartera.js');console.log('CARTERA_SHA256='+c.createHash('sha256').update(b).digest('hex'))"
+      - name: Verify frozen shell integrity
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 \
+            test/p0-v637-manifest.test.cjs

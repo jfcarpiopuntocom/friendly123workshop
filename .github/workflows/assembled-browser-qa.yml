@@ -72,7 +72,7 @@ jobs:
         run: |
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
             test/commissions-*.test.js test/comision-*.test.js test/dinero-*.test.js test/medio-pago-comision.test.js \
-            test/payout-ledger*.test.js test/p0-money-imported.test.cjs test/p0-restauracion-cierre-durable.test.cjs test/p0-money-default-browser.test.cjs
+            test/payout-ledger*.test.js test/p0-money-imported.test.cjs test/p0-credit-payment-money-imported.test.cjs test/p0-restauracion-cierre-durable.test.cjs test/p0-money-default-browser.test.cjs
       - name: Imported Dinero expense creation, edit and legacy fallback
         env:
           F123_QA_IMPORTED_MONEY: '1'
