@@ -62,7 +62,24 @@ export function checkChangeSet({ledger,actor,paths}={}) {
   }
   return {ok:violations.length===0,violations};
 }
-export function checkUpstreamOverlap() { return {ok:true,violations:[]}; }
+export function checkUpstreamOverlap({ours,upstream}={}) {
+  if(!Array.isArray(ours)||!Array.isArray(upstream))
+    return {ok:false,violations:[violation('INVALID_CHANGESET')]};
+  const violations=[];
+  const seen=new Set(),upstreamSet=new Set();
+  for(const file of upstream){
+    if(!isCleanRelativeFile(file)){violations.push(violation('INVALID_PATH',String(file)));continue}
+    upstreamSet.add(file);
+  }
+  for(const file of ours){
+    if(!isCleanRelativeFile(file)){violations.push(violation('INVALID_PATH',String(file)));continue}
+    if(seen.has(file)){violations.push(violation('DUPLICATE_PATH',file));continue}
+    seen.add(file);
+    if(upstreamSet.has(file))violations.push(violation('UPSTREAM_PATH_OVERLAP',file,
+      'both agents changed this file after common ancestor'));
+  }
+  return {ok:violations.length===0,violations};
+}
 export function verifyInjertoLedger({ledger,exists}={}) {
   const violations=[];
   if(!ledger || ledger.schemaVersion!==1 ||
@@ -115,9 +132,23 @@ if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.
       cwd:ROOT,encoding:'utf8',maxBuffer:2*1024*1024
     }).trim().split('\n').filter(Boolean);
     const changeVerdict=checkChangeSet({ledger,actor:args.actor,paths:changed});
+    let upstreamVerdict={ok:true,violations:[]},upstreamChangedCount=0;
+    if(args['target-ref']){
+      // Verify branch fork point, rather than trusting caller-supplied base.
+      const common=execFileSync('git',['merge-base',args.head,args['target-ref']],{
+        cwd:ROOT,encoding:'utf8'
+      }).trim();
+      const statedBase=execFileSync('git',['rev-parse',args.base],{cwd:ROOT,encoding:'utf8'}).trim();
+      if(common!==statedBase)throw Error('stale or wrong common ancestor');
+      const upstream=execFileSync('git',['diff','--name-only','--diff-filter=ACMR',common,args['target-ref']],{
+        cwd:ROOT,encoding:'utf8',maxBuffer:2*1024*1024
+      }).trim().split('\\n').filter(Boolean);
+      upstreamChangedCount=upstream.length;
+      upstreamVerdict=checkUpstreamOverlap({ours:changed,upstream});
+    }
     const report={actor:args.actor,base:args.base,head:args.head,changedCount:changed.length,
-      ok:ledgerVerdict.ok&&changeVerdict.ok,
-      violations:[...ledgerVerdict.violations,...changeVerdict.violations]};
+      upstreamChangedCount,ok:ledgerVerdict.ok&&changeVerdict.ok&&upstreamVerdict.ok,
+      violations:[...ledgerVerdict.violations,...changeVerdict.violations,...upstreamVerdict.violations]};
     process.stdout.write(JSON.stringify(report,null,2)+'\n');
     if(!report.ok)process.exitCode=1;
   }catch(error){
