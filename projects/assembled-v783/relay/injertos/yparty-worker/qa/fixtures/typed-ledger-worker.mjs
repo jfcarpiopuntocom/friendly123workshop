@@ -21,9 +21,13 @@ export class SyntheticCommands {
     }
     // QA-only readback endpoint; absent from the real Worker entrypoint.
     if(new URL(request.url).pathname==='/test-payload'){
+      // Test-only whitelist; never expose an unrestricted receipt reader.
+      const opId=new URL(request.url).searchParams.get('op')||'synthetic-op-001';
+      if(!['synthetic-op-001','customer-payment:8f79b07c-3db5-478f-ab69-59b0e483912b'].includes(opId))
+        return Response.json({ok:false},{status:400});
       const rows=Array.from(this.storage.sql.exec(
         'SELECT payload_json FROM typed_commercial_payloads WHERE license = ? AND op_id = ?',
-        LICENSE,'synthetic-op-001'));
+        LICENSE,opId));
       return Response.json({payload:rows[0]?.payload_json||null});
     }
     if(request.method!=='POST')return new Response('method',{status:405});

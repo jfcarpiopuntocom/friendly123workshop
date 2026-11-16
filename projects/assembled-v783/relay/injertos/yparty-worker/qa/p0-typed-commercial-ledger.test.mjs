@@ -158,3 +158,76 @@ test('license boundary exactly follows existing issuer limit of 8..34 characters
   assert.equal(r.ok,true,code);
  }
 });
+
+const customerPayment=(over={})=>({
+ opId:'customer-payment:8f79b07c-3db5-478f-ab69-59b0e483912b',
+ license:LICENSE,kind:'credit.customer.payment.record',
+ clienteId:'client_1',amountCents:101,...over
+});
+test('RED: a persisted customer payment has its own clienteId contract and unchanged colon opId',async()=>{
+ const f=fixture(),cmd=customerPayment(),a=await send(f,cmd);
+ assert.equal(a.status,200);
+ assert.equal(a.receipt.stage,'stored-for-application');
+ assert.equal(a.receipt.kind,'credit.customer.payment.record');
+ assert.equal(a.receipt.opId,cmd.opId);
+ assert.deepEqual(JSON.parse(f.payloads.get(LICENSE+'::'+cmd.opId)),{
+  license:LICENSE,opId:cmd.opId,kind:cmd.kind,clienteId:'client_1',amountCents:101
+ });
+ assert.equal(f.invocations.auth[0].scope,'ops:payment');
+ const b=await send(f,{...cmd});
+ assert.equal(b.status,200);assert.equal(b.duplicate,true);
+ assert.deepEqual(b.receipt,a.receipt);
+ assert.equal(f.invocations.writes,1);
+});
+test('RED: a customer payment keeps identity and cents under retries and rejects changed intentions',async()=>{
+ const f=fixture(),base=customerPayment();
+ assert.equal((await send(f,base)).status,200);
+ for(const changed of [{clienteId:'client_2'},{amountCents:100},{amountCents:102}]){
+  const result=await send(f,customerPayment(changed));
+  assert.equal(result.status,409);
+ }
+ assert.equal(f.invocations.writes,1);
+});
+test('RED: customer payment forbids receivableId and allocation, roles, PII and zero cents',async()=>{
+ const f=fixture();
+ const bad=[
+ {receivableId:'debt_1'},
+ {cargoKey:'venta:sale_1'},
+ {partes:[{cargoKey:'venta:sale_1',monto:1}]},
+ {role:'dueno'},
+ {pin:'123456'},
+ {customerPhone:'0991234567'},
+ {amountCents:0},
+ {amountCents:1.01},
+ {clienteId:'../../other'},
+ {opId:'customer-payment:../bad'},
+ {opId:'customer-payment:<script>alert(1)</script>'},
+ {opId:'prefix:abc123456'},
+ ];
+ for(const ext of bad){
+  const response=await send(f,customerPayment(ext));
+  assert.equal(response.status,400,JSON.stringify(ext));
+ }
+ assert.equal(f.rows.size,0);
+});
+test('RED: colon opId is valid ONLY on customer payment kind; legacy receivable stays stable',async()=>{
+ const f=fixture();
+ assert.equal((await send(f,customerPayment())).status,200);
+ assert.equal((await send(f,payment({opId:customerPayment().opId}))).status,400);
+ assert.equal((await send(f,sale({opId:customerPayment().opId}))).status,400);
+ const old=await send(f,payment());
+ assert.equal(old.status,200);
+ assert.equal(old.receipt.kind,'credit.payment.record');
+ const oldPayload=JSON.parse(f.payloads.get(LICENSE+'::'+'synthetic-payment-003'));
+ assert.equal(oldPayload.receivableId,'synthetic-debt-1');
+ assert.equal('clienteId' in oldPayload,false);
+});
+test('RED: revoked actor must not retrieve prior customer payment receipt',async()=>{
+ let called=0;const f=fixture({authorize:async({license,scope})=>({
+  ok:++called===1,principal:{license,scopes:[scope],subject:'synthetic-owner'}
+ })});
+ assert.equal((await send(f,customerPayment())).status,200);
+ const retry=await send(f,customerPayment());
+ assert.equal(retry.status,403);
+ assert.equal(f.invocations.writes,1);
+});
