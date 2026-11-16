@@ -279,6 +279,9 @@ async function guardia(req, lobby, env) {
 
 export default {
   async fetch(req, env) {
+    // A disabled/missing security configuration must never reopen identifier-only access.
+    // The archived b93 prototype is preserved separately; this candidate requires real admission.
+    if (env.WS_AUTHORITY_QA !== '1') return new Response('Autoridad no configurada',{status:503});
     // Limit the public endpoint before KV or a Durable Object sees the request.
     const path = new URL(req.url).pathname;
     if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "") ||

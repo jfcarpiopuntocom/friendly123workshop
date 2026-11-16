@@ -48,3 +48,7 @@ WebKit local bloqueado por seis bibliotecas ausentes; install-deps oficial fall�
 ## Primer CI del taller · SHA9c31714
 
 Run43821169475 confirmó94 autoridad/core,8 Chromium/WebKit con Dinero activado y5 doble pestaña. Falló al comenzar stock porque la exportación omitió lab/stock-journal/engine.cjs y yjs-bridge.cjs. Son dependencias sintéticas originales de los tests, NO un motor nuevo integrado. Se restauraron sin modificaciones desde f6276ad; bloque stock ahora22/22 local. Dinero/reportes28/28 local; foto/backup se ejecutó también. Log completo de CI conservado en evidence/ci-43821169475.txt. No se contabilizan como verdes los pasos skipped de esa CI; repetir la ejecución exacta después del arreglo de entrega.
+
+## Fallback seguro de configuración · regresión adicional
+
+Tras CI220 verde de831838a se probó apagar el flag seguro del relay. RED válido: reaparecía1 frame por el camino de identificadores legado. Esta candidata ahora requiere WS_AUTHORITY_QA=1 en la entrada pública; flag0 o ausente retorna indisponibilidad, sin reabrir la sala antigua. El b93 histórico sigue archivado y no se modificó ningún Worker productivo. Lote Workerd local actualizado:11/11 PASS; cero frames de bypass, readonly, expiración, revocación, cierre awareness y reinicio SQL. Fuente y logs red/green se entregan en el siguiente checkpoint. El fallback comercial sigue local-first con sus hechos/opId; no significa aceptar un transporte sin autorización.
