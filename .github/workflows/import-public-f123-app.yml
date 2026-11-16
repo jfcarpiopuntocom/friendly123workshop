@@ -66,7 +66,9 @@ jobs:
           See `/AGENTS.md` and `/docs/coordination/ESTADO-UNIFICACION-2026-11-16.md`.
           EOF
           git add -A -- apps/friendly-123
-          git diff --cached --check
+          # Exact upstream bytes may contain pre-existing whitespace. Keep them unchanged.
+          # The three core files were byte-compared with cmp above; do not rewrite upstream source.
+          git diff --cached --stat | tail -n 25
           git diff --cached --stat | tail -n 25
           git config user.name "friendly-123 unified workshop importer"
           git config user.email "f123-workshop@users.noreply.github.com"
