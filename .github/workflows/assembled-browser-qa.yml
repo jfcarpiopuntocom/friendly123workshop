@@ -69,4 +69,4 @@ jobs:
         working-directory: projects/assembled-v783/relay/injertos/yparty-worker
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          node --test --test-concurrency=1 --test-timeout=45000 qa/p0-real-session-room.test.mjs
+          node --test --test-concurrency=1 --test-timeout=45000 qa/p0-authorized-provider.test.mjs qa/p0-real-session-room.test.mjs

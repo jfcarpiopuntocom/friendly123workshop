@@ -1,0 +1,36 @@
+
+> test
+> node --test
+
+✔ failed credential renewal never reconnects with the previous single-use ticket (142.948447ms)
+✔ pause during credential fetch prevents a late connection and preserves the local document (55.249547ms)
+✔ only the newest overlapping credential request may open a connection (59.91954ms)
+✔ Owner ticket parameters keep the PIN in the HTTPS body and return only the room capability (6.497982ms)
+✔ local roles or a mismatching identity cannot request an Owner capability (0.973234ms)
+✔ an issuer denial or expired response never produces reusable socket parameters (1.271081ms)
+✔ switching identity during issuance discards the delayed ticket (0.860595ms)
+(node:21067) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/friendly123workshop/projects/assembled-v783/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/friendly123workshop/projects/assembled-v783/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ copied identifiers without a ticket receive zero Yjs frames (3712.983585ms)
+✔ real Owner ticket opens private YServer, persists facts, and cannot replay (121.770859ms)
+✔ missing authority fails closed before any Yjs state (8.43695ms)
+✔ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (11.174488ms)
+✔ a read-only Owner credential cannot persist or broadcast a raw private edit (119.477811ms)
+✔ expired idle recipient gets no binary update when a valid Owner publishes (750.910557ms)
+✔ revoked idle recipient gets no next update; valid instance still syncs (83.033342ms)
+✔ private facts survive full Workerd restart in SQL and require a fresh real ticket (3518.48823ms)
+✔ revoked recipient gets no awareness frame when another socket closes (84.154911ms)
+✔ secure QA flag 0 never falls back to copied-identifier access (6611.720538ms)
+✔ secure QA flag undefined never falls back to copied-identifier access (808.064757ms)
+✔ a valid admission waiting for authority is not revoked by another peer activity (142.524749ms)
+✔ authorized client renews through real issuer and resumes the same local document after denial (222.78708ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17876.834049

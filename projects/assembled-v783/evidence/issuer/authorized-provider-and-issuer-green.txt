@@ -1,0 +1,15 @@
+✔ failed credential renewal never reconnects with the previous single-use ticket (135.146458ms)
+✔ pause during credential fetch prevents a late connection and preserves the local document (54.886534ms)
+✔ only the newest overlapping credential request may open a connection (58.998392ms)
+✔ Owner ticket parameters keep the PIN in the HTTPS body and return only the room capability (6.323428ms)
+✔ local roles or a mismatching identity cannot request an Owner capability (1.145322ms)
+✔ an issuer denial or expired response never produces reusable socket parameters (1.426224ms)
+✔ switching identity during issuance discards the delayed ticket (0.594083ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 487.706214

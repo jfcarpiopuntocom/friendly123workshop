@@ -1,0 +1,71 @@
+Failed to refresh params, reconnecting with stale params Error: synthetic authority unavailable
+    at YProvider.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:31:71)
+    at #resolveParams (file:///tmp/f123-authorized-provider-Zupkya/client.mjs:9629:79)
+    at YProvider._reconnectWS (file:///tmp/f123-authorized-provider-Zupkya/client.mjs:9650:32)
+    at Timeout._onTimeout (file:///tmp/f123-authorized-provider-Zupkya/client.mjs:9357:38)
+    at listOnTimeout (node:internal/timers:685:17)
+    at process.processTimers (node:internal/timers:618:7)
+✖ failed credential renewal never reconnects with the previous single-use ticket (142.209826ms)
+✖ pause during credential fetch prevents a late connection and preserves the local document (55.837749ms)
+✖ only the newest overlapping credential request may open a connection (57.802856ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 592.317119
+
+✖ failing tests:
+
+test at qa/p0-authorized-provider.test.mjs:30:1
+✖ failed credential renewal never reconnects with the previous single-use ticket (142.209826ms)
+  AssertionError [ERR_ASSERTION]: no second handshake may contain the old ticket
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:33:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-authorized-provider.test.mjs:37:1
+✖ pause during credential fetch prevents a late connection and preserves the local document (55.837749ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:39:169)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-authorized-provider.test.mjs:43:1
+✖ only the newest overlapping credential request may open a connection (57.802856ms)
+  AssertionError [ERR_ASSERTION]: old resolution cannot replace the current session URL
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:45:389)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,44 @@
+✘ [ERROR] Could not resolve "y-partyserver/provider"
+
+    ../../../app/src/authorized-yprovider.mjs:1:42:
+      1 │ import YProvider,{WebsocketProvider} from 'y-partyserver/provider';
+        ╵                                           ~~~~~~~~~~~~~~~~~~~~~~~~
+
+  You can mark the path "y-partyserver/provider" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:1467
+  let error = new Error(text);
+              ^
+
+Error: Build failed with 1 error:
+../../../app/src/authorized-yprovider.mjs:1:42: ERROR: Could not resolve "y-partyserver/provider"
+    at failureErrorWithLog (/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:1467:15)
+    at /workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:926:25
+    at /workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:878:52
+    at buildResponseToResult (/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:924:7)
+    at /workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:951:16
+    at responseCallbacks.<computed> (/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:603:9)
+    at handleIncomingPacket (/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:658:12)
+    at Socket.readFromStdout (/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:581:7)
+    at Socket.emit (node:events:514:28)
+    at addChunk (node:internal/streams/readable:569:12) {
+  errors: [Getter/Setter],
+  warnings: [Getter/Setter]
+}
+
+Node.js v24.22.1
+✖ qa/p0-authorized-provider.test.mjs (150.3708ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 159.961476
+
+✖ failing tests:
+
+test at qa/p0-authorized-provider.test.mjs:1:1
+✖ qa/p0-authorized-provider.test.mjs (150.3708ms)
+  'test failed'

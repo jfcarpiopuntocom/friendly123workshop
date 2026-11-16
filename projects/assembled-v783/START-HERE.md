@@ -1,5 +1,9 @@
 # friendly-123 assembled v783 — entrada compartida
 
+## Continuación de cliente autorizado — WIP, CI nueva pendiente
+
+[Informe del cliente importado](reports/2026-11-16-authorized-client.md) y [plan/ledger](plans/2026-11-16-authorized-client.md). Se añadieron renovación de pases, pausa/reanudación y recuperación de IndexedDB, con revisión independiente y dos hallazgos corregidos RED→GREEN. Focal11/11 y Chromium real pasan. El lote local completo nuevo registra25/27: awareness anterior volvió a fallar y WebKit local no inicia por dependencias de sistema. No confundir el verde223/223 histórico que sigue abajo con aceptación del código nuevo; leer el resultado CI del SHA nuevo cuando esté disponible. No se activó el piloto comercial, ni se cambió el servidor relay en esta continuación.
+
 ## Estado vigente: conexión pendiente corregida; CI 223/223; aceptación abierta
 
 Todo el código ejecutable está en [app/](app/) y [relay/](relay/). Esta carpeta es el punto de relevo; no hace falta recuperar otro contenedor. El archivo que sigue conserva la historia del rescate inicial. Para la situación actual, leer [STATUS.md](STATUS.md) y [el diagnóstico de admisiones](reports/2026-11-16-pending-admission.md).

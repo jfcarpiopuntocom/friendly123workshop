@@ -1,0 +1,81 @@
+
+> test
+> node --test
+
+✔ failed credential renewal never reconnects with the previous single-use ticket (144.302304ms)
+✔ pause during credential fetch prevents a late connection and preserves the local document (53.84303ms)
+✔ only the newest overlapping credential request may open a connection (58.579665ms)
+✔ immediate resume after pause waits for closure and obtains a fresh ticket (15.790264ms)
+✔ policy-close bounds repeated unsynced admissions without a ticket issuance loop (183.195793ms)
+✔ upgrade-denial bounds repeated unsynced admissions without a ticket issuance loop (178.9356ms)
+✔ destroying during credential fetch cannot open a late socket or destroy the caller document (54.658049ms)
+✔ Owner ticket parameters keep the PIN in the HTTPS body and return only the room capability (7.275295ms)
+✔ local roles or a mismatching identity cannot request an Owner capability (1.241986ms)
+✔ an issuer denial or expired response never produces reusable socket parameters (1.915563ms)
+✔ switching identity during issuance discards the delayed ticket (0.581954ms)
+(node:22282) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/friendly123workshop/projects/assembled-v783/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/friendly123workshop/projects/assembled-v783/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ copied identifiers without a ticket receive zero Yjs frames (3787.571149ms)
+✔ real Owner ticket opens private YServer, persists facts, and cannot replay (159.922065ms)
+✔ missing authority fails closed before any Yjs state (16.121057ms)
+✔ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (11.686696ms)
+✔ a read-only Owner credential cannot persist or broadcast a raw private edit (99.509779ms)
+✔ expired idle recipient gets no binary update when a valid Owner publishes (746.778868ms)
+✔ revoked idle recipient gets no next update; valid instance still syncs (82.743853ms)
+✔ private facts survive full Workerd restart in SQL and require a fresh real ticket (3469.610118ms)
+SYNTHETIC-FRAME-AUDIT [{"jti":"MNMCZIjl2zTipkLw0BgXCQ","frames":[{"binary":true,"kind":0,"grantSeq":8,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":13,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":16,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":22,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":40,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":45,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":52,"revokedSeq":null}]},{"jti":"knxWI0xf_8RaMi13iB_Q-w","frames":[{"binary":true,"kind":0,"grantSeq":24,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":28,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":32,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":36,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":41,"revokedSeq":null}]},{"jti":"W99_iRZJgfckpVuQxqZnRw","frames":[{"binary":true,"kind":0,"grantSeq":68,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":73,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":76,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":97,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":107,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":111,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":133,"revokedSeq":null}]},{"jti":"b1sk04qK4ZJQYVZHg9ScYA","frames":[{"binary":true,"kind":0,"grantSeq":81,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":85,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":86,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":93,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":99,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":109,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":132,"revokedSeq":null}]},{"jti":"CcL4c0Jdv0FHsIITnydoyA","frames":[{"binary":true,"kind":0,"grantSeq":112,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":121,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":122,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":131,"revokedSeq":null}]},{"jti":"jCMXurKmSS7chY37cNC5Yw","frames":[{"binary":true,"kind":0,"grantSeq":158,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":163,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":166,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":187,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":192,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":194,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":197,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":200,"revokedSeq":null}]},{"jti":"j_FF3t-rvOZAAcYyjVGvHQ","frames":[{"binary":true,"kind":0,"grantSeq":171,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":175,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":179,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":183,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":188,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":193,"revokedSeq":null}]},{"jti":"c0j8wW6dxuiGnW6bTddmFw","frames":[{"binary":true,"kind":0,"grantSeq":216,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":218,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":240,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":242,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":253,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":259,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":262,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":265,"revokedSeq":null}]},{"jti":"0Gjw5FkG_wjXqjcu0gMzAg","frames":[{"binary":true,"kind":0,"grantSeq":224,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":225,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":232,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":236,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":241,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":249,"revokedSeq":null},{"binary":false,"kind":"custom","grantSeq":254,"revokedSeq":null}]},{"jti":"fFOgRw6BaA6-z6GcUWzXnQ","frames":[{"binary":true,"kind":0,"grantSeq":272,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":277,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":280,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":286,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":304,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":309,"revokedSeq":null}]},{"jti":"h7XlZl_9YUGWkIfV6U-SVA","frames":[{"binary":true,"kind":0,"grantSeq":288,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":289,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":299,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":300,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":305,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":310,"revokedSeq":null}]},{"jti":"YyPWTlEQ3YdB_mW8S1toYw","frames":[{"binary":true,"kind":0,"grantSeq":316,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":321,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":324,"revokedSeq":null}]},{"jti":"2kNTt2WfbjYAQ-iu8QJIpA","frames":[{"binary":true,"kind":0,"grantSeq":331,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":336,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":339,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":360,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":365,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":367,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":372,"revokedSeq":null}]},{"jti":"D9Lc932LSxT47Hm3kO6zFg","frames":[{"binary":true,"kind":0,"grantSeq":344,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":345,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":355,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":359,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":361,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":366,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":371,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":376,"revokedSeq":377}]}]
+✖ revoked recipient gets no awareness frame when another socket closes (83.14979ms)
+✔ secure QA flag 0 never falls back to copied-identifier access (3702.989405ms)
+✔ secure QA flag undefined never falls back to copied-identifier access (3598.759139ms)
+✔ a valid admission waiting for authority is not revoked by another peer activity (62.186247ms)
+✔ authorized client renews through real issuer and resumes the same local document after denial (238.546409ms)
+✔ confirmed client sessions renew twice after real capability expiry without exhausting the admission budget (918.044916ms)
+✔ chromium authorized browser preserves IndexedDB across denial, reload and real peer recovery (1184.222002ms)
+✖ webkit authorized browser preserves IndexedDB across denial, reload and real peer recovery (190.107063ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 25
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20056.114551
+
+✖ failing tests:
+
+test at qa/p0-real-session-room.test.mjs:63:1
+✖ revoked recipient gets no awareness frame when another socket closes (83.14979ms)
+  AssertionError [ERR_ASSERTION]: revoked recipient must receive no lifecycle frame
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:72:142)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-real-session-room.test.mjs:120:47
+✖ webkit authorized browser preserves IndexedDB across denial, reload and real peer recovery (190.107063ms)
+  browserType.launch: 
+  ╔══════════════════════════════════════════════════════╗
+  ║ Host system is missing dependencies to run browsers. ║
+  ║ Missing libraries:                                   ║
+  ║     libgtk-4.so.1                                    ║
+  ║     libgraphene-1.0.so.0                             ║
+  ║     libharfbuzz-icu.so.0                             ║
+  ║     libmanette-0.2.so.0                              ║
+  ║     libhyphen.so.0                                   ║
+  ║     libGLESv2.so.2                                   ║
+  ╚══════════════════════════════════════════════════════╝
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:135:40) {
+    name: 'Error',
+    log: []
+  }

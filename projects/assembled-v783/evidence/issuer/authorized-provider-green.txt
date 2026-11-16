@@ -1,0 +1,11 @@
+✔ failed credential renewal never reconnects with the previous single-use ticket (137.298932ms)
+✔ pause during credential fetch prevents a late connection and preserves the local document (55.720522ms)
+✔ only the newest overlapping credential request may open a connection (58.790091ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 468.779332

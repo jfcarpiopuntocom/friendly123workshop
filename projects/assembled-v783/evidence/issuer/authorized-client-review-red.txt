@@ -1,0 +1,63 @@
+✖ immediate resume after pause waits for closure and obtains a fresh ticket (3050.789551ms)
+✖ policy-close bounds repeated unsynced admissions without a ticket issuance loop (191.381244ms)
+✖ upgrade-denial bounds repeated unsynced admissions without a ticket issuance loop (179.827529ms)
+✔ destroying during credential fetch cannot open a late socket or destroy the caller document (51.689605ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3717.808746
+
+✖ failing tests:
+
+test at qa/p0-authorized-provider.test.mjs:52:1
+✖ immediate resume after pause waits for closure and obtains a fresh ticket (3050.789551ms)
+  AssertionError [ERR_ASSERTION]: timeout immediate resumed socket
+      at until (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:23:76)
+      at async TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:54:141)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at qa/p0-authorized-provider.test.mjs:57:53
+✖ policy-close bounds repeated unsynced admissions without a ticket issuance loop (191.381244ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  8 !== 2
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:59:113)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 8,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-authorized-provider.test.mjs:57:53
+✖ upgrade-denial bounds repeated unsynced admissions without a ticket issuance loop (179.827529ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  8 !== 2
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:59:113)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 8,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

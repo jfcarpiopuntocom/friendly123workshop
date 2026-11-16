@@ -1,0 +1,25 @@
+(node:21750) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/friendly123workshop/projects/assembled-v783/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/friendly123workshop/projects/assembled-v783/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ chromium authorized browser preserves IndexedDB across denial, reload and real peer recovery (4713.134164ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5816.330473
+
+✖ failing tests:
+
+test at qa/p0-real-session-room.test.mjs:109:47
+✖ chromium authorized browser preserves IndexedDB across denial, reload and real peer recovery (4713.134164ms)
+  page.evaluate: TypeError: Cannot read properties of null (reading 'close')
+      at eval (eval at evaluate (:311:30), <anonymous>:1:17)
+      at UtilityScript.evaluate (<anonymous>:313:16)
+      at UtilityScript.<anonymous> (<anonymous>:1:44)
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:135:38) {
+    log: []
+  }

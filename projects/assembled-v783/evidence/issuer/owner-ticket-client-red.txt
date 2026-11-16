@@ -1,0 +1,108 @@
+✖ Owner ticket parameters keep the PIN in the HTTPS body and return only the room capability (2.44628ms)
+✖ local roles or a mismatching identity cannot request an Owner capability (0.413271ms)
+✖ an issuer denial or expired response never produces reusable socket parameters (0.357739ms)
+✖ switching identity during issuance discards the delayed ticket (2.866732ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 196.706092
+
+✖ failing tests:
+
+test at qa/p0-authorized-provider.test.mjs:53:1
+✖ Owner ticket parameters keep the PIN in the HTTPS body and return only the room capability (2.44628ms)
+  AssertionError [ERR_ASSERTION]: Owner issuer client is implemented
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:54:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-authorized-provider.test.mjs:60:1
+✖ local roles or a mismatching identity cannot request an Owner capability (0.413271ms)
+  AssertionError [ERR_ASSERTION]: Owner issuer client is implemented
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:61:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-authorized-provider.test.mjs:66:1
+✖ an issuer denial or expired response never produces reusable socket parameters (0.357739ms)
+  AssertionError [ERR_ASSERTION]: Owner issuer client is implemented
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:67:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-authorized-provider.test.mjs:72:1
+✖ switching identity during issuance discards the delayed ticket (2.866732ms)
+  AssertionError [ERR_ASSERTION]: Owner issuer client is implemented
+  + actual - expected
+  
+  + 'undefined'
+  - 'function'
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs:73:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'function',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
