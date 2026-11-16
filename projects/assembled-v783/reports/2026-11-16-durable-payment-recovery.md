@@ -1,6 +1,6 @@
 # Durable payment recovery — 16 November 2026
 
-Status: laboratory integration, no production GO. The payment runtime e9ff257 has verified 554/554 integrated checks. The newer fichas receiver fix below has 30/30 local checks and requires its own exact-SHA CI; never transfer the earlier green to it.
+Status: laboratory integration, no production GO. Final runtime774558acac3802a1a0cdb8849cf3b9ed017610d3 has verified585/585 integrated checks in CI43944394047,15 groups with0 failures/cancellations/skips. Final full audit43944393991 is still running at this documentary checkpoint. Prior global/full/relay failures remain in the evidence and are not erased by this focused green.
 
 ## Recovered context and durable delivery
 
@@ -81,3 +81,7 @@ The d132 integrated CI has now completed584/584,0fail/skip/cancel, but does not 
 Run43942634062 finished RED on both sides after historical-source restoration: candidate3216 tests,3166pass,46fail,1cancel,3skip; baseline3151 tests,3088pass,59fail,1cancel,3skip. Candidate-only failed NAMES: NONE in this run; this is not a global green or proof all historical failures are harmless. Compare full-fichas-comparison.json and raw full-fichas-{candidate,baseline}.txt. The previous WebKit lease occurrence did not fail here; no unsupported causal/flakiness conclusion is inferred. The later explicit failed-save followup is runtime774558a and has its own pending CI43944394047/full43944393991.
 
 Correction/precision for next builder: a real server-side human-member Team authority already exists (team-authority.mjs). What is missing is its secure WS/role/data/action integration, not a reason to invent another roster/login. Detailed next-boundary sequence is now in the persisted plan.
+
+## Latest exact runtime verification
+
+CI43944394047 /774558ac completed SUCCESS585/585,0fail/skip/cancel; raw log and machine-readable group totals committed. Public connector readback4/4 critical blobs matches local files; root docs tree hash remains c6d1b57cce4d60dc2578ec275f07e647cbac0dfa exactly as session start. The candidate code is not served to real customers by this workshop change. The full audit43944393991 must still be read before its result is assigned; next documentary update supplies that result.
