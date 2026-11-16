@@ -9,6 +9,10 @@ function fixture({deny=false,failPayload=false}={}){
   let receipts=new Map(),payloads=new Map();
   const sql={exec(query,...args){
     if(query.startsWith('CREATE TABLE'))return [];
+    if(query.startsWith('SELECT payload_json')){
+      const payload=payloads.get(args.join(':'));
+      return payload===undefined?[]:[{payload_json:payload}];
+    }
     if(query.startsWith('SELECT payload_hash')){
       const row=receipts.get(args.join(':'));
       return row?[row]:[];
