@@ -92,6 +92,8 @@
   // el signo lo decide el tipo, no quien llama — asi nadie puede "abonar
   // negativo" para simular un cargo sin dejar rastro correcto.
   function registrarMovimiento(clienteId, tipo, monto, motivo, relacion, reusarCargoVenta) {
+    // Keep the payment intention stable while hashing/IndexedDB awaits.
+    if (relacion) relacion = Object.assign({}, relacion);
     // One payment intention survives retries and reloads in the immutable receipt itself.
     // Older callers without opId still create independent, legitimate movements.
     if (relacion && relacion.opId) {

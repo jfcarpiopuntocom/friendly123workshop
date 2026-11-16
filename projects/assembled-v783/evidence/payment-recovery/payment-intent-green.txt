@@ -1,0 +1,26 @@
+✔ new abonos use imported Dinero half-up for both half-cent decimal cases (113.377415ms)
+✔ same payment opId replays after rollback and missing adapter without a second fact (58.266186ms)
+✔ a historical legacy payment retains old cents and remains idempotent after new import (87.637447ms)
+✔ explicit rollback flag preserves existing legacy behavior for new abonos (37.429178ms)
+✔ missing or throwing imported component falls back fully to legacy for a NEW payment (26.089742ms)
+✔ manual debt cargo stays on the original ledger rounding; only abonos migrate (15.099049ms)
+✔ changed customer, motive, or amount with an existing payment opId is 409 (24.802212ms)
+✔ durable Hechos failure returns no confirmed payment; retry writes once (19.358024ms)
+✔ invalid or negative payment never persists a monetary fact (66.504119ms)
+✔ RED: converts actual committed cartera_abono to the exact customer-payment inbox kind (3.037357ms)
+✔ RED: readback is required; missing, duplicate or colliding opId must fail closed (1.404163ms)
+✔ RED: exact saved cents win over any future Dinero flag or original request rounding (0.526882ms)
+✔ RED: unsafe amounts and forged ids never produce a payment command (6.548873ms)
+✔ RED: real browser /abonar records a fact that projects with its original opId (86.580098ms)
+✔ one payment opId commits once across concurrent ledger writers and survives fresh readback (37.381287ms)
+✔ concurrent conflicting payment intentions cannot both change the customer balance (47.456786ms)
+✔ payment intent keeps its original opId when the caller mutates its object during hashing (11.98233ms)
+✔ aborted payment transaction gives no receipt, hash metadata or event; retry commits once (11.555205ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4007.67284

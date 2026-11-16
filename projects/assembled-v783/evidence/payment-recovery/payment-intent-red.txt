@@ -1,0 +1,20 @@
+✔ one payment opId commits once across concurrent ledger writers and survives fresh readback (86.047532ms)
+✔ concurrent conflicting payment intentions cannot both change the customer balance (14.197511ms)
+✖ payment intent keeps its original opId when the caller mutates its object during hashing (17.432117ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 451.659665
+
+✖ failing tests:
+
+test at test/p0-payment-atomic-facts.test.cjs:49:1
+✖ payment intent keeps its original opId when the caller mutates its object during hashing (17.432117ms)
+  Error: cartera: no se pudo guardar el hecho
+      at evalmachine.<anonymous>:212:23
+      at runNextTicks (node:internal/process/task_queues:65:5)
+      at process.processImmediate (node:internal/timers:541:9)

@@ -107,7 +107,7 @@
     "./canarios.js": "sha256-1956d833f2201ae7ab60ef24d2ef2f8e88b6b54896fd4aaeaca894b25682ce6c",
     "./hechos.js": "sha256-61a86d7503555779118688acc3bd3fcffa8a081cb9c4238c725598d9d4f445cb",
     "./reconciliacion.js": "sha256-0c729b02f37db1b878c32933abac8c10cbe1c09dd5da879aee3c657908c8131e",
-    "./cartera.js": "sha256-738a9fa3de6e013d21912e6ed0df7b83a5ca35eb8131cc9c2afe276b4d357c20",
+    "./cartera.js": "sha256-705e0ca3cc9bc4b79b86f35dcc7fe853cc75b1832b73a3b4d2ea07cc7308ac93",
     "./plan-pagos.js": "sha256-b20ac207dd3c60ec3333d0f5700fcccb7034ec6b7ed2de0dbfc3789d0468af82",
     "./plan-pagos-ui.js": "sha256-45fca517c247d9aa4f25b4030e5dd7d62efa834967726e30fa309d80902422f4",
     "./caja-chica.js": "sha256-a87a3d8624e5399b24d1804a9a7bfaf017a2cb5f31114b345048f93095efc3ed",

@@ -1,0 +1,12 @@
+OK — todos los scripts de index.html estan en el SHELL del service worker.
+OK — lista del cargador en el SHELL y sin doble carga (G6).
+OK — sw.js y version.json coinciden en f123-shell-v783.
+OK — hashes reales del shell cuadran con version-manifest.json.
+OK — sin claves de otra app hermana (G2).
+OK — todo data-vista del nav tiene su seccion (G4).
+OK — ninguna licencia completa en el repo publico (G5).
+RELEASE shell: f123-shell-v783
+CACHE generation: -golden319
+Recuerda: cada cambio de runtime usa un shell nuevo, numerico y creciente;
+conserva la generacion coherente, el aislamiento por canal y el manifest.
+OK — sin marcas de conflicto y los .js de docs compilan (G7).
