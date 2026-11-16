@@ -1,5 +1,13 @@
 # Admisión WS pendiente, revocación y aislamiento del taller
 
+## Cierre de verificación de este checkpoint
+
+La CI [43846447684](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43846447684), código exacto `eb50581c8a517697d82675d965a308cf6d668780`, terminó SUCCESS. [Log íntegro](../evidence/ci-43846447684.txt): **223 pruebas, 223 pasan, cero fallos y omitidas**. Desglose por lote: 94 autoridad/contratos, 8 comerciales navegador, 5 ventas en dos pestañas, 22 cancelación/fiado/stock, 28 dinero/comisiones, 33 fotos/backup, 21 roles/recuperación y12 relay. Se ejecutó en runner limpio Ubuntu24.04 con Node22, lockfiles y Chromium/WebKit instalados por el workflow. No es aceptación en iPhone físico, Firefox, producción ni credenciales reales.
+
+Además del lote local12/12, se investigó el fallo intermitente con cinco procesos independientes del caso exacto de awareness, deteniendo el barrido si alguno fallaba. [Resultados](../evidence/issuer/awareness-investigation/results.json) y logs run-1 a run-5 de la misma carpeta: cinco pases1/1, sin reproducir el frame. No se cambió código entre esas ejecuciones. Esta repetición está justificada por la intermitencia no resuelta; no se presenta como prueba de ausencia de la carrera.
+
+La conclusión limitada es: la carrera de admisión quedó corregida con reproducción controlada; este SHA pasa la CI completa. La causa del frame de la CI anterior aún requiere evidencia y la revisión independiente final está pendiente. Mantener NO-GO de clientes y los gates descritos al final.
+
 ## Qué se cambió y por qué
 
 El relay importado puede recibir actividad de una conexión mientras otra espera la respuesta del servicio de autoridad. La comprobación de destinatarios recorría también esa conexión pendiente, que todavía no tenía `accesoFirmado`, y la cerraba como si hubiera perdido permisos. Eso dejaba un dispositivo válido sin completar la sincronización. No se resolvió con reintentos ni aumentando tiempos.

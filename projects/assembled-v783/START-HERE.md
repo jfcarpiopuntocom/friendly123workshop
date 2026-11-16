@@ -1,10 +1,10 @@
 # friendly-123 assembled v783 — entrada compartida
 
-## Estado vigente: conexión pendiente corregida; investigación CI abierta
+## Estado vigente: conexión pendiente corregida; CI 223/223; aceptación abierta
 
 Todo el código ejecutable está en [app/](app/) y [relay/](relay/). Esta carpeta es el punto de relevo; no hace falta recuperar otro contenedor. El archivo que sigue conserva la historia del rescate inicial. Para la situación actual, leer [STATUS.md](STATUS.md) y [el diagnóstico de admisiones](reports/2026-11-16-pending-admission.md).
 
-La autorización de JFC resolvió la promoción antes bloqueada: `effee3a` ya está en main. Su CI pasó 222 casos. La repetición posterior sobre `3d747be` falló en dos casos del relay, por lo que ese verde no certifica ausencia de intermitencias. Se reprodujo y corrigió una carrera de admisión con test RED→GREEN; el lote local actualizado pasa 12/12. El frame de awareness observado en CI sigue bajo investigación, con trazas sintéticas y la aserción de cero frames conservada. Consultar el informe antes de dar un GO.
+La autorización de JFC resolvió la promoción antes bloqueada: `effee3a` ya está en main. Su CI pasó 222 casos. La repetición posterior sobre `3d747be` falló en dos casos del relay, por lo que ese verde no certifica ausencia de intermitencias. Se reprodujo y corrigió una carrera de admisión con test RED→GREEN. La CI nueva [43846447684](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43846447684), sobre código `eb50581c8a517697d82675d965a308cf6d668780`, pasó **223/223**, cero fallos y omitidos; [log completo](evidence/ci-43846447684.txt). El lote local pasó12/12 y cinco reproducciones focales de awareness pasaron1/1 cada una. El frame observado en CI anterior sigue sin explicación concluyente: no se quitó su aserción ni se declara eliminada toda intermitencia. Consultar el informe antes de dar un GO.
 
 Pages excluye `projects/`: código accesible por GitHub, candidata sin servir bajo el mismo origen de la app histórica. El testigo Chromium de colisión de namespace se conserva como vulnerabilidad reproducida, no como aceptación de seguridad. La app histórica publicada mantiene bytes idénticos. No hay despliegue del nuevo relay ni cambio de clientes.
 

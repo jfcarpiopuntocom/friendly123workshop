@@ -1,10 +1,10 @@
 # Estado compartido · 16 noviembre 2026
 
-## Actualización vigente: admisión corregida, CI siguiente pendiente
+## Actualización vigente: admisión corregida, CI 223/223
 
 La aprobación de JFC permitió promover effee3a a main y su CI 43842018630 pasó222 casos. El siguiente commit 3d747be protegió Pages excluyendo projects/, mantuvo la app histórica byte a byte y su repetición CI 43843328597 mostró dos fallos intermitentes del relay. Los resultados anteriores quedan conservados abajo como historia, no como certificación actual.
 
-Se corrigió con RED→GREEN la carrera que cerraba una conexión válida pendiente de autoridad. El lote local actualizado pasa12/12; sintaxis y diff pasan. Se añadieron trazas sintéticas para investigar el frame awareness observado en CI, sin quitar la aserción cero frames ni ampliar límites. Falta nueva CI y revisión independiente final. Ver [informe completo](reports/2026-11-16-pending-admission.md), con logs verdes, fallidos y error de preparación diferenciados. Estado global: WIP, sin GO de clientes ni despliegue del nuevo relay.
+Se corrigió con RED→GREEN la carrera que cerraba una conexión válida pendiente de autoridad. El lote local actualizado pasa12/12; sintaxis y diff pasan. Se añadieron trazas sintéticas para investigar el frame awareness observado en CI, sin quitar la aserción cero frames ni ampliar límites. **La nueva CI43846447684 sobre eb50581c8a517697d82675d965a308cf6d668780 pasó223/223**, cero fallos/omitidos: 94 autoridad/contratos, 8 comerciales browser, 5 doble pestaña, 22 cancelación/fiado/stock, 28 dinero/comisiones, 33 fotos/backup, 21 roles/recuperación y12 relay. [Log íntegro](evidence/ci-43846447684.txt). Cinco ejecuciones adicionales del caso awareness pasaron; no explican el fallo anterior ni reemplazan revisión independiente final. Ver [informe completo](reports/2026-11-16-pending-admission.md), con logs verdes, fallidos y error de preparación diferenciados. Estado global: WIP, sin GO de clientes ni despliegue del nuevo relay.
 
 JFC ordenó concentrar coding aquí para evitar otra pérdida de accesibilidad. Prioridad inmediata: archivos accesibles por Sol6/Claude/Codex, luego seguir navegador con todos los injertos; PWA aplazada.
 
