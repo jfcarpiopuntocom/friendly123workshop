@@ -295,6 +295,9 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     assert.equal(current.nombre,before.nombre,'400 must not retain a partial rename');
     assert.equal(current.comisionSocio,before.comisionSocio,'400 must not retain a partial commission');
    }
+   const accepted=await api(page,'/api/ubicaciones/'+ids.rack,'PUT',{nombre:'Accepted rack edit',pctQuedaEnCasa:15});
+   assert.equal(accepted.nombre,'Accepted rack edit','valid rename must remain supported');
+   assert.equal(accepted.comisionSocio,85,'valid house-share edit keeps original percent semantics');
   }finally{await web.close();}
  });
 }
