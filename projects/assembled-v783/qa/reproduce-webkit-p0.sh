@@ -16,11 +16,11 @@ mkdir -p ../evidence/webkit-p0
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 git rev-parse HEAD > "../evidence/webkit-p0/$stamp.sha"
 set +e
-node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
+F123_REQUIRE_WEBKIT=1 node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
   --test-name-pattern='direct webkit: durable business/photo recovery without central payload' \
   test/peer-sync-browser.test.js 2>&1 | tee "../evidence/webkit-p0/$stamp-peer.log"
 peer_status=${PIPESTATUS[0]}
-node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
+F123_REQUIRE_WEBKIT=1 node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
   --test-name-pattern='Fable P1-4 storage pressure on the old lease keys \(WebKit, lease\)' \
   test/tab-session-handoff.test.js 2>&1 | tee "../evidence/webkit-p0/$stamp-lease.log"
 lease_status=${PIPESTATUS[0]}
