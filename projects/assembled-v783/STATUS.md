@@ -1,6 +1,10 @@
 # Estado compartido · 16 noviembre 2026
 
-## Continuación actual: adaptador cliente con recuperación — WIP
+## Resultado vigente: cliente autorizado238/238; NO-GO comercial
+
+**c090914afe93e47d32a810b6307a24d2261deeaf** pasó [CI43865732869](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43865732869): **238/238,0 fallos/omitidas**. [Log íntegro](evidence/ci-43865732869.txt). App211 y cliente/relay27. Chromium y WebKit prueban IndexedDB, recarga y recuperación tras denegación real del issuer del laboratorio. No acredita UI comercial completa, dinero/outbox real, Cloudflare remoto o dispositivos físicos. Awareness intermitente anterior sigue abierto aunque esta repetición pasó. Fuentes/QA/workflow leídos desde segunda copia pública y comparados por bytes/SHA256:5/5 coinciden; [readback](evidence/issuer/authorized-client-public-readback.json).
+
+Las líneas siguientes conservan las ejecuciones de esta continuación, incluida la CI inicial fallida; sus estados pendientes fueron superados por el resultado exacto anterior.
 
 Primera CI de cliente43864873058 sobre3b1862a: **237/238**, un429 en el caso WebKit por compartir cuota de una misma instancia sintética entre escenarios. WebKit ya no está bloqueado por entorno en CI. Se corrigió el aislamiento con instancias registradas distintas de navegador/observador por motor, misma licencia/sala, manteniendo límite32 y sus pruebas. Chromium focal posterior pasa. Ver [log completo](evidence/ci-43864873058.txt); todavía pendiente la siguiente CI.
 

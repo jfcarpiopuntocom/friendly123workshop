@@ -1,12 +1,12 @@
 # friendly-123 assembled v783 — entrada compartida
 
-## Continuación de cliente autorizado — WIP, CI nueva pendiente
+## Estado actual: cliente autorizado verificado238/238; cutover comercial pendiente
 
-Actualización: la primera CI de cliente [43864873058](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43864873058) corrió238:237 pasan y1 falla por429 al acumular escenarios en una instancia sintética. WebKit sí arrancó. Se aislaron instancias registradas de cada motor/observador dentro del mismo negocio, sin aumentar límites ni quitar checks. La repetición del SHA de esta corrección todavía está pendiente; [detalle y log](reports/2026-11-16-authorized-client.md).
+Código exacto **c090914afe93e47d32a810b6307a24d2261deeaf**, [CI43865732869](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43865732869): **238/238**,0 fallos/omitidas. [Log completo](evidence/ci-43865732869.txt). Incluye Chromium y WebKit con Yjs/y-indexeddb existente, issuer real y Workerd: rechazo, edición local, recarga IndexedDB y recuperación del mismo opId sintético con otro cliente. Dos hallazgos Important del revisor del cliente fueron corregidos RED→GREEN. [Informe completo](reports/2026-11-16-authorized-client.md), [plan/ledger](plans/2026-11-16-authorized-client.md) y [reproducción](REPRODUCE.md).
 
-[Informe del cliente importado](reports/2026-11-16-authorized-client.md) y [plan/ledger](plans/2026-11-16-authorized-client.md). Se añadieron renovación de pases, pausa/reanudación y recuperación de IndexedDB, con revisión independiente y dos hallazgos corregidos RED→GREEN. Focal11/11 y Chromium real pasan. El lote local completo nuevo registra25/27: awareness anterior volvió a fallar y WebKit local no inicia por dependencias de sistema. No confundir el verde223/223 histórico que sigue abajo con aceptación del código nuevo; leer el resultado CI del SHA nuevo cuando esté disponible. No se activó el piloto comercial, ni se cambió el servidor relay en esta continuación.
+Se conservan el lote local25/27 y la primera CI237/238: fallos y errores de arnés están explicados, no ocultos. La corrección final solo aisló instancias de fixtures sin aumentar cuotas. [Readback público independiente](evidence/issuer/authorized-client-public-readback.json): cinco archivos críticos coinciden por bytes/SHA256. El incidente intermitente anterior de awareness no se declara resuelto por esta ejecución verde. **No hay activación del piloto comercial ni GO de clientes**: faltan fronteras por rol, comandos comerciales/opId/ACK, fotos y aceptación física. El servidor relay no se modificó en esta continuación.
 
-## Estado vigente: conexión pendiente corregida; CI 223/223; aceptación abierta
+## Checkpoint anterior: conexión pendiente corregida; CI223/223
 
 Todo el código ejecutable está en [app/](app/) y [relay/](relay/). Esta carpeta es el punto de relevo; no hace falta recuperar otro contenedor. El archivo que sigue conserva la historia del rescate inicial. Para la situación actual, leer [STATUS.md](STATUS.md) y [el diagnóstico de admisiones](reports/2026-11-16-pending-admission.md).
 

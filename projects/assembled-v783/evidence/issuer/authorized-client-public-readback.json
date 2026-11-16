@@ -1,0 +1,36 @@
+{
+  "publicReadbackCommit": "c090914afe93e47d32a810b6307a24d2261deeaf",
+  "files": [
+    {
+      "path": "projects/assembled-v783/app/src/authorized-yprovider.mjs",
+      "sha256": "4f0aa609d16c8f77de5a822d27491218de78cd6fe4c7bdd960dac086db5ac0ae",
+      "bytes": 3424,
+      "matchesLocal": true
+    },
+    {
+      "path": "projects/assembled-v783/app/src/ws-owner-ticket-params.mjs",
+      "sha256": "dcbbfbf7de5e0179293551c74a338eb353a918b83b33c7d175880887a7c8eee8",
+      "bytes": 2025,
+      "matchesLocal": true
+    },
+    {
+      "path": "projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-authorized-provider.test.mjs",
+      "sha256": "a2801fad7b84aa891f65886884387634326e055c9f97fe1d068532833a65847e",
+      "bytes": 9824,
+      "matchesLocal": true
+    },
+    {
+      "path": "projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs",
+      "sha256": "31764d825c02fadcd83d78ac42574e0e89406a16b6fbd021bb494418f36e39cb",
+      "bytes": 24418,
+      "matchesLocal": true
+    },
+    {
+      "path": ".github/workflows/assembled-browser-qa.yml",
+      "sha256": "14f48c4abdabc39718d15dfc3c5110ebbb98e2daf2bdaf3a3a88bd82c693355b",
+      "bytes": 4317,
+      "matchesLocal": true
+    }
+  ],
+  "allMatch": true
+}

@@ -1,5 +1,13 @@
 # Cliente importado: pases nuevos, pausa segura y recuperación del mismo documento
 
+## Resultado final de verificación del cliente
+
+[CI43865732869](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43865732869), **c090914afe93e47d32a810b6307a24d2261deeaf**, terminó SUCCESS: **238/238**,0 fallos/omitidas. [Log íntegro](../evidence/ci-43865732869.txt). Desglose:94 autoridad/contratos,8 comerciales navegador,5 doble pestaña,22 cancelación/fiado/stock,28 dinero/comisiones,33 fotos/backup,21 roles/recuperación y27 cliente/relay. Las dos pruebas de recuperación de navegador, Chromium y WebKit, pasan con la identidad de fixture aislada y el límite del emisor intacto.
+
+Se hizo fetch desde una segunda copia pública del repositorio y comparación de los dos módulos, ambos tests y workflow contra la copia ejecutada. [Readback](../evidence/issuer/authorized-client-public-readback.json):5/5 coinciden por bytes y SHA256, código anclado a main. El commit posterior de cierre contiene únicamente documentación/evidencia; el runtime y arnés acreditados son los de c090914.
+
+Conclusión limitada: cliente importado de autorización/renovación/pausa y recuperación de documento verificado en ambos motores; dos findings Important del revisor corregidos con pruebas. No es una migración comercial completa ni aceptación del incidente awareness anterior. Los fallos anteriores permanecen íntegros en los apartados siguientes. WebKit local sigue limitado por sistema, pero su prueba completa sí se ejecutó y pasó en CI.
+
 ## Primera CI del cliente y corrección del aislamiento de fixtures
 
 [CI43864873058](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43864873058), SHA3b1862ab1531b9eac6b78ca52028caeb5d9cb021, ejecutó238 pruebas: **237 pasan,1 falla**,0 omitidas. [Log íntegro](../evidence/ci-43864873058.txt). Los lotes de app211/211 pasan; cliente/relay26/27. El caso de awareness pasó en esa repetición, sin cerrar por ello su intermitencia. WebKit sí arrancó con las dependencias oficiales del runner: su fallo fue un429 real del emisor al solicitar el pase de un observador, no una incompatibilidad WebKit ni fallo de instalación en CI.
@@ -17,6 +25,16 @@ El proveedor importado captura el fallo de renovar params y reconecta con la URL
 [RED original](../evidence/issuer/authorized-provider-red.txt): tres fallos observados mediante WebSocket real local. [GREEN inicial](../evidence/issuer/authorized-provider-green.txt): tres pasan. El servidor WebSocket de estas pruebas solo acredita el comportamiento del transporte; la prueba del emisor y persistencia reales se describe aparte.
 
 El adaptador hereda YProvider y llama al `connect` síncrono del WebsocketProvider importado después de obtener y validar parámetros nuevos. Conserva el protocolo, codificación CRDT, awareness y transporte de upstream. Una generación invalida resultados de solicitudes anteriores o canceladas. Rechazar credenciales deja el documento intacto, retira la URL con el pase y exige reanudación explícita. No instala otro login, no firma roles del navegador, no reescribe vendor y no crea un almacén comercial paralelo.
+
+## Contrato para el siguiente integrador
+
+El constructor recibe host/sala/documento y un callback `params` que obtiene un pase fresco. Por defecto **no conecta**: el llamador debe ejecutar `connect()`. Su resolución solo indica que inició o conservó un intento de conexión; no prueba permiso remoto, sincronización ni persistencia comercial. `synced` es un evento del protocolo CRDT; el ACK comercial continúa siendo un contrato aparte.
+
+`disconnect()` invalida solicitudes pendientes y conserva el documento/IndexedDB del llamador. Reanudar mientras el socket anterior cierra espera ese cierre antes de abrir con pase nuevo. `destroy()` retira el proveedor; el integrador sigue siendo dueño del documento y su persistencia. `authorization-error` informa un motivo genérico, sin copiar excepciones, PIN ni la URL con capacidad. Nunca usar ese evento para borrar una venta o marcar una operación como confirmada.
+
+La futura integración debe llamar disconnect al cerrar sesión/cambiar de negocio, comprobar la identidad y obtener parámetros actuales al reanudar. Esos eventos de la app todavía no están conectados. No basta crear un getter de credencial y dejar abierto un socket de una sesión anterior. Tampoco puede elegirse un host de emisión desde storage: el solicitante incluido lo mantiene fijado en fuente.
+
+No se agregaron dependencias npm ni se modificaron archivos generados. `node --check` de los dos módulos y los dos tests, y `git diff --check`, pasan. El paquete relay declara test, sin comando separado de linter/typechecker que se pueda afirmar ejecutado. La fixture ampliada está verificada en runner Linux; Windows y dispositivos físicos no están acreditados por este resultado.
 
 ## Revisión independiente y correcciones
 
