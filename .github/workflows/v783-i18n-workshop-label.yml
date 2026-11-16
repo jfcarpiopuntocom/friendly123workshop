@@ -1,0 +1,44 @@
+name: v783 i18n workshop badge and real language buttons (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/i18n-header-nombre.test.js'
+      - '.github/workflows/v783-i18n-workshop-label.yml'
+permissions:
+  contents: read
+jobs:
+  lang-and-brand:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install locked dependency and official Chromium/WebKit
+        working-directory: projects/assembled-v783/app
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+      - name: Real language buttons, name identity and intentional workshop badge
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/i18n-workshop
+          git rev-parse HEAD | tee ../evidence/i18n-workshop/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 \
+            test/i18n-header-nombre.test.js 2>&1 | tee ../evidence/i18n-workshop/real-browsers.log
+      - name: Keep exact log on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-workshop-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/i18n-workshop/
+          if-no-files-found: warn
+          retention-days: 14
