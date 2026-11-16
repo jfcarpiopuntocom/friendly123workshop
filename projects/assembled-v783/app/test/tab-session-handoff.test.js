@@ -531,12 +531,12 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal(response.status,200,JSON.stringify(response));
    assert.equal(response.body.productosBorrados,1,'accepted retry must delete precisely one fake product');
    const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
-   await cold.waitForFunction(async({id,productId})=>{
+   await cold.waitForFunction(async({id,productId,rackName})=>{
      const state=await window.OCEstadoIDB?.leer?.();
      return state?.ubicaciones?.filter(u=>u.id===id&&u.borrado).length===1 &&
        state?.productos?.filter(p=>p.id===productId&&p.borrado).length===1 &&
-       state?.movimientos?.filter(m=>m.tipo==='ubicacion-borrada'&&m.detalle?.ubicacion===('Synthetic rejected rack deletion '+(window.__testEngine||''))).length===1;
-   },{id:rack.id,productId:product.id},{timeout:10000,polling:100}).catch(async err=>{
+       state?.movimientos?.filter(m=>m.tipo==='ubicacion-borrada'&&m.detalle?.ubicacion===rackName).length===1;
+   },{id:rack.id,productId:product.id,rackName},{timeout:10000,polling:100}).catch(async err=>{
      const state=await cold.evaluate(async()=>await window.OCEstadoIDB?.leer?.());
      const markers=state?.movimientos?.filter(m=>m.tipo==='ubicacion-borrada').length;
      throw Error(String(err)+'; deletion movement count='+String(markers));
