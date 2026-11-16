@@ -36,7 +36,7 @@ jobs:
           mkdir -p ../evidence/rack-put-rebased
           git rev-parse HEAD | tee ../evidence/rack-put-rebased/sha.txt
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=65000 \
-            --test-name-pattern='P0 rack POST rejects an unconfirmed local save|P0 concurrent rack CAS preserves both accepted writes|P0 invalid rack edits are atomic' \
+            --test-name-pattern='P0 rack POST rejects an unconfirmed local save|P0 concurrent rack CAS preserves both accepted writes|P0 invalid rack edits are atomic|P0 valid rack PUT rejects an unconfirmed local save' \
             test/tab-session-handoff.test.js \
             2>&1 | tee ../evidence/rack-put-rebased/native-rack.log
       - name: Runtime integrity and adjacent category boundaries
