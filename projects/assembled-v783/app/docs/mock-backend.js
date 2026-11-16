@@ -7163,6 +7163,7 @@
           : (Array.isArray(u.escalasComision) && u.escalasComision.length > 0);
         if ("contribFija" in body && cf > 0 && habraEscalas)
           return J({ error: "A fixed contribution can't be combined with goal-based tiers: pick one. The tiered model recalculates the rate sale by sale, so subtracting a fixed amount would change every sale already recorded." }, 400);
+        const rackAntes = { ...u }; // Roll back only this edit if its durable ACK is refused.
         if (body.nombre && body.nombre.trim()) u.nombre = body.nombre.trim();
         if (body.tipo) u.tipo = body.tipo;
         if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;
@@ -7215,8 +7216,24 @@
           u.fotoRev = revCambio; // v446: solo una edicion explicita de foto puede borrar/reemplazar el puntero.
         }
         u.rev = revCambio;
-        guardarEstadoLocal();
-        avisarCatalogoCambiado(); // cambios de la percha (nombre, trato, foto) viajan al equipo
+        const rackEditado = { ...u };
+        debePersistir = false; // Strict save replaces the generic asynchronous finalizer.
+        const rackGuardado = await guardarEstadoLocal(true);
+        if (rackGuardado !== true) {
+          // A failed writer must not undo a concurrent peer's newer rack fields.
+          if (ubicaciones.includes(u) && Object.keys(u).length === Object.keys(rackEditado).length &&
+              Object.keys(rackEditado).every((key) => u[key] === rackEditado[key])) {
+            for (const key of Object.keys(u)) if (!(key in rackAntes)) delete u[key];
+            Object.assign(u, rackAntes);
+          } else {
+            _estadoLecturaBloqueada = true;
+            _errorBloqueoLectura = new Error("Rack edit commit failed with concurrent changes");
+          }
+          const cuota = _esErrorDeCuota(_causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB()));
+          return J({ error: "The location edit was NOT saved. Check the shelf before retrying.",
+            code: cuota ? "RACK_STORAGE_QUOTA" : "RACK_DURABILITY_UNCONFIRMED" }, cuota ? 507 : 503);
+        }
+        avisarCatalogoCambiado(); // Publish only after the local durable ACK.
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
