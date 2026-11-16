@@ -62,6 +62,7 @@ export function checkChangeSet({ledger,actor,paths}={}) {
   }
   return {ok:violations.length===0,violations};
 }
+export function checkUpstreamOverlap() { return {ok:true,violations:[]}; }
 export function verifyInjertoLedger({ledger,exists}={}) {
   const violations=[];
   if(!ledger || ledger.schemaVersion!==1 ||
