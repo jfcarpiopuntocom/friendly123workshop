@@ -72,7 +72,7 @@ jobs:
         run: |
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
             test/commissions-*.test.js test/comision-*.test.js test/dinero-*.test.js test/medio-pago-comision.test.js \
-            test/payout-ledger*.test.js test/p0-money-imported.test.cjs test/p0-credit-payment-money-imported.test.cjs test/p0-restauracion-cierre-durable.test.cjs test/p0-money-default-browser.test.cjs
+            test/payout-ledger*.test.js test/p0-money-imported.test.cjs test/p0-credit-payment-money-imported.test.cjs test/p0-customer-payment-command.test.cjs test/p0-restauracion-cierre-durable.test.cjs test/p0-money-default-browser.test.cjs
       - name: Imported Dinero expense creation, edit and legacy fallback
         env:
           F123_QA_IMPORTED_MONEY: '1'
@@ -98,3 +98,6 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           node --test --test-concurrency=1 --test-timeout=45000 qa/p0-authorized-provider.test.mjs qa/p0-real-session-room.test.mjs
+      - name: Customer-payment typed inbox contract and real SQLite readback after restart
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: node --test --test-concurrency=1 --test-timeout=45000 qa/p0-typed-commercial-ledger.test.mjs qa/p0-typed-commercial-ledger-workerd.test.mjs
