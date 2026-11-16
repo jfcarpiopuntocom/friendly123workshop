@@ -1,0 +1,645 @@
+'use strict';
+// JFC 2026-11-02: a device that connects catches up alone. Durable layers in order (Supabase, then Firebase), direct
+// peers only as the last fallback; each durable layer has its own per-device daily byte budget so a free plan
+// cannot burn again; photos get last-priority durable fallback plus an encrypted RTC fast lane. No network.
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+const SRC = fs.readFileSync(path.join(__dirname, '../docs/relay-selector.js'), 'utf8');
+// v659: connect() returns a WebSocket-shaped cascade object H; the layer socket is H.capaPrincipal.
+const sub = h => h.capaPrincipal || h;
+const URL1 = 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + 'a'.repeat(40) + '-y';
+
+class FakeSocket extends EventTarget {
+  constructor(kind) { super(); this.kind = kind; this.readyState = 0; this.sent = []; this.closed = null; }
+  open() { this.readyState = 1; this.dispatchEvent(new Event('open')); }
+  recv(data) { const e = new Event('message'); e.data = data; this.dispatchEvent(e); }
+  send(v) { this.sent.push(v); }
+  close(code, reason) { this.closed = { code, reason }; this.readyState = 3; this.dispatchEvent(new Event('close')); }
+}
+function app(now = Date.parse('2026-11-02T12:00:00Z'), store = new Map(), fbHead = null) {
+  const timers = [], timeouts = [], made = [];
+  const fake = kind => ({ ckptFrameBytes: 786432, connect: () => { const x = new FakeSocket(kind); made.push(x); return x; } });
+  const fbFake = fake('firebase');
+  if (fbHead) fbFake.leerHead = async () => fbHead.value; // v657 tests: the Firebase head another device moves
+  const w = {
+    localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
+    F123Relay: fake('supabase'), F123FirebaseRelay: fbFake,
+    F123Peer: { create: () => fake('peer') }, F123_VIVO: false, // v662 live lane dormant by default; its own tests turn it on
+    EventTarget, Event, DOMException, JSON, Number, String,
+    setInterval: fn => { timers.push(fn); return timers.length; }, clearInterval: () => {},
+    setTimeout: fn => { timeouts.push(fn); return timeouts.length; }, clearTimeout: () => {}
+  };
+  const clock = { now };
+  w.Date = class extends Date { constructor(...a) { super(...(a.length ? a : [clock.now])); } static now() { return clock.now; } };
+  w.window = w;
+  vm.runInNewContext(SRC, w);
+  return { w, R: w.F123Relay, clock, made, tick: () => timers.slice().forEach(fn => fn()), vencer: () => timeouts.splice(0).forEach(fn => fn()) };
+}
+
+// v657 (sync3 QA 2026-11-03, Directiva Prima 1): a device reading only Supabase must catch up with writes another
+// device made on Firebase while it was closed.
+const espera = () => new Promise(r => setImmediate(r));
+test('v657: Firebase moved while this device was closed -> it reads Firebase, then returns to Supabase', async () => {
+  const store = new Map(), head = { value: { rev: 0, seq: 0 } };
+  const s1 = sub(app(undefined, store, head).R.connect(URL1)); s1.open(); await espera(); await espera();
+  assert.equal(s1.closed, null, 'empty fallback does not interrupt the first session');
+  head.value = { rev: 1, seq: 11 }; // another device, parked on Firebase, wrote while this one was closed
+  const A2 = app(undefined, store, head), s2 = sub(A2.R.connect(URL1));
+  assert.equal(s2.kind, 'supabase'); s2.open(); await espera(); await espera();
+  assert.equal(s2.closed && s2.closed.code, 1012, 'leaves Supabase to read Firebase');
+  assert.equal(sub(A2.R.connect(URL1)).kind, 'firebase', 'the reconnect reads Firebase');
+  A2.clock.now += 3 * 60 * 1000 + 1000;
+  assert.equal(sub(A2.R.connect(URL1)).kind, 'supabase', 'after 3 min it is back on Supabase (and uploads its checkpoint)');
+});
+test('v657: empty Firebase did not move -> the device stays on Supabase', async () => {
+  const store = new Map(), head = { value: { rev: 0, seq: 0 } };
+  const s1 = sub(app(undefined, store, head).R.connect(URL1)); s1.open(); await espera(); await espera();
+  const s2 = sub(app(undefined, store, head).R.connect(URL1)); s2.open(); await espera(); await espera();
+  assert.equal(s2.closed, null);
+});
+
+// v656 (sync3 QA 2026-11-03): an unreachable layer is an outage, not a refusal: short pause, fast hand-over.
+test('v656: a network failure before opening pauses the layer only 5 s, then it is used again', () => {
+  const { R, clock } = app();
+  const s = sub(R.connect(URL1));
+  s.dispatchEvent(new Event('error')); s.close();
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'Supabase unreachable → Firebase right away');
+  clock.now += 21 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'back to Supabase after 5 s, not 15 min');
+});
+// v659 (JFC 2026-11-04: «no dije que abandones NADA a los 3 segundos ... desde los 3 segundos ya nutras desde el
+// siguiente fallback»): the first layer is never closed by the timer; the next layer is added and feeds the app.
+test('v659 (a): first layer silent -> after 3 s Firebase also starts, H opens when it opens, the first is NOT closed', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1), eventos = [];
+  h.onopen = () => eventos.push('prop'); h.addEventListener('open', () => eventos.push('listener'));
+  assert.equal(made.length, 1);
+  vencer();
+  assert.equal(made.length, 2, 'second layer started');
+  assert.equal(made[1].kind, 'firebase');
+  assert.equal(made[0].closed, null, 'the silent first layer is NOT closed');
+  assert.equal(h.readyState, 0);
+  made[1].open();
+  assert.equal(h.readyState, 1);
+  assert.equal(eventos.length, 2, 'open emitted once');
+  made[1].recv('hola');
+  const got = []; h.onmessage = e => got.push(e.data); made[1].recv('otro');
+  assert.deepEqual(got, ['otro'], 'frames of the fallback reach the app');
+  assert.equal(made[0].closed, null);
+});
+test('v659 (b): first layer opens before 3 s -> no second layer', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); made[0].open();
+  made[0].recv(JSON.stringify({ k: 'head-result', rev: 0, seq: 0 }));
+  vencer();
+  assert.equal(made.length, 1);
+  assert.equal(h.readyState, 1);
+});
+test('v670: late Supabase OPEN cannot drop healthy Firebase without a valid HEAD proof', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); let cierres = 0, code = null;
+  h.onclose = e => { cierres++; code = e.code; };
+  vencer(); made[1].open();
+  assert.equal(h.readyState, 1);
+  made[0].open();
+  assert.equal(made[1].closed, null, 'an OPEN socket is not a healthy relay');
+  assert.equal(cierres, 0);
+  made[0].recv(JSON.stringify({ k: 'head-result', unsupported: true }));
+  assert.equal(cierres, 0, 'unsupported HEAD is no proof');
+  made[0].recv(JSON.stringify({ k: 'head-result', rev: 2, seq: 10 }));
+  assert.equal(cierres, 1); assert.equal(code, 1012);
+  assert.equal(h.readyState, 3, 'the app now reopens with a verified preferred relay');
+});
+test('v659 (c2): the layer feeding the app drops while the first is still connecting -> restart, never a silent H', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); let code = null; h.onclose = e => { code = e.code; };
+  vencer(); made[1].open(); made[1].close(1000, 'gone');
+  assert.equal(code, 1012); assert.equal(h.readyState, 3);
+  assert.equal(made[0].closed && made[0].closed.code, undefined, 'the never-opened first layer is closed with no code (no refusal pause)');
+});
+test('v659 (d): send goes to the open layer; none open throws InvalidStateError; a failing send rethrows', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1);
+  assert.throws(() => h.send('x'), e => e.name === 'InvalidStateError');
+  vencer(); made[1].open();
+  h.send('uno');
+  assert.deepEqual(made[1].sent, ['uno']); assert.deepEqual(made[0].sent || [], []);
+  made[1].send = () => { throw new DOMException('q2', 'QuotaExceededError'); };
+  assert.throws(() => h.send('dos'), e => e.name === 'QuotaExceededError');
+});
+test('v659 (e) / v662: peer frames reach the app (the app filters); only a peer persist-result needs peerAccepted', () => {
+  const { R, vencer, made, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'x'); // Supabase paused 15 min
+  const h = R.connect(URL1); // Firebase first, silent
+  vencer(); // peers added
+  const peerSub = made.length && made[made.length - 1];
+  assert.equal(peerSub.kind, 'peer');
+  peerSub.peerOnly = true; peerSub.open();
+  const got = []; h.onmessage = e => got.push(e.data);
+  peerSub.recv('sin aceptar');
+  const ev = new Event('message'); ev.data = 'aceptado'; ev.peerAccepted = true; peerSub.dispatchEvent(ev);
+  peerSub.recv(JSON.stringify({ k: 'persist-result', id: 'z', ok: true }));
+  assert.deepEqual(got, ['sin aceptar', 'aceptado'], 'business frames pass; an unaccepted peer ack does not');
+  assert.equal(h.peerOnly, true);
+  assert.ok(clock);
+});
+test('v659 (f): first layer refuses before 3 s -> the fallback starts at once (no timer needed)', () => {
+  const { R, made } = app();
+  const h = R.connect(URL1);
+  made[0].close(1011, 'refused');
+  assert.equal(made.length, 2); assert.equal(made[1].kind, 'firebase');
+  assert.equal(h.readyState, 0);
+  made[1].open(); assert.equal(h.readyState, 1);
+});
+test('v659: when no layer is open or can open, H emits close once', () => {
+  const { R, made } = app();
+  const h = R.connect(URL1); let cierres = 0, code = null; h.onclose = e => { cierres++; code = e.code; };
+  made[0].close(1011, 'a'); made[1].close(1011, 'b');
+  assert.equal(made[2].kind, 'peer');
+  made[2].readyState = 3; const ev = new Event('close'); ev.code = 1006; ev.reason = 'c'; made[2].dispatchEvent(ev);
+  assert.equal(cierres, 1); assert.equal(code, 1006); assert.equal(h.readyState, 3);
+});
+test('v656: a server refusal still keeps the long pause that protects the free plans', () => {
+  const { R, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'relay route unavailable');
+  clock.now += 21 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'refusal: still paused after 20 s');
+});
+
+test('Supabase is the first choice and keeps its checkpoint capability', () => {
+  const { R } = app();
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase');
+  assert.equal(R.ckptFrameBytes, 786432);
+});
+
+test('a refused durable layer hands over to the next one; peers only when every durable layer refused', () => {
+  const { R, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'relay route unavailable');
+  const f = sub(R.connect(URL1));
+  assert.equal(f.kind, 'firebase', 'Supabase refused → second durable layer, not peers');
+  f.close(1011, 'firebase unavailable');
+  assert.equal(sub(R.connect(URL1)).kind, 'peer', 'both refused → peers, never nothing');
+  clock.now += 16 * 60 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'Supabase retried after the pause');
+});
+
+test('the daily upload budget closes the layer without sending and keeps the write for later', () => {
+  const { R } = app();
+  const s = sub(R.connect(URL1)); s.open();
+  s.send(new Uint8Array(1024 * 1024)); s.send(new Uint8Array(1024 * 1024 - 10));
+  assert.throws(() => s.send(new Uint8Array(100)), e => e.name === 'QuotaExceededError', 'caller keeps it in its outbox');
+  assert.equal(s.sent.length, 2, 'the over-budget frame never left the device');
+  assert.equal(s.closed.code, 1013);
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'Supabase budget spent → Firebase keeps the device durable');
+  assert.equal(R.estadoCupo()[0].usable, false);
+});
+
+test('the daily download budget also pauses the layer; the next day Supabase is used again', () => {
+  const { R, clock } = app();
+  const s = sub(R.connect(URL1)); s.open();
+  s.recv(new Uint8Array(20 * 1024 * 1024));
+  assert.equal(s.closed.code, 1013);
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase');
+  clock.now += 24 * 60 * 60 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'budget resets each day');
+});
+
+// v661 (JFC 2026-11-04: photos at LAST priority, but with the cascade like everything else).
+test('photos ride the durable cascade at last priority: an independent photo band cannot starve inventory', () => {
+  const { R } = app();
+  const FOTOS = URL1.replace(/-y$/, '-fotos');
+  assert.equal(sub(R.connect(FOTOS)).kind, 'supabase', 'photos reach the durable layer');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'catalog still prefers the durable relay');
+  const h = sub(R.connect(FOTOS)); h.open();
+  assert.throws(() => h.send('x'.repeat(1024 * 1024 + 1)), e => e.name === 'QuotaExceededError', 'a photo cannot exceed its own 1 MiB Supabase limit');
+  assert.equal(h.closed?.code, 1013, 'only the photo socket hands off to its next fallback');
+  const c = sub(R.connect(URL1)); c.open(); c.send('x'.repeat(900 * 1024)); c.send('x'.repeat(200 * 1024));
+  assert.equal(R.estadoCupo()[0].up, 1100 * 1024, 'business counter excludes the rejected photo payload');
+  assert.equal(sub(R.connect(FOTOS)).kind, 'firebase', 'only the exhausted photo band moves to fallback');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'inventory remains on the preferred layer');
+});
+
+test('a device on the fallback layer goes back to the first layer when its pause ends (layers re-converge)', () => {
+  const { R, clock, tick, made } = app();
+  sub(R.connect(URL1)).close(1011, 'relay route unavailable'); // Supabase refused → paused
+  const h = R.connect(URL1), f = sub(h); f.open();
+  let hubCode = null; h.onclose = e => { hubCode = e.code; };
+  assert.equal(f.kind, 'firebase');
+  tick();
+  assert.equal(f.closed, null, 'still paused: stays on Firebase');
+  clock.now += 16 * 60 * 1000; // pause over
+  tick();
+  assert.equal(hubCode, null, 'budget reopening does not prove relay health');
+  const probe = made[made.length - 1];
+  assert.equal(probe.kind, 'supabase', 'probe earlier layer without disrupting Firebase');
+  probe.open(); probe.recv(JSON.stringify({ k: 'head-result', rev: 2, seq: 1 }));
+  assert.equal(hubCode, 1012, 'validated Supabase HEAD permits reconnect');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase');
+});
+
+test('without peer-sync the budgets still apply and photos never fall back to a relay', () => {
+  const store = new Map();
+  const w = {
+    localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
+    F123Relay: { ckptFrameBytes: 786432, connect: () => new FakeSocket('supabase') },
+    EventTarget, Event, DOMException, JSON, Number, String, Date, setInterval: () => 0, clearInterval: () => {}
+  };
+  w.window = w;
+  vm.runInNewContext(SRC, w);
+  assert.equal(w.F123Relay.connect(URL1).kind, 'supabase', 'selector installed even without peer-sync');
+  assert.equal(typeof w.F123Relay.estadoCupo, 'function', 'budget wrapper present');
+  assert.equal(w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')).kind, 'supabase', 'photos use the durable layer even without peer-sync');
+});
+
+test('Firebase ignored binary copies spend no upload budget; durable writes still count and closed sockets still reject', async () => {
+  const store = new Map(), writes = [];
+  const w = { window: null, Date, JSON, Number, String, TextEncoder, Uint8Array, ArrayBuffer,
+    Event, EventTarget, DOMException, Promise, setInterval: () => 0, clearInterval() {},
+    btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'),
+    localStorage: { getItem: k => store.get(k) || null, setItem: (k, v) => store.set(k, String(v)) } };
+  w.window = w;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../docs/firebase-relay.js'), 'utf8'), w);
+  w.F123FirebaseRelay = w.F123FirebaseRelay.create({ EventSource: null, fetch: async (_, options) => {
+    if (options.method === 'PUT' || /x-http-method-override=PUT/.test(String(_))) writes.push(JSON.parse(options.body)); // v663: writes are POST + override
+    return new Response('null', { status: 200 });
+  } });
+  vm.runInNewContext(SRC, w);
+  const s = w.F123Relay.connect(URL1);
+  await new Promise(resolve => s.addEventListener('open', resolve));
+  for (let i = 0; i < 14; i++) s.send(new Uint8Array(160 * 1024));
+  assert.equal(w.F123Relay.estadoCupo()[0].up, 0, 'Firebase discarded every binary copy without sending HTTP');
+  assert.equal(writes.length, 0);
+  const op = JSON.stringify({ k: 'op', id: 'synthetic-count', c: 'AQID', ack: 1 });
+  const ack = new Promise(resolve => s.addEventListener('message', e => {
+    const m = JSON.parse(e.data); if (m.k === 'persist-result') resolve(m);
+  }));
+  s.send(op);
+  assert.equal((await ack).ok, true);
+  assert.equal(writes.length, 1);
+  assert.equal(w.F123Relay.estadoCupo()[0].up, Buffer.byteLength(op));
+  s.close();
+  assert.throws(() => s.send(new Uint8Array(1)), e => e.name === 'InvalidStateError');
+});
+// v659 review (debug d2, 2026-11-04): Supabase refused, Firebase took over inside the cascade; when Supabase's pause ends
+// the device must go back to it (restart 1012), never stay split on Firebase until something else reconnects.
+test('v670: budget expiry probes Supabase health before leaving a responsive Firebase layer', () => {
+  const { R, made, clock, tick } = app();
+  const h = R.connect(URL1); let code = null; h.onclose = e => { code = e.code; };
+  made[0].close(1013, 'try later');
+  assert.equal(made.length, 2, 'Firebase started at once'); made[1].open();
+  tick(); assert.equal(code, null, 'still paused: stays on Firebase');
+  clock.now += 16 * 60 * 1000; tick();
+  assert.equal(code, null, 'budget reset does not prove a healthy connection');
+  assert.equal(made.length, 3, 'one bounded preferred-layer health probe');
+  made[2].open(); assert.equal(code, null, 'even an open probe is not enough');
+  made[2].recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 2 }));
+  assert.equal(code, 1012, 'verified HEAD allows handover');
+});
+// v661 band quarantine (OpenCode review 2026-11-04): a layer refusing the photo room must not stop inventory there.
+test('v661: photo room refused -> only the photo band pauses; inventory keeps the same layer', () => {
+  const { R, made } = app();
+  const FOTOS = URL1.replace(/-y$/, '-fotos');
+  const f = sub(R.connect(FOTOS)); assert.equal(f.kind, 'supabase');
+  f.close(1011, 'room not allowed');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'inventory still on Supabase');
+  assert.notEqual(sub(R.connect(FOTOS)).kind, 'supabase', 'photos skip the refusing layer');
+  assert.ok(made.length >= 3);
+});
+
+// v662 (2026-11-04): peer frames must reach the app (v659 dropped them), and a live direct lane runs beside the
+// durable layer so two open devices see each other's changes at peer speed.
+test('v662: a room on the peers fallback forwards business frames; a peer persist-result never confirms while a durable layer lives', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); const got = []; h.onmessage = e => got.push(e.data);
+  vencer(); made[1].close(1013, 'x'); // Firebase refuses; Supabase still connecting
+  vencer(); // Firebase's own 3 s timer: nothing open -> peers too
+  const peer = made.find(x => x.kind === 'peer'); assert.ok(peer, 'peers fallback started');
+  peer.peerOnly = true; peer.open();
+  const bin = new Uint8Array([1, 2, 3]).buffer; peer.recv(bin);
+  assert.ok(got.includes(bin), 'binary business frame reaches the app');
+  const pr = JSON.stringify({ k: 'persist-result', kind: 'op', id: 'x', ok: true });
+  const ev = new Event('message'); ev.data = pr; ev.peerAccepted = true; peer.dispatchEvent(ev);
+  assert.ok(!got.includes(pr), 'Supabase still connecting: a peer ack is not a durable confirmation');
+});
+test('v662: live lane beside the durable layer: binary both ways, never control text, closes with the cascade', () => {
+  const { w, R, made } = app(); w.F123_VIVO = true;
+  const h = R.connect(URL1); const got = []; h.onmessage = e => got.push(e.data);
+  const vivo = made.find(x => x.kind === 'peer'); assert.ok(vivo, 'live lane opened at once');
+  made[0].open(); vivo.open();
+  const bin = new Uint8Array([9]).buffer;
+  h.send(bin); h.send('{"k":"op","id":"1"}');
+  assert.deepEqual(made[0].sent.length, 2, 'durable layer gets everything');
+  assert.deepEqual(vivo.sent, [bin], 'live lane gets only the binary live copy');
+  const b2 = new Uint8Array([7]).buffer; vivo.recv(b2); vivo.recv('{"k":"peers","n":2}');
+  assert.ok(got.includes(b2)); assert.ok(!got.includes('{"k":"peers","n":2}'));
+  h.close(1000, 'bye'); assert.equal(vivo.readyState, 3, 'live lane closes with the cascade');
+});
+test('v670: catalog, ops and photo rooms use a parallel encrypted peer lane', () => {
+  for (const suffix of ['-y', '-ops', '-fotos']) {
+    const { w, R, made } = app(); w.F123_VIVO = true;
+    const url = URL1.replace(/-y$/, suffix), h = R.connect(url), got = [];
+    h.addEventListener('message', ev => got.push({
+      data: ev.data, source: ev.relaySource, peerAccepted: ev.peerAccepted
+    }));
+    const durable = made.find(x => x.kind === 'supabase');
+    const peer = made.find(x => x.kind === 'peer');
+    assert.ok(peer, suffix + ': RTC lane exists even if the durable socket opened');
+    durable.open(); peer.open();
+    assert.ok(got.some(x => x.source === 'peer-live' && x.data === '{"k":"peer-ready"}'),
+      suffix + ': initial connection wakes a state-vector exchange');
+    const helloCount = got.length;
+    peer.recv('{"k":"peer-ready"}');
+    assert.equal(got.length, helloCount + 1, suffix + ': reconnect wake is relayed');
+    peer.recv('{"k":"persist-result","id":"fake","ok":true}');
+    assert.equal(got.length, helloCount + 1, suffix + ': peer cannot forge durability');
+    const binary = new Uint8Array([1, 2, 3]).buffer;
+    h.send(binary); h.send('{"k":"op","id":"durable-only"}');
+    assert.deepEqual(peer.sent, [binary], suffix + ': RTC sends only encrypted binary');
+    assert.equal(durable.sent.length, 2, suffix + ': durable transport remains authoritative');
+    peer.recv(binary);
+    assert.ok(got.some(x => x.data === binary && x.source === 'peer-live' && x.peerAccepted === false),
+      suffix + ': peer bytes reach the app without false ACK');
+    h.close(1000, 'done');
+    assert.equal(peer.readyState, 3, suffix + ': RTC lifecycle tracks the notebook socket');
+  }
+});
+
+
+// v669: first-join with no previous head must not miss old operations on the fallback.
+test('v669: initial PWA boot reads existing Firebase inventory history, even with no prior head baseline', async () => {
+  const A = app(undefined, new Map(), { value: { rev: 1, seq: 37 } });
+  const first = sub(A.R.connect(URL1)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012, 'switches to the history-bearing fallback');
+  assert.equal(sub(A.R.connect(URL1)).kind, 'firebase', 'the next connection reads the other history');
+});
+
+test('v669: photo room also recovers pre-existing Firebase photo bytes on first PWA start', async () => {
+  const A = app(undefined, new Map(), { value: { rev: 0, seq: 14 } });
+  const fotos = URL1.replace(/-y$/, '-fotos');
+  const first = sub(A.R.connect(fotos)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012, 'photo bootstrap must not stay on an empty preferred room');
+  assert.equal(sub(A.R.connect(fotos)).kind, 'firebase');
+});
+
+test('v669: photos do not probe a Firebase photo band after its daily download quota is spent', async () => {
+  const now = Date.parse('2026-11-02T12:00:00Z');
+  const store = new Map([['f123_relay_cupo_fb_v1_fotos', JSON.stringify({
+    dia: '2026-11-02', up: 0, down: 11 * 1024 * 1024, pausaHasta: 0
+  })]]);
+  const A = app(now, store, { value: { rev: 0, seq: 14 } });
+  const first = sub(A.R.connect(URL1.replace(/-y$/, '-fotos'))); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed, null, 'no extra bandwidth after exhausting the photo share');
+});
+
+test('v669: v668 previously saved an unchanged Firebase HEAD without applying any data; v669 must still replay', async () => {
+  const head = { value: { rev: 2, seq: 99 } }, store = new Map([
+    ['f123_fb_head_' + URL1.slice(-48), '2:99']
+  ]);
+  const A = app(undefined, store, head);
+  const preferred = sub(A.R.connect(URL1)); preferred.open();
+  await espera(); await espera();
+  assert.equal(preferred.closed?.code, 1012, 'a preexisting head is not proof of a completed encrypted pull');
+  const fb = A.R.connect(URL1);
+  assert.equal(sub(fb).kind, 'firebase', 'migrating v668 PWA is directed to catch up');
+  sub(fb).open();
+  fb.markRecovered();
+  assert.equal(store.get('f123_fb_aplicado_v669_' + URL1.slice(-48)), '2:99', 'the Yjs completion callback records applied HEAD');
+  const B = app(undefined, store, head);
+  const current = sub(B.R.connect(URL1)); current.open();
+  await espera(); await espera();
+  assert.equal(current.closed, null, 'a proven unchanged history does not download redundantly on each app launch');
+});
+
+test('v669: a photo history recovery does not pause inventory or payments on Supabase', async () => {
+  const head = { value: { rev: 0, seq: 88 } };
+  const A = app(undefined, new Map(), head);
+  const fotos = URL1.replace(/-y$/, '-fotos');
+  const s = sub(A.R.connect(fotos)); s.open();
+  await espera(); await espera();
+  assert.equal(s.closed?.code, 1012, 'the photo room switches to its existing archive');
+  assert.equal(sub(A.R.connect(fotos)).kind, 'firebase', 'only photos switch to Firebase');
+  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'inventory and money keep the preferred relay');
+});
+
+test('v670: verified Firebase catch-up releases only the intentional Supabase pause', async () => {
+  const store = new Map(), head = { value: { rev: 2, seq: 177 } };
+  const A = app(undefined, store, head);
+  const first = sub(A.R.connect(URL1)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012, 'read the existing fallback history');
+  const h = A.R.connect(URL1), firebase = sub(h);
+  assert.equal(firebase.kind, 'firebase');
+  firebase.open();
+  A.clock.now += 2000; A.tick();
+  assert.equal(firebase.closed, null, 'without a verified cursor the fallback stays active');
+  h.markRecovered();
+  A.tick();
+  assert.equal(firebase.closed, null, 'Firebase remains until Supabase proves health');
+  const probe = A.made[A.made.length - 1];
+  assert.equal(probe.kind, 'supabase');
+  probe.open(); probe.recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 1 }));
+  assert.equal(h.readyState, 3, 'verified HEAD triggers a full Yjs reconnect');
+  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase');
+});
+
+test('v670: photo recovery releases photo band, not unrelated business/quota pauses', async () => {
+  const store = new Map(), head = { value: { rev: 0, seq: 22 } };
+  const A = app(undefined, store, head), fotos = URL1.replace(/-y$/, '-fotos');
+  const first = sub(A.R.connect(fotos)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012);
+  const h = A.R.connect(fotos), firebase = sub(h);
+  assert.equal(firebase.kind, 'firebase'); firebase.open();
+  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'the stock lane never paused');
+  h.markRecovered(); A.tick();
+  assert.equal(firebase.closed, null, 'Firebase retains photos until Supabase responds');
+  const probe = A.made[A.made.length - 1];
+  assert.equal(probe.kind, 'supabase');
+  probe.open(); probe.recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 1 }));
+  assert.equal(h.readyState, 3, 'verified HEAD triggers a photo channel reconnect');
+  assert.equal(sub(A.R.connect(fotos)).kind, 'supabase');
+
+  // The same proof must NEVER erase a later, independent server refusal.
+  const B = app(undefined, new Map(), head);
+  const firstB = sub(B.R.connect(fotos)); firstB.open();
+  await espera(); await espera();
+  const secondB = B.R.connect(fotos); sub(secondB).open();
+  const key = 'f123_relay_cupo_v1_fotos';
+  const refused = JSON.parse(B.w.localStorage.getItem(key));
+  refused.pausaHasta += 120000;
+  B.w.localStorage.setItem(key, JSON.stringify(refused));
+  secondB.markRecovered();
+  assert.equal(JSON.parse(B.w.localStorage.getItem(key)).pausaHasta, refused.pausaHasta,
+    'a new refusal may not be lifted by a stale recovery proof');
+});
+
+test('v670: silent OPEN Supabase cannot trap the phone while Firebase is responding', () => {
+  const { R, made, vencer } = app();
+  const h = R.connect(URL1); let code = null; h.onclose = e => { code = e.code; };
+  made[0].open();
+  vencer();
+  assert.equal(made.length, 2, 'unresponsive primary cannot block the 3-second fallback');
+  made[1].open(); assert.equal(code, null);
+  made[1].recv(JSON.stringify({ k: 'head-result', rev: 2, seq: 7 }));
+  assert.equal(code, 1012, 'healthy fallback must become the catch-up source');
+});
+
+test('v670: a late lower-priority layer does not restart an already healthy preferred room', () => {
+  const { R, made, vencer } = app();
+  const h = R.connect(URL1); let closes = 0; h.onclose = () => closes++;
+  vencer(); assert.equal(made.length, 2);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 3 }));
+  made[1].open();
+  assert.equal(closes, 0, 'late inferior socket must never override verified Supabase');
+});
+
+// Ponytail: a saturated preferred layer is not a reason to stop a healthy
+// fallback. Verify each native transport's 512KiB budget is preserved.
+test('P0 cascade admission uses healthy open layer; congested sibling never exceeds its own 512KiB window', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); made[0].open();
+  vencer(); assert.equal(made[1].kind, 'firebase'); made[1].open();
+  const base0 = made[0].sent.length, base1 = made[1].sent.length;
+  made[0].bufferedAmount = 512 * 1024;
+  made[1].bufferedAmount = 0;
+  assert.equal(h.bufferedAmount, 0, 'one writable fallback must not inherit another layer congestion');
+  h.send('sale');
+  assert.deepEqual(made[0].sent.slice(base0), [], 'congested preferred layer cannot admit more native bytes');
+  assert.deepEqual(made[1].sent.slice(base1), ['sale'], 'fallback independently receives encrypted sale');
+  made[1].bufferedAmount = 512 * 1024;
+  assert.throws(() => h.send('money'), e => e.name === 'QuotaExceededError',
+    'once both layers are full, the local durable outbox must retain this write');
+});
+
+test('P0 cascade uses per-layer room under the cap, not an aggregate of two half-full sockets', () => {
+  const { R, made, vencer } = app();
+  const h = R.connect(URL1); made[0].open(); vencer(); made[1].open();
+  const start = made.map(x => x.sent.length);
+  made[0].bufferedAmount = 280 * 1024;
+  made[1].bufferedAmount = 280 * 1024;
+  assert.equal(h.bufferedAmount, 280 * 1024, 'sum would falsely block a legitimate 8KiB op');
+  h.send('x'.repeat(8 * 1024));
+  assert.equal(made[0].sent.length, start[0] + 1);
+  assert.equal(made[1].sent.length, start[1] + 1);
+});
+
+test('P0 cascade preserves existing bounded checkpoint exception on an empty durable layer', () => {
+  const { R, made } = app();
+  const h = R.connect(URL1); made[0].open();
+  const checkpoint = JSON.stringify({ k: 'ckpt', id: 'synthetic', c: 'A'.repeat(600 * 1024) });
+  assert.ok(checkpoint.length > 512 * 1024 && checkpoint.length <= 1088 * 1024);
+  h.send(checkpoint);
+  assert.equal(made[0].sent.at(-1), checkpoint, 'native checkpoint exception remains available');
+  made[0].bufferedAmount = 1;
+  assert.throws(() => h.send(checkpoint), e => e.name === 'QuotaExceededError',
+    'large native checkpoint cannot be queued atop a nonempty transport buffer');
+});
+
+
+test('P0: post-open durable refusal quarantines only failed layer and reopens on Firebase without false ACK', async () => {
+  const { R, made, clock } = app();
+  const h = R.connect(URL1), messages = [];
+  let closeCount = 0;
+  h.onmessage = e => messages.push(e.data);
+  h.onclose = () => { closeCount++; };
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'op', id: 'failed-write', ok: false }));
+  await espera();
+  assert.equal(made[0].closed?.code, 1013, 'rejected durable write must close the unhealthy transport');
+  assert.ok(messages.some(s => typeof s === 'string' && s.includes('"ok":false')),
+    'negative receipt is forwarded, never rewritten to ACK');
+  assert.equal(closeCount, 1, 'app is notified and can reconnect its durable outbox');
+  const retry = R.connect(URL1);
+  assert.equal(sub(retry).kind, 'firebase', 'fresh connection must select durable fallback');
+  clock.now += 20 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'server refusal pause is respected');
+});
+
+test('P0: photo durable rejection quarantines only photo band, not stock', async () => {
+  const { R, made } = app();
+  const photos = URL1.replace(/-y$/, '-fotos');
+  const h = R.connect(photos);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'ckpt', id: 'photo-fail', ok: false }));
+  await espera();
+  assert.equal(made[0].closed?.code, 1013);
+  assert.equal(sub(R.connect(photos)).kind, 'firebase', 'photos use second durable layer');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'business transport remains available');
+});
+
+test('P0: a read RPC transport failure after OPEN must fall back instead of looping the same layer', () => {
+  const { R, made } = app();
+  const h = R.connect(URL1);
+  made[0].open();
+  made[0].dispatchEvent(new Event('error'));
+  made[0].close(1011, 'pull RPC rejected');
+  assert.equal(h.readyState, 3, 'app receives a terminal close after read failure');
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'next connection opens a different durable backend');
+});
+
+test('P0: a checkpoint CAS conflict is NOT backend outage', async () => {
+  const { R, made } = app();
+  const h = R.connect(URL1);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'ckpt', id: 'cas-conflict', ok: false, conflict: true }));
+  await espera();
+  assert.equal(made[0].closed, null, 'conflicts are resolved by durable retry, not switching data sources');
+  assert.equal(h.readyState, 1, 'existing healthy relay remains open');
+});
+
+// v733 (JFC 2026-11-11, orden de Fable 5.2): un aparato nuevo no podia ponerse al dia con Supabase en descanso de
+// 15 min y Firebase en descanso fijo de 60 s: solo quedaba el vecino directo, que no contesta.
+test('v733: a refused Firebase rests 5, 10, 20... s (cap 60 s) instead of a fixed 60 s', () => {
+  const { R, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'supabase refused');
+  let fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase');
+  fb.close(1011, 'refusal 1'); // rests 5 s
+  clock.now += 4000;
+  assert.equal(sub(R.connect(URL1)).kind, 'peer', 'still resting after 4 s');
+  clock.now += 2000;
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase', 'back after 6 s, not 60 s');
+  fb.close(1011, 'refusal 2'); // rests 10 s
+  clock.now += 9000;
+  assert.equal(sub(R.connect(URL1)).kind, 'peer', 'second refusal rests 10 s');
+  clock.now += 2000;
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase');
+  for (let i = 0; i < 5; i++) { fb.close(1011, 'again'); clock.now += 61000; fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase', 'the cap is 60 s, never longer'); }
+});
+
+test('v739: a Firebase that opens and stays open 30 s resets its growing rest', () => {
+  const { R, clock, vencer } = app();
+  sub(R.connect(URL1)).close(1011, 'supabase refused');
+  let fb = sub(R.connect(URL1)); fb.close(1011, 'refusal 1'); clock.now += 6000; // rest 5 s -> counter 1
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase'); fb.open();
+  vencer(); // the stable-30-s timer fires: counter back to 0
+  fb.close(1011, 'refusal after a good, stable open'); // rests 5 s again, not 10 s
+  clock.now += 6000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase');
+});
+test('v739: a Firebase that opens and is refused at once keeps growing (no 5 s loop)', () => {
+  const { R, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'supabase refused');
+  let fb = sub(R.connect(URL1)); fb.close(1011, 'refusal 1'); clock.now += 6000; // counter 1
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase'); fb.open(); // opens, but is refused before 30 s
+  fb.recv(JSON.stringify({ k: 'persist-result', ok: false, kind: 'op' })); // the durable write is refused after OPEN
+  fb.close(1013, 'durable write rejected'); // must rest 10 s now
+  clock.now += 6000;
+  assert.notEqual(sub(R.connect(URL1)).kind, 'firebase', 'still resting after 6 s: the counter was NOT reset by open');
+  clock.now += 5000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase');
+});
+test('v739: hayCapaDurableUsable tells whether a durable layer is out of its pause', () => {
+  const { R, clock } = app();
+  assert.equal(R.hayCapaDurableUsable(), true);
+  sub(R.connect(URL1)).close(1011, 'a'); // Supabase paused 15 min
+  assert.equal(R.hayCapaDurableUsable(), true, 'Firebase still usable');
+  const fb = sub(R.connect(URL1)); fb.close(1011, 'b'); // Firebase rests 5 s
+  assert.equal(R.hayCapaDurableUsable(), false, 'both resting');
+  clock.now += 6000;
+  assert.equal(R.hayCapaDurableUsable(), true, 'Firebase is back');
+});

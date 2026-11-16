@@ -1,0 +1,1476 @@
+import {pinDoRoute,pinPublicRoute} from './pin-worker-api.mjs';
+// worker.js — license ping for friendly-123 / amigable-123.
+// Handles both products. Endpoints:
+//   POST /checkin  — public, called on activation & login (body.accion = "register"|"login")
+//   POST /register — alias for /checkin (legacy)
+//   GET  /licencias                    — requires X-Master-Key header
+//   POST /licencias/:id/estado         — requires X-Master-Key header
+//
+// SCOPE, ON PURPOSE (JFC 2026-07-16): this worker exists ONLY to register/
+// license-check instances and let JFC reach an owner via the WhatsApp number
+// they optionally register. It does NOT and must NOT store business data
+// (products, sales, backups). NO CLOUD is core to the product manifesto —
+// local-first, no server, no SaaS, no POS. A "cloud backup" feature was
+// built and then ripped out the same day for contradicting this. If a
+// future request smells like "store the user's data on our server", stop
+// and ask before building — see feedback_no_cloud_manifiesto memory.
+//
+// Deploy:
+//   1. wrangler kv:namespace create LICENCIAS     → paste the ID below in wrangler.toml
+//   2. wrangler secret put MASTER_KEY             → choose any password, paste in panel.html Config
+//   3. wrangler deploy
+
+function cors(resp) {
+  resp.headers.set("Access-Control-Allow-Origin", "*");
+  resp.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Master-Key");
+  // FIX (homologado de amigable-123, JFC 2026-07-28/29): DELETE was missing
+  // here. The browser sends a preflight OPTIONS before any DELETE (because
+  // of the custom X-Master-Key header), and if this list doesn't include
+  // DELETE, the preflight rejects it before it ever reaches the endpoint —
+  // shows up in the panel as "failed to fetch", which has nothing to do
+  // with the network: it's CORS blocking in the browser.
+  resp.headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  return resp;
+}
+function json(obj, status = 200) {
+  return cors(new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } }));
+}
+// PAIR-QR (JFC 2026-11-03, v656): "Vincular un aparato nuevo". Un aparato de confianza
+// (dueno/admin) deja aqui, 10 minutos y UNA sola vez, un blob YA CIFRADO en el aparato
+// (AES-GCM); la llave viaja solo en el #fragmento del QR y nunca llega a este Worker.
+// Aqui no se puede leer el contenido. Para APAGAR: quitar las 2 lineas /pair/* del router.
+function pairJson(obj, status) {
+  const r = json(obj, status || 200);
+  r.headers.set("Cache-Control", "no-store");
+  return r;
+}
+async function pairBody(req) {
+  let raw = "";
+  try { raw = await req.text(); } catch (_) {}
+  if (raw.length > 6000) return null;
+  try { const b = JSON.parse(raw); return b && typeof b === "object" ? b : null; } catch (_) { return null; }
+}
+const PAIR_LIC_RE = /^F123-[A-Z0-9*~$=-]{8,34}$/;
+async function handlePairPut(req, env) {
+  const b = await pairBody(req);
+  if (!b) return pairJson({ ok: false, reason: "bad-body" }, 400);
+  const lic = String(b.licenseCode || "").trim().toUpperCase();
+  const instanceId = String(b.instanceId || "");
+  const tokenId = String(b.tokenId || "");
+  const blob = typeof b.blob === "string" ? b.blob : "";
+  if (!PAIR_LIC_RE.test(lic) || !/^[A-Za-z0-9_-]{6,120}$/.test(instanceId) || !/^[a-f0-9]{32}$/.test(tokenId)
+      || !/^[A-Za-z0-9_-]{1,4096}$/.test(blob)) return pairJson({ ok: false, reason: "bad-fields" }, 400);
+  // El aparato debe pertenecer a esa licencia (mismo criterio que el resto de rutas de PIN).
+  // v656 fix (QA 2026-11-03): read the device the same way as the PIN routes: the strongly consistent Durable Object
+  // first (it can hold more recent records), then the license KV. Reading KV only refused real registered devices.
+  let rec = null;
+  try {
+    const stub = doLicencias(env);
+    if (stub) { const resp = await stub.fetch("https://do.invalid/r/" + encodeURIComponent(instanceId)); if (resp.ok) rec = await resp.json(); }
+  } catch (_) { rec = null; }
+  if (!rec) { try { const rawRec = await env.LICENCIAS.get("inst:" + instanceId); rec = rawRec ? (typeof rawRec === "string" ? JSON.parse(rawRec) : rawRec) : null; } catch (_) {} }
+  if (!rec || rec.instanceId !== instanceId || String(rec.licenseCode || "").trim().toUpperCase() !== lic) {
+    return pairJson({ ok: false, reason: "license-instance-mismatch" }, 404);
+  }
+  await env.LICENCIAS.put("pair:" + tokenId, JSON.stringify({ lic, blob, at: Date.now() }), { expirationTtl: 600 });
+  return pairJson({ ok: true });
+}
+async function handlePairTake(req, env) {
+  const b = await pairBody(req);
+  const tokenId = b ? String(b.tokenId || "") : "";
+  const lic = b ? String(b.licenseCode || "").trim().toUpperCase() : "";
+  if (!/^[a-f0-9]{32}$/.test(tokenId) || !PAIR_LIC_RE.test(lic)) return pairJson({ ok: false, reason: "expired" }, 404);
+  let rec = null;
+  try { const raw = await env.LICENCIAS.get("pair:" + tokenId); rec = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null; } catch (_) {}
+  if (!rec || rec.lic !== lic) return pairJson({ ok: false, reason: "expired" }, 404);
+  await env.LICENCIAS.delete("pair:" + tokenId); // un solo uso
+  return pairJson({ ok: true, blob: rec.blob });
+}
+function requireMasterKey(req, env) {
+  const k = req.headers.get("X-Master-Key") || "";
+  return env.MASTER_KEY && k === env.MASTER_KEY;
+}
+
+// Licensing-only provisioning: hashes, never notebook frames or encryption keys.
+// Match Yjs identity exactly, including the one historical clean-room suffix.
+async function relayRoomForLicense(code) {
+  const codigo = String(code || "").trim().toUpperCase();
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < codigo.length; i++) {
+    const ch = codigo.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const adjusted = 4294967296 * (2097151 & h2) + (h1 >>> 0) === 6583453063440131
+    ? codigo + "::limpio-2026-09-16" : codigo;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("amigable-sala:" + adjusted));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
+}
+
+async function provisionRelayLicenses(env, codes) {
+  if (!/^https:\/\/[a-z0-9]{20}\.supabase\.co$/.test(env.SUPABASE_ORIGIN || "") ||
+      !/^[a-f0-9]{64}$/.test(env.RELAY_PROVISION_SECRET || "") || !env.SUPABASE_PUBLISHABLE_KEY) {
+    return { ok: false, reason: "provisioning-unconfigured" };
+  }
+  const rooms = [...new Set(await Promise.all(codes.map(relayRoomForLicense)))];
+  const issuedAt = Date.now(), encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(env.RELAY_PROVISION_SECRET),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", key,
+    encoder.encode("friendly-provision:v1\n" + issuedAt + "\n" + rooms.join("\n")))), b => b.toString(16).padStart(2, "0")).join("");
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(env.SUPABASE_ORIGIN + "/rest/v1/rpc/f123_relay_provision", {
+      method: "POST", signal: controller.signal,
+      headers: { "content-type": "application/json", apikey: env.SUPABASE_PUBLISHABLE_KEY },
+      body: JSON.stringify({ p_rooms: rooms, p_issued_at: issuedAt, p_signature: signature })
+    });
+    if (!response.ok) { await response.body?.cancel(); return { ok: false, reason: "provisioning-unavailable" }; }
+    const result = await response.json();
+    if (!result || typeof result.ok !== "boolean") return { ok: false, reason: "provisioning-unavailable" };
+    // Only aggregate status leaves this boundary, never room capabilities.
+    return { ok: result.ok, reason: result.ok ? undefined : "migration-required",
+      ready: Number(result.ready) || 0, created: Number(result.created) || 0,
+      migrationRequired: Number(result.migrationRequired) || 0 };
+  } catch (_) { return { ok: false, reason: "provisioning-unavailable" }; }
+  finally { clearTimeout(timer); }
+}
+
+async function handleRelayProvision(req, env) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body;
+  try { const text = await req.text(); if (text.length > 4096) return json({ error: "Solicitud demasiado grande" }, 413); body = JSON.parse(text); }
+  catch (_) { return json({ error: "JSON invalido" }, 400); }
+  const codigo = String(body?.licenseCode || "").trim().toUpperCase();
+  if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(codigo)) return json({ error: "Licencia invalida" }, 400);
+  const result = await provisionRelayLicenses(env, [codigo]);
+  return json(result, result.ok ? 200 : result.reason === "migration-required" ? 409 : 503);
+}
+
+/* Recovery permits use the already-private panel credential as a signing key,
+   domain-separated from its normal license API use. No universal recovery
+   phrase is shipped to browsers. A permit is scoped to one instance and five
+   minutes; this only protects the ordinary UI flow, not a hostile local
+   browser profile whose storage and JavaScript can be changed with DevTools. */
+const RECOVERY_TTL_MS = 5 * 60 * 1000;
+const recoveryEncoder = new TextEncoder();
+const recoveryIdOk = (id) => typeof id === "string" && /^[A-Za-z0-9_-]{6,128}$/.test(id);
+function recoveryB64(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function recoveryBytes(s) {
+  if (!/^[A-Za-z0-9_-]+$/.test(s) || s.length > 1024) throw new Error("invalid token encoding");
+  const base = s.replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(base + "=".repeat((4 - base.length % 4) % 4)), c => c.charCodeAt(0));
+}
+async function recoveryKey(env) {
+  if (!env.MASTER_KEY) throw new Error("missing recovery signing key");
+  return crypto.subtle.importKey("raw", recoveryEncoder.encode("friendly-recovery-v1:" + env.MASTER_KEY),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+function recoveryJson(obj, status = 200) {
+  const response = json(obj, status);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
+}
+async function issueRecovery(req, env) {
+  if (!requireMasterKey(req, env)) return recoveryJson({ ok: false }, 401);
+  let body;
+  try { body = await req.json(); } catch (_) { return recoveryJson({ ok: false }, 400); }
+  const instanceId = body && body.instanceId;
+  if (!recoveryIdOk(instanceId)) return recoveryJson({ ok: false }, 400);
+  const record = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!record) return recoveryJson({ ok: false }, 404);
+  try {
+    const payload = recoveryB64(recoveryEncoder.encode(JSON.stringify({
+      v: 1, id: instanceId, exp: Date.now() + RECOVERY_TTL_MS,
+      nonce: recoveryB64(crypto.getRandomValues(new Uint8Array(16))),
+    })));
+    const signature = await crypto.subtle.sign("HMAC", await recoveryKey(env), recoveryEncoder.encode(payload));
+    return recoveryJson({ token: payload + "." + recoveryB64(new Uint8Array(signature)), expiresInSeconds: 300 });
+  } catch (_) { return recoveryJson({ ok: false }, 503); }
+}
+async function verifyRecovery(req, env) {
+  if (!env.MASTER_KEY || !env.MAESTRO_IP || !env.MAESTRO_INST) return recoveryJson({ ok: false }, 503);
+  let body;
+  try { body = await req.json(); } catch (_) { return recoveryJson({ ok: false }, 400); }
+  const id = body && body.instanceId;
+  const token = body && body.token;
+  if (!recoveryIdOk(id) || typeof token !== "string" || token.length > 1536) return recoveryJson({ ok: false }, 400);
+  try {
+    // The IP limit is deliberately generous: mobile carriers share addresses.
+    // The instance limit is the useful bound; HMAC entropy prevents guessing.
+    const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+    const [byIp, byInstance] = await Promise.all([
+      env.MAESTRO_IP.limit({ key: ip }), env.MAESTRO_INST.limit({ key: id }),
+    ]);
+    if (!byIp.success || !byInstance.success) return recoveryJson({ ok: false }, 429);
+    const parts = token.split(".");
+    if (parts.length !== 2) return recoveryJson({ ok: false }, 401);
+    const verified = await crypto.subtle.verify("HMAC", await recoveryKey(env),
+      recoveryBytes(parts[1]), recoveryEncoder.encode(parts[0]));
+    if (!verified) return recoveryJson({ ok: false }, 401);
+    const permit = JSON.parse(new TextDecoder().decode(recoveryBytes(parts[0])));
+    const now = Date.now();
+    if (permit.v !== 1 || permit.id !== id || !Number.isSafeInteger(permit.exp) ||
+        permit.exp < now || permit.exp > now + RECOVERY_TTL_MS ||
+        typeof permit.nonce !== "string" || permit.nonce.length < 20) {
+      return recoveryJson({ ok: false }, 401);
+    }
+    return recoveryJson({ ok: true });
+  } catch (_) { return recoveryJson({ ok: false }, 401); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   VERSION CONTROL FOR LICENSES (homologado de amigable-123, JFC 2026-07-28)
+
+   Two real incidents in amigable-123: JFC's own name went blank once, and a
+   customer's email reverted to an old value after a KV hiccup. Neither was
+   bad luck — KV only ever held the latest state, with no way to see or
+   undo the step before it.
+
+   guardarConHistorial() is the ONLY place that should write to
+   `inst:<instanceId>`: before overwriting the record, it pushes the current
+   state onto `hist:<instanceId>` (JSON array, newest first, capped at 30
+   versions so a free-tier KV doesn't grow unbounded). With that, ANY
+   accidental overwrite — a bug, a bad deploy, a fat finger in the panel —
+   is reversible via /licencias/:id/historial + /licencias/:id/restaurar. */
+const HISTORIAL_TOPE = 30;
+/* ─────────────────────────────────────────────────────────────────────
+   SLA ≤2s EN EL PANEL — Durable Object como camino de lectura fresca
+   (JFC 2026-09-22, autorizado explícitamente).
+
+   EL PROBLEMA: Workers KV es *eventually consistent* POR DISEÑO. Un PUT no
+   se ve globalmente al instante; la propagación entre regiones puede tardar
+   decenas de segundos. Por eso el panel mostraba nombres viejos y filas
+   desactualizadas: no era lentitud del código, era lo que KV ES. Ningún
+   ajuste de nuestro lado baja eso a 2 segundos.
+
+   LA SOLUCIÓN: un Durable Object único (singleton) que guarda los MISMOS
+   registros. Un DO es de instancia única y sus lecturas son fuertemente
+   consistentes: lo que se acaba de escribir se lee de inmediato.
+
+   POR QUÉ ESTO NO PUEDE PERDER DATOS DE NINGÚN CLIENTE:
+     - NO hay evento de migración. No se copia en masa, no se borra nada de
+       KV, no hay ventana en la que un registro no exista en algún lado.
+     - KV SIGUE siendo la fuente de verdad y se escribe SIEMPRE primero. El
+       DO se escribe después y es "best-effort": si falla, el dato ya está
+       a salvo en KV y el panel lo sigue viendo por el camino de respaldo.
+     - El relleno es PEREZOSO: la lectura del panel compara con KV y llena
+       el DO con lo que le falte. Un registro que nunca se vuelve a tocar
+       entra igual la primera vez que alguien mira el panel.
+     - Es REVERSIBLE sin desplegar código: quitar el binding REGISTROS del
+       wrangler.toml deja todo exactamente como antes de este cambio.
+   NO quitar la escritura a KV "porque ya está el DO". Esa es la red. */
+function doLicencias(env) {
+  try {
+    if (!env || !env.REGISTROS) return null; // sin binding: todo sigue como siempre
+    return env.REGISTROS.get(env.REGISTROS.idFromName("registro-global"));
+  } catch (_) { return null; }
+}
+
+async function espejarEnDO(env, instanceId, registro) {
+  const stub = doLicencias(env);
+  if (!stub) return false;
+  try {
+    const r = await stub.fetch(`https://do.invalid/r/${encodeURIComponent(instanceId)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(registro),
+    });
+    return r.ok;
+  } catch (_) { return false; } // el dato ya está en KV: nunca se pierde por esto
+}
+
+async function borrarDeDO(env, instanceId) {
+  const stub = doLicencias(env);
+  if (!stub) return false;
+  try {
+    const r = await stub.fetch(`https://do.invalid/r/${encodeURIComponent(instanceId)}`, { method: "DELETE" });
+    return r.ok;
+  } catch (_) { return false; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   LICENCIA PAGADA = TODA LA LICENCIA (JFC 2026-09-22)
+
+   El estado vive POR APARATO (inst:<instanceId>). Pero un cliente paga SU
+   LICENCIA, no un aparato: idiomARTE tiene 3 aparatos bajo una licencia. Si
+   JFC marcaba "full" solo uno, los otros quedaban en la prueba y a los 30
+   días pasaban a solo lectura (friendly, licencia-prueba.js). Y un aparato
+   que se une después a una licencia ya pagada arrancaba con reloj.
+
+   Regla, MONÓTONA a propósito — solo puede DAR acceso, nunca quitarlo:
+     - Si un aparato de la licencia está en "full" (porque JFC lo marcó en el
+       panel o porque ya lo estaba de antes), se anota lic:<licencia> = full.
+     - Al hacer checkin, un aparato de esa licencia que esté en el estado POR
+       DEFECTO ("minima") hereda "full".
+     - NUNCA se toca un aparato "bloqueada": el bloqueo de un aparato puntual
+       (robado, abuso) sigue siendo una decisión de JFC por aparato.
+     - Nunca se escribe lic: con otro valor que "full", así que no hay forma de
+       que esta regla le quite acceso a nadie ni que dos aparatos se peleen.
+   Límite conocido: para "des-pagar" una licencia entera habría que borrar la
+   clave lic:<licencia> a mano. Es un caso raro y así se prefiere a propósito,
+   porque nunca castiga por error a un cliente que pagó.
+   Costo: 1 lectura de KV por checkin; la escritura solo ocurre una vez por
+   licencia. */
+async function aplicarLicenciaPagada(env, registro) {
+  try {
+    const codigo = String((registro && registro.licenseCode) || "").trim().toUpperCase();
+    if (!codigo) return;
+    const clave = `lic:${codigo}`;
+    let pagada = false;
+    try { const raw = await env.LICENCIAS.get(clave); pagada = !!raw && (JSON.parse(raw) || {}).estado === "full"; } catch (_) { pagada = false; }
+    /* v351 (code review #2): un aparato "full" solo marca pagada la licencia
+       en la que JFC lo pagó (fullLicencia). Si luego se re-apunta o se une a
+       otra licencia, sigue "full" él, pero NO regala "full" a la otra.
+       Registros de antes: se asume la licencia actual (la primera vez). */
+    if (registro.estado === "full" && !registro.fullLicencia) registro.fullLicencia = codigo;
+    if (registro.estado === "full" && registro.fullLicencia === codigo && !pagada) {
+      await env.LICENCIAS.put(clave, JSON.stringify({ estado: "full", ts: Date.now() }));
+    } else if (pagada && registro.estado === "minima" && !registro.estadoFijadoPanel) {
+      // #1: un estado que JFC fijó a mano en el panel no se sobreescribe.
+      registro.estado = "full";
+    }
+  } catch (_) { /* nunca bloquea el checkin: en el peor caso queda como estaba */ }
+}
+
+async function guardarConHistorial(env, instanceId, registroNuevo) {
+  const key = `inst:${instanceId}`;
+  const anteriorRaw = await env.LICENCIAS.get(key);
+  /* v351 (code review #3): un latido que solo cambia lastSeen/ip/lastAccion NO
+     ocupa un lugar del historial (tope 30). Antes, cada login y cada
+     revalidación empujaba una versión y sacaba a las viejas, justo las que
+     sirven para recuperar un nombre o correo perdido. */
+  const _sinVolatiles = (o) => { try { const c = Object.assign({}, o); delete c.lastSeen; delete c.ip; delete c.lastAccion; return JSON.stringify(c); } catch (_) { return null; } };
+  let _soloLatido = false;
+  try { _soloLatido = !!anteriorRaw && _sinVolatiles(JSON.parse(anteriorRaw)) === _sinVolatiles(registroNuevo); } catch (_) {}
+  if (anteriorRaw && !_soloLatido) {
+    try {
+      const histKey = `hist:${instanceId}`;
+      const histRaw = await env.LICENCIAS.get(histKey);
+      const hist = histRaw ? JSON.parse(histRaw) : [];
+      hist.unshift({ ts: Date.now(), registro: JSON.parse(anteriorRaw) });
+      await env.LICENCIAS.put(histKey, JSON.stringify(hist.slice(0, HISTORIAL_TOPE)));
+    } catch (_) { /* history must never block the real save */ }
+  }
+  await env.LICENCIAS.put(key, JSON.stringify(registroNuevo));
+  // KV ya guardó: el dato está a salvo pase lo que pase debajo. El espejo al
+  // DO es lo que hace que el panel lo vea AL INSTANTE en vez de esperar a que
+  // KV propague. Si falla, el panel lo sigue leyendo por KV (más rancio, nunca
+  // ausente) y el relleno perezoso lo corrige en la siguiente lectura.
+  await espejarEnDO(env, instanceId, registroNuevo);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   LICENSE STATES (model defined by JFC, 2026-07-28)
+
+     minima     Free forever, for anyone, no permission needed.
+                Caps: 25 products, 100 sales per month (resets monthly)
+                and 1 employee. Default state for every new instance.
+     full       Unlimited. JFC flips it from the panel when a customer pays.
+     bloqueada  Cut off for abuse or non-payment. The only punitive state.
+
+   "observada" was removed: there was no point watching someone who is on a
+   legitimate free plan. Old records carrying it read as "minima".
+
+   normalizarEstado() keeps records written BEFORE this change working with
+   no migration. It runs on read, on list and on write, so KV cleans itself
+   as instances check in. Do NOT drop it until no old names remain. */
+const MAPA_ESTADOS_VIEJOS = {
+  activa: "full",
+  limitada: "minima",
+  observada: "minima",
+};
+const ESTADOS_VALIDOS = ["minima", "full", "bloqueada"];
+function normalizarEstado(e) {
+  const v = String(e || "").toLowerCase();
+  if (ESTADOS_VALIDOS.includes(v)) return v;
+  // Unknown or empty degrades to the free plan, never to blocked:
+  // when in doubt we give service, we do not punish.
+  return MAPA_ESTADOS_VIEJOS[v] || "minima";
+}
+
+async function handleCheckin(req, env) {
+  // Hardening (2026-07-16): endpoint publico — cap de tamano y validacion de formato
+  // para que un bot no pueda llenar el KV con basura ni payloads gigantes.
+  const raw = await req.text();
+  /* 2026-09-25: 4096 cortaba el latido ENTERO de un aparato con varios errores
+     (la app adjunta hasta 10, ~300 bytes cada uno): justo el aparato que mas
+     necesitabamos ver desaparecia. 12 KB alcanza con holgura y sigue topado. */
+  if (raw.length > 12288) return json({ error: "Payload too large" }, 413);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+  const instanceId = String(body.instanceId || "").slice(0, 120);
+  if (!instanceId) return json({ error: "Missing instanceId" }, 400);
+  // instanceId legitimo: uuid o token alfanumerico corto (el cliente genera uuid/base36)
+  if (!/^[a-zA-Z0-9-]{6,120}$/.test(instanceId)) return json({ error: "Invalid instanceId" }, 400);
+
+  const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "";
+  const existenteRaw = await env.LICENCIAS.get(`inst:${instanceId}`);
+  let existente = existenteRaw ? JSON.parse(existenteRaw) : {};
+  // El panel ya prioriza este registro fresco. Reconstruir un latido desde
+  // KV atrasado lo degradaba otra vez: nombre, apodo y licencia del aparato.
+  // Leer el MISMO registro antes del merge; conservar KV cuando el DO falta.
+  try {
+    const stub = doLicencias(env);
+    if (stub) {
+      const respuesta = await stub.fetch(`https://do.invalid/r/${encodeURIComponent(instanceId)}`);
+      if (respuesta.ok) {
+        const fresco = await respuesta.json();
+        if (fresco && fresco.instanceId === instanceId) existente = fresco;
+      }
+    }
+  } catch (_) { /* respaldo KV; no bloquear el acceso por un espejo caido */ }
+
+  /* QUE APP ES (arreglado 2026-08-19). Antes: body.producto === "amigable",
+     comparado contra un valor que NINGUNA app manda — las apps mandan
+     "amigable-123" / "friendly-123". Todo caia al else y los 29 registros de
+     la KV de amigable quedaron etiquetados como friendly-123, incluidos los de
+     clientes con licencia AMG-. El campo era ruido: no se podia filtrar por el.
+
+     Ahora manda el PREFIJO DE LA LICENCIA, que es el unico dato que de verdad
+     dice de que app es. Si no hay licencia todavia (alta a medias), se cae al
+     campo producto ya normalizado, y en ultimo caso al valor previo guardado
+     para no degradar un registro que ya estaba bien clasificado. */
+  // El panel o una rotación explícita pueden cambiar la licencia. Un checkin
+  // pasivo NO: un navegador viejo con código local obsoleto no debe sacar al
+  // cliente de su cuaderno canónico ni reagruparlo bajo otra licencia.
+  const licenciaGuardada = String(existente.licenseCode || "").trim().toUpperCase();
+  const licenciaEntrante = String(body.licenseCode || "").trim().toUpperCase();
+  const licenciaFinal = (!licenciaGuardada || body.accion === "rotacion" || body.accion === "join")
+    ? (licenciaEntrante || licenciaGuardada) : licenciaGuardada;
+  const _lic = licenciaFinal;
+  const _prod = String(body.producto || "").toLowerCase();
+  const nombreEntrante = String(body.nombreNegocio || "").slice(0, 240).trim();
+  const revEntrante = Number.isSafeInteger(body.nombreNegocioRev) && body.nombreNegocioRev >= 0 ? body.nombreNegocioRev : 0;
+  const tsEntrante = Number.isSafeInteger(body.nombreNegocioTs) && body.nombreNegocioTs >= 0 ? body.nombreNegocioTs : 0;
+  const revGuardada = Number(existente.nombreNegocioRev) || 0;
+  const tsGuardado = Number(existente.nombreNegocioTs) || 0;
+  const nuevaVersionNombre = revEntrante > revGuardada || (revEntrante === revGuardada && tsEntrante > tsGuardado);
+  // v456: un nombre legacy (rev 0 y ts 0) no tiene version que ganar: rename/sync-nombre lo reemplaza.
+  const nombreLegacy = revGuardada === 0 && tsGuardado === 0;
+  const aceptaNombre = !!nombreEntrante && (!existente.nombreNegocio ||
+    ((body.accion === "rename" || body.accion === "sync-nombre") && (nuevaVersionNombre || nombreLegacy)));
+  let producto;
+  if (_lic.startsWith("AMG-")) producto = "amigable-123";
+  else if (_lic.startsWith("F123-")) producto = "friendly-123";
+  else if (_lic.startsWith("C123-")) producto = "consultorio-123";
+  else if (_prod.indexOf("amigable") === 0) producto = "amigable-123";
+  else if (_prod.indexOf("consultorio") === 0) producto = "consultorio-123";
+  else if (_prod.indexOf("friendly") === 0) producto = "friendly-123";
+  else producto = existente.producto || "friendly-123";
+
+  const registro = {
+    instanceId,
+    producto,
+    // FIX (homologado de amigable-123, JFC 2026-07-28): used "!= null" —
+    // a passive heartbeat sending "" (which IS != null) silently wiped a
+    // value the owner had already saved. checkin is automatic, not
+    // deliberate: it must never be able to blank a field, only fill it in
+    // when empty or bring a new non-empty value. Deliberately clearing a
+    // field is the job of an explicit panel action (editar-correo).
+    // Un login puede traer un caché viejo antes de que Yjs hidrate el cuaderno.
+    // Solo un rename deliberado o la adopción confirmada por sync cambia un
+    // nombre ya registrado; así el panel no retrocede en cada entrada.
+    nombreNegocio: aceptaNombre ? nombreEntrante : (existente.nombreNegocio || ""),
+    nombreNegocioRev: aceptaNombre ? revEntrante : revGuardada,
+    nombreNegocioTs: aceptaNombre ? tsEntrante : tsGuardado,
+    email: body.email || existente.email || "",
+    licenseCode: licenciaFinal,
+    // Mejora #5 (JFC 2026-07-16): telefono de contacto del dueno, para el
+    // link clickeable a wa.me en panel.html. Contacto deliberadamente
+    // unidireccional (JFC -> dueno) — ver copy en avanzado-extra.js.
+    whatsapp: (body.whatsapp ? String(body.whatsapp).replace(/\D/g, "").slice(0, 15) : "") || existente.whatsapp || "", // Fix-11: strip non-digits so wa.me link always works; never blanks an already-saved whatsapp
+    nombre: body.nombre || existente.nombre || "",
+    apellido: body.apellido || existente.apellido || "",
+    cedula: body.cedula || existente.cedula || "",
+    // Every new instance starts on "minima": the free plan is the floor,
+    // not a punishment. JFC raises it to "full" from the panel when paid.
+    estado: normalizarEstado(existente.estado),
+    ip,
+    activatedAt: existente.activatedAt || (body.activatedAt ? body.activatedAt : null),
+    firstSeen: existente.firstSeen || Date.now(),
+    lastSeen: Date.now(),
+    lastAccion: body.accion || "checkin",
+  };
+  /* APARATO DE JFC (v349, JFC 2026-09-22). La marca la pone SOLO el panel
+     (/licencias/<id>/soporte). El checkin reconstruye el registro campo por
+     campo, así que se conserva aquí o se perdería en el siguiente login. */
+  if (typeof existente.soporteJfc === "boolean") registro.soporteJfc = existente.soporteJfc;
+  // v456: apodo del aparato; nunca se pisa con vacio.
+  const apodoEntrante = String(body.apodo || "").slice(0, 60).trim();
+  if (apodoEntrante || existente.apodo) registro.apodo = apodoEntrante || existente.apodo;
+  // v351: se conservan igual que soporteJfc (ver aplicarLicenciaPagada).
+  if (existente.fullLicencia) registro.fullLicencia = existente.fullLicencia;
+  if (existente.estadoFijadoPanel === true) registro.estadoFijadoPanel = true;
+  /* SALUD DEL APARATO (plan canarios F4, JFC 2026-09-25). Solo numeros y
+     codigos por lista blanca (sanearSalud / sanearErrores): cero datos del
+     negocio. Antes la app ya mandaba "errores" y este Worker los tiraba. */
+  const salud = sanearSalud(body.salud);
+  if (salud) registro.salud = salud; else if (existente.salud) registro.salud = existente.salud;
+  const errs = sanearErrores(body.errores);
+  if (errs) registro.errores = errs;
+  else if (!(salud && salud.errores === 0) && existente.errores) registro.errores = existente.errores;
+  // Pagado es de la licencia, no del aparato (ver aplicarLicenciaPagada).
+  await aplicarLicenciaPagada(env, registro);
+  await guardarConHistorial(env, instanceId, registro);
+  try { await registrarSonar(env, instanceId, registro); } catch (_) { /* el sonar nunca tumba un latido */ }
+  /* RESCATE DE LICENCIA (JFC 2026-08-19). La respuesta devuelve el licenseCode
+     que el servidor tiene para esta instancia. Sirve para tres cosas con un
+     solo mecanismo:
+       1. alta normal: confirma lo que el dispositivo acaba de registrar;
+       2. rescate individual: un dispositivo que perdio su codigo (o que nunca
+          lo guardo, como paso con el bug de licenseCode vacio) lo recupera
+          solo en el siguiente login;
+       3. rescate masivo: se escribe el codigo en la KV de N instancias y cada
+          una lo adopta sola cuando su dueno entra. Cero soporte uno a uno.
+     Es SEGURO devolverlo: para llegar aqui hay que traer el instanceId, que es
+     un uuid que solo tiene ese dispositivo. No se devuelve nada mas. */
+  const resp = { ok: true, estado: registro.estado, licenseCode: registro.licenseCode || "" };
+  // Solo viaja si JFC la marcó o la quitó a propósito desde el panel.
+  if (typeof registro.soporteJfc === "boolean") resp.soporte = registro.soporteJfc;
+  return json(resp);
+}
+
+// /recover-pin — envía el PIN del dueño a su correo vía Resend.
+// NO almacena el PIN en ningún lado. Recibe { email, pin, instanceId },
+// valida el instanceId contra KV (anti-abuso leve), manda el correo y listo.
+// Si RESEND_API_KEY no está configurado, devuelve { enviado: false } y el
+// cliente cae al fallback en pantalla — sin error fatal.
+async function handleRecoverPin(req, env) {
+  const raw = await req.text();
+  if (raw.length > 512) return json({ error: "Payload too large" }, 413);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+
+  const email = String(body.email || "").slice(0, 240).trim();
+  const pin   = String(body.pin   || "").slice(0, 3).trim();
+  const instanceId = String(body.instanceId || "").slice(0, 120).trim();
+
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Email inválido" }, 400);
+  if (!/^\d{1,3}$/.test(pin)) return json({ error: "PIN inválido" }, 400);
+
+  // Anti-abuso (JFC 2026-07-22; endurecido 2026-10-07, auditoria B-2).
+  // FAIL-CLOSED: antes, con instanceId vacio se saltaba todo y el correo salia
+  // a cualquier direccion (relay de correo desde la cuenta Resend del dueno).
+  // Reglas actuales, TODAS previas al envio:
+  //   1) instanceId obligatorio, con formato valido y registrado en KV.
+  //   2) El destino es SOLO el correo ya guardado de esa instancia. Si no hay
+  //      uno valido guardado, se rechaza: JAMAS se usa el del request.
+  //   3) Rate limit 5/hora por instancia Y 5/hora por IP (CF-Connecting-IP),
+  //      contadores en KV con TTL. Si el KV falla al contar, se deja pasar el
+  //      conteo (la validacion 1-2 ya cerro el abuso hacia terceros).
+  if (!/^[A-Za-z0-9._:-]{8,120}$/.test(instanceId)) return json({ error: "instanceId requerido" }, 400);
+  if (!env.LICENCIAS) return json({ error: "Servicio no disponible" }, 503);
+  let reg = null;
+  try { const r = await env.LICENCIAS.get(`inst:${instanceId}`); reg = r ? JSON.parse(r) : null; } catch (_) { reg = null; }
+  if (!reg) return json({ error: "Instancia desconocida" }, 403);
+  if (!reg.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reg.email)) return json({ error: "Sin correo registrado" }, 409);
+  const emailDestino = reg.email;
+  const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+  try {
+    const claves = [`rl:recover:${instanceId}`, `rl:recover:ip:${ip}`];
+    const cuentas = await Promise.all(claves.map(async k => parseInt((await env.LICENCIAS.get(k)) || "0", 10) || 0));
+    if (cuentas.some(n => n >= 5)) return json({ ok: true, enviado: false, motivo: "rate_limited" }, 429);
+    await Promise.all(claves.map((k, i) => env.LICENCIAS.put(k, String(cuentas[i] + 1), { expirationTtl: 3600 })));
+  } catch (_) { /* fail-open solo del conteo */ }
+
+  // Sin RESEND_API_KEY → respuesta "soft" para que el cliente use fallback en pantalla.
+  if (!env.RESEND_API_KEY) {
+    return json({ ok: true, enviado: false, motivo: "email_no_configurado" });
+  }
+
+    // Fallback: onboarding@resend.dev works on all Resend accounts without domain
+  // verification. noreply@amigable-123.com would fail — that domain is not verified.
+  const fromEmail = (env.FROM_EMAIL || "onboarding@resend.dev").trim();
+  const pinDisplay = pin.padStart(3, "0"); // siempre 3 dígitos con ceros
+
+  let resendResp;
+  try {
+    resendResp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `amigable-123 <${fromEmail}>`,
+        to: [emailDestino],
+        subject: "Tu clave de acceso — amigable-123",
+        text: [
+          `Tu clave de dueño en amigable-123 es: ${pinDisplay}`,
+          "",
+          "Si no solicitaste esto, alguien intentó recuperar tu clave.",
+          "Cámbiala en Avanzado → Claves.",
+          "",
+          "— amigable-123",
+        ].join("\n"),
+        html: [
+          `<p style="font-family:sans-serif;font-size:15px;color:#0F1923;">`,
+          `Tu clave de dueño en <strong>amigable-123</strong> es:</p>`,
+          `<p style="font-size:40px;font-weight:bold;letter-spacing:0.25em;`,
+          `color:#E86040;font-family:monospace;">${pinDisplay}</p>`,
+          `<p style="font-family:sans-serif;font-size:14px;color:#555;">`,
+          `Si no solicitaste esto, alguien intentó recuperar tu clave.<br>`,
+          `Cámbiala en <strong>Avanzado → Claves</strong>.</p>`,
+          `<p style="font-family:sans-serif;font-size:12px;color:#999;">— amigable-123</p>`,
+        ].join(""),
+      }),
+    });
+  } catch (err) {
+    console.error("[recover-pin] fetch a Resend falló:", err);
+    return json({ ok: false, enviado: false, motivo: "resend_network_error" });
+  }
+
+  if (!resendResp.ok) {
+    const errBody = await resendResp.text().catch(() => "");
+    console.error("[recover-pin] Resend respondió", resendResp.status, errBody);
+    return json({ ok: false, enviado: false, motivo: "resend_error" });
+  }
+
+  return json({ ok: true, enviado: true });
+}
+
+
+/* ---------------------------------------------------------------------
+   ONE LICENSE, MANY DEVICES (JFC 2026-07-28)
+
+   KV is keyed by instanceId and every device makes its own, so activating
+   the same license on a second phone creates a second row. The panel used
+   to paint them one under the other, as if they were two customers.
+
+   This is NOT fixed by deleting the second row. Both rows are real and both
+   are needed: a device has its own IP and last-seen and can be lost or
+   stolen; a license is the business, and the sync room. Merging them in KV
+   would destroy the per-device trail, which is exactly what you need the day
+   someone says "I lost my phone". So it is fixed in the PRESENTATION.
+
+   Instances with no license code are NOT grouped together: those are demo
+   devices, each independent. Grouping them all under "" would have put
+   strangers in the same row.
+   --------------------------------------------------------------------- */
+// Defined locally: this worker is the trimmed twin and has no normLicencia.
+// Compare normalized, never raw — "f123-abcd" and "F123-ABCD " are the same
+// license, and treating them as different would split one business in two.
+function normCodigoLic(s) { return String(s || "").trim().toUpperCase(); }
+
+function anotarHermanos(registros) {
+  const porCodigo = {};
+  registros.forEach((r) => {
+    if (!r) return;
+    const cod = normCodigoLic(r.licenseCode);
+    if (!cod) return;
+    (porCodigo[cod] = porCodigo[cod] || []).push(r.instanceId);
+  });
+  registros.forEach((r) => {
+    if (!r) return;
+    const cod = normCodigoLic(r.licenseCode);
+    const grupo = cod ? (porCodigo[cod] || []) : [];
+    r.dispositivos = grupo.length || 1;
+    r.hermanos = grupo.filter((id) => id !== r.instanceId);
+  });
+}
+
+// POST /editar-correo — master-only (homologado de amigable-123). Edits
+// email/nombre/apellido/nombreNegocio from the panel's pencil icon. Name
+// kept for compatibility, but it's no longer just email — see below.
+//
+// HARD RULE (JFC 2026-07-28, real incident: wiped his own name, a
+// customer's email reverted to a stale value): an empty field in the body
+// NEVER blanks an already-saved field. If the owner really wants to clear
+// a field, that's not an action this endpoint supports — it edits to a new
+// value, never to "nothing". Each non-empty field that arrives is
+// validated and replaces; each empty/absent field is simply ignored and
+// the existing value stays. licenseCode is never touched here — it's
+// hard-generated and immutable.
+async function handleEditarCorreo(req, env) {
+  let body; try { body = await req.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+  const instanceId = String(body.instanceId || "").slice(0, 120).trim();
+  if (!instanceId) return json({ error: "Falta instanceId" }, 400);
+  const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+  const reg = JSON.parse(raw);
+
+  if (body.email !== undefined) {
+    const email = String(body.email).slice(0, 240).trim();
+    if (!email) return json({ error: "El correo no puede quedar vacio." }, 400);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Correo invalido" }, 400);
+    reg.email = email;
+  }
+  if (body.nombre !== undefined) {
+    const nombre = String(body.nombre).slice(0, 120).trim();
+    if (!nombre) return json({ error: "El nombre no puede quedar vacio." }, 400);
+    reg.nombre = nombre;
+  }
+  if (body.apellido !== undefined) {
+    const apellido = String(body.apellido).slice(0, 120).trim();
+    if (!apellido) return json({ error: "El apellido no puede quedar vacio." }, 400);
+    reg.apellido = apellido;
+  }
+  if (body.nombreNegocio !== undefined) {
+    const nombreNegocio = String(body.nombreNegocio).slice(0, 240).trim();
+    if (!nombreNegocio) return json({ error: "El nombre del negocio no puede quedar vacio." }, 400);
+    if (reg.nombreNegocio !== nombreNegocio) {
+      reg.nombreNegocio = nombreNegocio;
+      // El panel es una edición oficial. Aumenta el reloj de nombre para que
+      // un aparato con caché viejo no la revierta al sincronizarse después.
+      reg.nombreNegocioRev = (Number(reg.nombreNegocioRev) || 0) + 1;
+      reg.nombreNegocioTs = Date.now();
+    }
+  }
+
+  await guardarConHistorial(env, instanceId, reg);
+  return json({ ok: true, email: reg.email, nombre: reg.nombre, apellido: reg.apellido, nombreNegocio: reg.nombreNegocio });
+}
+
+// GET /licencias/:id/historial — master-only. Up to 30 previous versions
+// (newest first), so JFC can see what changed and when before restoring.
+async function handleHistorial(env, instanceId) {
+  const raw = await env.LICENCIAS.get(`hist:${instanceId}`);
+  return json({ ok: true, historial: raw ? JSON.parse(raw) : [] });
+}
+
+// POST /licencias/:id/restaurar — master-only. Restores a prior version by
+// timestamp. The restore itself goes through guardarConHistorial, so
+// restoring the wrong version is also undoable.
+async function handleRestaurar(req, env, instanceId) {
+  let body; try { body = await req.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+  const ts = Number(body.ts);
+  if (!ts) return json({ error: "Falta ts (timestamp de la version a restaurar)" }, 400);
+  const raw = await env.LICENCIAS.get(`hist:${instanceId}`);
+  const hist = raw ? JSON.parse(raw) : [];
+  const version = hist.find((h) => h.ts === ts);
+  if (!version) return json({ error: "No existe esa version en el historial" }, 404);
+  await guardarConHistorial(env, instanceId, version.registro);
+  return json({ ok: true, restaurado: version.registro });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   PAPELERA DE LICENCIAS BORRADAS (JFC 2026-08-27 — "no sale la licencia de
+   Sarah en el panel").
+
+   DELETE ya archivaba cada baja en `borrado:<instanceId>` con la promesa, escrita
+   en el propio comentario, de que era recuperable ("read borrado:<id> and write
+   it back"). Pero NO existía forma de ver ni de deshacer esos archivados: un
+   borrado accidental de una fila de "pruebas" podía llevarse por delante a un
+   cliente real sin vuelta atrás visible. Estos dos endpoints cierran ese hueco:
+     GET  /borrados                     — lista lo archivado (para verlo en el panel)
+     POST /licencias/:id/desarchivar    — devuelve `borrado:<id>` a `inst:<id>`
+   Un cliente nunca queda irrecuperable por un clic. */
+async function handleListarBorrados(env) {
+  const lista = await env.LICENCIAS.list({ prefix: "borrado:" });
+  const filas = (await Promise.all(
+    lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => {
+      const o = v ? JSON.parse(v) : null;
+      if (!o || !o.registro) return null;
+      // Se expone lo necesario para reconocer al cliente y decidir restaurar.
+      return {
+        instanceId: o.registro.instanceId || k.name.replace(/^borrado:/, ""),
+        borradoEn: o.borradoEn || null,
+        licenseCode: o.registro.licenseCode || "",
+        nombre: o.registro.nombre || "",
+        apellido: o.registro.apellido || "",
+        email: o.registro.email || "",
+        nombreNegocio: o.registro.nombreNegocio || "",
+        estado: o.registro.estado || "",
+        lastSeen: o.registro.lastSeen || null,
+      };
+    }))
+  )).filter(Boolean);
+  filas.sort((a, b) => (b.borradoEn || 0) - (a.borradoEn || 0));
+  return json({ ok: true, borrados: filas });
+}
+
+async function handleDesarchivar(env, instanceId) {
+  const key = `borrado:${instanceId}`;
+  const raw = await env.LICENCIAS.get(key);
+  if (!raw) return json({ error: "No hay nada archivado con ese instanceId" }, 404);
+  let arch; try { arch = JSON.parse(raw); } catch (_) { arch = null; }
+  if (!arch || !arch.registro) return json({ error: "Archivo corrupto" }, 500);
+  // Devolver el registro a la vida. guardarConHistorial deja rastro por si el
+  // desarchivado tampoco fuera lo deseado (todo es reversible).
+  const reg = arch.registro;
+  reg.estado = normalizarEstado(reg.estado);
+  await guardarConHistorial(env, instanceId, reg);
+  // Ya restaurado: se quita de la papelera para no dejar duplicados fantasma.
+  try { await env.LICENCIAS.delete(key); } catch (_) {}
+  return json({ ok: true, restaurado: reg });
+}
+
+/* ============================================================================
+   LOTES + PAGOS (JFC 2026-09-24). Escala: 1.000-10.000 licencias por gremios y
+   asociaciones, con licencias bulk.
+   - Un LOTE son N codigos F123- emitidos de una vez con una ETIQUETA (el
+     gremio) y un prefijo corto. Cada codigo queda en lic:<codigo> =
+     {estado, lote, emitida}: es la MISMA llave que ya lee
+     aplicarLicenciaPagada, asi que el primer aparato que entre con ese codigo
+     hereda "full" sin que JFC toque nada. lote:<etiqueta> guarda la lista.
+     Los codigos se devuelven UNA vez en la respuesta; JFC los baja en CSV.
+   - Un PAGO es un asiento append-only en pagos:<codigo> (fecha, monto, moneda,
+     medio, referencia, hasta, nota, quien). Marca la licencia pagada (lic:) y
+     deja un resumen chico (pagoResumen) en el inst: del aparato para que el
+     listado NO necesite una lectura extra por fila. Lo pagado nunca se edita
+     ni se borra: un error se corrige con otro asiento (monto negativo).
+   Nada de esto toca datos de clientes: solo codigos, fechas y montos.
+   ========================================================================= */
+const LOTE_TOPE = 500;
+const ALFABETO_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I: se dictan por telefono
+function trozoAleatorio(n) {
+  const b = new Uint8Array(n); crypto.getRandomValues(b);
+  let s = ""; for (let i = 0; i < n; i++) s += ALFABETO_CODIGO[b[i] % ALFABETO_CODIGO.length];
+  return s;
+}
+function codigoDeLote(prefijo) {
+  const p = String(prefijo || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  return `F123-${p}${trozoAleatorio(4 - p.length)}-${trozoAleatorio(4)}-${trozoAleatorio(4)}-${trozoAleatorio(5)}`;
+}
+const etiquetaOk = (s) => /^[A-Za-z0-9 _.-]{2,40}$/.test(String(s || ""));
+
+async function handleEmitirLote(req, env) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body = {}; try { body = await req.json(); } catch (_) { return json({ error: "JSON invalido" }, 400); }
+  const etiqueta = String(body.etiqueta || "").trim();
+  if (!etiquetaOk(etiqueta)) return json({ error: "Etiqueta del lote: 2 a 40 letras, numeros, espacio, punto, guion" }, 400);
+  const cantidad = Math.floor(Number(body.cantidad));
+  if (!Number.isFinite(cantidad) || cantidad < 1 || cantidad > LOTE_TOPE) return json({ error: `Cantidad: entre 1 y ${LOTE_TOPE} por lote` }, 400);
+  const estado = normalizarEstado(body.estado || "full");
+  const prefijo = String(body.prefijo || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  const claveLote = `lote:${etiqueta.toLowerCase()}`;
+  let lote = null;
+  try { const raw = await env.LICENCIAS.get(claveLote); lote = raw ? JSON.parse(raw) : null; } catch (_) { lote = null; }
+  if (!lote) lote = { etiqueta, prefijo, creado: Date.now(), codigos: [] };
+  if (lote.codigos.length + cantidad > LOTE_TOPE * 20) return json({ error: "Ese lote ya es demasiado grande; abre otra etiqueta" }, 400);
+  const nuevos = [];
+  const ahora = Date.now();
+  for (let i = 0; i < cantidad; i++) {
+    let codigo = codigoDeLote(prefijo);
+    for (let intento = 0; intento < 5; intento++) {
+      const existe = await env.LICENCIAS.get(`lic:${codigo}`);
+      if (!existe) break;
+      codigo = codigoDeLote(prefijo);
+    }
+    await env.LICENCIAS.put(`lic:${codigo}`, JSON.stringify({ estado, ts: ahora, lote: etiqueta, emitida: ahora }));
+    nuevos.push(codigo);
+  }
+  lote.codigos = lote.codigos.concat(nuevos);
+  lote.actualizado = ahora;
+  await env.LICENCIAS.put(claveLote, JSON.stringify(lote));
+  // One bounded RPC for the whole batch preserves the existing 500-code limit.
+  // Issued licences remain recoverable when provisioning needs an operator retry.
+  const relay = await provisionRelayLicenses(env, nuevos);
+  return json({ ok: true, etiqueta, prefijo, estado, emitidos: nuevos.length, totalLote: lote.codigos.length, codigos: nuevos, relay });
+}
+
+async function handleListarLotes(req, env) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  const lista = await env.LICENCIAS.list({ prefix: "lote:" });
+  const lotes = (await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => { try { return JSON.parse(v); } catch (_) { return null; } })))).filter(Boolean);
+  lotes.sort((a, b) => (b.creado || 0) - (a.creado || 0));
+  return json(lotes.map((l) => ({ etiqueta: l.etiqueta, prefijo: l.prefijo, creado: l.creado, actualizado: l.actualizado || l.creado, total: l.codigos.length, codigos: l.codigos })));
+}
+
+const MEDIOS_PAGO = ["transferencia", "efectivo", "tarjeta", "paypal", "stripe", "wise", "otro"];
+async function handleListarPagos(req, env, instanceId) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+  const reg = JSON.parse(raw);
+  const codigo = normCodigoLic(reg.licenseCode);
+  if (!codigo) return json({ codigo: "", pagos: [] });
+  const pRaw = await env.LICENCIAS.get(`pagos:${codigo}`);
+  return json({ codigo, pagos: pRaw ? JSON.parse(pRaw) : [] });
+}
+
+function resumirPagos(pagos) {
+  const total = +pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0).toFixed(2);
+  const ultimo = pagos.length ? pagos[pagos.length - 1] : null;
+  const hasta = pagos.map((p) => p.hasta).filter(Boolean).sort().pop() || null;
+  return { n: pagos.length, total, moneda: ultimo ? ultimo.moneda : "USD", ultimo: ultimo ? ultimo.fecha : null, hasta };
+}
+
+function fechaCalendario(input) {
+  if (typeof input !== "string") return null;
+  const s = input;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map(Number), check = new Date(0);
+  check.setUTCFullYear(y, m - 1, d);
+  return check.getUTCFullYear() === y && check.getUTCMonth() === m - 1 && check.getUTCDate() === d ? s : null;
+}
+// Decimal-text rounding avoids binary half-cent drift (1.005 => 101 cents).
+function centavosExactos(monto) {
+  const m = /^(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(Math.abs(monto)));
+  if (!m) return NaN;
+  const digits = m[1] + (m[2] || ""), place = m[1].length + Number(m[3] || 0) + 2;
+  const whole = place > 0 ? digits.slice(0, place).padEnd(place, "0") : "0";
+  const next = place < 0 ? "0" : (digits[place] || "0");
+  return Number(BigInt(whole) + (next >= "5" ? 1n : 0n));
+}
+async function handleRegistrarPago(req, env, instanceId) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body = {}; try { body = await req.json(); } catch (_) { return json({ error: "JSON invalido" }, 400); }
+  const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+  const reg = JSON.parse(raw);
+  const codigo = normCodigoLic(reg.licenseCode);
+  if (!codigo) return json({ error: "Este aparato no tiene licencia: activa una antes de registrar el pago" }, 400);
+  const monto = Number(body.monto), centavos = centavosExactos(monto);
+  if (!Number.isFinite(monto) || centavos === 0 || Math.abs(monto) > 1000000) return json({ error: "Monto invalido (distinto de 0; negativo = correccion)" }, 400);
+  const moneda = String(body.moneda || "USD").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "USD";
+  const medio = MEDIOS_PAGO.includes(String(body.medio || "").toLowerCase()) ? String(body.medio).toLowerCase() : "otro";
+  const sinFecha = body.fecha === undefined || body.fecha === "";
+  const sinHasta = body.hasta === undefined || body.hasta === "";
+  const hasta = sinHasta ? null : fechaCalendario(body.hasta);
+  const fecha = sinFecha ? new Date().toISOString().slice(0, 10) : fechaCalendario(body.fecha);
+  if (!fecha || (!sinHasta && !hasta)) return json({ error: "Fecha de pago o cobertura invalida" }, 400);
+  const asiento = {
+    id: `pg-${Date.now().toString(36)}-${trozoAleatorio(4)}`, ts: Date.now(), fecha, monto: Math.sign(monto) * centavos / 100, moneda, medio,
+    referencia: String(body.referencia || "").slice(0, 80), hasta, nota: String(body.nota || "").slice(0, 200),
+    quien: String(body.quien || "panel").slice(0, 40), instanceId
+  };
+  const clavePagos = `pagos:${codigo}`;
+  let pagos = []; try { const pr = await env.LICENCIAS.get(clavePagos); pagos = pr ? JSON.parse(pr) : []; } catch (_) { pagos = []; }
+  pagos.push(asiento);
+  await env.LICENCIAS.put(clavePagos, JSON.stringify(pagos));
+  const resumen = resumirPagos(pagos);
+  if (resumen.total > 0) {
+    let lic = {}; try { const lr = await env.LICENCIAS.get(`lic:${codigo}`); lic = lr ? JSON.parse(lr) : {}; } catch (_) { lic = {}; }
+    await env.LICENCIAS.put(`lic:${codigo}`, JSON.stringify(Object.assign({}, lic, { estado: "full", ts: Date.now(), pagada: true })));
+    reg.estado = "full"; reg.estadoFijadoPanel = true; reg.fullLicencia = codigo;
+  }
+  reg.pagoResumen = resumen;
+  await guardarConHistorial(env, instanceId, reg);
+  return json({ ok: true, codigo, asiento, resumen, pagos });
+}
+
+/* ===== SONAR DE CANARIOS (plan canarios F4, JFC 2026-09-25) =====
+   Tres canales en github.io, mismo origen y mismos datos:
+     /friendly-123/        estable  (clientes)
+     /friendly-123/next/   canario  (aparatos en la licencia lord de JFC)
+     /friendly-123/previo/ estable anterior (rewind de emergencia)
+   - canario:<shell>  lo que reportan los aparatos LORD en ese shell. Un rojo
+     (errores, scripts caidos, mezcla de versiones, descuadre) frena la
+     promocion automatica de 33 min (promover.yml).
+   - sonar:<shell>    resumen de TODOS los aparatos en ese shell: por aparato
+     (8 primeros caracteres del instanceId) si tiene errores/mezcla/caidas.
+   - canario:orden    ultima orden de JFC desde su panel (push / rewind). La
+     ejecuta sonar.yml en GitHub; no hace falta ningun token aqui.
+   - canario:detenido "1" = JFC congelo la promocion automatica.
+   Las lecturas son publicas porque solo devuelven numeros y codigos; escribir
+   ordenes exige la Master Key del panel. */
+// Technical license-panel health allowlist. NEVER copy input objects or
+// generic strings from a customer device; no money, customer data or PIN.
+function sanearEscritor(x) {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
+  const navigation = ["navigate", "reload", "back_forward", "prerender", "unknown"].includes(x.navigation)
+    ? x.navigation : "unknown";
+  return { fallbackLocal: n(x.fallbackLocal), strictFailure: n(x.strictFailure),
+    initCount: n(x.initCount),
+    pendientesRelay: x.pendientesRelay === null || x.pendientesRelay === undefined
+      ? null : n(x.pendientesRelay), navigation };
+}
+function sanearSalud(x) {
+  if (!x || typeof x !== "object") return null;
+  const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
+  const shell = String(x.shell || "").slice(0, 40);
+  return {
+    shell: /^f123-shell-v\d{1,5}$/.test(shell) ? shell : "",
+    canal: ["estable", "next", "previo"].includes(x.canal) ? x.canal : "estable",
+    errores: n(x.errores), caidas: n(x.caidas),
+    mezcla: x.mezcla === true, retenido: x.retenido === true,
+    cuadre: x.cuadre === "ok" || x.cuadre === "fallo" ? x.cuadre : null,
+    nodos: sanearNodos(x.nodos),
+    escritor: sanearEscritor(x.escritor),
+    at: Date.now(),
+  };
+}
+/* Nodos del Sonar: secciones de la app por lista blanca -> numero de errores. */
+const NODOS_APP = ["hoy", "escanear", "inventario", "perchas", "clientes", "comisiones", "gastos", "etiquetas", "avanzado", "arranque", "tablero"]; // tablero: v441 (dashboard.html, canario demo-visto)
+function sanearNodos(o) {
+  const r = {};
+  if (!o || typeof o !== "object") return r;
+  NODOS_APP.forEach((k) => { const v = Math.max(0, Math.min(100000, Math.floor(Number(o[k]) || 0))); if (v) r[k] = v; });
+  return r;
+}
+/* Nodos en rojo de un reporte: secciones con errores + organos internos. */
+function nodosEnRojo(s) {
+  const n = Object.keys(s.nodos || {});
+  if (s.cuadre === "fallo") n.push("dinero");
+  if (s.mezcla) n.push("version");
+  if (s.caidas > 0) n.push("codigo");
+  return n;
+}
+function sanearErrores(l) {
+  if (!Array.isArray(l) || !l.length) return null;
+  return l.slice(-10).map((e) => ({
+    msg: String((e && e.msg) || "").slice(0, 200), archivo: String((e && e.archivo) || "").slice(0, 60),
+    linea: Math.floor(Number(e && e.linea) || 0), ver: String((e && e.ver) || "").slice(0, 24),
+    cuando: String((e && e.cuando) || "").slice(0, 30), veces: Math.floor(Number(e && e.veces) || 1),
+  }));
+}
+function motivosDe(s) {
+  const m = [];
+  if (s.errores > 0) m.push("errores");
+  if (s.caidas > 0) m.push("caidas");
+  if (s.mezcla) m.push("mezcla");
+  if (s.cuadre === "fallo") m.push("cuadre");
+  return m;
+}
+async function leerJSON(env, k) { try { return JSON.parse((await env.LICENCIAS.get(k)) || "null"); } catch (_) { return null; } }
+async function registrarSonar(env, instanceId, registro) {
+  const s = registro.salud;
+  if (!s || !s.shell || s.at < Date.now() - 60000) return; // sin salud fresca en este latido
+  const id8 = instanceId.slice(0, 8);
+  const motivos = motivosDe(s);
+  const TTL = { expirationTtl: 60 * 60 * 24 * 90 };
+  const son = (await leerJSON(env, "sonar:" + s.shell)) || { shell: s.shell, aparatos: {} };
+  son.aparatos[id8] = { c: s.canal, m: motivos, n: nodosEnRojo(s), at: s.at };
+  const ids = Object.keys(son.aparatos);
+  if (ids.length > 600) ids.sort((a, b) => son.aparatos[a].at - son.aparatos[b].at).slice(0, ids.length - 600).forEach((k) => delete son.aparatos[k]);
+  await env.LICENCIAS.put("sonar:" + s.shell, JSON.stringify(son), TTL);
+  const lord = String(env.LORD_LICENSE || "").trim().toUpperCase();
+  if (!lord || String(registro.licenseCode || "").trim().toUpperCase() !== lord) return;
+  const c = (await leerJSON(env, "canario:" + s.shell)) || { shell: s.shell, primero: Date.now(), reportes: 0, rojos: [], canales: {} };
+  c.reportes += 1; c.ultimo = Date.now(); c.canales[s.canal] = Date.now();
+  if (motivos.length) c.rojos = c.rojos.concat([{ at: Date.now(), motivos, canal: s.canal }]).slice(-20);
+  await env.LICENCIAS.put("canario:" + s.shell, JSON.stringify(c), TTL);
+}
+async function handleCanarioEstado(req, env, url) {
+  const shell = String(url.searchParams.get("shell") || "").slice(0, 40);
+  if (!/^f123-shell-v\d{1,5}$/.test(shell)) return json({ error: "shell invalido" }, 400);
+  const c = (await leerJSON(env, "canario:" + shell)) || { shell, reportes: 0, rojos: [], canales: {} };
+  const son = (await leerJSON(env, "sonar:" + shell)) || { aparatos: {} };
+  const ap = Object.values(son.aparatos || {});
+  return json({
+    shell, reportes: c.reportes || 0, primero: c.primero || null, ultimo: c.ultimo || null,
+    canales: c.canales || {}, rojos: (c.rojos || []).map((r) => ({ at: r.at, motivos: r.motivos, canal: r.canal })),
+    rojo: (c.rojos || []).length > 0,
+    detenido: (await env.LICENCIAS.get("canario:detenido")) === "1",
+    orden: await leerJSON(env, "canario:orden"),
+    aparatos: ap.length,
+    aparatosConProblemas: ap.filter((a) => a.m && a.m.length).length,
+    // Mapa de la app: por nodo, cuantos aparatos lo tienen en rojo (ultimo reporte de cada uno).
+    nodos: ap.reduce((o, a) => { (a.n || []).forEach((k) => { o[k] = (o[k] || 0) + 1; }); return o; }, {}),
+  });
+}
+async function handleCanarioOrden(req, env) {
+  if (req.method === "GET") return json({ orden: await leerJSON(env, "canario:orden"), detenido: (await env.LICENCIAS.get("canario:detenido")) === "1" });
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body = {}; try { body = JSON.parse((await req.text()).slice(0, 1000)); } catch (_) {}
+  const accion = String(body.accion || "");
+  if (accion === "detener") { await env.LICENCIAS.put("canario:detenido", "1"); return json({ ok: true, detenido: true }); }
+  if (accion === "reanudar") { await env.LICENCIAS.delete("canario:detenido"); return json({ ok: true, detenido: false }); }
+  if (accion !== "push" && accion !== "rewind") return json({ error: "accion invalida" }, 400);
+  const orden = { id: Date.now().toString(36), accion, at: Date.now() };
+  await env.LICENCIAS.put("canario:orden", JSON.stringify(orden), { expirationTtl: 60 * 60 * 24 * 30 });
+  return json({ ok: true, orden });
+}
+
+// Only requested during an explicit Master PIN preparation/activation.
+// Read the existing registry (DO + KV) once per administrative action, with
+// bounded pagination. No mass polling, no business data, no Supabase calls.
+// KV is the durable registration path; DO can contain more recent records.
+async function idsRegistradosEnLicenciaParaPin(env,licenseCode) {
+  if(!env?.LICENCIAS||!env?.REGISTROS)throw Error("registry unavailable");
+  const ids=new Set();
+  const collect=value=>{
+    if(!value||typeof value.instanceId!=="string")return;
+    if(String(value.licenseCode||"").trim().toUpperCase()===licenseCode)
+      ids.add(value.instanceId);
+  };
+  let cursor,scanned=0;
+  do{
+    const page=await env.LICENCIAS.list({prefix:"inst:",limit:1000,...(cursor?{cursor}:{})});
+    if(!page||!Array.isArray(page.keys))throw Error("registry listing unavailable");
+    scanned+=page.keys.length;
+    if(scanned>3000)throw Error("registry scan bounded: admin may retry with indexed census");
+    for(let i=0;i<page.keys.length;i+=40){
+      const batch=page.keys.slice(i,i+40);
+      const rows=await Promise.all(batch.map(async k=>{
+        const raw=await env.LICENCIAS.get(k.name);
+        return raw?JSON.parse(raw):null;
+      }));
+      rows.forEach(collect);
+    }
+    if(page.list_complete)break;
+    if(!page.cursor||page.cursor===cursor)throw Error("registry cursor invalid");
+    cursor=page.cursor;
+  }while(true);
+  const stub=doLicencias(env);
+  if(!stub)throw Error("registry DO unavailable");
+  const response=await stub.fetch("https://do.invalid/all");
+  if(!response.ok)throw Error("registry DO unavailable");
+  const records=await response.json();
+  if(!Array.isArray(records)||records.length>3000)throw Error("registry DO invalid or unbounded");
+  records.forEach(collect);
+  if(ids.size>60)throw Error("census limit: review manually before cutover");
+  return [...ids].sort();
+}
+
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    if (req.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
+    const pin = await pinPublicRoute(req,env,{
+      getDo:doLicencias,authorizeMaster:requireMasterKey,
+      listRegisteredDeviceIds:idsRegistradosEnLicenciaParaPin,
+      readLicenseInstance:async (e,id)=>{
+        const stub=doLicencias(e);
+        if(stub){
+          try{
+            const response=await stub.fetch("https://do.invalid/r/"+encodeURIComponent(id));
+            if(response.ok){const value=await response.json();if(value)return value}
+          }catch(_) { /* fall back to license KV */ }
+        }
+        const raw=await e.LICENCIAS.get("inst:"+id);
+        return raw?JSON.parse(raw):null;
+      }
+    });
+    if(pin)return cors(pin);
+
+    if (url.pathname === "/maestro/emitir" && req.method === "POST") return issueRecovery(req, env);
+    if (url.pathname === "/maestro/verificar" && req.method === "POST") return verifyRecovery(req, env);
+
+    // Recuperación de PIN — público pero con validación de instanceId en KV
+    if (url.pathname === "/recover-pin" && req.method === "POST") {
+      return handleRecoverPin(req, env);
+    }
+
+    // Editar correo/nombre del dueño desde el panel (master, homologado)
+    if (url.pathname === "/editar-correo" && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleEditarCorreo(req, env);
+    }
+
+    // Public checkin (activation + login heartbeat)
+    if (url.pathname === "/canario/estado" && req.method === "GET") return handleCanarioEstado(req, env, url);
+    if (url.pathname === "/canario/orden" && (req.method === "GET" || req.method === "POST")) return handleCanarioOrden(req, env);
+    if (url.pathname === "/relay/provision" && req.method === "POST") return handleRelayProvision(req, env);
+    if ((url.pathname === "/checkin" || url.pathname === "/register") && req.method === "POST") {
+      return handleCheckin(req, env);
+    }
+
+    // Full instance list for panel
+    /* LOTES DE LICENCIAS y REGISTRO DE PAGOS (JFC 2026-09-24, escala 1.000-10.000
+       por gremios). Van ANTES de /licencias/:id para que "lote" no se lea como
+       un instanceId. Ver handleEmitirLote / handleRegistrarPago abajo. */
+    if (url.pathname === "/licencias/lote" && req.method === "POST") return handleEmitirLote(req, env);
+    if (url.pathname === "/lotes" && req.method === "GET") return handleListarLotes(req, env);
+    const mPagos = url.pathname.match(/^\/licencias\/([^/]+)\/pagos$/);
+    if (mPagos && req.method === "GET") return handleListarPagos(req, env, decodeURIComponent(mPagos[1]));
+    if (mPagos && req.method === "POST") return handleRegistrarPago(req, env, decodeURIComponent(mPagos[1]));
+
+    if (url.pathname === "/licencias" && req.method === "GET") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const claves = [];
+      let cursor;
+      do {
+        const pagina = await env.LICENCIAS.list({ prefix: "inst:", limit: 1000, ...(cursor ? { cursor } : {}) });
+        claves.push(...pagina.keys);
+        cursor = pagina.list_complete ? null : pagina.cursor;
+      } while (cursor);
+      // FIX (homologado de amigable-123, JFC 2026-07-29: "se queda en vacio
+      // en vez de desaparecer" tras borrar): KV.list() es eventualmente
+      // consistente -- justo despues de un DELETE puede seguir enumerando
+      // la llave un instante antes de que la baja se propague. get() de esa
+      // llave ya da null, y JSON.parse(null) NO explota: devuelve null en
+      // silencio. Ese null viajaba al panel y se pintaba como fila vacia.
+      const registrosKV = (await Promise.all(claves.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))))).filter(Boolean);
+
+      /* LECTURA FRESCA (JFC 2026-09-22). El DO es de instancia única, así que
+         lo que se escribió hace un segundo YA se lee aquí — eso es lo que KV
+         no puede dar. KV se sigue listando a propósito, por dos razones:
+           1. es la única forma de detectar que al DO le falta algo (relleno
+              perezoso de los registros que existían antes de este cambio);
+           2. si el DO fallara, el panel responde igual con KV: más rancio,
+              nunca vacío. Prefiero un panel lento a un panel que miente.
+         El panel lo usa solo JFC, así que la lista extra no es un costo real.
+         Se prefiere el DO solo cuando está al menos tan completo como KV: así
+         un DO a medio llenar nunca puede ESCONDER un aparato que sí existe. */
+      let registros = registrosKV;
+      let fuente = "kv";
+      let registrosDO = null;
+      try {
+        const stub = doLicencias(env);
+        if (stub) {
+          const rDO = await stub.fetch("https://do.invalid/all");
+          if (rDO.ok) registrosDO = await rDO.json();
+        }
+      } catch (_) { registrosDO = null; }
+
+      if (Array.isArray(registrosDO)) {
+        // Un total igual no prueba que sean los MISMOS aparatos: un registro
+        // nuevo en DO podía ocultar a Belén si otro faltaba allí. Unir por ID,
+        // dando prioridad al DO para cada registro que sí conoce.
+        const porId = new Map(registrosKV.filter((r) => r && r.instanceId).map((r) => [r.instanceId, r]));
+        const enDO = new Set();
+        for (const r of registrosDO) if (r && r.instanceId) { porId.set(r.instanceId, r); enDO.add(r.instanceId); }
+        registros = [...porId.values()];
+        fuente = enDO.size ? (registros.length > enDO.size ? "do+kv" : "do") : "kv";
+        for (const r of registrosKV) {
+          if (r && r.instanceId && !enDO.has(r.instanceId)) await espejarEnDO(env, r.instanceId, r);
+        }
+      }
+
+      registros.forEach((r) => { r.estado = normalizarEstado(r.estado); });
+      registros.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+      anotarHermanos(registros);
+      /* El diagnóstico va en CABECERA, no en el cuerpo, por dos razones:
+         1. el cuerpo es un ARRAY y JSON.stringify descarta las propiedades
+            sueltas de un array — una marca puesta ahí no llega nunca (fallo
+            real que tuve aquí mismo y que solo se ve al comprobarlo);
+         2. envolver la lista en un objeto para hacerle sitio ROMPERÍA
+            panel.html, que espera un array.
+         "do" = lectura fuertemente consistente; "kv" = camino de respaldo. */
+      const resp = json(registros);
+      resp.headers.set("X-Fuente-Registros", fuente);
+      return resp;
+    }
+
+    // Delete an instance (master only). Meant for cleaning up test records,
+    // not for punishing anyone: to cut service off use "bloqueada".
+    const mBorrar = url.pathname.match(/^\/licencias\/([^/]+)$/);
+    if (mBorrar && req.method === "DELETE") {
+      if (!requireMasterKey(req, env)) return json({ error: "Wrong Master Key" }, 401);
+      const instanceId = decodeURIComponent(mBorrar[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instance not found" }, 404);
+      // Archived BEFORE deleting, with no expiry. A one-click delete in a
+      // panel is exactly where regrets happen, and this costs a few hundred
+      // bytes. To recover: read borrado:<instanceId> and write it back.
+      await env.LICENCIAS.put(`borrado:${instanceId}`, JSON.stringify({
+        borradoEn: Date.now(), registro: JSON.parse(raw),
+      }));
+      await env.LICENCIAS.delete(`inst:${instanceId}`);
+      // La baja también sale del DO, o el panel seguiría mostrando el registro
+      // como fila fantasma justo por ser el camino "fresco".
+      await borrarDeDO(env, instanceId);
+      return json({ ok: true, archivadoEn: `borrado:${instanceId}` });
+    }
+
+
+    // Change instance status
+    const mEstado = url.pathname.match(/^\/licencias\/([^/]+)\/estado$/);
+    if (mEstado && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const instanceId = decodeURIComponent(mEstado[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+      const reg = JSON.parse(raw);
+      let body; try { body = await req.json(); } catch (_) { body = {}; }
+      const _e = String(body.estado || "").toLowerCase();
+      if (!ESTADOS_VALIDOS.includes(_e) && !MAPA_ESTADOS_VIEJOS[_e]) {
+        return json({ error: "Invalid state" }, 400);
+      }
+      reg.estado = normalizarEstado(body.estado);
+      /* v351 (code review #1): lo que JFC elige aquí queda FIJO. Antes, bajar
+         un aparato a "minima" en una licencia pagada volvía a "full" en la
+         misma solicitud y el panel decía OK. Marcar "full" sigue propagando
+         a toda la licencia (los demás aparatos lo heredan en su checkin). */
+      reg.estadoFijadoPanel = true;
+      if (reg.estado === "full") {
+        reg.fullLicencia = String(reg.licenseCode || "").trim().toUpperCase();
+        await aplicarLicenciaPagada(env, reg);
+      }
+      await guardarConHistorial(env, instanceId, reg);
+      return json({ ok: true });
+    }
+
+    // RE-ENGANCHAR OVEJA PERDIDA (JFC 2026-08-27). Un dispositivo puede quedar
+    // con una licencia trunca/vieja (ej. F123-5HSG-JENF) o ajena, y así queda
+    // "rogue": no se une a su licencia ni a sus hermanos. Este endpoint (master)
+    // re-apunta el registro KV de ESE dispositivo a la licencia canónica que JFC
+    // elige desde el panel. Pasa por guardarConHistorial, así que es reversible.
+    // NO toca syncCode (el KV no lo guarda) ni los datos locales del aparato:
+    // el dueño entra la licencia canónica en el dispositivo (claim & merge) para
+    // unir sus datos. Es el lado servidor del reensamblado.
+    /* A MI LICENCIA PRINCIPAL (v350, JFC 2026-09-22). "O son de alguien o son
+       míos": re-apunta un aparato suelto a la licencia principal de JFC, dueño
+       de la app. La licencia es el secret LORD_LICENSE (nunca en el repo, que
+       es público). Mismo camino que reapuntar: reversible vía historial. */
+    const mPrincipal = url.pathname.match(/^\/licencias\/([^/]+)\/a-principal$/);
+    if (mPrincipal && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const principal = String(env.LORD_LICENSE || "").trim().toUpperCase();
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(principal)) return json({ error: "Falta configurar LORD_LICENSE en el Worker" }, 503);
+      const instanceId = decodeURIComponent(mPrincipal[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+      const reg = JSON.parse(raw);
+      if (reg.estado === "full" && !reg.fullLicencia) reg.fullLicencia = String(reg.licenseCode || "").trim().toUpperCase(); // v351 #2
+      reg.licenseCode = principal;
+      await guardarConHistorial(env, instanceId, reg);
+      return json({ ok: true });
+    }
+
+    // APARATO DE JFC (v349) — DORMIDO v350: el panel ya no lo llama (ver
+    // a-principal). Se deja la ruta para no romper nada; NO BORRAR.
+    const mSoporte = url.pathname.match(/^\/licencias\/([^/]+)\/soporte$/);
+    if (mSoporte && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const instanceId = decodeURIComponent(mSoporte[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+      let body; try { body = await req.json(); } catch (_) { body = {}; }
+      if (typeof body.soporte !== "boolean") return json({ error: "soporte debe ser true o false" }, 400);
+      const reg = JSON.parse(raw);
+      reg.soporteJfc = body.soporte;
+      await guardarConHistorial(env, instanceId, reg);
+      return json({ ok: true, soporte: reg.soporteJfc });
+    }
+    const mReapuntar = url.pathname.match(/^\/licencias\/([^/]+)\/reapuntar$/);
+    if (mReapuntar && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const instanceId = decodeURIComponent(mReapuntar[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+      const reg = JSON.parse(raw);
+      let body; try { body = await req.json(); } catch (_) { body = {}; }
+      const nueva = String(body.licenseCode || "").trim().toUpperCase();
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(nueva)) return json({ error: "Licencia inválida" }, 400);
+      if (reg.estado === "full" && !reg.fullLicencia) reg.fullLicencia = String(reg.licenseCode || "").trim().toUpperCase(); // v351 #2
+      reg.licenseCode = nueva;
+      await guardarConHistorial(env, instanceId, reg);
+      return json({ ok: true, licenseCode: reg.licenseCode });
+    }
+
+    // FUSIONAR LICENCIAS (JFC 2026-08-27). "Qué licencia engancho a cuál otra".
+    // Re-apunta TODOS los dispositivos que hoy están en la licencia `origen` a
+    // la licencia `destino`. Es el reensamblado en bloque: si un negocio quedó
+    // partido entre una trunca/vieja (origen) y su canónica (destino), esto junta
+    // todas sus ovejas bajo la canónica. Pasa por guardarConHistorial (reversible).
+    // El panel muestra los dispositivos afectados ANTES de confirmar, para que
+    // JFC no mueva por error dispositivos de OTRO negocio que compartan origen.
+    if (url.pathname === "/licencias/fusionar" && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      let body; try { body = await req.json(); } catch (_) { body = {}; }
+      const origen = String(body.origen || "").trim().toUpperCase();
+      const destino = String(body.destino || "").trim().toUpperCase();
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(origen)) return json({ error: "Licencia origen inválida" }, 400);
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(destino)) return json({ error: "Licencia destino inválida" }, 400);
+      if (origen === destino) return json({ error: "Origen y destino son la misma licencia" }, 400);
+      const lista = await env.LICENCIAS.list({ prefix: "inst:" });
+      const movidos = [];
+      for (const k of lista.keys) {
+        const raw = await env.LICENCIAS.get(k.name);
+        if (!raw) continue;
+        let reg; try { reg = JSON.parse(raw); } catch (_) { continue; }
+        if (String(reg.licenseCode || "").trim().toUpperCase() === origen) {
+          reg.licenseCode = destino;
+          await guardarConHistorial(env, reg.instanceId, reg);
+          movidos.push({ instanceId: reg.instanceId, nombreNegocio: reg.nombreNegocio || "", nombre: reg.nombre || "" });
+        }
+      }
+      return json({ ok: true, movidos });
+    }
+
+    // Papelera: listar licencias borradas (master). Cierra el hueco de que un
+    // borrado accidental dejara a un cliente irrecuperable (JFC 2026-08-27).
+    if (url.pathname === "/borrados" && req.method === "GET") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleListarBorrados(env);
+    }
+
+    // Desarchivar (restaurar) una licencia borrada de vuelta a la lista (master).
+    const mDesarchivar = url.pathname.match(/^\/licencias\/([^/]+)\/desarchivar$/);
+    if (mDesarchivar && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleDesarchivar(env, decodeURIComponent(mDesarchivar[1]));
+    }
+
+    // Historial de versiones de una instancia (master, homologado)
+    const mHistorial = url.pathname.match(/^\/licencias\/([^/]+)\/historial$/);
+    if (mHistorial && req.method === "GET") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleHistorial(env, decodeURIComponent(mHistorial[1]));
+    }
+
+    // Restaurar una version anterior de una instancia (master, homologado)
+    const mRestaurar = url.pathname.match(/^\/licencias\/([^/]+)\/restaurar$/);
+    if (mRestaurar && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleRestaurar(req, env, decodeURIComponent(mRestaurar[1]));
+    }
+
+    // PAIR-QR v656 (ver handlePairPut arriba). Quitar estas 2 lineas lo apaga.
+    if (url.pathname === "/pair/put" && req.method === "POST") return handlePairPut(req, env);
+    if (url.pathname === "/pair/take" && req.method === "POST") return handlePairTake(req, env);
+
+    return json({ error: "Not found" }, 404);
+  },
+};
+
+/* ─────────────────────────────────────────────────────────────────────
+   DURABLE OBJECT: RegistroLicencias (JFC 2026-09-22)
+
+   Instancia ÚNICA ("registro-global") que guarda los mismos registros que
+   KV bajo la misma clave `inst:<instanceId>`. Su razón de existir es una
+   sola: un DO es de instancia única y sus lecturas son fuertemente
+   consistentes, así que el panel ve un cambio al instante en vez de esperar
+   la propagación de KV (que puede tardar decenas de segundos entre regiones).
+
+   NO es la fuente de verdad. KV lo sigue siendo y se escribe primero. Este
+   objeto es un espejo de lectura rápida; si se perdiera entero, el panel
+   volvería a leer de KV y el relleno perezoso lo reconstruiría solo.
+   Por eso aquí NO hay lógica de negocio: guardar, borrar y listar. Cualquier
+   regla (normalizar estado, agrupar hermanos, revisiones del nombre) vive en
+   el Worker, para que las dos rutas de lectura no puedan divergir.
+   ───────────────────────────────────────────────────────────────────── */
+/* Tamano de pagina de storage.list(). Estaba escrito DOS veces (en el limit y
+   en la condicion de corte): si alguien cambiaba uno y no el otro, la
+   paginacion se cortaba antes o se desfasaba EN SILENCIO y el panel empezaba a
+   esconder aparatos. Un solo numero, un solo lugar. 1000 es el maximo que
+   admite storage.list() por llamada. */
+const PAGINA_DO = 1000;
+
+export class RegistroLicencias {
+  constructor(state,env) { this.state = state; this.env = env; }
+
+  async fetch(req) {
+    const url = new URL(req.url);
+    const pinResult=pinDoRoute(req,this.state.storage,this.env);
+    if(pinResult)return pinResult;
+    const esRegistro = url.pathname.startsWith("/r/");
+    const id = esRegistro ? decodeURIComponent(url.pathname.slice(3)) : "";
+
+    if (esRegistro && id && req.method === "GET") {
+      const registro = await this.state.storage.get(`inst:${id}`);
+      return new Response(JSON.stringify(registro || null), { headers: { "Content-Type": "application/json" } });
+    }
+
+    if (esRegistro && id && req.method === "PUT") {
+      const registro = await req.json();
+      await this.state.storage.put(`inst:${id}`, registro);
+      return new Response('{"ok":true}', { headers: { "Content-Type": "application/json" } });
+    }
+
+    if (esRegistro && id && req.method === "DELETE") {
+      await this.state.storage.delete(`inst:${id}`);
+      return new Response('{"ok":true}', { headers: { "Content-Type": "application/json" } });
+    }
+
+    if (url.pathname === "/all" && req.method === "GET") {
+      /* Se pagina a propósito. storage.list() devuelve como máximo 1000 claves
+         por llamada: sin este bucle, el panel empezaría a ESCONDER aparatos en
+         silencio al pasar de mil licencias — la clase de fallo que no se nota
+         hasta que un cliente reclama que su aparato "no aparece". */
+      const salida = [];
+      let desde;
+      for (;;) {
+        const opciones = { prefix: "inst:", limit: PAGINA_DO };
+        if (desde) opciones.startAfter = desde;
+        const pagina = await this.state.storage.list(opciones);
+        if (!pagina || pagina.size === 0) break;
+        let ultima;
+        for (const [clave, valor] of pagina) { salida.push(valor); ultima = clave; }
+        if (pagina.size < PAGINA_DO) break;
+        desde = ultima;
+      }
+      return new Response(JSON.stringify(salida), { headers: { "Content-Type": "application/json" } });
+    }
+
+    return new Response('{"error":"ruta desconocida en el registro"}', {
+      status: 404, headers: { "Content-Type": "application/json" },
+    });
+  }
+}

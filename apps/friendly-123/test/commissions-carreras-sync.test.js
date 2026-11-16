@@ -1,0 +1,203 @@
+/* CARRERAS DE DINERO ENTRE DOS APARATOS (JFC 2026-09-24, Luis nivel 2).
+   Casos donde A y B actuan sobre la MISMA venta sin haberse visto todavia,
+   por el camino real (mock-backend + catalogoPropio/aplicarCatalogo, que es
+   lo que el relay reenvia). Regla: converger sin perder plata ni duplicarla. */
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { browser } = require('./helpers/browser.cjs');
+
+async function tienda(app) {
+  app.OCAuth = { rolActual: () => 'dueno' };
+  const shelf = await app.request('/api/ubicaciones', 'POST', { nombre: 'Race shelf', tipo: 'socio', comisionSocio: 40 });
+  const product = await app.request('/api/productos', 'POST', { nombre: 'Race print', sku: 'RACE-1', barcode: 'RACE-1', precio: 50, costo: 10, stockInicial: 20, ubicacionId: shelf.id });
+  return { shelf, product };
+}
+const venta = async (app, id) => (await app.request('/api/respaldo/exportar')).ventas.find(v => v.id === id);
+const ajustes = async (app) => (await app.request('/api/respaldo/exportar')).ajustesComision;
+const liq = async (app, shelf) => (await app.request('/api/liquidaciones')).find(f => f.ubicacionId === shelf.id);
+const cents = (n) => Math.round(Number(n) * 100);
+const sync = (X, Y) => { X.receive(Y); Y.receive(X); X.receive(Y); };
+
+test('A paga y B devuelve la misma venta sin haberse visto: al converger la venta queda pagada+devuelta y existe UN ajuste negativo', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const vA = (await A.request('/api/respaldo/exportar')).ventas.pop();
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  // Carrera: A marca pagado; B (sin saberlo) registra la devolucion.
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  const rB = await B.request(`/api/ventas/${vA.id}/devolucion`, 'POST', { motivo: 'race', quien: 'B' });
+  assert.equal(rB.ok, true);
+  sync(A, B);
+  const a = await venta(A, vA.id), b = await venta(B, vA.id);
+  for (const [x, n] of [[a, 'A'], [b, 'B']]) {
+    assert.equal(x.liquidada, true, n + ': lo pagado no se despaga');
+    assert.equal(x.devuelta, true, n + ': la devolucion no se pierde');
+  }
+  const ajA = await ajustes(A), ajB = await ajustes(B);
+  assert.equal(ajA.length, 1, 'venta pagada y devuelta => exactamente UN ajuste negativo (sin el, el socio se queda con comision de una venta que volvio)');
+  assert.equal(ajB.length, 1, 'B tiene el mismo unico ajuste');
+  assert.equal(ajA[0].id, ajB[0].id, 'mismo id en los dos aparatos (determinista, dedupe)');
+  assert.equal(cents(ajA[0].montoComisionSocio), -cents(vA.split.montoComisionSocio));
+  sync(A, B);
+  assert.equal((await ajustes(A)).length, 1, 'mergear de nuevo no duplica el ajuste');
+  const l = await liq(A, shelf);
+  assert.equal(l.ajustes.length, 1, 'la liquidacion muestra el clawback pendiente de descontar');
+});
+
+test('A y B corrigen el % del mes a la vez con valores distintos: converge a UNO y comision+neto=bruto en los dos', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/ubicaciones/${shelf.id}/comisiones-del-mes`, 'PATCH', { comisionPct: 30, quien: 'A', motivo: 'a' });
+  await B.request(`/api/ubicaciones/${shelf.id}/comisiones-del-mes`, 'PATCH', { comisionPct: 55, quien: 'B', motivo: 'b' });
+  sync(A, B);
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const a = await venta(A, id), b = await venta(B, id);
+  assert.equal(a.split.comisionPct, b.split.comisionPct, 'los dos aparatos muestran el mismo %');
+  for (const v of [a, b]) assert.equal(cents(v.split.montoComisionSocio) + cents(v.split.montoNetoDueno), cents(v.split.montoBruto));
+  assert.equal(cents((await liq(A, shelf)).ventasBrutas), cents((await liq(B, shelf)).ventasBrutas));
+});
+
+test('B corrige el % de una venta que A ya pago (sin verlo): al converger manda lo pagado, no la correccion', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await B.request(`/api/ubicaciones/${shelf.id}/comisiones-del-mes`, 'PATCH', { comisionPct: 90, quien: 'B', motivo: 'tarde' });
+  sync(A, B);
+  const a = await venta(A, id), b = await venta(B, id);
+  assert.equal(a.liquidada, true, 'A: lo pagado no se despaga'); assert.equal(b.liquidada, true, 'B: converge a pagada');
+  assert.equal(a.split.comisionPct, 40, 'A conserva el % con el que se pago');
+  assert.equal(b.split.comisionPct, 40, 'B descarta su correccion tardia: manda lo pagado');
+  assert.equal(cents(a.split.montoComisionSocio), 2000);
+  assert.equal(cents(b.split.montoComisionSocio), 2000);
+  assert.equal(cents(b.split.montoComisionSocio) + cents(b.split.montoNetoDueno), cents(b.split.montoBruto));
+});
+
+test('A y B marcan pagado el mismo mes a la vez: al converger nada se paga dos veces ni queda pendiente', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await B.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  sync(A, B);
+  for (const X of [A, B]) {
+    const l = await liq(X, shelf);
+    assert.equal(l.estado, 'pagado'); assert.equal(l.ventasPendientes, 0);
+    const vs = (await X.request('/api/respaldo/exportar')).ventas.filter(v => v.ubicacionId === shelf.id);
+    assert.equal(vs.length, 2, 'dos ventas, no cuatro'); assert.ok(vs.every(v => v.liquidada));
+  }
+});
+
+test('B devuelve una venta pendiente mientras A le corrige el %: conserva la venta y su reverso exacto sin deuda', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/ubicaciones/${shelf.id}/comisiones-del-mes`, 'PATCH', { comisionPct: 60, quien: 'A', motivo: 'x' });
+  await B.request(`/api/ventas/${id}/devolucion`, 'POST', { motivo: 'race', quien: 'B' });
+  sync(A, B);
+  for (const X of [A, B]) {
+    const v = await venta(X, id);
+    assert.ok(!v.anulada, 'se conserva la venta original');
+    assert.equal(v.devuelta, true, 'la devolucion no se pierde');
+    const reversos = await ajustes(X);
+    assert.equal(reversos.length, 1, 'un reverso fechado para esta devolucion');
+    assert.equal(v.split.montoComisionSocio + reversos[0].montoComisionSocio, 0, 'la correccion offline no cambia el reparto congelado por la devolucion');
+    assert.equal((await liq(X, shelf)).stillDue, 0, 'la venta y su reverso no dejan comision pendiente');
+  }
+});
+
+test('tras la carrera pago (A) / devolucion (B), el STOCK converge: la unidad devuelta vuelve una sola vez en los dos aparatos', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await B.request(`/api/ventas/${id}/devolucion`, 'POST', { motivo: 'race', quien: 'B' });
+  sync(A, B); sync(A, B);
+  const pa = await A.request(`/api/productos/${product.id}`), pb = await B.request(`/api/productos/${product.id}`);
+  assert.equal(pb.stockActual, 20, 'B devolvio la unidad: 20');
+  assert.equal(pa.stockActual, pb.stockActual, 'A converge al mismo stock (no 19, no 21)');
+});
+
+test('devolver una venta pagada con asistente cuando el asistente ya fue archivado: el clawback conserva el reparto original', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  const helper = await A.request('/api/promotoras', 'POST', { nombre: 'Helper', comisionBase: 10 });
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1, asistenteId: helper.id, asistentePct: 25 });
+  const v = (await A.request('/api/respaldo/exportar')).ventas.pop();
+  assert.equal(v.split.reparto.length, 2);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await A.request(`/api/promotoras/${helper.id}`, 'DELETE').catch(async () => A.request(`/api/promotoras/${helper.id}`, 'PUT', { borrado: true }).catch(() => {}));
+  const r = await A.request(`/api/ventas/${v.id}/devolucion`, 'POST', { motivo: 'archived helper', quien: 'A' });
+  assert.equal(r.ok, true);
+  assert.ok(Array.isArray(r.ajuste.reparto) && r.ajuste.reparto.length === 2, 'el ajuste reparte el negativo entre vendedor y asistente como se pago');
+  assert.equal(cents(r.ajuste.reparto.reduce((s, x) => s + x.monto, 0)), -cents(v.split.montoComisionSocio));
+});
+
+test('A paga el mes mientras B cambia la base a margen: lo pagado no se recalcula; solo las ventas nuevas usan margen', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await B.request(`/api/ubicaciones/${shelf.id}`, 'PUT', { baseComision: 'margen' });
+  sync(A, B);
+  for (const X of [A, B]) {
+    const v = await venta(X, id);
+    assert.equal(v.liquidada, true); assert.equal(v.split.baseComision, 'bruto'); assert.equal(cents(v.split.montoComisionSocio), 2000);
+    const u = await X.request(`/api/ubicaciones/${shelf.id}`).catch(() => null);
+    if (u) assert.equal(u.baseComision, 'margen', 'la percha converge a margen');
+  }
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const nueva = (await A.request('/api/respaldo/exportar')).ventas.pop();
+  assert.equal(nueva.split.baseComision, 'margen'); assert.equal(cents(nueva.split.montoComisionSocio), 1600, '40% de (50-10)');
+});
+
+test('TRES aparatos: C vuelve de dias offline con estado rancio; no despaga, no revive devoluciones, no duplica ajustes', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
+  const [v1, v2] = (await A.request('/api/respaldo/exportar')).ventas.slice(-2).map(v => v.id);
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' };
+  const C = browser(); C.OCAuth = { rolActual: () => 'dueno' };
+  B.receive(A); C.receive(A);           // C se desconecta aqui (foto rancia: nada pagado)
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  sync(A, B);
+  await B.request(`/api/ventas/${v1}/devolucion`, 'POST', { motivo: 'volvio', quien: 'B' });
+  sync(A, B);
+  await C.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 }); // venta nueva offline en C
+  const v3 = (await C.request('/api/respaldo/exportar')).ventas.pop().id;
+  // C vuelve y mergea en cualquier orden, dos veces
+  sync(C, A); sync(B, C); sync(A, B); sync(C, A);
+  for (const [X, n] of [[A, 'A'], [B, 'B'], [C, 'C']]) {
+    const e = await X.request('/api/respaldo/exportar');
+    const a = e.ventas.find(v => v.id === v1), b = e.ventas.find(v => v.id === v2), c = e.ventas.find(v => v.id === v3);
+    assert.ok(a && b && c, n + ': tiene las tres ventas');
+    assert.equal(a.liquidada, true, n + ': v1 sigue pagada'); assert.equal(a.devuelta, true, n + ': v1 sigue devuelta');
+    assert.equal(b.liquidada, true, n + ': v2 sigue pagada (C rancio no la despaga)');
+    assert.equal(!!c.liquidada, false, n + ': v3 (nueva de C) queda pendiente');
+    assert.equal(e.ajustesComision.length, 1, n + ': un solo clawback');
+    const p = e.productos.find(x => x.id === product.id);
+    assert.ok(p, n + ': producto presente');
+  }
+  const stocks = await Promise.all([A, B, C].map(async X => (await X.request(`/api/productos/${product.id}`)).stockActual));
+  assert.equal(new Set(stocks).size, 1, 'los tres convergen al mismo stock: ' + stocks.join(','));
+});
+
+test('un ajuste de devolucion ya descontado no vuelve a pendiente aunque llegue una copia con rev mas alto sin la marca', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await A.request(`/api/ventas/${id}/devolucion`, 'POST', { motivo: 'x', quien: 'A' });
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {}); // descuenta el ajuste
+  const aj = (await ajustes(A))[0];
+  assert.equal(aj.liquidada, true);
+  const rancio = Object.assign({}, aj, { liquidada: false, rev: { c: 999999, d: 'zz-rancio' } });
+  A.receive({ catalog: () => ({ ubicaciones: [], productos: [], ajustesComision: [rancio] }) });
+  assert.equal((await ajustes(A))[0].liquidada, true, 'lo descontado no se "desdescuenta"');
+  assert.equal((await liq(A, shelf)).ajustes.filter(x => !x.liquidada).length, 0, 'no reaparece como pendiente de descontar');
+});

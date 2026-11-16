@@ -1,0 +1,3932 @@
+// sync-yjs.js — PLAN C del sync redundante (CRDT / Yjs). FASE 0, spike.
+//
+// POR QUÉ EXISTE (JFC 2026-09-10): el sync casero (sync-realtime.js: relay +
+// Lamport + LWW + vector) funciona, pero JFC quiere REDUNDANCIA real en cascada
+// de fallbacks (diseño suyo): Plan A = nube propia del usuario, Plan B = 2ª nube
+// propia, Plan C = CRDT device-to-device que sirve AUNQUE todas las nubes estén
+// caídas. Yjs es ese piso garantizado. Aquí se construye Plan C PRIMERO porque no
+// depende de nadie y da alivio inmediato.
+//
+// SEGURIDAD / PRIME DIRECTIVE: ningún dato del cliente sale sin cifrar. Se usa el
+// MISMO esquema del sync actual (PBKDF2 del código de sala -> AES-GCM). El código
+// nunca viaja. El relay solo rebota bytes que no puede leer.
+//
+// ENCENDIDO POR DEFECTO (JFC 2026-09-15): es el único motor que cruza los BYTES
+// de las fotos device-to-device (sala "-fotos"). Solo se apaga si el dueño guarda
+// localStorage["OC_YJS_FASE0"] === "0". NO cuesta nada al que trabaja solo:
+// arrancar() no hace nada sin cuaderno compartido. Corre EN PARALELO al sync casero, en una
+// SALA DISTINTA del relay (sufijo "-y"), así los updates binarios de Yjs jamás
+// llegan al handler JSON de sync-realtime.js.
+// FASE 1 (2026-09-10): sincroniza TODAS las colecciones del catálogo (productos,
+// ubicaciones, usuarios, clientes) como Y.Maps de un mismo Y.Doc.
+// FASE 2 (2026-09-09, JFC "ya conectalo, world class"): Plan C YA lee/escribe el
+// store REAL de la app (mock-backend.js). store->Yjs con OCSync.catalogoPropio();
+// Yjs->store con OCSync.aplicarCatalogo() — el merge ADD-ONLY ya probado en
+// producción: nunca borra, nunca pierde, los merges son aditivos. Ver conectarStore().
+// Flag OC_YJS_FASE0 (toggle en Avanzado) ahora es escotilla de APAGADO ("0");
+// corre en paralelo al sync casero y en sala de relay separada ("-y").
+(function () {
+  "use strict";
+
+  var FLAG = "OC_YJS_FASE0";
+  /* SYNC NUEVO ENCENDIDO POR DEFECTO (JFC 2026-09-15). Antes estaba detrás del
+     flag apagado y por eso los BYTES de las fotos nunca cruzaban (solo este
+     motor los mueve, sala "-fotos"). Ahora corre para todos, EN PARALELO al
+     sync viejo (no lo reemplaza: menos riesgo). Escotilla de escape: si el
+     toggle de Avanzado guarda "0" explícito, se apaga. Sin clave (null) = ON. */
+  function activo() { try { return localStorage.getItem(FLAG) !== "0"; } catch (_) { return true; } }
+  if (!activo()) return; // solo se apaga si el dueño lo puso en "0" a mano
+
+  // Mismos parámetros que sync-realtime.js (NO cambiar sin cambiar allá también).
+  var ROOM_KEY = "f123_sync_room";
+  var SALT_FIJO = "amigable-sync-v1";
+  var RELAY_URL = "wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/";
+  var BUNDLE = "./vendor/yjs-bundle.min.js";
+
+  function leerSala() { try { return JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (_) { return null; } }
+  function normalizarCodigo(c) { return String(c || "").trim().toUpperCase(); }
+
+  async function derivarClave(codigo) {
+    var enc = new TextEncoder();
+    var base = await crypto.subtle.importKey("raw", enc.encode(codigo), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: enc.encode(SALT_FIJO), iterations: 100000, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+    );
+  }
+  async function idDeSala(codigo) {
+    var enc = new TextEncoder();
+    var hash = await crypto.subtle.digest("SHA-256", enc.encode("amigable-sala:" + codigo));
+    return [].slice.call(new Uint8Array(hash)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("").slice(0, 40);
+  }
+  // Cifrado BINARIO (updates de Yjs son bytes, no JSON): AES-GCM, iv de 12 al frente.
+  async function cifrarBin(clave, bytes) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var cif = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, clave, bytes);
+    var out = new Uint8Array(iv.length + cif.byteLength);
+    out.set(iv, 0); out.set(new Uint8Array(cif), iv.length);
+    return out.buffer;
+  }
+  async function descifrarBin(clave, buffer) {
+    var bytes = new Uint8Array(buffer);
+    var iv = bytes.slice(0, 12), cif = bytes.slice(12);
+    var claro = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, clave, cif);
+    return new Uint8Array(claro);
+  }
+
+  // ===================================================================
+  // CANAL DE RELAY con HANDSHAKE de catch-up (JFC 2026-09-10, fix del bug
+  // "no sincronizan fotos ni el nombre"). ANTES: cada aparato solo mandaba su
+  // estado en onopen; un aparato YA conectado no le compartía nada al que entra
+  // DESPUÉS, así que lo puesto antes (nombre, fotos) nunca llegaba (el relay solo
+  // rebota, no guarda historia). AHORA: state-vector de Yjs, dos vías y loop-safe.
+  //   Marco: 1 byte de tag + payload, todo cifrado.
+  //     tag 0 = update binario (aplicar)
+  //     tag 1 = "hola": mi state-vector. Quien lo recibe responde con lo que al
+  //             otro le falta (tag 0) Y su propio SV (tag 2) para pedir lo suyo.
+  //     tag 2 = respuesta de SV: se contesta SOLO con el diff (tag 0), sin re-pedir
+  //             (corta el ciclo). Así ambos convergen en un ida y vuelta.
+  // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
+  // ===================================================================
+  function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
+  // Gzip before encryption. Tag7 writes require a confirmed per-license device census.
+  async function _gzipYjs(bytes, decompress) {
+    var Stream = decompress ? window.DecompressionStream : window.CompressionStream;
+    // v765: a reader without DecompressionStream (Safari <16.4, Firefox <113, Chrome <80) must still apply a
+    // compressed checkpoint; otherwise its pull page fails and retries forever. Writers without it keep raw frames.
+    if (decompress && (typeof Stream !== "function" || typeof Response !== "function")) return _gunzipJs(bytes);
+    if (typeof Stream !== "function" || typeof Response !== "function") return null;
+    try {
+      var stream = new Stream("gzip"), writer = stream.writable.getWriter();
+      // Drain concurrently: waiting for write/close before reading can deadlock on large updates.
+      var read = new Response(stream.readable).arrayBuffer();
+      await writer.write(bytes); await writer.close();
+      return new Uint8Array(await read);
+    } catch (_) { return null; }
+  }
+  /* v765: gzip reader in plain JS (RFC 1952 + RFC 1951 inflate, same algorithm as zlib's puff.c by Mark Adler).
+     Used ONLY when the browser lacks DecompressionStream. Returns null on any malformed input, and also when the
+     gzip CRC32 or length trailer does not match, so a bad frame is rejected exactly like the native path. */
+  var _crcTabla = null;
+  var _LBASE = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+  var _LEXT = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+  var _DBASE = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+  var _DEXT = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+  var _ORDEN_CL = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+  function _gunzipJs(src) {
+    try {
+      if (!src || src.length < 18 || src[0] !== 31 || src[1] !== 139 || src[2] !== 8) return null;
+      var flg = src[3], pos = 10, i;
+      if (flg & 4) pos += 2 + (src[pos] | src[pos + 1] << 8);
+      if (flg & 8) while (src[pos++]) {}
+      if (flg & 16) while (src[pos++]) {}
+      if (flg & 2) pos += 2;
+      var out = new Uint8Array(Math.max(1024, src.length * 4)), n = 0, bitBuf = 0, bitCnt = 0;
+      var bits = function (need) {
+        while (bitCnt < need) { if (pos >= src.length) throw new Error("eof"); bitBuf |= src[pos++] << bitCnt; bitCnt += 8; }
+        var v = bitBuf & ((1 << need) - 1); bitBuf >>>= need; bitCnt -= need; return v;
+      };
+      var put = function (b) {
+        if (n === out.length) { var mas = new Uint8Array(out.length * 2); mas.set(out); out = mas; }
+        out[n++] = b;
+      };
+      var huff = function (lens, off, cnt) {
+        var count = new Uint16Array(16), symbol = new Uint16Array(cnt), offs = new Uint16Array(16), s, len, left = 1;
+        for (s = 0; s < cnt; s++) count[lens[off + s]]++;
+        for (len = 1; len <= 15; len++) { left = (left << 1) - count[len]; if (left < 0) throw new Error("over-subscribed"); }
+        for (len = 1; len < 15; len++) offs[len + 1] = offs[len] + count[len];
+        for (s = 0; s < cnt; s++) if (lens[off + s]) symbol[offs[lens[off + s]]++] = s;
+        return { count: count, symbol: symbol };
+      };
+      var decode = function (h) {
+        for (var len = 1, code = 0, first = 0, index = 0; len <= 15; len++) {
+          code |= bits(1);
+          var c = h.count[len];
+          if (code - c < first) return h.symbol[index + (code - first)];
+          index += c; first = (first + c) << 1; code <<= 1;
+        }
+        throw new Error("bad code");
+      };
+      var codes = function (lc, dc) {
+        for (;;) {
+          var sym = decode(lc);
+          if (sym < 256) { put(sym); continue; }
+          if (sym === 256) return;
+          sym -= 257; if (sym >= 29) throw new Error("bad length");
+          var len = _LBASE[sym] + bits(_LEXT[sym]), ds = decode(dc);
+          if (ds >= 30) throw new Error("bad distance");
+          var dist = _DBASE[ds] + bits(_DEXT[ds]);
+          if (dist > n) throw new Error("distance too far");
+          while (len--) put(out[n - dist]);
+        }
+      };
+      var fijoL = null, fijoD = null, last;
+      do {
+        last = bits(1);
+        var tipo = bits(2);
+        if (tipo === 0) {
+          bitBuf = 0; bitCnt = 0; // stored block: drop the partial byte (always < 8 bits here)
+          if (pos + 4 > src.length) return null;
+          var largo = src[pos] | src[pos + 1] << 8;
+          if (largo !== (~(src[pos + 2] | src[pos + 3] << 8) & 0xffff)) return null;
+          pos += 4; if (pos + largo > src.length) return null;
+          while (largo--) put(src[pos++]);
+        } else if (tipo === 1) {
+          if (!fijoL) {
+            var fl = new Uint8Array(288);
+            for (i = 0; i < 288; i++) fl[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+            fijoL = huff(fl, 0, 288); fijoD = huff(new Uint8Array(30).fill(5), 0, 30);
+          }
+          codes(fijoL, fijoD);
+        } else if (tipo === 2) {
+          var nlen = bits(5) + 257, ndist = bits(5) + 1, ncode = bits(4) + 4;
+          if (nlen > 286 || ndist > 30) return null;
+          var cl = new Uint8Array(19);
+          for (i = 0; i < ncode; i++) cl[_ORDEN_CL[i]] = bits(3);
+          var clh = huff(cl, 0, 19), ll = new Uint8Array(nlen + ndist), k = 0;
+          while (k < nlen + ndist) {
+            var sy = decode(clh);
+            if (sy < 16) { ll[k++] = sy; continue; }
+            var val = 0, rep;
+            if (sy === 16) { if (!k) return null; val = ll[k - 1]; rep = 3 + bits(2); }
+            else if (sy === 17) rep = 3 + bits(3);
+            else rep = 11 + bits(7);
+            if (k + rep > nlen + ndist) return null;
+            while (rep--) ll[k++] = val;
+          }
+          if (!ll[256]) return null;
+          codes(huff(ll, 0, nlen), huff(ll, nlen, ndist));
+        } else return null;
+      } while (!last);
+      if (pos + 8 > src.length) return null;
+      var crcIn = (src[pos] | src[pos + 1] << 8 | src[pos + 2] << 16 | src[pos + 3] << 24) >>> 0;
+      var isize = (src[pos + 4] | src[pos + 5] << 8 | src[pos + 6] << 16 | src[pos + 7] << 24) >>> 0;
+      if (isize !== (n >>> 0)) return null;
+      if (!_crcTabla) {
+        _crcTabla = new Int32Array(256);
+        for (i = 0; i < 256; i++) { var c0 = i; for (var b = 0; b < 8; b++) c0 = c0 & 1 ? 0xEDB88320 ^ (c0 >>> 1) : c0 >>> 1; _crcTabla[i] = c0; }
+      }
+      var crc = -1;
+      for (i = 0; i < n; i++) crc = _crcTabla[(crc ^ out[i]) & 255] ^ (crc >>> 8);
+      if (((crc ^ -1) >>> 0) !== crcIn) return null;
+      return out.slice(0, n);
+    } catch (_) { return null; }
+  }
+  // Progressive per-license transport rollout; fail closed if policy cannot be loaded.
+  async function _politicaRollout(codigo) {
+    var off = {outboxV2:false,gzipWrite:false,stage:"disabled"};
+    try {
+      var bytes = new TextEncoder().encode("friendly123-rollout-v1:" + codigo);
+      var hash = await crypto.subtle.digest("SHA-256",bytes);
+      var key = Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+      // Keep cold boot responsive even when the policy asset is unreachable.
+      var res = await Promise.race([
+        fetch("./sync-rollout.json",{cache:"no-store",credentials:"same-origin"}),
+        new Promise(function(resolve){setTimeout(function(){resolve(null);},900);})
+      ]);
+      if (!res || !res.ok) return off;
+      var cfg = await res.json();
+      if (!cfg || cfg.schema !== 1 || !["owner-canary","consenting-client","all"].includes(cfg.stage)) return off;
+      var entry = cfg.licenses && cfg.licenses[key];
+      // Later, after separate customer acceptance, an explicit owner-approved
+      // all-stage gate may enable only S4 globally. Gzip stays per-license.
+      if ((!entry || entry.stage !== "all") && cfg.stage === "all" && cfg.allOutboxV2 === true && cfg.allApproved === true)
+        entry = {stage:"all",approved:true,outboxV2:true,gzipWrite:false};
+      if (!entry || entry.stage !== cfg.stage || entry.approved !== true) return off;
+      var fullCensus = entry.allDevicesOnNewShell === true &&
+        Number.isSafeInteger(entry.minimumShell) && entry.minimumShell >= 637 &&
+        /^[a-f0-9]{64}$/.test(entry.deviceCensusSha256 || "") &&
+        /^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(entry.censusDate || "") &&
+        entry.gzipApproved === true;
+      return {outboxV2:entry.outboxV2 === true,
+        gzipWrite:entry.gzipWrite === true && fullCensus,stage:cfg.stage};
+    } catch (_) {return off;}
+  }
+  function _compactarYjsSinCambiarCausalidad(Y, full) {
+    if (!full || full.length > 2097152) return null;
+    var base = null, check = null;
+    try {
+      base = new Y.Doc({gc:true});
+      Y.applyUpdate(base, full);
+      var compact = Y.encodeStateAsUpdate(base);
+      if (!compact || compact.length >= full.length) return null;
+      check = new Y.Doc({gc:true});
+      Y.applyUpdate(check, compact);
+      if (!Y.equalSnapshots(Y.snapshot(base), Y.snapshot(check))) return null;
+      if (JSON.stringify(base.toJSON()) !== JSON.stringify(check.toJSON())) return null;
+      return compact;
+    } catch (_) { return null; }
+    finally {
+      try { if (base) base.destroy(); } catch (_) {}
+      try { if (check) check.destroy(); } catch (_) {}
+    }
+  }
+  function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
+    var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
+    var _pausado = false, _tReconnect = null;
+    function permitido() { return !document.hidden; } // JFC 2026-11-12: sin turno entre pestanas
+    var MAX_OP_BYTES = 250 * 1024; // guard de operaciones; no relajar
+    var MAX_CKPT_RPC_BYTES = 256 * 1024; // fallback para adaptadores sin capacidad anunciada
+    var MAX_CKPT_CIPHER_BYTES = 768 * 1024; // requiere migracion SQL 768KiB antes de habilitar adaptador
+    var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
+    /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
+       mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
+    var PULL_PAGE_SIZE = nombre === "fotos" ? 4 : 64;
+    var T_CONEXION_ESTABLE_MS = 30000;
+    var partesEntrantes = Object.create(null), partesEnVivo = Object.create(null);
+    var MAX_GRUPOS_EN_VIVO = 64, MAX_BYTES_EN_VIVO = 16 * 1024 * 1024;
+    var reintentos = 0; // backoff (fix B, JFC 2026-09-10): antes reconectaba fijo
+                        // cada 4s; si el relay cerraba (p.ej. frame grande), era una
+                        // tormenta de upgrades -> límite diario del worker. Ahora
+                        // exponencial con jitter y tope 30s, como el sync viejo.
+    var _tEstable = null;
+    var _colaRecepcion = Promise.resolve();
+    var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
+    var _pullCursor = { rev: -1, seq: 0 }, _appliedPullCursor = { rev: -1, seq: 0 };
+    var _pullCursorReady = Promise.resolve();
+    // Encrypted durable outbox lives alongside the local Y.Doc, scoped by room/channel.
+    // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
+    var _outboxKey = "f123_relay_outbox_v1" + suffix;
+    var _outbox = { pending: [], checkpoint: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
+    /* v739 (revision de Fable 5.2): el checkpoint se recuerda por (hash del estado, capas que LO CONFIRMARON):
+       _outbox.checkpoint = "<hash>#capaA,capaB". Asi cada capa durable recibe una vez la copia completa, la capa que
+       confirma es la del socket que dio el acuse (no la que estaba activa al codificar), y alternar capas ya no
+       reescribe 768 KiB en cada cambio. Un valor viejo sin '#' (o con el sufijo de v735) se reescribe una vez. */
+    function ckptCapas(guardado, hash) { var p = String(guardado || "").split("#"); return p[0] === hash && p[1] ? p[1].split(",") : []; }
+    function ckptYaEnCapa(guardado, hash, capa) { return ckptCapas(guardado, hash).indexOf(String(capa || "local")) !== -1; }
+    function ckptMarcar(guardado, hash, capa) { var l = ckptCapas(guardado, hash); capa = String(capa || "local"); if (l.indexOf(capa) === -1) l.push(capa); return hash + "#" + l.join(","); }
+    // Leave headroom under this socket's 4 MiB cap for new changes and control frames.
+    var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
+    var _groupAcks = new Set();
+    // v594: legacy outbox classification runs once per channel lifetime (see clasificarHeredados).
+    var _heredadosListo = false;
+    var _lastRelayProgressAt = 0, _cupoRechazado = false;
+    var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
+    // Bounded v1 checkpoint repair across socket reconnects (never per socket).
+    var _legacyProbeKey = "", _legacyProbeAttempts = 0;
+    var _relayPeerCount = 0, _directReceive = null;
+    var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var _direct = Object.create(null);
+    // Ephemeral encrypted correlation only; never business IDs or plaintext telemetry.
+    var _measurementPeers = Object.create(null), _measurementCounter = 0;
+    var _appliedMeasurements = new Map(), _measurementRequests = new Map();
+    function boundedSet(map, key, value) {
+      if (!map.has(key) && map.size >= 200) map.delete(map.keys().next().value);
+      map.set(key, value);
+    }
+    function updateHash(bytes) {
+      return crypto.subtle.digest("SHA-256", bytes).then(function (hash) {
+        return Array.from(new Uint8Array(hash)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      });
+    }
+    function measureUpdate(payload) {
+      var meter = window.OCLatencia;
+      if (!meter || typeof meter.iniciarEntrega !== "function") return;
+      var peers = Object.keys(_measurementPeers).filter(function (id) { return _measurementPeers[id] === true; });
+      // Unknown/older participants invalidate coverage; never certify only the fastest peer.
+      if (nombre !== "catalogo" || !canal.ws || canal.ws.readyState !== 1 || _relayPeerCount < 2 || peers.length !== _relayPeerCount - 1) peers = [];
+      var id = _peerId + "_" + (++_measurementCounter);
+      if (!meter.iniciarEntrega(id, nombre, peers)) return;
+      updateHash(payload).then(function (hash) { signal("measure", "", { id: id, hash: hash }); }).catch(function () {});
+    }
+    function acknowledgeVisible(hash) {
+      var applied = _appliedMeasurements.get(hash);
+      if (!applied || Date.now() - applied.at > 10000) return;
+      _measurementRequests.forEach(function (request, key) {
+        if (request.hash !== hash || request.running) return;
+        request.running = true;
+        // This callback is an explicit application/render contract, not a paint timer
+        // pretending that decrypting a frame made its business data visible.
+        Promise.resolve().then(function () {
+          if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return false;
+          return applied.receipt;
+        }).then(function (ok) {
+          _measurementRequests.delete(key);
+          if (ok === true) signal("visible", request.from, { id: request.id });
+        }).catch(function () { _measurementRequests.delete(key); });
+      });
+    }
+    function appliedUpdate(payload, receipt) {
+      if (nombre !== "catalogo" || typeof crypto === "undefined" || !crypto.subtle) return;
+      updateHash(payload).then(function (hash) {
+        boundedSet(_appliedMeasurements, hash, { at: Date.now(), receipt: receipt });
+        acknowledgeVisible(hash);
+      }).catch(function () {});
+    }
+    function measurementSignal(msg) {
+      if (msg.kind === "visible") {
+        if (msg.to === _peerId && msg.data && window.OCLatencia && window.OCLatencia.confirmarEntrega)
+          window.OCLatencia.confirmarEntrega(msg.data.id, msg.from);
+        return true;
+      }
+      if (msg.kind !== "measure") return false;
+      var data = msg.data;
+      if (!data || !/^[a-zA-Z0-9_-]{1,80}$/.test(data.id) || !/^[a-f0-9]{64}$/.test(data.hash)) return true;
+      var key = msg.from + ":" + data.id;
+      if (_measurementRequests.has(key)) return true;
+      boundedSet(_measurementRequests, key, { from: msg.from, id: data.id, hash: data.hash, running: false });
+      acknowledgeVisible(data.hash);
+      return true;
+    }
+    function signal(kind, to, data) {
+      if (typeof TextEncoder === "undefined") return;
+      publicar(4, new TextEncoder().encode(JSON.stringify({ from: _peerId, to: to || "", kind: kind, data: data })), false);
+    }
+    function attachDirect(peer, channel) {
+      peer.dc = channel; channel.binaryType = "arraybuffer";
+      channel.onmessage = function (ev) {
+        if (_directReceive && ev.data instanceof ArrayBuffer) _directReceive(ev.data);
+      };
+      channel.onopen = function () { canal.paresDirectos = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; }).length; };
+      channel.onclose = function () { canal.paresDirectos = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; }).length; };
+    }
+    function directPeer(id) {
+      // v517 (informe Codex #1): limpiar ANTES de reutilizar; un par failed/closed ya no se devuelve.
+      // v514: como el cierre del relay ya no vacia la lista, se limpian aqui los pares muertos.
+      Object.keys(_direct).forEach(function (k) {
+        var st = _direct[k].pc && _direct[k].pc.connectionState;
+        if (st === "closed" || st === "failed") { try { _direct[k].pc.close(); } catch (_) {} delete _direct[k]; }
+      });
+      if (_direct[id]) return _direct[id];
+      if (Object.keys(_direct).length >= 11) return null;
+      // v656 (JFC 2026-11-03): cascade same Wi-Fi -> STUN -> TURN (Open Relay, never Cloudflare). directPeer must stay
+      // synchronous, so it takes the list F123Ice (peer-sync.js, loaded first) already built, else its STUN-only list.
+      // To disable: set F123_TURN_ON=false in peer-sync.js (STUN only) or put [] back here (same Wi-Fi only).
+      var F = typeof window !== "undefined" && window.F123Ice, ice = (F && ((F.cached && F.cached()) || (F.stun && F.stun()))) || [];
+      if (F && F.build) F.build(); // refresh the hourly cache for the next peer
+      var pc = new RTCPeerConnection({ iceServers: ice });
+      var peer = _direct[id] = { pc: pc, dc: null, ice: [] };
+      pc.onicecandidate = function (ev) { if (ev.candidate) signal("ice", id, ev.candidate.toJSON()); };
+      pc.ondatachannel = function (ev) { attachDirect(peer, ev.channel); };
+      return peer;
+    }
+    async function receiveSignal(msg) {
+      if (!msg || typeof msg.from !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(msg.from) ||
+          msg.from === _peerId || (msg.to && msg.to !== _peerId)) return;
+      if (measurementSignal(msg)) return;
+      if (canal.ws && canal.ws.peerOnly) return; // The socket already owns the direct connection.
+      if (msg.kind === "hello") {
+        var first = !Object.prototype.hasOwnProperty.call(_measurementPeers, msg.from);
+        if (Object.keys(_measurementPeers).length < 32 || !first) _measurementPeers[msg.from] = !!(msg.data && msg.data.measurement === 1);
+        if (first) signal("hello", msg.from, { measurement: 1 });
+      }
+      if (typeof RTCPeerConnection === "undefined") return;
+      var peer = directPeer(msg.from), known = !!(peer && peer.dc); // v517: known tras limpiar
+      if (!peer) return;
+      try {
+        if (msg.kind === "hello") {
+          // Capability hello is answered once above, independently of WebRTC.
+          if (_peerId < msg.from && peer.pc.signalingState === "stable" && !peer.dc) {
+            attachDirect(peer, peer.pc.createDataChannel("friendly-ciphertext"));
+            await peer.pc.setLocalDescription(await peer.pc.createOffer());
+            signal("offer", msg.from, peer.pc.localDescription.toJSON());
+          }
+        } else if (msg.kind === "offer" && msg.from < _peerId) {
+          await peer.pc.setRemoteDescription(msg.data);
+          for (const ice of peer.ice.splice(0)) await peer.pc.addIceCandidate(ice);
+          await peer.pc.setLocalDescription(await peer.pc.createAnswer());
+          signal("answer", msg.from, peer.pc.localDescription.toJSON());
+        } else if (msg.kind === "answer" && peer.pc.signalingState === "have-local-offer") {
+          await peer.pc.setRemoteDescription(msg.data);
+          for (const ice of peer.ice.splice(0)) await peer.pc.addIceCandidate(ice);
+        } else if (msg.kind === "ice") {
+          if (peer.pc.remoteDescription) await peer.pc.addIceCandidate(msg.data);
+          else if (peer.ice.length < 64) peer.ice.push(msg.data);
+        }
+      } catch (_) { try { peer.pc.close(); } catch (_) {} delete _direct[msg.from]; }
+    }
+    function enviarDirecto(buf) {
+      if (_pausado || !permitido()) return false;
+      if (canal.ws && canal.ws.peerOnly) return false;
+      var peers = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; });
+      // v514: sin relay, se entrega en vivo a los pares directos abiertos, pero se devuelve false
+      // para que el mismo cambio quede tambien en la cola del relay (nadie se queda sin el).
+      if (!canal.ws || canal.ws.readyState !== 1) {
+        // v666 (OpenCode N5): same size guard as the relay-open branch; Safari peers accept 64 KB per message.
+        peers.forEach(function (p) { try { if (p.dc.bufferedAmount <= 512 * 1024 && buf.byteLength <= (p.pc.sctp && p.pc.sctp.maxMessageSize || 65536)) p.dc.send(buf); } catch (_) {} });
+        return false;
+      }
+      // Never omit a relay-only device. Presence comes from the relay, not a guess.
+      if (_relayPeerCount < 2 || peers.length !== _relayPeerCount - 1) return false;
+      if (peers.some(function (p) { return p.dc.bufferedAmount > 512 * 1024 || buf.byteLength > (p.pc.sctp && p.pc.sctp.maxMessageSize || 65536); })) return false;
+      try { peers.forEach(function (p) { p.dc.send(buf); }); return true; } catch (_) { return false; }
+    }
+    var _unsaved = [];
+    function avisarDurable() {
+      // v594: legacy orphan fragments (huerfano) are stored but not retryable: they do not count as pending work.
+      canal.pendientesRelay = _vivos().length + _unsaved.filter(function (entry) {
+        return !_outbox.pending.some(function (x) { return x.id === entry.id; });
+      }).length;
+      canal.huerfanosHeredados = _outbox.pending.length - _vivos().length;
+      try { window.dispatchEvent(new CustomEvent("oc-relay-durable", { detail: { canal: nombre, pendientes: canal.pendientesRelay } })); } catch (_) {}
+    }
+    // v594: entries still eligible for sending. An entry flagged `huerfano` stays in the persisted outbox
+    // (never purged blindly) but is excluded from sends, in-flight slots, timers and the pending counter.
+    function _vivos() { return _outbox.pending.filter(function (entry) { return !entry.huerfano; }); }
+    /* v594 (pendiente 2, "envios antiguos incompletos"). Builds <= v592 retired every fragment of a durable group on
+       ITS OWN ACK, so one lost sibling ACK left a persisted group with some fragments missing. v593 keeps complete
+       groups for NEW sends (local `group` id), but those old entries carry no `group`, the receiver can never assemble
+       them and so never ACKs: endless resends (relay cost) and pending > 0 forever, with up to 4 in-flight slots held.
+       The group id/index/total are inside the encrypted frame (tag 3, same layout manejar() reads), so this device,
+       which owns the key, can read them without guessing or rebuilding anything:
+         - all `total` siblings present  -> adopt `group = id` (the exact v593 format) and keep the old behaviour.
+         - siblings missing              -> flag `huerfano`: kept on disk, never sent again, not counted as pending.
+       Preserve orphan ciphertext: a checkpoint ACK and wall clock cannot prove that the local journal still contains
+       every byte of an old incomplete update. Recovery/export may still need those fragments. */
+    function clasificarHeredados() {
+      if (_heredadosListo || !API.clave) return Promise.resolve();
+      var candidatos = _outbox.pending.filter(function (entry) {
+        return entry.k === "op" && !entry.group && !entry.huerfano && typeof entry.c === "string";
+      });
+      if (!candidatos.length) { _heredadosListo = true; return Promise.resolve(); }
+      return Promise.all(candidatos.map(function (entry) {
+        return Promise.resolve().then(function () {
+          var binary = atob(entry.c), encrypted = new Uint8Array(binary.length);
+          for (var i = 0; i < binary.length; i++) encrypted[i] = binary.charCodeAt(i);
+          return descifrarBin(API.clave, encrypted.buffer);
+        }).then(function (bytes) {
+          if (bytes.length < 22 || bytes[0] !== 3) return null; // single-frame update: not a fragment
+          var gid = ""; for (var q = 2; q < 18; q++) gid += String.fromCharCode(bytes[q]);
+          return { id: entry.id, gid: gid, idx: bytes[18] * 256 + bytes[19], total: bytes[20] * 256 + bytes[21] };
+        }).catch(function () { return null; }); // unreadable entry: leave it exactly as before
+      })).then(function (heads) {
+        var info = Object.create(null), found = 0;
+        heads.forEach(function (h) { if (h && h.total && h.idx < h.total) { info[h.id] = h; found++; } });
+        if (!found) return;
+        var marcados = 0;
+        return mutarOutbox(function () {
+          var grupos = Object.create(null);
+          _outbox.pending.forEach(function (entry) {
+            var h = info[entry.id];
+            if (!h || entry.k !== "op" || entry.group || entry.huerfano) return;
+            var g = grupos[h.gid] || (grupos[h.gid] = { total: h.total, idx: Object.create(null), items: [], coherente: true });
+            if (g.total !== h.total) g.coherente = false;
+            g.idx[h.idx] = true; g.items.push({ entry: entry, h: h });
+          });
+          Object.keys(grupos).forEach(function (gid) {
+            var g = grupos[gid], completo = g.coherente && Object.keys(g.idx).length === g.total;
+            g.items.forEach(function (it) {
+              if (completo) it.entry.group = gid;
+              else { it.entry.huerfano = { at: Date.now(), gid: gid, idx: it.h.idx, total: g.total }; marcados++; }
+            });
+          });
+        }).then(function () {
+          if (marcados) { try { log("v594: " + marcados + " fragmento(s) heredado(s) sin hermanos en " + nombre + "; no se reintentan, se conservan"); } catch (_) {} }
+        });
+      }).catch(function () {}).then(function () { _heredadosListo = true; }); // one attempt per lifetime: failure = old behaviour
+    }
+    // JFC test room: upgrade a 107MB single-value outbox into one durable IDB row per op.
+    // The old value is removed only in the SAME atomic transaction that writes every row.
+    var _v2DB = null, _v2Ready = null, _v2Cache = null, _v2Revision = -1;
+    var _v2Signatures = new Map(), _v2Prefix = "f123_relay_outbox_v2" + suffix + ":op:";
+    var _v2MetaKey = "f123_relay_outbox_v2" + suffix + ":meta";
+    function v2Signature(entry) {
+      return String(entry.group || "") + "|" + JSON.stringify(entry.huerfano || null);
+    }
+    function v2Db() {
+      if (_v2Ready) return _v2Ready;
+      _v2Ready = Promise.resolve().then(async function () {
+        if (!persistencia || (!persistencia.db && !persistencia._db)) return null;
+        var db = persistencia.db || await persistencia._db;
+        if (!db || !db.objectStoreNames.contains("custom")) return null;
+        var meta = await persistencia.get(_v2MetaKey);
+        // Existing v2 must stay v2 even if rollout config is offline or the phase changes.
+        if (meta && meta.v === 2 && API.rollout) API.rollout.outboxV2 = true;
+        if (!(API.rollout && API.rollout.outboxV2) && (!meta || meta.v !== 2)) return null;
+        if (!meta || meta.v !== 2) {
+          var old = await persistencia.get(_outboxKey);
+          if (!old || !Array.isArray(old.pending)) old = {pending:[],confirmed:[],checkpoint:""};
+          // A large legacy outbox cannot be copied atomically without doubling
+          // browser quota and freezing the device. Keep it in v1 until a separate,
+          // bounded migration is available; never discard even one real operation.
+          var legacyBytes = 0;
+          for (var q = 0; q < old.pending.length && legacyBytes <= 8 * 1024 * 1024; q++)
+            legacyBytes += String(old.pending[q].c || "").length;
+          if (old.pending.length > 512 || legacyBytes > 8 * 1024 * 1024) {
+            try { log("S4: large legacy outbox deferred; original envelopes untouched", old.pending.length); } catch (_) {}
+            return null;
+          }
+          await new Promise(function (resolve, reject) {
+            var tx = db.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+            tx.oncomplete = resolve; tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox migration failed")); };
+            old.pending.forEach(function (entry) { store.put(entry, _v2Prefix + entry.id); });
+            store.put({v:2,rev:1,checkpoint:old.checkpoint || "",confirmed:old.confirmed || []}, _v2MetaKey);
+            store.delete(_outboxKey); // atomic with all writes: crash cannot lose old queue
+          });
+          _v2Cache = old; _v2Revision = 1;
+          _v2Signatures = new Map(old.pending.map(function (entry) { return [entry.id, v2Signature(entry)]; }));
+        }
+        _v2DB = db;
+        return db;
+      }).catch(function () { return null; }); // remain on proven v1 path if quota/migration fails
+      return _v2Ready;
+    }
+    async function leerOutbox() {
+      if (!await v2Db()) {
+        if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
+        try { return JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null"); }
+        catch (e) { throw e; }
+      }
+      var meta = await persistencia.get(_v2MetaKey);
+      if (!meta || meta.v !== 2) throw Error("outbox v2 metadata absent");
+      if (_v2Cache && _v2Revision === meta.rev) return _v2Cache;
+      var pending = await new Promise(function (resolve, reject) {
+        var list = [], tx = _v2DB.transaction(["custom"], "readonly");
+        var req = tx.objectStore("custom").openCursor(IDBKeyRange.bound(_v2Prefix, _v2Prefix + "\uffff"));
+        req.onsuccess = function () {
+          var cur = req.result;
+          if (!cur) { resolve(list); return; }
+          list.push(cur.value); cur.continue();
+        };
+        req.onerror = tx.onabort = function () { reject(req.error || tx.error || Error("outbox read failed")); };
+      });
+      _v2Cache = {pending:pending,confirmed:meta.confirmed || [],checkpoint:meta.checkpoint || ""};
+      _v2Revision = meta.rev;
+      _v2Signatures = new Map(pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+      return _v2Cache;
+    }
+    function guardarOutbox() {
+      if (!_v2DB) {
+        if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
+        try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
+        catch (e) { return Promise.reject(e); }
+      }
+      var next = new Map(_outbox.pending.map(function (entry) { return [entry.id,entry]; }));
+      return new Promise(function (resolve, reject) {
+        var tx = _v2DB.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+        tx.oncomplete = function () {
+          _v2Revision += 1; _v2Cache = _outbox;
+          _v2Signatures = new Map(_outbox.pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+          resolve();
+        };
+        tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox commit failed")); };
+        _v2Signatures.forEach(function (_, id) { if (!next.has(id)) store.delete(_v2Prefix + id); });
+        next.forEach(function (entry, id) {
+          if (!_v2Signatures.has(id) || _v2Signatures.get(id) !== v2Signature(entry))
+            store.put(entry, _v2Prefix + id);
+        });
+        store.put({v:2,rev:_v2Revision + 1,checkpoint:_outbox.checkpoint,
+          confirmed:_outbox.confirmed}, _v2MetaKey);
+      });
+    }
+    function mutarOutbox(change) {
+      var run = function () {
+        return leerOutbox().then(function (saved) {
+          _outbox = saved && Array.isArray(saved.pending) ? saved : { pending: [], checkpoint: "", confirmed: [] };
+          if (!Array.isArray(_outbox.confirmed)) _outbox.confirmed = [];
+          var included = _unsaved.slice();
+          included.forEach(function (entry) {
+            if (!_outbox.pending.some(function (x) { return x.id === entry.id; })) _outbox.pending.push(entry);
+          });
+          change();
+          _groupAcks.forEach(function (id) { if (!_outbox.pending.some(function (entry) { return entry.id === id; })) _groupAcks.delete(id); });
+          return guardarOutbox().then(function () {
+            // Preparation continues while IndexedDB commits. Only remove the
+            // entries included in this write; later groups still need saving.
+            _unsaved = _unsaved.filter(function (entry) { return !included.includes(entry); });
+            avisarDurable();
+          });
+        });
+      };
+      // Tabs share this IndexedDB: serialize read/modify/write across contexts as well.
+      return typeof navigator !== "undefined" && navigator.locks
+        ? navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, run) : run();
+    }
+    var _durableQueue = leerOutbox().then(function (saved) {
+      if (saved && Array.isArray(saved.pending)) _outbox = saved;
+      avisarDurable();
+    });
+    // Keep a handled rejection, but do not overwrite an unread outbox after a read failure.
+    _durableQueue.catch(function () { log("no se pudo leer pendientes del relay en " + nombre); });
+    function programarDurable() {
+      if (_pausado || !permitido()) return; // queued ops stay in durable storage
+      var inFlight = Object.keys(_durableInFlight);
+      if (inFlight.length && !_durableWatchdog && canal.ws && canal.ws.readyState === 1) {
+        var oldest = Math.min.apply(null, inFlight.map(function (id) { return _durableInFlight[id].at; }));
+        _durableWatchdog = setTimeout(function () {
+          _durableWatchdog = null;
+          if (!canal.ws || canal.ws.readyState !== 1) return;
+          Object.keys(_durableInFlight).forEach(function (id) {
+            if (!_durableInFlight[id] || Date.now() - _durableInFlight[id].at < 10000) return;
+            var entry = _outbox.pending.find(function (item) { return item.id === id; });
+            delete _durableInFlight[id]; _groupAcks.delete(id);
+            // A receiver that lost one sibling ACK needs the complete group again.
+            _outbox.pending.forEach(function (item) {
+              if (item.id === id || (entry && entry.group && item.group === entry.group)) {
+                _groupAcks.delete(item.id); delete _durableInFlight[item.id];
+              }
+            });
+          });
+          _durableQueue.then(drenarDurable).catch(function () { programarDurable(); });
+        }, Math.max(1, oldest + 10000 - Date.now()));
+      }
+      if (_durableTimer || (!_vivos().length && !_unsaved.length)) return;
+      if (canal.ws && canal.ws.readyState === 1 && inFlight.length >= MAX_DURABLE_INFLIGHT) return;
+      var vivos = _vivos();
+      if (vivos.length && vivos.every(function (entry) { return _groupAcks.has(entry.id) || !!_durableInFlight[entry.id]; })) return;
+      _durableTimer = setTimeout(function () {
+        _durableTimer = null;
+        _durableDelay = Math.min(60000, _durableDelay * 2);
+        _durableQueue = _durableQueue.then(function () { return mutarOutbox(function () {}); }).then(drenarDurable).catch(function () { programarDurable(); });
+      }, Math.round(_durableDelay * (0.8 + Math.random() * 0.4)));
+    }
+    function bytesPendientes(value) { return typeof value === "string" ? new TextEncoder().encode(value).byteLength : (value && (value.byteLength || value.size)) || 0; }
+    function programarBufferPump() {
+      if (_bufferPumpTimer || !canal.ws || canal.ws.readyState !== 1) return;
+      _bufferPumpTimer = setTimeout(function () {
+        _bufferPumpTimer = null;
+        if (!canal.ws || canal.ws.readyState !== 1) return;
+        if (!_cupoRechazado && Date.now() - _lastRelayProgressAt >= 10000) {
+          canal.ws.close(1013, "relay stalled; queued data retained");
+          return;
+        }
+        _durableQueue.then(function () { drenarDurable(); drenarVivo(); }).catch(function () {});
+      }, _cupoRechazado ? 60000 : 100);
+    }
+    function enviarConLimite(ws, value, ckptRPC) {
+      if (!ws || ws.readyState !== 1) return "offline";
+      var buffered = Number(ws.bufferedAmount) || 0;
+      var bytes = bytesPendientes(value);
+      // Only an advertised native RPC checkpoint may exceed the 512KiB local
+      // queue guard, and only with an empty transport buffer. Peer/OP frames
+      // retain the old bound. Never allow an unbounded persisted envelope.
+      var largeCheckpoint = ckptRPC && !ws.peerOnly &&
+        window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES &&
+        bytes <= 1088 * 1024 && buffered === 0;
+      if (!largeCheckpoint && buffered + bytes > MAX_BUFFERED_BYTES) return "blocked";
+      try { ws.send(value); _lastRelayProgressAt = Date.now(); _cupoRechazado = false; return "sent"; }
+      // v647: a heavy frame over budget waits in the outbox and the socket stays up. A budget refusal is an answer from a
+      // live layer, not a stall: it must not trip the watchdog into a reconnect storm, and retrying it every 100 ms is pointless.
+      catch (error) { if ((ws.peerOnly || ws.readyState === 1) && error && error.name === "QuotaExceededError") { if (!ws.peerOnly) _cupoRechazado = true; return "blocked"; } try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
+    }
+    function encolarVivo(value, smallBusiness) {
+      var ws = canal.ws;
+      if (ws && ws.readyState === 1 && !canal.pend.length) {
+        var result = enviarConLimite(ws, value);
+        if (result === "sent") return;
+        if (result !== "blocked") { canal.pend.push(value); return; }
+      }
+      // Yjs updates commute; let a new small update pass historical live chunks.
+      if (smallBusiness) {
+        var firstLarge = canal.pend.findIndex(function (frame) { return bytesPendientes(frame) >= CHUNK_BYTES; });
+        canal.pend.splice(firstLarge < 0 ? canal.pend.length : firstLarge, 0, value);
+      } else canal.pend.push(value);
+      if (ws && ws.readyState === 1) programarBufferPump();
+    }
+    function drenarVivo() {
+      var ws = canal.ws;
+      if (!ws || ws.readyState !== 1) return;
+      while (canal.pend.length) {
+        var next = canal.pend[0], result = enviarConLimite(ws, next);
+        if (result === "sent") { canal.pend.shift(); continue; }
+        if (result === "blocked") programarBufferPump();
+        break;
+      }
+      if (canal.pend.length && ws.readyState === 1) programarBufferPump();
+    }
+    function enviarDurable(entry) {
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano; delete msg.abs; delete msg.soloFb;
+      var result = enviarConLimite(canal.ws, JSON.stringify(msg), entry.k === "ckpt");
+      if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
+      if (result === "blocked") programarBufferPump();
+      return false;
+    }
+    function drenarDurable() {
+      if (_pausado || !permitido()) return;
+      var ws = canal.ws;
+      if (!ws || ws.readyState !== 1) { programarDurable(); return; }
+      // v594: classify persisted legacy entries once, before anything is sent (serialized on the outbox queue).
+      if (!_heredadosListo && API.clave) {
+        _durableQueue = _durableQueue.then(clasificarHeredados).then(drenarDurable).catch(function () { programarDurable(); });
+        return;
+      }
+      /* v765: a compressed checkpoint written for Firebase (soloFb) never goes to another layer or a peer: the published
+         v636 reads Supabase and would silently skip tag 7. It is derived data (operations are never touched), so it is
+         dropped here and the next checkpoint is built for the layer that is active then. */
+      var capaFb = ws.relayLayer === "f123_relay_cupo_fb_v1";
+      if (!capaFb && _outbox.pending.some(function (x) { return x.soloFb; })) {
+        _durableQueue = _durableQueue.then(function () {
+          return mutarOutbox(function () {
+            _outbox.pending = _outbox.pending.filter(function (x) {
+              if (x.soloFb) delete _durableInFlight[x.id];
+              return !x.soloFb;
+            });
+          });
+        }).then(function () { try { log("ckpt comprimido retirado: capa sin marco 7 en " + nombre); } catch (_) {} })
+          .then(drenarDurable).catch(function () { programarDurable(); });
+        return;
+      }
+      absorberHeredado();
+      // A peer ACKs a complete fragment group; a four-fragment window can deadlock it.
+      var capacity = ws.peerOnly ? _vivos().length : Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
+      if (!capacity) { programarDurable(); return; }
+      var available = _vivos().filter(function (entry) { return !_groupAcks.has(entry.id) && !_durableInFlight[entry.id]; });
+      // The absorbing full-state group (bounded, it carries every change) drains before the backlog it replaces.
+      var absorbe = available.filter(function (entry) { return entry.abs; });
+      if (absorbe.length) available = absorbe.concat(available.filter(function (entry) { return !entry.abs; })).slice(0, capacity);
+      else if (available.length > capacity) {
+        // Reserve one in-flight slot for the newest business change behind a history backlog.
+        available = available.slice(0, Math.max(0, capacity - 1)).concat(available[available.length - 1]);
+      }
+      for (var i = 0; i < available.length; i++) if (!enviarDurable(available[i])) break;
+      if (_vivos().some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
+      if (Object.keys(_durableInFlight).length) programarDurable();
+    }
+    /* Oversized legacy outbox (S4 defers > 512 envelopes / > 8 MB): replaying it one by one never
+       ends. Every persisted tag-0 envelope comes from enviarUpdate(), called only from
+       doc.on("update"), i.e. AFTER Yjs applied that change to this doc. So one full-state update
+       encoded now contains every envelope already queued; receivers ignore what they already have.
+       Those older envelopes are retired only after ALL fragments of that update are durably ACKed
+       (confirmarDurable); envelopes created after the encode are never retired. Fail-closed: any
+       failure leaves the legacy queue intact and the normal backoff retries. The id set is in memory
+       only: after a restart the old group just drains and a new absorption starts. */
+    var _absorcion = null, _absorcionKey = "f123_relay_absorcion" + suffix;
+    function absorberHeredado() {
+      // JFC 2026-11-01: inventory, money and movements first. Photos never absorb by full state
+      // (hundreds of MB, relay quota); their legacy queue keeps draining untouched.
+      if (nombre === "fotos") return;
+      if (_absorcion || canal.recuperando || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return;
+      if (_outbox.pending.concat(_unsaved).some(function (entry) { return entry.abs; })) return;
+      var ids = new Set(), bytes = 0;
+      _outbox.pending.forEach(function (entry) {
+        if (entry.k === "op" && !entry.huerfano) { ids.add(entry.id); bytes += String(entry.c || "").length; }
+      });
+      if (ids.size <= 512 && bytes <= 8 * 1024 * 1024) return;
+      var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
+      var marca = { hasta: Date.now(), n: ids.size };
+      _absorcion = { hasta: marca.hasta, ids: ids };
+      // A publish that never reaches the outbox (encrypt/size failure) may retry after a minute.
+      setTimeout(function () {
+        if (_absorcion && _absorcion.hasta === marca.hasta && !_outbox.pending.concat(_unsaved).some(function (entry) { return entry.abs; })) _absorcion = null;
+      }, 60000);
+      try { log("absorbiendo " + ids.size + " sobre(s) heredado(s) en " + nombre + " con un estado completo"); } catch (_) {}
+      publicar(0, full, true, marca);
+    }
+    function guardarSobre(entry) { guardarSobres([entry]); }
+    function guardarSobres(entries) {
+      var added = entries.filter(function (entry) {
+        if (_outbox.confirmed && _outbox.confirmed.includes(entry.fingerprint || entry.id)) return false;
+        return !_outbox.pending.concat(_unsaved).some(function (x) {
+          return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint);
+        });
+      });
+      if (!added.length) return;
+      // All siblings enter one atomic local outbox write before any durable
+      // fragment is sent. A restart can then retry the complete group.
+      _unsaved.push.apply(_unsaved, added);
+      avisarDurable();
+      var next = _durableQueue.then(function () {
+        return mutarOutbox(function () {}).then(function () { drenarDurable(); programarDurable(); });
+      });
+      _durableQueue = next.catch(function () { log("guardado del envio pendiente en " + nombre); avisarDurable(); programarDurable(); });
+    }
+    function confirmarDurable(result) {
+      _durableQueue = _durableQueue.then(function () {
+        if (result && typeof result.id === "string" && _durableInFlight[result.id] && _durableInFlight[result.id].kind === result.kind) {
+          delete _durableInFlight[result.id];
+          if (!Object.keys(_durableInFlight).length) { clearTimeout(_durableWatchdog); _durableWatchdog = null; }
+        }
+        if (result.kind === "ckpt" && result.ok === true) diagnosticarCkpt(null, 0);
+        if (result.kind === "ckpt" && result.ok !== true && result.conflict !== true)
+          diagnosticarCkpt("checkpoint-rpc-ack-failed", 0);
+        if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
+        var beforeRetirement = null, retirados = [], absCerrada = null;
+        return mutarOutbox(function () {
+          beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
+          var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
+          if (!entry) return;
+          var completed = [entry];
+          if (entry.group && result.ok === true) {
+            _groupAcks.add(entry.id);
+            completed = _outbox.pending.filter(function (x) { return x.group === entry.group; });
+            if (!completed.every(function (x) { return _groupAcks.has(x.id); })) return;
+          }
+          _outbox.pending = _outbox.pending.filter(function (x) { return !completed.includes(x); });
+          if (entry.abs && result.ok === true && _absorcion && _absorcion.hasta === entry.abs.hasta) {
+            absCerrada = _absorcion;
+            retirados = _outbox.pending.filter(function (x) { return x.k === "op" && !x.huerfano && !x.abs && _absorcion.ids.has(x.id); });
+            var fuera = new Set(retirados);
+            _outbox.pending = _outbox.pending.filter(function (x) { return !fuera.has(x); });
+          }
+          if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
+          if (entry.k === "ckpt" && result.ok === true) {
+            _outbox.checkpoint = ckptMarcar(_outbox.checkpoint, entry.state, canal.ws && canal.ws.relayLayer); // v739: capa que confirmo
+            _colaFrames = 0; _colaBytes = 0; // v751: a confirmed checkpoint starts a new tail
+            guardarCola(); // v756
+            // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
+          }
+        }).then(function () {
+          if (absCerrada && _absorcion === absCerrada) _absorcion = null;
+          if (retirados.length) {
+            var marca = absCerrada;
+            retirados.forEach(function (x) { delete _durableInFlight[x.id]; _groupAcks.delete(x.id); });
+            // Small evidence only (never the ciphertexts): count, first/last id, date, sha-256 of ids.
+            var ids = retirados.map(function (x) { return x.id; });
+            Promise.resolve().then(function () {
+              return crypto.subtle.digest("SHA-256", new TextEncoder().encode(ids.join(",")));
+            }).then(function (hash) {
+              var ev = { n: ids.length, primero: ids[0], ultimo: ids[ids.length - 1], absorbidoHasta: marca.hasta,
+                at: Date.now(), sha256: Array.from(new Uint8Array(hash)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("") };
+              try { log("absorbidos " + ev.n + " sobre(s) heredado(s) en " + nombre); } catch (_) {}
+              if (persistencia && typeof persistencia.set === "function") return persistencia.set(_absorcionKey, ev);
+            }).catch(function () {});
+          }
+          avisarDurable();
+          if (result.conflict && canal.ws && _currentPullState) {
+            pedirPagina(canal.ws, _currentPullState);
+            clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 60000);
+          }
+          if (!_vivos().length) { clearTimeout(_durableTimer); _durableTimer = null; _durableDelay = 2000; }
+          else { clearTimeout(_durableTimer); _durableTimer = null; drenarDurable(); }
+        }).catch(function () {
+          _groupAcks.clear(); _durableInFlight = Object.create(null);
+          // Keep the known ciphertext even when storage cannot be read after a failed write.
+          if (beforeRetirement) _outbox = beforeRetirement;
+          avisarDurable(); programarDurable();
+        });
+      });
+    }
+    // P0 / 1AAA: a durable cursor may advance past an unresolved Yjs parent
+    // only if the missing bytes are saved ATOMICALLY WITH that cursor.
+    // Unlike a full state snapshot, this update carries only pending structs/
+    // deletions; already integrated bytes are protected by the updates-store
+    // transaction barrier below. Encrypted transport fragments are NOT Yjs.
+    var _cursorContainsPending = false, _pendingProofPages = 0;
+    var _soloMemoria = false;
+    var _ultimoCursorLimpio = { rev: -1, seq: 0 };
+    var MAX_PENDING_PROOF_BYTES = 2 * 1024 * 1024;
+    function barreraYjsConfirmada() {
+      try {
+        var db = persistencia && persistencia.db;
+        if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates"))
+          return Promise.reject(new Error("Yjs journal unavailable"));
+        // All prior Yjs writes target 'updates'. A subsequent transaction on
+        // that SAME store cannot finish before overlapping writes commit.
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction(["updates"], "readonly");
+          tx.oncomplete = function () { resolve(); };
+          tx.onabort = function () { reject(new Error("Yjs journal aborted")); };
+          tx.onerror = function () { reject(new Error("Yjs journal failed")); };
+        });
+      } catch (e) { return Promise.reject(e); }
+    }
+    function guardarPruebaCausal(cursor, pendientes) {
+      var limpio = pendientes ? _ultimoCursorLimpio : cursor;
+      var prueba = { rev: cursor.rev, seq: cursor.seq,
+        cursorLimpio: { rev: limpio.rev, seq: limpio.seq } };
+      if (pendientes) prueba.pendingSnapshot = pendientes;
+      return barreraYjsConfirmada().then(function () {
+        // Both the pending update and the cursor use ONE custom-store key and
+        // therefore ONE IDB write, never two crash-separable promises.
+        return persistencia.set(_pullCursorKey, prueba);
+      }).then(function () { return persistencia.get(_pullCursorKey); }).then(function (leido) {
+        // The second IDB transaction is a commit/readback barrier: a successful
+        // put request alone can still be followed by transaction abort.
+        if (!leido || Number(leido.rev) !== cursor.rev || Number(leido.seq) !== cursor.seq ||
+            (!!leido.pendingSnapshot !== !!pendientes) ||
+            !leido.cursorLimpio || Number(leido.cursorLimpio.rev) !== limpio.rev ||
+            Number(leido.cursorLimpio.seq) !== limpio.seq) return false;
+        if (pendientes) {
+          // Another tab or a damaged IDB value can have the SAME byte length.
+          // Verify exact bytes before approving a skip across causal history.
+          var leidos;
+          try { leidos = new Uint8Array(leido.pendingSnapshot); }
+          catch (_) { return false; }
+          if (leidos.byteLength !== pendientes.byteLength) return false;
+          for (var i = 0; i < pendientes.byteLength; i++)
+            if (leidos[i] !== pendientes[i]) return false;
+        }
+        _appliedPullCursor = cursor;
+        if (!pendientes) _ultimoCursorLimpio = cursor;
+        _cursorContainsPending = !!pendientes;
+        _pendingProofPages = 0;
+        return true;
+      }).catch(function () {
+        // Cost fallback only: replay from the previous proven cut after crash.
+        // NEVER ACK partial Yjs recovery or discard any cipher/history.
+        return false;
+      });
+    }
+    function cursorValido(v) {
+      if (!v || !Number.isFinite(Number(v.rev)) || !Number.isFinite(Number(v.seq))) return null;
+      var rev = Math.trunc(Number(v.rev)), seq = Math.trunc(Number(v.seq));
+      if (rev < -1 || seq < 0) return null;
+      return { rev: rev, seq: seq };
+    }
+    function cursorAnteriorOIgual(a, b) {
+      return a.rev < b.rev || (a.rev === b.rev && a.seq <= b.seq);
+    }
+    if (persistencia && typeof persistencia.get === "function") {
+      // A hung iOS IndexedDB open must be visible, without replay from -1.
+      canal.recuperacionLocal = "cargando";
+      var _tHidratacion = setTimeout(function () {
+        if (canal.recuperacionLocal === "cargando") canal.recuperacionLocal = "pendiente";
+      }, 25000);
+      // Every cursor is trustworthy only after the Yjs journal is hydrated.
+      // A slow iPhone must wait, never replay its whole history due to timeout.
+      var hydration = persistencia.whenSynced;
+      // An actual IDB OPEN error is different from a slow iPhone. The bundled
+      // y-indexeddb rejects _db but leaves whenSynced pending on open failure.
+      var aperturaFallida = persistencia._db && typeof persistencia._db.then === "function"
+        ? persistencia._db.then(function () { return new Promise(function () {}); },
+            function () { return "sin-idb"; }) : new Promise(function () {});
+      _pullCursorReady = (hydration && typeof hydration.then === "function"
+        ? Promise.race([hydration, aperturaFallida])
+        : Promise.reject(new Error("Yjs hydration proof unavailable")))
+        .then(function (estado) {
+          if (estado === "sin-idb") {
+            _soloMemoria = true;
+            canal.recuperacionLocal = "sin-almacenamiento";
+            return null; // cursor remains -1; replay all available remote history
+          }
+          return persistencia.get(_pullCursorKey);
+        })
+        .then(function (guardado) {
+          if (_soloMemoria) return;
+          var cursor = cursorValido(guardado);
+          if (!cursor) return;
+          var snap = guardado.pendingSnapshot;
+          if (!snap) {
+            _pullCursor = cursor; _appliedPullCursor = cursor;
+            _ultimoCursorLimpio = cursor; return;
+          }
+          var limpio = cursorValido(guardado.cursorLimpio);
+          if (!limpio || !cursorAnteriorOIgual(limpio, cursor))
+            limpio = { rev: -1, seq: 0 };
+          _ultimoCursorLimpio = limpio;
+          function reanudarDesdeLimpio() {
+            _pullCursor = limpio; _appliedPullCursor = limpio;
+            _cursorContainsPending = false;
+          }
+          // Rejected proof may use the LAST clean cut once hydration succeeded.
+          var bytes;
+          try { bytes = new Uint8Array(snap); } catch (_) { reanudarDesdeLimpio(); return; }
+          if (!bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES) {
+            reanudarDesdeLimpio(); return;
+          }
+          try { Y.applyUpdate(doc, bytes, "red"); }
+          catch (_) { reanudarDesdeLimpio(); return; }
+          _pullCursor = cursor; _appliedPullCursor = cursor;
+          _cursorContainsPending = true;
+        }).catch(function (e) {
+          // No confirmed journal means no safe cursor. Do not pull or
+          // checkpoint against a half-loaded device; leave the channel in recovery.
+          try { log("recuperacion local Yjs pendiente en " + nombre, e && e.message); } catch (_) {}
+          throw e;
+        }).then(function (valor) {
+          clearTimeout(_tHidratacion);
+          if (!_soloMemoria) canal.recuperacionLocal = "listo";
+          return valor;
+        }, function (e) {
+          clearTimeout(_tHidratacion);
+          canal.recuperacionLocal = "pendiente";
+          throw e;
+        });
+    }
+    function guardarPullCursor(cursor) {
+      var siguiente = {
+        rev: Number.isFinite(Number(cursor.rev)) ? Math.trunc(Number(cursor.rev)) : -1,
+        seq: Math.max(0, Math.trunc(Number(cursor.seq) || 0))
+      };
+      // IDB failed to open. RAM pagination may continue but is NEVER durable.
+      if (_soloMemoria) { _pullCursor = siguiente; return Promise.resolve(); }
+      if (siguiente.rev < _appliedPullCursor.rev ||
+          (siguiente.rev === _appliedPullCursor.rev && siguiente.seq <= _appliedPullCursor.seq)) return Promise.resolve();
+      _pullCursor = siguiente;
+      // A frame still being reassembled has never entered Y.Doc. Its ciphertext
+      // must be replayed; a Yjs snapshot cannot authorize skipping it.
+      if (Object.keys(partesEntrantes).length) return Promise.resolve();
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) {
+        if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
+        _pendingProofPages++;
+        // Keep snapshot I/O bounded; also save at the FINAL page so a future
+        // app restart does not replay thousands of old operations.
+        if (cursor.more && _pendingProofPages < 16) return Promise.resolve();
+        _pendingProofPages = 0;
+        var bytes;
+        try { bytes = Y.encodeStateAsUpdate(doc, Y.encodeStateVector(doc)); }
+        catch (_) { return Promise.resolve(); }
+        if (!bytes || !bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES)
+          return Promise.resolve(); // large pending set: retain safe replay
+        return guardarPruebaCausal(siguiente, bytes);
+      }
+      _pendingProofPages = 0;
+      // Use the same journal barrier, durable cursor write and readback proof
+      // for complete pages as for pages carrying pending Yjs structs. This also
+      // retires an earlier pending proof only after its now-clean cut is proven.
+      return guardarPruebaCausal(siguiente, null);
+    }
+    function clavePendientes() {
+      var p = doc.store && doc.store.pendingStructs, m = p && p.missing;
+      var missing = m && typeof m.entries === "function" ? Array.from(m.entries()) : [];
+      missing.sort(function (a, b) { return Number(a[0]) - Number(b[0]); });
+      return JSON.stringify([missing, !!(doc.store && doc.store.pendingDs)]);
+    }
+    /* v753: the store's PIN/role metadata are complete on this device when no struct still waiting for a causal
+       parent writes them. A pending rewrite (or an unreadable pending update) keeps the device waiting: fail closed.
+       Read-only; deletes nothing. PARA REVERTIR: quitar accesoSinPendientes, canal.accesoListo y canal.headAcceso. */
+    function accesoSinPendientes() {
+      try {
+        var p = doc.store && doc.store.pendingStructs;
+        if (!p) return true;
+        var claves = ["pinsRol", "ownerPinConfirmado", "ownerPinCambioRev"], meta = doc.getMap("_meta"), cadena = [];
+        claves.forEach(function (k) { for (var it = meta._map.get(k); it; it = it.left) cadena.push(it); });
+        return !Y.decodeUpdateV2(p.update).structs.some(function (s) {
+          if (s.parentSub != null && claves.indexOf(s.parentSub) !== -1) return true;
+          return [s.origin, s.rightOrigin].some(function (o) {
+            return !!o && cadena.some(function (it) { return it.id.client === o.client && o.clock >= it.id.clock && o.clock < it.id.clock + it.length; });
+          });
+        });
+      } catch (_) { return false; }
+    }
+    // Proof used by the PIN guards: full recovery, or relay HEAD read once plus complete access metadata.
+    canal.accesoListo = function () { return canal.recuperando === false || (canal.headAcceso === true && accesoSinPendientes()); };
+    function deudaPendiente() {
+      return !!(Object.keys(partesEntrantes).length ||
+        (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)));
+    }
+    // Firebase stages complete same-millisecond groups in memory: up to 256
+    // ciphertext items, at most 12 per regular page, with a 4 MiB group cap.
+    // Allow a bounded 24 pages at an unchanged numeric cursor. Never offer
+    // such a concession to Cloudflare rowid cursors or an empty page.
+    var MAX_FIREBASE_TIE_RESCATE_PAGES = 24;
+    // E1b-2: one causal budget per channel, NOT per socket/reconnection.
+    function programarRelectura(sock, estado) {
+      if (!deudaPendiente()) {
+        clearTimeout(_tReplay); _tReplay = null;
+        _replayKey = null; _replayUsed = 0;
+        return;
+      }
+      var key = clavePendientes();
+      if (key !== _replayKey) {
+        _replayKey = key; _replayUsed = 0;
+        clearTimeout(_tReplay); _tReplay = null;
+      }
+      // Sync3: a fixed-HEAD replay may be longer than five windows before the
+      // missing Yjs parent arrives. Continue only after either monotonic
+      // encrypted-cursor progress or a bounded Firebase staged timestamp page;
+      // both remain strictly BEFORE the same frozen HEAD.
+      // Stalled, duplicate or completed histories keep the five-try stop.
+      var desde = estado.rescateCausalDesde, hasta = estado.rescateCausalHasta;
+      var barridoAcotado = estado.rescateCausalAvanzo === true && desde && hasta &&
+        (desde.rev < hasta.rev || (desde.rev === hasta.rev && desde.seq < hasta.seq));
+      if ((_replayUsed >= 5 && !barridoAcotado) || _tReplay) return;
+      var delay = barridoAcotado ? 8000 :
+        Math.min(300000, 30000 * Math.pow(2, Math.min(_replayUsed, 5)));
+      _tReplay = setTimeout(function () {
+        _tReplay = null;
+        if (canal.ws !== sock || sock.readyState !== 1 || estado.enCurso) return;
+        if (clavePendientes() !== _replayKey || !deudaPendiente())
+          return programarRelectura(sock, estado);
+        // The bounded scan makes forward cursor progress but does NOT
+        // fabricate Yjs vector progress or refresh the retry counter.
+        if (barridoAcotado) estado.rescateCausalAvanzo = false;
+        else _replayUsed++;
+        try { log("historia incompleta, relectura acotada " + nombre); } catch (_) {}
+        pedirPagina(sock, estado);
+      }, delay);
+    }
+    // Only useful, applied bytes (never peer count or duplicate) wake exhausted replay.
+    function despertarConCambio(antes, claveAntes) {
+      var despues = Y.encodeStateVector(doc), mismo = antes.length === despues.length;
+      for (var i = 0; mismo && i < antes.length; i++) mismo = antes[i] === despues[i];
+      if (mismo && claveAntes === clavePendientes()) return;
+      var agotado = _replayUsed >= 5;
+      _replayKey = null; _replayUsed = 0;
+      clearTimeout(_tReplay); _tReplay = null;
+      if (canal.ws && canal.ws.readyState === 1 && _currentPullState &&
+          !_currentPullState.enCurso) {
+        if (agotado || !deudaPendiente()) pedirPagina(canal.ws, _currentPullState);
+        else programarRelectura(canal.ws, _currentPullState);
+      }
+    }
+    function pedirPagina(sock, estado, sinHead) {
+      estado.enCurso = true; estado.fallos = 0;
+      return _pullCursorReady.then(function () {
+        if (sock !== canal.ws || sock.readyState !== 1) return;
+        if (!sinHead && estado.usarHead === true && !_soloMemoria) {
+          estado.esperandoHead = true;
+          clearTimeout(estado.tHead);
+          estado.tHead = setTimeout(function () {
+            if (!estado.esperandoHead || canal.ws !== sock) return;
+            estado.esperandoHead = false;
+            estado.headLegacy = true;
+            pedirPagina(sock, estado, true); // old relay: safe original pull
+          }, 1800);
+          try { sock.send(JSON.stringify({ k: "head", v: 2 })); }
+          catch (_) { clearTimeout(estado.tHead); estado.esperandoHead = false; estado.headLegacy = true; return pedirPagina(sock, estado, true); }
+          return;
+        }
+        // v1 legacy checkpoint can compact operations without bumping revision.
+        // Probe the actual ciphertext checkpoint, never a stale high-water seq.
+        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : (estado.rescateCausalDesde || _pullCursor);
+        sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
+      }).catch(function () {});
+    }
+    function marcarReplayCifradoAplicado(sock) {
+      // v669: only after the Yjs dependency check and the durable pull cursor
+      // barrier succeeded. A saved relay HEAD alone cannot certify any bytes.
+      try { if (sock && !sock.peerOnly && typeof sock.markRecovered === "function") sock.markRecovered(); } catch (_) {}
+    }
+    function checkpointTrasPull(sock) {
+      // A slow iPhone pull can outlast the one-shot 2.5s checkpoint timer.
+      // Re-advertise an already-hydrated catalog/ops document ONLY after the
+      // relay cursor was committed, all Yjs dependencies resolved, and the
+      // active room has finished recovery. This repairs empty second layers
+      // without inventing inventory or compacting partial remote history.
+      if (!permiteCkpt || _soloMemoria || !sock || canal.ws !== sock ||
+          sock.readyState !== 1 || canal.recuperando || deudaPendiente()) return;
+      clearTimeout(_tCkpt);
+      _tCkpt = setTimeout(hacerCkpt, 250);
+    }
+    function procesarHead(sock, estado, r) {
+      if (!estado.esperandoHead || canal.ws !== sock) return Promise.resolve();
+      estado.esperandoHead = false; clearTimeout(estado.tHead);
+      var valido = r && !r.unsupported && Number.isSafeInteger(Number(r.rev)) &&
+        Number.isSafeInteger(Number(r.seq)) && Number(r.rev) >= 0 && Number(r.seq) >= 0;
+      if (!valido) estado.headLegacy = true;
+      else estado.headLegacy = false;
+      if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) < _pullCursor.seq) {
+        var probeKey = r.rev + ":" + r.seq + ":" + _pullCursor.rev + ":" + _pullCursor.seq;
+        if (_legacyProbeKey !== probeKey) { _legacyProbeKey = probeKey; _legacyProbeAttempts = 0; }
+        if (_legacyProbeAttempts >= 2) {
+          // No proof after two probes: keep socket and LOCAL Yjs, stop quota-draining replay.
+          // A genuinely changed relay HEAD may retry; never unlock recovery/PIN here.
+          estado.enCurso = false;
+          estado.rebaseCursor = false;
+          try { log("checkpoint v1 sin prueba: relectura suspendida en " + nombre); } catch (_) {}
+          return Promise.resolve();
+        }
+        _legacyProbeAttempts++;
+        // Old checkpoint revision (v1): the server discarded a prefix without
+        // advancing rev. Local Yjs/journal remain intact until a valid checkpoint
+        // is applied. Re-fetch once from rev -1 to force checkpoint-first recovery.
+        estado.rebaseCursor = true;
+        estado.rebaseFrames = 0;
+        estado.rebaseCipherFrames = 0;
+      }
+      if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
+        estado.enCurso = false;
+        // v753: everything this durable layer holds was read. It does NOT end recovery; it only lets PIN/role
+        // metadata that are already causally complete reach the app (see canal.accesoListo).
+        if (typeof nombre === "string" && nombre === "catalogo" && typeof canal.accesoListo === "function" &&
+            !canal.headAcceso && !Object.keys(partesEntrantes).length) {
+          canal.headAcceso = true;
+          if (canal.recuperando && deudaPendiente() && API._store && canal.accesoListo()) API._store.aplicar(); // without debt the existing release below applies once
+        }
+        // Sync3: a matching relay HEAD cannot prove missing Yjs causal parents.
+        // Re-read only after the LAST PROVEN CLEAN cut and only using an already
+        // granted bounded retry. Never rewind the durable cursor or invent stock.
+        if (typeof nombre === "string" && nombre === "catalogo" && _replayUsed > 0 &&
+            doc.store && (doc.store.pendingStructs || doc.store.pendingDs) &&
+            !Object.keys(partesEntrantes).length &&
+            // rev:-1 is the cold device's safe genesis/checkpoint PROBE, not a
+            // certificate of recovered history. Same four-page retry budget.
+            _ultimoCursorLimpio.rev >= -1 &&
+            (_ultimoCursorLimpio.rev < _pullCursor.rev ||
+             (_ultimoCursorLimpio.rev === _pullCursor.rev && _ultimoCursorLimpio.seq < _pullCursor.seq))) {
+          if (!estado.rescateCausalDesde) {
+            estado.rescateCausalDesde = { rev: _ultimoCursorLimpio.rev, seq: _ultimoCursorLimpio.seq };
+            estado.rescateTiePaginas = 0;
+          }
+          estado.rescatePaginas = 0; // per retry window, NOT a permanent operation cap
+          estado.rescateCausalHasta = { rev: Number(r.rev), seq: Number(r.seq) };
+          estado.rescateCausalAvanzo = false;
+          estado.rescateVectorInicio = Y.encodeStateVector(doc); // track applied Yjs, not page count
+          return pedirPagina(sock, estado, true);
+        }
+        if (!deudaPendiente()) {
+          estado.rescateCausalDesde = null;
+          estado.rescateCausalHasta = null;
+          estado.rescateCausalAvanzo = false;
+          estado.rescateTiePaginas = 0;
+        }
+        if (canal.recuperando && !Object.keys(partesEntrantes).length &&
+            !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
+          canal.recuperando = false;
+          if (estado.pullAplicado) marcarReplayCifradoAplicado(sock);
+          if (nombre === "catalogo" && API._store) API._store.aplicar();
+        }
+        if (estado.pullAplicado && !deudaPendiente()) marcarReplayCifradoAplicado(sock);
+        if (estado.pullAplicado && !canal.recuperando) checkpointTrasPull(sock);
+        programarRelectura(sock, estado);
+        return Promise.resolve();
+      }
+      if (valido) {
+        // A changed relay HEAD invalidates an old causal re-read cursor; resume
+        // from the still-proven durable cursor instead of replaying stale pages.
+        estado.rescateCausalDesde = null;
+        estado.rescateCausalHasta = null;
+        estado.rescateCausalAvanzo = false;
+        estado.rescateTiePaginas = 0;
+        _replayKey = null; _replayUsed = 0; estado.validacionFinal = false;
+      }
+      return pedirPagina(sock, estado, true); // newer revision or legacy server
+    }
+    function reprogramar() {
+      if (_pausado || !permitido() || _tReconnect) return;
+      reintentos++;
+      var base = Math.min(30000, 1000 * Math.pow(2, Math.min(reintentos, 5)));
+      var delay = base / 2 + Math.random() * base / 2;
+      _tReconnect = setTimeout(function () { _tReconnect = null; conectar(); }, delay);
+    }
+    function enviar(tag, payload) {
+      if (!API.clave) return;
+      publicar(tag, payload, false);
+    }
+    // Delivery measurement uses encrypted update hashes and a rendered acknowledgement.
+    // Old k:"lat" probes remain receive-only diagnostics and cannot approve the SLA.
+    // Un update grande no cabe en el relay. Los trozos son frames cifrados
+    // independientes; se reconstruyen antes de aplicar Yjs, nunca parcialmente.
+    function publicar(tag, payload, persistir, marca) {
+      if (tag === 0 && persistir) {
+        try { measureUpdate(payload); } catch (_) {} // diagnostics cannot block business delivery
+        try {
+          if (nombre === "catalogo" && window.OCLatencia && !window.OCLatencia.hayReloj() && canal.ws && canal.ws.readyState === 1)
+            canal.ws.send(JSON.stringify({ k: "ts", t0: Date.now() }));
+        } catch (_) {} // optional clock diagnostics must not block the update either
+      }
+      var piezas = Math.max(1, Math.ceil(payload.length / CHUNK_BYTES));
+      if (piezas > 65535) { log("update Yjs excede limite de trozos"); return; }
+      var id = Date.now().toString(36).padStart(10, "0").slice(-10) + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
+      var prepared = [];
+      for (var n = 0; n < piezas; n++) {
+        var pedazo = payload.subarray(n * CHUNK_BYTES, (n + 1) * CHUNK_BYTES);
+        let frame;
+        if (piezas === 1) frame = _frame(tag, pedazo);
+        else {
+          frame = new Uint8Array(22 + pedazo.length);
+          frame[0] = 3; frame[1] = tag;
+          for (var j = 0; j < 16; j++) frame[2 + j] = id.charCodeAt(j);
+          frame[18] = n >> 8; frame[19] = n & 255;
+          frame[20] = piezas >> 8; frame[21] = piezas & 255;
+          frame.set(pedazo, 22);
+        }
+        prepared.push(cifrarBin(API.clave, frame).then(async function (buf) {
+          if (buf.byteLength > MAX_OP_BYTES) { log("trozo Yjs supera limite: " + buf.byteLength); return; }
+          /* v514 (JFC 2026-10-14, fallos 2 y 3 que reprodujo Codex en v512): primero se GUARDA
+             el pendiente y despues se envia. Antes, si fallaba la huella SHA-256 o el envio
+             lanzaba justo en ese instante, el .catch vacio se tragaba el error y el cambio
+             nunca quedaba pendiente para el relay. La huella es opcional: sin ella se
+             deduplica por id. Prueba: test/sync-v514-fallos-codex.test.js */
+          var op;
+          if (persistir) {
+            var stableId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8), fingerprint = "";
+            try {
+              if (typeof crypto !== "undefined" && crypto.subtle) {
+                var digest = await crypto.subtle.digest("SHA-256", frame);
+                fingerprint = Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+              }
+            } catch (_) { fingerprint = ""; }
+            // Content fingerprint stays local; the relay still sees a random id and ciphertext.
+            op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
+            if (piezas > 1) op.group = id;
+            if (marca) op.abs = marca;
+            if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
+            if (tag === 0) contarColaCkpt(buf.byteLength); // v751
+          }
+          var directo = false;
+          try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
+          // Direct peer durable OP already delivers this ciphertext over the
+          // same RTC channel; never put its non-ACK binary twin ahead of it.
+          if (!directo && !(persistir && piezas > 1 && canal.ws && canal.ws.peerOnly)) {
+            encolarVivo(buf, tag === 0 && persistir && piezas === 1);
+          }
+          return op;
+        }).catch(function () {}));
+      }
+      if (persistir) Promise.all(prepared).then(function (entries) {
+        if (entries.every(function (entry) { return !!entry; })) guardarSobres(entries);
+        else log("grupo Yjs incompleto; no se envia historial parcial");
+      }).catch(function () {});
+    }
+    /* PERSISTENCIA DEL SYNC NUEVO (JFC 2026-09-15, v285). EL BUG DE 3 SEMANAS: el
+       relay solo REBOTA los frames binarios de Yjs en vivo, NO los guarda. Así dos
+       aparatos solo convergían si estaban abiertos A LA VEZ; abiertos en momentos
+       distintos nunca se ponían al día (verificado: al conectar a una sala sin nadie
+       en línea llegan 0 mensajes). El relay SÍ sabe persistir, pero solo por el
+       protocolo de texto op/ckpt/pull (verificado: envías op, cierras, reconectas,
+       pull -> vuelve intacto). Aquí el cliente Yjs USA ese canal: cada update LOCAL
+       se guarda como {k:"op"} (el mismo frame binario cifrado, en base64) y al
+       conectar se pide {k:"pull"} para recibir todo lo persistido. El relay reenvía
+       cada op guardada como frame binario -> cae en manejar() -> tag 0 -> applyUpdate.
+       Los updates de Yjs son idempotentes y conmutativos, así que reaplicar todo en
+       cada conexión converge sin duplicar. Zero-knowledge intacto: el relay guarda
+       bytes cifrados, no entiende nada. */
+    var _lamCtr = 0;
+    function _b64(buf) { var u = new Uint8Array(buf), s = ""; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+    /* v665 (history inflation): one stock change made 4 to 6 catalog ops because sembrar() writes the product, its
+       witness, the activity row and the queue seal in SEPARATE transactions, each becoming its own encrypted op on the
+       relay. Updates produced in the same synchronous burst are now merged (Y.mergeUpdates is lossless: same content,
+       same causal structs) and sent as ONE op. Zero added latency (flush on a microtask, not a timer). Only the catalog
+       channel; photos stay one op each. A burst over 96 KB flushes at once so a first sync of a large history never
+       becomes one giant all-or-nothing group. To undo: make LOTE_CATALOGO false and every update is sent alone again. */
+    var LOTE_CATALOGO = true, _lote = [], _loteBytes = 0, _loteProgramado = false;
+    function vaciarLote() {
+      _loteProgramado = false;
+      var l = _lote; _lote = []; _loteBytes = 0;
+      if (!l.length) return;
+      var u = l.length === 1 ? l[0] : null;
+      if (!u) { try { u = Y.mergeUpdates(l); } catch (_) { u = null; } }
+      if (u) publicar(0, u, true); else l.forEach(function (x) { publicar(0, x, true); }); // merge failed: send them one by one, never drop
+    }
+    canal.enviarUpdate = function (update) {
+      if (!API.clave) return;
+      if (!LOTE_CATALOGO || nombre !== "catalogo" || typeof Y.mergeUpdates !== "function") { publicar(0, update, true); return; }
+      _lote.push(update); _loteBytes += update.length;
+      if (_loteBytes >= 98304) { vaciarLote(); return; }
+      if (!_loteProgramado) { _loteProgramado = true; Promise.resolve().then(vaciarLote); }
+    };
+    /* CHECKPOINT (v286, #1 + fix real "el catálogo viejo no cruza"). enviarUpdate
+       solo persiste CAMBIOS nuevos. Pero el catálogo que ya vivía en el IndexedDB
+       de Yjs (de antes de v285) nunca generó una op -> un aparato que hace pull no
+       lo recibía. Por eso el item nuevo cruzaba pero el inventario existente no.
+       Aquí, al conectar (tras dar tiempo al pull), se manda el ESTADO COMPLETO como
+       {k:"ckpt"}: el relay lo guarda como 'latest' y sirve al que entra, y de paso
+       poda las ops que resume (compactación). Guardas de seguridad:
+         - Solo si el doc tiene contenido real (no pisar el ckpt del relay con un
+           doc vacío recién arrancado). El relay además rechaza un ckpt de lam menor
+           (C1 guard), así que un aparato que ya hizo pull manda un ckpt superset.
+         - Solo en canales con permiteCkpt (catálogo y ops; NO fotos: su estado
+           completo supera el frame de 256KB). */
+    /* v751 (JFC 2026-11-12, union en frio): el checkpoint solo se escribia al conectar o al terminar un pull. Un aparato
+       completo que pasa horas conectado dejaba crecer la cola posterior al corte, y el aparato nuevo la reproducia
+       entera. Al pasar CKPT_RENUEVA_FRAMES frames, el aparato completo relee SOLO su cola (desde su cursor aplicado, por
+       el camino normal con HEAD) y al terminarla checkpointTrasPull/hacerCkpt publican el corte nuevo con todas sus
+       guardas. Topes: una vez cada 6 h y 4 MiB de cola releida por dia (el cupo diario de bajada es 20 MiB).
+       v756: los contadores se guardan en el almacen local del canal (ver guardarCola). PARA REVERTIR: que
+       contarColaCkpt no haga nada. */
+    var CKPT_RENUEVA_FRAMES = 1024, CKPT_RENUEVA_MIN_MS = 6 * 3600000, CKPT_RENUEVA_BYTES_DIA = 4 * 1048576;
+    /* v771 (JFC 13 nov 2026, bajar el consumo, aditivo): also renew when the tail since the last cut passes 384 KiB,
+       not only after 1024 frames, so a new device downloads the cut plus at most ~384 KiB of tail. Every other guard
+       (6 h spacing, daily cap, complete device only) is unchanged. PARA REVERTIR: CKPT_RENUEVA_BYTES_COLA = Infinity. */
+    /* v776 REVERTIDO (JFC 13 nov 2026: Safari en iPhone «a problem repeatedly occurred» al vender, desde v0.7.71). The
+       size trigger made the full-state checkpoint rebuild run right after sales on a store with a long tail; on an iPhone
+       that can kill the tab. Back to the v0.7.70 behaviour (1024 frames only). To re-enable: 384 * 1024. */
+    var CKPT_RENUEVA_BYTES_COLA = Infinity;
+    /* v779 (JFC 13 nov 2026, «Resumen al día» aprobado: renovar el resumen solo en la PC, nunca en el iPhone ni durante
+       una venta). The 384 KiB size trigger comes back ONLY on a computer; phones and tablets keep the v0.7.76 behaviour
+       (1024 frames only). No device renews within 30 s of a sale (mock-backend marks window.__f123UltimaVentaMs).
+       The 6 h spacing, daily cap and complete-device gate are unchanged. Cause of the v776 revert was later found
+       elsewhere (v0.7.77/v0.7.78), but phones stay excluded on purpose. PARA REVERTIR: CKPT_RENUEVA_BYTES_PC = Infinity. */
+    var CKPT_RENUEVA_BYTES_PC = 384 * 1024, CKPT_PAUSA_VENTA_MS = 30000;
+    function _aparatoMovil() {
+      try {
+        var ua = String((navigator && navigator.userAgent) || "");
+        return /iPhone|iPad|iPod|Android|Mobile/i.test(ua) || (/Macintosh/.test(ua) && Number(navigator.maxTouchPoints) > 1);
+      } catch (_) { return true; } // unknown device: treat as phone (never the heavy path)
+    }
+    function _ventaReciente() {
+      try { var t = Number(window.__f123UltimaVentaMs) || 0; return t > 0 && Date.now() - t < CKPT_PAUSA_VENTA_MS; } catch (_) { return false; }
+    }
+    var _colaFrames = 0, _colaBytes = 0, _renovUltima = 0, _renovDia = 0, _renovBytesDia = 0, _colaMotivo = "";
+    /* v756 (JFC 2026-11-13): the tail counters live in this channel's LOCAL store (never on a server), so a phone that
+       sleeps or reloads still reaches the threshold and keeps the 6 h spacing. Saved every 64 frames and on renewal. */
+    function guardarCola() {
+      try {
+        if (persistencia && typeof persistencia.set === "function")
+          Promise.resolve(persistencia.set("f123_ckpt_cola_v756" + suffix,
+            { f: _colaFrames, b: _colaBytes, u: _renovUltima, d: _renovDia, bd: _renovBytesDia })).catch(function () {});
+      } catch (_) {}
+    }
+    try {
+      if (persistencia && typeof persistencia.get === "function")
+        Promise.resolve(persistencia.get("f123_ckpt_cola_v756" + suffix)).then(function (g) {
+          if (!g || typeof g.f !== "number") return;
+          _colaFrames += g.f; _colaBytes += Number(g.b) || 0; _renovUltima = Math.max(_renovUltima, Number(g.u) || 0);
+          if ((Number(g.d) || 0) > _renovDia) { _renovDia = Number(g.d); _renovBytesDia = Number(g.bd) || 0; }
+        }).catch(function () {});
+    } catch (_) {}
+    function motivoCola(m) { // internal log only, once per change of reason (never per frame)
+      if (m === _colaMotivo) return; _colaMotivo = m;
+      if (m) try { log("ckpt renovacion en espera: " + m + " en " + nombre); } catch (_) {}
+    }
+    function contarColaCkpt(bytes) {
+      if (!permiteCkpt) return;
+      _colaFrames++; _colaBytes += Number(bytes) || 0;
+      if (_colaFrames % 64 === 0) guardarCola();
+      if (_colaFrames < CKPT_RENUEVA_FRAMES && _colaBytes < CKPT_RENUEVA_BYTES_COLA &&
+          (_colaBytes < CKPT_RENUEVA_BYTES_PC || _aparatoMovil())) return;
+      if (_ventaReciente()) return motivoCola("venta reciente"); // v779: retried on the next frame
+      var ahora = Date.now(), sock = canal.ws, estado = _currentPullState;
+      if (_renovUltima && ahora - _renovUltima < CKPT_RENUEVA_MIN_MS) return motivoCola("menos de 6 h");
+      if (ahora - _renovDia >= 86400000) { _renovDia = ahora; _renovBytesDia = 0; }
+      // v756: the first renewal of each 24 h window passes whatever the tail size (v751 left it dead forever once the
+      // tail passed 4 MiB); later ones that day keep the 4 MiB cap. relay-selector still enforces the real 20 MiB/day.
+      if (_renovBytesDia && _renovBytesDia + _colaBytes > CKPT_RENUEVA_BYTES_DIA) return motivoCola("tope diario");
+      // Same gate as hacerCkpt: only a complete device (no debt, not recovering, proven cursor) may renew.
+      if (_soloMemoria || !API.clave || !sock || sock.peerOnly || sock.readyState !== 1 || canal.recuperando ||
+          !estado || estado.enCurso || _appliedPullCursor.rev < 0 || deudaPendiente()) return motivoCola("aparato incompleto");
+      motivoCola("");
+      _renovUltima = ahora; _renovBytesDia += _colaBytes; _colaFrames = 0; _colaBytes = 0;
+      guardarCola();
+      estado.renovarCkpt = true;
+      pedirPagina(sock, estado);
+    }
+    var _tCkpt = null;
+    // JFC test room diagnostic, shown in the existing Sync status line (no overlay).
+    function diagnosticarCkpt(motivo, bytes) {
+      try {
+        window.__ocCheckpointError = motivo ? { canal: nombre, motivo: motivo, bytes: bytes || 0 } : null;
+        window.dispatchEvent(new CustomEvent("oc-checkpoint-status", {detail: window.__ocCheckpointError}));
+      } catch (_) {}
+      // The event alone has no guaranteed UI consumer; always show a visible status.
+      try {
+        var id = "f123-checkpoint-alert-" + nombre, el = document.getElementById(id);
+        if (!motivo) { if (el && el.parentElement) el.parentElement.removeChild(el); return; }
+        if (!el) {
+          el = document.createElement("span"); el.id = id; el.setAttribute("role", "status");
+          el.style.cssText = "display:inline-block;margin:4px 8px;padding:3px 7px;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px";
+          el.style.display = "inline-block";
+          var badge = document.getElementById("oc-offline-badge");
+          (badge && badge.parentElement || document.body).appendChild(el);
+        }
+        el.textContent = "Sync pending — checkpoint " + String(motivo) + (bytes ? " (" + bytes + " B)" : "");
+      } catch (_) {}
+    }
+    function hacerCkpt() {
+      // v756: internal log of WHY a checkpoint is skipped (read-only mirror of the guards below; behaviour unchanged).
+      try {
+        var omitido = _soloMemoria ? "solo-memoria" : canal.ws && canal.ws.peerOnly ? "peer" : !permiteCkpt ? "sin-ckpt" :
+          !API.clave ? "sin-clave" : !canal.ws || canal.ws.readyState !== 1 ? "socket-cerrado" : canal.recuperando ? "recuperando" :
+          _currentPullState && _currentPullState.enCurso ? "pull-en-curso" : _appliedPullCursor.rev < 0 ? "sin-cursor" :
+          Object.keys(partesEntrantes).length ? "partes-entrantes" :
+          doc.store && (doc.store.pendingStructs || doc.store.pendingDs) ? "padres-faltantes" : "";
+        if (omitido) log("ckpt omitido: " + omitido + " en " + nombre);
+      } catch (_) {}
+      if (_soloMemoria) return;
+      if (canal.ws && canal.ws.peerOnly) return; // Direct catch-up uses hydrated state vectors.
+      if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      // Never compact a partly restored store, even when an old applied cursor
+      // exists: a completed pull AND dependency-free document are required.
+      if (canal.recuperando || (_currentPullState && _currentPullState.enCurso)) return;
+      // A page may contain only part of a large update. Those chunks are not
+      // represented in the Y.Doc yet and cannot be compacted by its snapshot.
+      if (_appliedPullCursor.rev < 0 || Object.keys(partesEntrantes).length) return;
+      // Unresolved Yjs dependencies cannot authorize compacting their source history.
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return;
+      // Capture the applied cursor in the SAME synchronous turn as the bytes.
+      // Encryption yields: a later page must never expand this snapshot's cut.
+      var checkpointCursor = { rev: _appliedPullCursor.rev, seq: _appliedPullCursor.seq };
+      var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
+      if (!full || full.length < 16) try { log("ckpt omitido: doc-vacio en " + nombre); } catch (_) {}
+      if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
+      // A full-state base64 copy can exceed 100MB and re-inflate the IDB outbox.
+      // Enabled v2 rooms store a small fingerprint; v1 rooms retain legacy metadata.
+      Promise.resolve().then(function () {
+        return API.rollout && API.rollout.outboxV2 ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
+      }).then(function (state) {
+        /* v735 + v739 (JFC 2026-11-11, decision: "que Firebase tenga todo"): cada capa durable activa recibe UNA vez el
+           checkpoint completo del aparato que tiene todo (max 768 KiB por capa). Antes bastaba el hash del estado: si
+           Supabase ya lo habia confirmado y luego la capa activa pasaba a Firebase (Supabase caido, 4xx), Firebase nunca
+           recibia la copia completa y un aparato nuevo veia un checkpoint viejo y padres faltantes.
+           PARA REVERTIR: comparar solo state === _outbox.checkpoint. */
+        /* Logica EN LINEA (identica a ckptYaEnCapa): las pruebas p0-s3-* cortan esta funcion y la ejecutan aislada,
+           sin los ayudantes de arriba. Si cambias una, cambia la otra. */
+        var capaCk = String((canal.ws && canal.ws.relayLayer) || "local"), partesCk = String(_outbox.checkpoint || "").split("#");
+        if (partesCk[0] === state && partesCk[1] && partesCk[1].split(",").indexOf(capaCk) !== -1) {
+          try { log("ckpt omitido: estado ya confirmado en " + capaCk + " en " + nombre); } catch (_) {} return;
+        }
+        /* v756: a pending checkpoint whose cut (rev, seq) is older than the applied cursor no longer blocks a new one:
+           the new snapshot is a superset and replaces that derived envelope (operations are never touched). A pending
+           checkpoint with the same cut still waits for its ACK. */
+        var ckPend = _outbox.pending.filter(function (x) { return x.k === "ckpt"; });
+        var corteViejo = function (x) {
+          return Number(x.rev) < checkpointCursor.rev || (Number(x.rev) === checkpointCursor.rev && Number(x.seq) < checkpointCursor.seq);
+        };
+        if (ckPend.length && !ckPend.every(corteViejo)) {
+          try { log("ckpt omitido: sobre pendiente con el mismo corte en " + nombre); } catch (_) {} return;
+        }
+        /* v763: limpia1 medida (13 nov): catalogo 1.069.757 B en claro (actividad 75 %, 0 B de fotos; compactar gana 0 B),
+           gzip 123.524 B. Sin comprimir NUNCA cabia y el corte envejecia. El escritor por censo (gzipWrite) no cambia.
+           Aparte, SOLO si no cabe crudo y la capa activa es Firebase, se comprime: el adaptador Firebase llego (shell
+           v639) en codigo que ya lee el marco 7 por pull; el v636 publicado no lo lee, pero no tiene Firebase y solo lee
+           el checkpoint de Supabase, que sigue sin comprimir salvo censo (p0-mixed-shell-v636).
+           v765: un navegador sin DecompressionStream lo lee con _gunzipJs (mismo resultado, verificado por CRC32).
+           Es el mismo estado Yjs completo, solo comprimido: no se descarta ningun dato.
+           PARA REVERTIR: borrar el segundo .then (vuelve a omitirse si no cabe). */
+        var cabeCrudo = full.length + 29 <= (window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+          ? MAX_CKPT_CIPHER_BYTES : (MAX_CKPT_RPC_BYTES - 128) * 3 / 4);
+        var soloFb = false;
+        return Promise.resolve().then(function () {
+          return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
+        }).then(function (packed) {
+          if (packed || cabeCrudo || !canal.ws || canal.ws.relayLayer !== "f123_relay_cupo_fb_v1") return packed;
+          return _gzipYjs(full, false).then(function (gz) {
+            if (gz) try { log("ckpt comprimido " + full.length + "B -> " + gz.length + "B en " + nombre); } catch (_) {}
+            soloFb = !!gz;
+            return gz;
+          });
+        }).then(function (packed) {
+          // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
+          var useful = packed && packed.length + 1 < full.length;
+          var payload = useful ? packed : full;
+          // A new native adapter can persist larger ciphertext via RPC, never broadcast.
+          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+            ? MAX_CKPT_CIPHER_BYTES : 0;
+          if (!useful && full.length + 29 > (ckptCipherLimit || (MAX_CKPT_RPC_BYTES - 128) * 3 / 4)) {
+            var compact = _compactarYjsSinCambiarCausalidad(Y, full);
+            if (compact) payload = compact;
+          }
+          return cifrarBin(API.clave, _frame(useful ? 7 : 0, payload));
+        }).then(function (buf) {
+          // Only a capability-advertising adapter may send full-size checkpoints.
+          // Legacy adapters retain the exact 256 KiB JSON frame guard; OPs are unchanged.
+          var ckpt = { k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+            v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf) };
+          if (soloFb) ckpt.soloFb = 1; // v765: local outbox mark only (enviarDurable strips it); see drenarDurable
+          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+            ? MAX_CKPT_CIPHER_BYTES : 0;
+          if (ckptCipherLimit ? buf.byteLength > ckptCipherLimit : JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {
+            diagnosticarCkpt("snapshot-over-limit", buf.byteLength);
+            try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
+            return;
+          }
+          try {
+            if (ckPend.length) _durableQueue = _durableQueue.then(function () { // v756: retire the stale envelope(s)
+              return mutarOutbox(function () {
+                _outbox.pending = _outbox.pending.filter(function (x) { return !(x.k === "ckpt" && corteViejo(x)); });
+              }).then(function () { ckPend.forEach(function (x) { delete _durableInFlight[x.id]; }); });
+            }).catch(function () { try { log("ckpt viejo sin retirar en " + nombre); } catch (_) {} });
+            guardarSobre(Object.assign({ state: state }, ckpt));
+          } catch (_) { diagnosticarCkpt("checkpoint-outbox-save-failed", buf.byteLength); }
+        });
+      }).catch(function (e) {
+        diagnosticarCkpt("checkpoint-encrypt-or-gzip-failed", 0);
+        try { log("ckpt error " + nombre, e && e.message); } catch (_) {}
+      });
+    }
+    function conectar() {
+      if (_pausado || !permitido()) return;
+      if (canal.ws && canal.ws.readyState < 2) return;
+      var url = RELAY_URL + API.roomId + suffix;
+      var ws; try {
+        if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("native relay unavailable");
+        ws = window.F123Relay.connect(url);
+      } catch (_) { reprogramar(); return; }
+      var pullEstado = { enCurso: false, fallos: 0, usarHead: true };
+      var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0, _svPeerPrev = null, sinProgresoPeer = 0;
+      var snapshotsRetirados = new Set();
+      Object.keys(partesEntrantes).forEach(function (id) {
+        if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
+      });
+      _currentPullState = pullEstado;
+      _groupAcks.clear();
+      ws.binaryType = "arraybuffer"; canal.ws = ws;
+      ws.onopen = function () {
+        if (_pausado || !permitido() || canal.ws !== ws) {
+          try { ws.close(1000, "inactive tab"); } catch (_) {} return;
+        }
+        _lastRelayProgressAt = Date.now(); _cupoRechazado = false;
+        /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
+           reseteaba el backoff aqui y el canal de fotos podia reconectar cada
+           pocos segundos para repetir un pull enorme. Solo una conexion que
+           sigue viva 30 s vuelve el backoff a cero. */
+        clearTimeout(_tEstable);
+        _tEstable = setTimeout(function () {
+          if (canal.ws === ws && ws.readyState === 1) reintentos = 0;
+        }, T_CONEXION_ESTABLE_MS);
+        // Do not advertise an empty or partial state vector while an iPhone is
+        // still hydrating its local Yjs journal: a peer might answer with ALL
+        // history (photos included), causing an avoidable encrypted RPC burst.
+        // The same channel keeps its in-RAM cursor across reconnects.
+        _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
+          if (canal.ws !== ws || ws.readyState !== 1) return;
+          try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // hello AFTER local hydration
+          if (ws.peerOnly) { programarRelecturaPeer(); return; }
+          return pedirPagina(ws, pullEstado);
+        });
+        /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
+           "catalogo". FIX de costo (JFC 2026-09-22, v337): la v335 hacia ping cada
+           60 s en LOS TRES canales (catalogo, fotos, ops). El relay usa WebSocket
+           Hibernation, cuyo unico proposito es no cobrar mientras esta quieto, y
+           cada mensaje entrante lo despierta: eran 3 despertares por minuto por
+           aparato, para siempre, aunque nadie tocara nada. Encima era redundante:
+           el desfase es del RELOJ DEL APARATO, no del canal, y OCLatencia lo
+           guarda una sola vez para todos. El refresco ya no es por reloj sino por
+           ACTIVIDAD: marcarSalida() pide un ping nuevo solo cuando va a sellar un
+           cambio y el reloj caduco. Costo en reposo: cero.
+           NO volver a poner un setInterval aqui. */
+        if (nombre === "catalogo") {
+          try { ws.send(JSON.stringify({ k: "ts", t0: Date.now() })); } catch (_) {}
+        }
+        drenarVivo();
+        _durableQueue.then(drenarDurable).catch(function () {});
+        if (!ws.peerOnly) signal("hello", "", { measurement: 1 });
+        // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
+        // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
+        // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
+        if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 2500); }
+        // Canal sin ckpt (fotos): sembrado propio al conectar (cada foto va como
+        // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
+        /* v665: a fresh device used to seed 3.2 s after connecting even while the photo history was still downloading,
+           so it re-published blobs the room already held (new op ids every time). Each run grew the room (6 to 65 ops in
+           one QA day, 10 MB), every new device then downloaded all of it and tripped the daily photo download share.
+           Now the seed waits (5 s checks, 60 s at most) until the durable pull has finished; direct peers never finish a
+           durable pull, so they seed on the old schedule. */
+        if (seedFn) setTimeout(function () {
+          var intentosSeed = 0;
+          (function intentarSeed() {
+            _pullCursorReady.then(function () {
+              if (_soloMemoria || canal.ws !== ws || ws.readyState !== 1) return;
+              if (canal.recuperando && !ws.peerOnly && intentosSeed++ < 12) { setTimeout(intentarSeed, 5000); return; }
+              try { seedFn(); } catch (_) {}
+            }).catch(function () {}); // never seed into a half-hydrated document
+          })();
+        }, 3200);
+      };
+      function programarRelecturaPeer() {
+        if (!ws.peerOnly || !canal.recuperando || _tReplay || canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return;
+        // v733: linea base del estado Yjs la primera vez que se pide al vecino (ver el corte abajo).
+        if (_svPeerPrev === null) { try { _svPeerPrev = Array.prototype.join.call(Y.encodeStateVector(doc), ","); } catch (_) { _svPeerPrev = ""; } }
+        _tReplay = setTimeout(function () {
+          _tReplay = null;
+          if (canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return;
+          /* v733 (JFC 2026-11-11, orden de Fable 5.2): un vecino que no entrega NADA durante 3 ciclos seguidos
+             (1+2+4 = 7 s, el estado Yjs no cambia) se suelta: se cierra el socket SIN codigo (no cuenta como
+             rechazo) para que la cascada vuelva a pedir el historial a una capa durable. Antes se quedaba pegado
+             al vecino mudo con reintentos de hasta 30 s para siempre, y el aparato nuevo no podia entrar.
+             "Progreso" = cambia el vector de estado Yjs. No toca datos ni escribe nada.
+             PARA REVERTIR: quitar este bloque. */
+          try {
+            var svAhora = Array.prototype.join.call(Y.encodeStateVector(doc), ",");
+            if (svAhora === _svPeerPrev) sinProgresoPeer++; else { sinProgresoPeer = 0; _svPeerPrev = svAhora; }
+            // v739 (revision de Fable 5.2, riesgo 5): el vecino solo se suelta si queda otra capa durable a la que volver;
+            // si todas estan en pausa, cerrar el unico socket dejaria al aparato nuevo reconectando sin recibir nada.
+            var hayOtraCapa = !window.F123Relay || typeof window.F123Relay.hayCapaDurableUsable !== "function" || window.F123Relay.hayCapaDurableUsable();
+            if (sinProgresoPeer >= 3 && hayOtraCapa && !Object.keys(partesEntrantes).length) { try { ws.close(); } catch (_) {} return; }
+          } catch (_) {}
+          // A fresh diff replaces an interrupted bootstrap, never a durable operation group.
+          Object.keys(partesEntrantes).forEach(function (id) {
+            if (partesEntrantes[id].tag !== 6 || partesEntrantes[id].receipts.length || ws.readyState !== 1) return;
+            if (snapshotsRetirados.size >= MAX_GRUPOS_EN_VIVO) { ws.close(); return; }
+            snapshotsRetirados.add(id); delete partesEntrantes[id];
+          });
+          _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
+            if (canal.ws === ws && ws.readyState === 1 && !_pausado && permitido()) enviar(1, Y.encodeStateVector(doc));
+          }).catch(function () {});
+          programarRelecturaPeer();
+        }, Math.min(30000, 1000 * Math.pow(2, reintentosPeer++)));
+      }
+      function confirmarRecepcionPeer() {
+        // An incomplete durable group must NEVER inherit another update's ACK.
+        // After 120s with no new sibling, forget only its RAM fragments;
+        // the sender retains its durable debt and must replay the whole group.
+        if (ws.peerOnly) Object.keys(partesEntrantes).forEach(function (id) {
+          var g = partesEntrantes[id];
+          if (g && g.receipts.length && Date.now() - g.creado > 120000) delete partesEntrantes[id];
+        });
+        if (!ws.peerOnly || (!pendientesPeer.length && !(snapshotPeerRecibido && canal.recuperando)) || canal.ws !== ws ||
+            _pausado || !permitido() ||
+            // During bootstrap all incomplete frames fence recovery. Once
+            // recovered, an abandoned receipt-free live snapshot may not
+            // block the disk ACK of a separate, fully applied durable op.
+            Object.keys(partesEntrantes).some(function (id) {
+              return canal.recuperando || partesEntrantes[id].receipts.length;
+            }) ||
+            (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) return Promise.resolve(true);
+        var batch = pendientesPeer.slice();
+        return barreraYjsConfirmada().then(function () {
+          if (_pausado || !permitido() || canal.ws !== ws) return false;
+          if (snapshotPeerRecibido) canal.peerSnapshot = true;
+          if (nombre !== "catalogo") return true;
+          if (API._store && typeof API._store.aplicar === "function") API._store.aplicar();
+          if (typeof API.confirmarCatalogoDurable !== "function") return false;
+          return API.confirmarCatalogoDurable();
+        }).then(function (ok) {
+          if (ok !== true || canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido() ||
+              (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) return false;
+          if (snapshotPeerRecibido) {
+            canal.recuperando = false;
+            clearTimeout(_tReplay); _tReplay = null; reintentosPeer = 0;
+          }
+          return Promise.all(batch.map(function (receipt) {
+            var proof = new TextEncoder().encode(JSON.stringify({ id: receipt.id, kind: receipt.kind, hash: receipt.hash }));
+            return cifrarBin(API.clave, _frame(5, proof)).then(function (cipher) {
+              if (canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return false;
+              return Promise.resolve(ws.confirmPeerReceipt(receipt, cipher)).then(function (sent) {
+                if (sent !== false) pendientesPeer = pendientesPeer.filter(function (entry) { return entry !== receipt; });
+              });
+            });
+          })).then(function () { return true; });
+        }).catch(function () { return false; });
+      }
+      function aceptarPruebaPeer(buf, meta) {
+        if (!ws.peerOnly || _pausado || !permitido() || !meta || !/^[a-f0-9]{64}$/.test(meta.hash || "")) return Promise.resolve(false);
+        var pending = _outbox.pending.find(function (entry) { return entry.id === meta.id && entry.k === meta.kind; });
+        if (!pending || !pending.c) return Promise.resolve(false);
+        return descifrarBin(API.clave, buf).then(function (bytes) {
+          if (bytes[0] !== 5) return false;
+          var proof = JSON.parse(new TextDecoder().decode(bytes.subarray(1)));
+          if (proof.id !== meta.id || proof.kind !== meta.kind || proof.hash !== meta.hash) return false;
+          var binary = atob(pending.c), encrypted = new Uint8Array(binary.length);
+          for (var i = 0; i < binary.length; i++) encrypted[i] = binary.charCodeAt(i);
+          return updateHash(encrypted).then(function (hash) {
+            if (hash !== meta.hash || canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido() || !_outbox.pending.includes(pending)) return false;
+            ws.acceptPeerAck(meta);
+            return true;
+          });
+        }).catch(function () { return false; });
+      }
+      function unirRecibosPeer(target, receipts) {
+        receipts.forEach(function (receipt) {
+          var index = target.findIndex(function (old) {
+            return old.peer === receipt.peer && old.id === receipt.id && old.kind === receipt.kind && old.hash === receipt.hash;
+          });
+          if (index < 0) target.push(receipt); else target[index] = receipt;
+        });
+      }
+      function manejar(buf, source, peerReceipt, peerSenderId) {
+        return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
+          if ((source === "live" || source === "peer") && (_pausado || !permitido())) return false;
+          var tag = bytes[0], payload = bytes.subarray(1), receipts = peerReceipt ? [peerReceipt] : [];
+          if (tag === 3) {
+            if (bytes.length < 22) return false;
+            var original = bytes[1], id = "";
+            for (var q = 2; q < 18; q++) id += String.fromCharCode(bytes[q]);
+            var indice = bytes[18] * 256 + bytes[19], total = bytes[20] * 256 + bytes[21];
+            if (!total || indice >= total) return false;
+            // Retired bootstrap fragments carry no durable receipt and must never recreate an ACK barrier.
+            if (source === "peer" && original === 6 && !peerReceipt && (canal.ws !== ws || snapshotsRetirados.has(id))) return true;
+            // Only locally marked broadcast/direct traffic is live-only. Missing
+            // metadata is conservative: it may be durable history.
+            var groups = source === "live" ? partesEnVivo : partesEntrantes;
+            if (source === "live") {
+              Object.keys(groups).forEach(function (key) {
+                if (Date.now() - groups[key].creado > 120000) delete groups[key];
+              });
+              var liveBytes = Object.keys(groups).reduce(function (sum, key) { return sum + groups[key].bytes; }, 0);
+              // These bytes are a latency optimization. The sender's durable
+              // outbox/history is authoritative and will replay a dropped group.
+              if ((!groups[id] && Object.keys(groups).length >= MAX_GRUPOS_EN_VIVO) || liveBytes + bytes.length - 22 > MAX_BYTES_EN_VIVO) return true;
+            }
+            var grupo = groups[id];
+            if (!grupo) grupo = groups[id] = { tag: original, total: total, piezas: [], cuenta: 0, bytes: 0, creado: Date.now(), receipts: [] };
+            if (grupo.total !== total || grupo.tag !== original) return false;
+            var existente = grupo.piezas[indice];
+            if (existente) {
+              if (existente.length !== bytes.length - 22) return false;
+              for (var r = 0; r < existente.length; r++) if (existente[r] !== bytes[r + 22]) return false;
+            }
+            if (peerReceipt) unirRecibosPeer(grupo.receipts, [peerReceipt]);
+            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; grupo.bytes += bytes.length - 22; grupo.creado = Date.now(); }
+            if (grupo.cuenta !== total) return true; // trozo valido; faltan sus hermanos
+            delete groups[id];
+            var largo = grupo.piezas.reduce(function (a, p) { return a + p.length; }, 0);
+            var unido = new Uint8Array(largo), cursor = 0;
+            grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
+            tag = original; payload = unido; receipts = grupo.receipts;
+          }
+          if (tag === 7) {
+            // A checkpoint is one authenticated frame. Never accept compressed peer/live ops.
+            if (source !== "pull") return false; // reader understands tag7; writer is separately gated
+            return _gzipYjs(payload, true).then(function (update) {
+              if (!update || !update.length) return false;
+              Y.applyUpdate(doc, update, "red");
+              if (pullEstado.rebaseCursor) pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
+              return true;
+            });
+          }
+          if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
+          if (tag === 0 || (source === "peer" && tag === 6)) {
+            var beforeRevision = API._catalogoRevision;
+            var antesSV = source === "live" ? Y.encodeStateVector(doc) : null;
+            var antesClave = antesSV ? clavePendientes() : null;
+            Y.applyUpdate(doc, payload, "red");
+            if (source !== "live" && pullEstado.rebaseCursor)
+              pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
+            if (antesSV) despertarConCambio(antesSV, antesClave);
+            try {
+              var receipt = Promise.resolve(false);
+              if (nombre === "catalogo" && API._catalogoRevision !== beforeRevision && typeof API.confirmarCatalogoVisible === "function")
+                receipt = API.confirmarCatalogoVisible();
+              // Bind the receipt now, not when a delayed request happens to arrive.
+              // A duplicate/no-op update cannot borrow an unrelated successful render.
+              appliedUpdate(payload, receipt);
+            } catch (_) {} // measurement cannot reject an otherwise valid recovery page
+            if (source === "peer") {
+              if (tag === 6) snapshotPeerRecibido = true;
+              unirRecibosPeer(pendientesPeer, receipts);
+              return confirmarRecepcionPeer();
+            }
+            // A successfully applied pull/live update is valid. Durability of the
+            // pull cursor is separately fenced by guardarPruebaCausal + IDB readback.
+            return true;
+          }
+          else if (tag === 1) { // peer hello: do not answer from an unhydrated Y.Doc
+            return _pullCursorReady.then(function () {
+              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
+              return true;
+            });
+          } else if (tag === 2) { // reply after local hydration
+            return _pullCursorReady.then(function () {
+              // The first LIVE response can be discarded by a saturated RTC
+              // peer queue even when ws.send() returned successfully. Without
+              // a persisted receiver ACK, a matching hash is NOT evidence of
+              // delivery. Retry the diff on tag-2, even if the shop is empty:
+              // an empty tag-6 also certifies a completed bootstrap snapshot.
+              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              return true;
+            });
+          }
+          // Unknown authenticated frame formats cannot certify a durable pull cursor.
+          return false;
+        }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
+      }
+      ws.onmessage = function (ev) {
+        if (!API.clave || canal.ws !== ws) return;
+        // A direct P2P copy is a best-effort LIVE frame, even when a durable
+        // socket is simultaneously open. Never count its missing fragments or
+        // failed decrypt as a failure of the ongoing encrypted durable pull.
+        var d = ev.data, source = ev.relaySource === "peer-live" ? "live" : ev.relaySource;
+        if (source === "peer-ack") {
+          _colaRecepcion = _colaRecepcion.then(function () {
+            return d instanceof ArrayBuffer ? aceptarPruebaPeer(d, ev.peerAck) : false;
+          }).catch(function () { return false; });
+          return;
+        }
+        // ROBUSTEZ (JFC 2026-09-10, world-class): normalmente con binaryType
+        // "arraybuffer" llega un ArrayBuffer, pero algunos navegadores/proxies
+        // entregan un Blob aunque se pida ArrayBuffer. Se aceptan AMBOS. Los
+        // frames se encadenan: el cursor de una pagina se confirma DESPUES de
+        // aplicar todos sus binarios, nunca antes.
+        if (d instanceof ArrayBuffer) {
+          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source, ev.peerReceipt, ev.peerSenderId); }).then(function (ok) {
+            if (source === "pull" && pullEstado.rebaseCursor && ok)
+              pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
+            if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
+            if (ok && source === "live") contarColaCkpt(d.byteLength); // v751
+          }).catch(function (e) {
+            // One corrupted or undecipherable frame must NOT poison the entire
+            // serial receive queue. The failed durable page is retried from the
+            // last confirmed cursor; do not ACK or silently skip its bytes.
+            if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++;
+            try { log("frame Yjs no aplicable en " + nombre, e && e.message); } catch (_) {}
+            return false;
+          });
+        }
+        else if (typeof Blob !== "undefined" && d instanceof Blob) {
+          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source, ev.peerReceipt, ev.peerSenderId); }).then(function (ok) {
+            if (source === "pull" && pullEstado.rebaseCursor && ok)
+              pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
+            if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
+          }).catch(function () { if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++; });
+        }
+        /* MEDICION DE LATENCIA (JFC 2026-09-22). Los frames de TEXTO hasta hoy
+           se ignoraban por completo, asi que engancharse aqui es 100% aditivo:
+           nada de lo que ya funciona depende de esta rama. Y sobre todo, esto
+           corre FUERA del camino de datos de Yjs — no lee ni escribe el doc, no
+           puede corromper ni retrasar un cambio real. Si algo falla, se pierde
+           el numero, nunca el dato. */
+        else if (typeof d === "string") {
+          try {
+            var c = JSON.parse(d);
+            if (c && c.k === "peer-count") { _relayPeerCount = Math.max(0, Number(c.n) || 0); }
+            else if (c && c.k === "peer-ready" &&
+                     (ws.peerOnly || ev.relaySource === "peer-live")) {
+              // The durable socket may be open but stale or on another
+              // fallback layer. Exchange encrypted state vectors over the
+              // already-connected peer lane to repair catalog, ops AND photos.
+              // No fake persistence ACK or cursor advance is permitted.
+              _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
+                if (canal.ws === ws && ws.readyState === 1 && !_pausado && permitido()) enviar(1, Y.encodeStateVector(doc));
+              }).catch(function () {});
+            }
+            else if (c && c.k === "persist-result") {
+              if (ws.peerOnly && ev.peerAccepted !== true) return;
+              if (canal.ws === ws) confirmarDurable(c);
+            }
+            else if (c && c.k === "head-result") { if (!ws.peerOnly) procesarHead(ws, pullEstado, c); }
+            else if (c && c.k === "pull-page") {
+              if (ws.peerOnly) return;
+              _colaRecepcion = _colaRecepcion.then(function () {
+                if (canal.ws !== ws) return;
+                if (pullEstado.fallos) {
+                  pullEstado.enCurso = false;
+                  try { ws.close(1013, "replay incomplete; retry from applied cursor"); } catch (_) {}
+                  try { log("pagina de catch-up no confirmada en " + nombre); } catch (_) {}
+                  return;
+                }
+                if (pullEstado.rebaseCursor) {
+                  // Relay c.n counts stored operations, NOT the optional checkpoint.
+                  // One extra validated ciphertext + applied Yjs update is required.
+                  var opCount = c.n; // reject absent/null/string relay counts
+                  if (!Number.isSafeInteger(opCount) || opCount < 0 ||
+                      !pullEstado.rebaseFrames || pullEstado.rebaseCipherFrames !== opCount + 1) {
+                    // Fail closed: never discard a proven cursor without decrypting
+                    // the replacement checkpoint. Retry via ordinary reconnect.
+                    pullEstado.enCurso = false;
+                    try { ws.close(1013, "checkpoint proof missing"); } catch (_) {}
+                    return;
+                  }
+                  // All prior ciphertext was applied in _colaRecepcion. Only now
+                  // may cursor bookkeeping rewind. Y.Doc and its IDB journal stay.
+                  _pullCursor = { rev: -1, seq: 0 };
+                  _appliedPullCursor = { rev: -1, seq: 0 };
+                  _ultimoCursorLimpio = { rev: -1, seq: 0 };
+                  pullEstado.rebaseCursor = false;
+                  pullEstado.rebaseFrames = 0;
+                  pullEstado.rebaseCipherFrames = 0;
+                  _legacyProbeKey = ""; _legacyProbeAttempts = 0; // proven encrypted recovery
+                }
+                return guardarPullCursor(c).then(function () {
+                  if (canal.ws !== ws || ws.readyState !== 1) return;
+                  pullEstado.pullAplicado = true; // verified ciphertext + durable cursor write/readback
+                  if (pullEstado.rescateCausalDesde) {
+                    // Replaying an older proven interval MUST paginate with an
+                    // EPHEMERAL cursor: never roll back the confirmed durable cut.
+                    var previo = pullEstado.rescateCausalDesde, revC = Number(c.rev), seqC = Number(c.seq);
+                    // Firebase REST cannot advance its timestamp cursor until
+                    // EVERY same-millisecond sibling has been emitted. Its
+                    // staging offset lives only in this socket, not on the wire.
+                    // Bound by the adapter's 256-item/4-MiB tie cap. A repeat
+                    // on Cloudflare, or an empty/invalid staged page, is a stall.
+                    var cursorIgual = revC === previo.rev && seqC === previo.seq;
+                    var tieValido = cursorIgual && ws.relayLayer === "f123_relay_cupo_fb_v1" &&
+                      c.more === true && Number.isSafeInteger(c.n) && c.n > 0;
+                    if (!Number.isSafeInteger(revC) || !Number.isSafeInteger(seqC) ||
+                        revC < previo.rev || (revC === previo.rev && seqC < previo.seq) ||
+                        (cursorIgual && !tieValido)) {
+                      pullEstado.enCurso = false;
+                      programarRelectura(ws, pullEstado);
+                      return;
+                    }
+                    if (tieValido) {
+                      if ((pullEstado.rescateTiePaginas || 0) >= MAX_FIREBASE_TIE_RESCATE_PAGES) {
+                        // Repeated apparent progress is not an unlimited quota.
+                        // Keep Yjs and its durable cursor; fail closed.
+                        pullEstado.enCurso = false;
+                        pullEstado.rescateCausalAvanzo = false;
+                        try { log("Firebase timestamp tie sin avance verificable en " + nombre); } catch (_) {}
+                        return;
+                      }
+                      pullEstado.rescateTiePaginas = (pullEstado.rescateTiePaginas || 0) + 1;
+                    } else pullEstado.rescateTiePaginas = 0;
+                    pullEstado.rescateCausalDesde = { rev: revC, seq: seqC };
+                    // c.n is a relay count, not evidence of Yjs application.
+                    // Use it only to pace a finite forward scan; the existing
+                    // state-vector test alone can renew _replayUsed.
+                    if (Number.isSafeInteger(c.n) && c.n > 0)
+                      pullEstado.rescateCausalAvanzo = true;
+                    pullEstado.rescatePaginas = (pullEstado.rescatePaginas || 0) + 1;
+                    if (!c.more) {
+                      pullEstado.rescateCausalDesde = null;
+                      pullEstado.rescateCausalHasta = null;
+                      pullEstado.rescateCausalAvanzo = false;
+                      pullEstado.rescateTiePaginas = 0;
+                    }
+                    else if (pullEstado.rescatePaginas >= 4) {
+                      // Per-window network budget: at most four 64-op pages.
+                      // Genuine encrypted forward progress renews the BACKOFF
+                      // budget; no progress retains the existing five-try cap.
+                      var vectorNuevo = Y.encodeStateVector(doc), vectorAnterior = pullEstado.rescateVectorInicio;
+                      var avanceYjs = !!vectorAnterior && vectorAnterior.length !== vectorNuevo.length;
+                      for (var vi = 0; !avanceYjs && vectorAnterior && vi < vectorNuevo.length; vi++)
+                        if (vectorAnterior[vi] !== vectorNuevo[vi]) avanceYjs = true;
+                      if (avanceYjs) _replayUsed = Math.max(0, _replayUsed - 1);
+                      pullEstado.enCurso = false;
+                      programarRelectura(ws, pullEstado);
+                      return;
+                    }
+                  }
+                  if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
+                  pullEstado.enCurso = false;
+                  // v751: the tail re-read asked by contarColaCkpt ended; checkpointTrasPull keeps every guard.
+                  if (!c.more && pullEstado.renovarCkpt) { pullEstado.renovarCkpt = false; checkpointTrasPull(ws); }
+                  // PendingStructs empty alone does NOT prove full history.
+                  // Confirm the final cursor against relay HEAD before unlocking data/PIN.
+                  if (!c.more && canal.recuperando && !deudaPendiente()) {
+                    if (pullEstado.headLegacy || _soloMemoria) {
+                      // Old relay has no HEAD: its fully received final page
+                      // remains the completion proof. Never unlock with debt.
+                      canal.recuperando = false;
+                      if (pullEstado.pullAplicado && typeof ws.markRecovered === "function" && !_soloMemoria) { try { ws.markRecovered(); } catch (_) {} }
+                      if (nombre === "catalogo" && API._store) API._store.aplicar();
+                      checkpointTrasPull(ws);
+                    } else if (!pullEstado.validacionFinal) {
+                      pullEstado.validacionFinal = true;
+                      return pedirPagina(ws, pullEstado);
+                    }
+                  }
+                  /* v764 (QA limpia2, 13 nov 2026): with a causal parent no device holds, recovery never ends and HEAD
+                     was only re-read after the 30 s+ replay backoff; by then other devices had written, HEAD never equalled
+                     the cursor and canal.headAcceso (v753) was never proven, so a new device could not enter with its PIN.
+                     Ask HEAD right after the last page, once per new cursor (an unchanged cursor never asks again: no loop).
+                     procesarHead still decides with the same proof. PARA REVERTIR: quitar este bloque. */
+                  if (!c.more && canal.recuperando && deudaPendiente() && nombre === "catalogo" && !canal.headAcceso &&
+                      !pullEstado.headLegacy && !_soloMemoria && !Object.keys(partesEntrantes).length) {
+                    var corteAcceso = _pullCursor.rev + ":" + _pullCursor.seq;
+                    if (pullEstado.headAccesoPedido !== corteAcceso) { pullEstado.headAccesoPedido = corteAcceso; return pedirPagina(ws, pullEstado); }
+                  }
+                  // The last page can have no transport fragments yet Yjs may
+                  // still be missing a causal parent or pending deletion.
+                  // Retain EVERY encrypted operation, retain the proven cursor,
+                  // and replay from that cut with exponential backoff. Never
+                  // claim a complete first-join or adopt PINs from partial data.
+                  programarRelectura(ws, pullEstado);
+                });
+              }).catch(function (e) {
+                // Recovery must remain live after a page processing error.
+                // Close/replay instead of abandoning all later encrypted pages.
+                pullEstado.fallos++;
+                try { log("error pagina Yjs " + nombre, e && e.message); } catch (_) {}
+                try { ws.close(1013, "pull page failed; replay from confirmed cursor"); } catch (_) {}
+                return false;
+              });
+            }
+            else if (c && c.k === "tsr" && window.OCLatencia) window.OCLatencia.anotarPing(c.t0, c.t1, Date.now());
+            else if (c && c.k === "lat" && window.OCLatencia) window.OCLatencia.anotarMuestra(c.oTs, c.etq);
+          } catch (_) {} // texto que no es nuestro: se ignora igual que antes
+        }
+      };
+      _directReceive = function (buf) {
+        if (_pausado || !permitido()) return;
+        _colaRecepcion = _colaRecepcion.then(function () {
+          if (_pausado || !permitido()) return false;
+          return manejar(buf, "live");
+        })
+          .catch(function (e) {
+            // Live-only fast path is optional; durable relay replay remains
+            // authoritative and MUST keep processing subsequent frames.
+            try { log("frame directo Yjs no aplicable en " + nombre, e && e.message); } catch (_) {}
+            return false;
+          });
+      };
+      ws.onclose = function () {
+        if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado
+        clearTimeout(_tEstable); _tEstable = null;
+        clearTimeout(_bufferPumpTimer); _bufferPumpTimer = null;
+        clearTimeout(_durableWatchdog); _durableWatchdog = null;
+        _durableInFlight = Object.create(null);
+        _groupAcks.clear();
+        clearTimeout(_tReplay); _tReplay = null;
+        pullEstado.enCurso = false;
+        canal.ws = null;
+        _relayPeerCount = 0;
+        /* v514 (fallo 1 de Codex): caer el relay NO cierra las conexiones directas que siguen
+           vivas entre aparatos. Siguen recibiendo cambios en vivo (enviarDirecto) y, ademas,
+           todo queda en canal.pend y en el outbox para el relay cuando vuelva. Al reconectar
+           no hay que renegociar con cada aparato: menos mensajes a Cloudflare. */
+        if (!_pausado && permitido()) reprogramar();
+      };
+      ws.onerror = function () { try { ws.close(); } catch (_) {} };
+    }
+    canal.pausar = function () {
+      /* JFC 2026-11-11 (orden de Fable 5.2): antes de pausar por pantalla oculta, vaciar UNA vez
+         el buffer en memoria hacia el relay si el socket sigue abierto. No cambia el permiso de
+         envio: lo duradero (outbox cifrado) sigue intacto y se reenvia al volver. Si falla, no
+         pasa nada: la garantia es al-menos-una-vez al volver al frente, no antes de dormirse. */
+      try { if (canal.ws && canal.ws.readyState === 1 && canal.pend && canal.pend.length) drenarVivo(); } catch (_) {}
+      _pausado = true;
+      [_tReconnect,_tEstable,_tCkpt,_tReplay,_bufferPumpTimer,_durableTimer,_durableWatchdog]
+        .forEach(clearTimeout);
+      _tReconnect = _tEstable = _tCkpt = _tReplay = _bufferPumpTimer =
+        _durableTimer = _durableWatchdog = null;
+      _durableInFlight = Object.create(null); // encrypted outbox itself stays intact
+      var ws = canal.ws; canal.ws = null;
+      if (ws) try { ws.close(1000, "tab inactive"); } catch (_) {}
+    };
+    canal.reanudar = function () {
+      if (!_pausado && (_tReconnect || (canal.ws && canal.ws.readyState < 2))) return;
+      _pausado = false; conectar();
+    };
+    // Real hidden→visible gesture: one metadata check when exhausted; no polling.
+    var _wasVisible = document.visibilityState !== "hidden";
+    document.addEventListener("visibilitychange", function () {
+      var visible = document.visibilityState !== "hidden";
+      if (visible === _wasVisible) return;
+      _wasVisible = visible;
+      if (visible && _replayUsed >= 5 && !_soloMemoria &&
+          canal.ws && canal.ws.readyState === 1 && _currentPullState &&
+          !_currentPullState.enCurso) pedirPagina(canal.ws, _currentPullState);
+    });
+    canal.conectar = conectar;
+    return canal;
+  }
+
+  // Carga perezosa del bundle vendorizado (solo si el flag está encendido, para no
+  // pagar 94kb de parse a quien no prueba). Sin CDN: es un archivo del shell.
+  function cargarBundle() {
+    return new Promise(function (resolve, reject) {
+      if (window.Y && window.IndexeddbPersistence) return resolve();
+      var s = document.createElement("script");
+      s.src = BUNDLE; s.async = true;
+      s.onload = function () { (window.Y && window.IndexeddbPersistence) ? resolve() : reject(new Error("bundle sin Y")); };
+      s.onerror = function () { reject(new Error("no se pudo cargar " + BUNDLE)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  // Fase 1: TODAS las colecciones del catálogo, no solo productos. Cada una es
+  // un Y.Map dentro del mismo Y.Doc, así un solo update binario las cubre todas
+  // y convergen juntas. La lista es la misma que viaja hoy en el sync casero
+  // (ver _acumularCatalogo en sync-realtime.js): ubicaciones, productos,
+  // usuarios, clientes. Agregar aquí una colección nueva es una línea.
+  // JFC 2026-09-10 ("sync integral, shared notebook"): se suman las entidades
+  // definicionales que faltaban — promotoras (comisionistas) y sucursales. Son
+  // Las fichas editables viajan con revision logica. Ventas, gastos y
+  // transferencias usan IDs estables y actualizaciones individuales; los hechos
+  // de cartera y caja chica van en un mapa inmutable aparte.
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "gastos", "transferencias", "dispositivos", "categorias", "ajustes", "actividad"]; // Activity preserves each source's original seals.
+  /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el dinero
+     viajaba solo por el sync viejo (sync-realtime, frágil). Ahora las ventas cruzan
+     por Yjs, ADD-ONLY por id (cada venta una sola vez -> no se duplica plata). No
+     hay doble descuento de stock porque el stock es LWW ABSOLUTO aparte (v289), no
+     se re-deriva de estas ventas. Para NO reventar el frame de 256KB con historiales
+     grandes, las ventas NO van en el batch de sembrar(); se siembran como op
+     INDIVIDUAL (una mini-actualización por venta, igual que las fotos). */
+  /* DISPOSITIVOS (apodos "This device") POR EL SYNC NUEVO (v298, JFC 2026-09-16).
+     Antes los apodos viajaban por micelio sobre el sync VIEJO (frágil) y no cruzaban
+     bien. Ahora cada aparato publica su entrada {id,apodo,rol} en la colección
+     "dispositivos" (add-only por id; el aparato es dueño de SU entrada). Al recibir,
+     aplicarCatalogo alimenta la lista de micelio (OCMicelio.recibir) para que el
+     dueño vea sus aparatos en Advanced. Va en el batch: es diminuto. */
+  var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "dispositivos", "categorias", "ajustes"]; // categorias (v344): propias vacias y ocultas, con rev y lapida
+  // Manual, read-only audit. Never logs or returns any business payload, license or PIN.
+  // AES-GCM envelope length is exact: 12-byte IV + 16-byte tag + 1-byte frame.
+  function _medirDocumentoYjs(Y, doc, nombre, canal, idb, permiteCkpt) {
+    if (!doc || !Y || !Y.encodeStateAsUpdate) return null;
+    var update = Y.encodeStateAsUpdate(doc);
+    var entries = 0, inline = 0;
+    doc.share.forEach(function (type) {
+      if (!type || typeof type.forEach !== "function") return;
+      type.forEach(function (value) {
+        entries++;
+        try {
+          var serialized = JSON.stringify(value);
+          if (serialized) { var found = serialized.match(/data:image\//gi); inline += found ? found.length : 0; }
+        } catch (_) { /* report only safely enumerable values */ }
+      });
+    });
+    var encrypted = update.byteLength + 29;
+    var wire = Math.ceil(encrypted * 4 / 3) + 128;
+    var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === 768 * 1024 ? 768 * 1024 : 0;
+    return { canal: nombre, bytesPlano: update.byteLength, bytesCifrados: encrypted,
+      entradas: entries, dataImageInline: inline,
+      hidratado: !!(idb && idb.synced === true && canal && canal.recuperando === false &&
+        !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))),
+      checkpoint: !!permiteCkpt, bytesSobre: wire,
+      limiteCifradoBytes: permiteCkpt ? ckptCipherLimit || null : null,
+      margenBytes: permiteCkpt ? (ckptCipherLimit ? ckptCipherLimit - encrypted : 256 * 1024 - wire) : null };
+  }
+  // Manual numeric-only approximation of CURRENT visible data by collection.
+  // Not a sum of Yjs checkpoint bytes: deleted structs and causal metadata are excluded.
+  function _medirColeccionesCatalogo(doc) {
+    if (!doc || !doc.share) return [];
+    var encoder = new TextEncoder();
+    var names = COLECCIONES.concat(["hechos_financieros", "_stock_pn_testigos_v1", "_meta"]);
+    return names.map(function (name) {
+      var map = doc.share.get(name), entries = 0, bytes = 0;
+      if (map && typeof map.forEach === "function") map.forEach(function (value, key) {
+        entries++;
+        try {
+          var json = JSON.stringify(value);
+          bytes += encoder.encode(String(key)).byteLength + encoder.encode(json || "").byteLength;
+        } catch (_) { /* numeric estimate can undercount unencodable values */ }
+      });
+      return { coleccion: name, entradas: entries, bytesJSONVisibles: bytes };
+    }).sort(function (a, b) { return b.bytesJSONVisibles - a.bytesJSONVisibles; });
+  }
+  var API = {
+    estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, codigoCuaderno: "", colecciones: COLECCIONES,
+    // API genérica por colección (probar convergencia a mano o desde código).
+    set: function (col, id, obj) { var m = this.mapas[col]; if (!m) return false; m.set(String(id), obj); return true; },
+    get: function (col) { var o = {}, m = this.mapas[col]; if (m) m.forEach(function (v, k) { o[k] = v; }); return o; },
+    del: function (col, id) { var m = this.mapas[col]; if (!m) return false; m.delete(String(id)); return true; },
+    // Atajos retro-compatibles con la Fase 0.
+    setProducto: function (id, obj) { return this.set("productos", id, obj); },
+    getProductos: function () { return this.get("productos"); },
+    _diag: function () {
+      var n = {}, self = this; this.colecciones.forEach(function (c) { n[c] = self.mapas[c] ? self.mapas[c].size : 0; });
+      var rs = function (cn) { return cn && cn.ws ? cn.ws.readyState : null; };
+      return { estado: this.estado, roomId: this.roomId, n: n,
+        recuperacionLocalPendiente: [this.canal, this.fotosCanal, this.opsCanal].some(function (c) { return c && (c.recuperacionLocal === "pendiente" || c.recuperacionLocal === "sin-almacenamiento"); }),
+        ws: { catalogo: rs(this.canal), fotos: rs(this.fotosCanal), ops: rs(this.opsCanal) },
+        meta: { nombre: this.meta ? this.meta.get("nombreNegocio") : null, esDueno: this.meta ? this.meta.get("nombreEsDueno") : null },
+        fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0 };
+    }
+  };
+  window.OCYjs = API;
+  // Call manually on an authorized device after all three channels have hydrated:
+  // console.table(OCYjs.medirTamanoCanales())
+  API.medirTamanoCanales = function () {
+    if (!window.Y || !API.doc || !API.opsDoc || !API.fotosDoc) return [];
+    return [
+      _medirDocumentoYjs(window.Y, API.doc, "catalogo", API.canal, API.idb, true),
+      _medirDocumentoYjs(window.Y, API.opsDoc, "operaciones", API.opsCanal, API.opsIdb, true),
+      _medirDocumentoYjs(window.Y, API.fotosDoc, "fotos", API.fotosCanal, API.fotosIdb, false)
+    ];
+  };
+  // console.table(OCYjs.medirTamanoColecciones()) — figures only; never business values.
+  API.medirTamanoColecciones = function () {
+    if (!API.doc) return [];
+    var hydrated = !!(API.idb && API.idb.synced === true && API.canal &&
+      API.canal.recuperando === false && !(API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)));
+    return _medirColeccionesCatalogo(API.doc).map(function (row) {
+      return { coleccion: row.coleccion, entradas: row.entradas,
+        bytesJSONVisibles: row.bytesJSONVisibles, hidratado: hydrated };
+    });
+  };
+
+
+  /* PRIME DIRECTIVE 1AAA / G05 — HISTORIAL LOCAL DE PUNTEROS DE FOTO.
+     y-indexeddb persiste updates del catalogo en objectStore "updates". Este
+     lector abre ESA MISMA base ya abierta por IndexeddbPersistence, en modo
+     readonly, y reproduce sus updates en un Y.Doc AISLADO. Despues de cada
+     update anota todo fotoHash no vacio observado para cada shelf id.
+     - NO aplica nada a API.doc.
+     - NO escribe/borrar IndexedDB.
+     - NO inventa asociaciones.
+     - La compactacion de y-indexeddb puede haber eliminado historia antigua;
+       en ese caso devuelve solo lo que realmente siga demostrable. */
+  API.historialFotosPorPercha = async function () {
+    var out = {};
+    try {
+      if (!API.idb || !window.Y) return out;
+      try {
+        if (API.idb.whenSynced && typeof API.idb.whenSynced.then === "function") {
+          await API.idb.whenSynced.catch(function () {});
+        }
+      } catch (_) {}
+      var db = API.idb.db || null;
+      if (!db && API.idb._db && typeof API.idb._db.then === "function") {
+        try { db = await API.idb._db; } catch (_) {}
+      }
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates")) return out;
+
+      var updates = await new Promise(function (resolve, reject) {
+        try {
+          var tx = db.transaction("updates", "readonly");
+          var store = tx.objectStore("updates");
+          var req = store.openCursor();
+          var arr = [];
+          req.onsuccess = function (ev) {
+            var cur = ev.target.result;
+            if (!cur) { resolve(arr); return; }
+            arr.push(cur.value);
+            cur.continue();
+          };
+          req.onerror = function () { reject(req.error); };
+        } catch (e) { reject(e); }
+      });
+
+      var d = new window.Y.Doc();
+      var mapa = d.getMap("ubicaciones");
+      var ultimo = {};
+      function capturar() {
+        try {
+          mapa.forEach(function (row, id) {
+            var h = row && row.fotoHash ? String(row.fotoHash) : "";
+            if (!h || ultimo[id] === h) return;
+            ultimo[id] = h;
+            if (!out[id]) out[id] = [];
+            if (out[id].indexOf(h) < 0) out[id].push(h);
+          });
+        } catch (_) {}
+      }
+      for (var i = 0; i < updates.length; i++) {
+        try {
+          var u = updates[i];
+          var bytes = u instanceof Uint8Array ? u : new Uint8Array(u);
+          window.Y.applyUpdate(d, bytes, "forense-readonly");
+          capturar();
+        } catch (_) {}
+      }
+      /* Si y-indexeddb compacto el historial, el estado actual puede ser la unica
+         evidencia restante. Se añade solo si el pointer existe de verdad. */
+      try {
+        var vivo = API.mapas && API.mapas.ubicaciones;
+        if (vivo) vivo.forEach(function (row, id) {
+          var h = row && row.fotoHash ? String(row.fotoHash) : "";
+          if (!h) return;
+          if (!out[id]) out[id] = [];
+          if (out[id].indexOf(h) < 0) out[id].push(h);
+        });
+      } catch (_) {}
+      try { d.destroy(); } catch (_) {}
+    } catch (e) {
+      try { console.warn("[OCYjs] historialFotosPorPercha:", e && e.message); } catch (_) {}
+    }
+    return out;
+  };
+
+  function log(/*...*/) { try { console.log.apply(console, ["[OCYjs]"].concat([].slice.call(arguments))); } catch (_) {} }
+
+  var _arranquePromise = null;
+  var _arranqueSolicitado = false;
+  function arrancar() {
+    if (API.estado === "activo") return Promise.resolve(true);
+    if (_arranquePromise) { _arranqueSolicitado = true; return _arranquePromise; }
+    _arranquePromise = arrancarInicial().catch(function (e) {
+      log("arranque:", e && e.message);
+    }).finally(function () {
+      _arranquePromise = null;
+      if (_arranqueSolicitado) { _arranqueSolicitado = false; arrancar(); }
+    });
+    return _arranquePromise;
+  }
+
+  async function arrancarInicial() {
+    /* UNA LICENCIA = UNA SALA (v295, JFC 2026-09-16). "salas"/f123_sync_room es
+       VESTIGIAL y ya NO decide nada: la sala es SIEMPRE la LICENCIA
+       del cuaderno activo (OCTienda.licenciaActual). Antes f123_sync_room podía quedar desalineado de la
+       licencia y mandar el aparato a otra sala -> no convergía. Ya no se lee como
+       fuente de sala. Si el aparato no tiene licencia (demo/sin activar), no hay
+       sync. La CLAVE y la sala salen de la MISMA licencia, así todos los aparatos
+       de una licencia caen en la misma sala, siempre. */
+    var _licProp = "";
+    try {
+      if (window.OCTienda && typeof window.OCTienda.licenciaActual === "function") {
+        _licProp = window.OCTienda.licenciaActual();
+      } else {
+        // Before backend boot only the own-store namespace can safely use its sidecar.
+        if (localStorage.getItem("f123_tienda_activa")) return;
+        var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (_ow.licenseCode) _licProp = String(_ow.licenseCode);
+      }
+    } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
+    if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
+    var codigo = normalizarCodigo(_licProp);
+    var rolloutPromise = _politicaRollout(codigo);
+    // A first-time license may be entered after mock-backend boot, on the PIN screen.
+    if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();
+    // S2: do not open the NEW test room while old local business/IDB is pending reset.
+    if (window.__f123JfcResetReady && await window.__f123JfcResetReady !== true) {
+      log("JFC test reset did not complete; sync remains disabled");
+      return;
+    }
+    try { await cargarBundle(); } catch (e) { log("bundle:", e && e.message); return; }
+
+    var Y = window.Y;
+    API.doc = new Y.Doc();
+    COLECCIONES.forEach(function (c) { API.mapas[c] = API.doc.getMap(c); });
+    API.hechosMap = API.doc.getMap("hechos_financieros");
+    // FASE 2 (JFC 2026-09-09): mapa aparte para el nombre del negocio y los PINs
+    // de rol, que viajan CON el catálogo pero no son una colección de ítems. Así
+    // Plan C converge un negocio completo por sí solo, sin depender del sync casero.
+    API.stockPNTestigos = API.doc.getMap("_stock_pn_testigos_v1");
+    API.meta = API.doc.getMap("_meta");
+    API.clave = await derivarClave(codigo);
+    /* LIMPIEZA (2026-09-16): SOLO la licencia canonica de JFC estrena sala NUEVA
+       para abandonar la sala de catalogo contaminada con semilla (la vieja queda
+       huerfana e hibernada, sin costo). Gated EXACTO: ninguna otra licencia
+       (idiomARTE incluida) cambia de sala. La CLAVE sigue derivada de la licencia,
+       asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
+       gated en mock-backend.js. */
+    var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo; // JFC 2026-11-01: SAME room as v636 (no reset); devices absorb their own data
+    API.esLicenciaPruebaJfc = _salaId !== codigo; // existing JFC test-license fingerprint gate only
+    API.roomId = await idDeSala(_salaId);
+    // Bind the ops bridge to the exact licence that initialized this Y.Doc.
+    API.codigoCuaderno = codigo;
+    API.rollout = await rolloutPromise;
+
+    // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
+    // Guardamos la referencia: al terminar de cargar de IndexedDB ("synced")
+    // hacemos el primer volcado Yjs->store, para que un aparato que arranca
+    // offline ya vea lo que otro dejó, sin esperar al relay (Fase 2).
+    try { API.idb = new window.IndexeddbPersistence("f123-yjs-" + API.roomId, API.doc); } catch (e) { log("idb:", e && e.message); }
+
+    // Convergencia entre pestañas del MISMO origen: instantánea, sin red.
+    try {
+      API.bc = new BroadcastChannel("f123-yjs-" + API.roomId);
+      API.bc.onmessage = function (ev) { try { Y.applyUpdate(API.doc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
+    } catch (_) {}
+
+    // Cada cambio local -> update binario -> (a) pestañas por BroadcastChannel,
+    // (b) otros dispositivos por el relay cifrado. origin !== "bc"/"red" evita eco.
+    API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
+    API.doc.on("update", function (update, origin) {
+      // IndexedDB hydration replays existing history; it is not a new change to publish.
+      if (origin === "bc" || origin === "red" || (API.idb && origin === API.idb)) return;
+      try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
+      API.canal.enviarUpdate(update);
+    });
+
+    // B3 (JFC 2026-09-10): documento SEPARADO para los BYTES de las fotos. NO van
+    // en el doc del catálogo (lo inflarían): aquí cada foto es hash -> dataURL,
+    // converge por su propia sala de relay ("-fotos"), persiste en su propio
+    // IndexedDB y entre pestañas por su BroadcastChannel. Content-addressed: una
+    // foto (un hash) se escribe una sola vez. Así las fotos cruzan device-to-device
+    // sin nube; la nube durable del dueño (Google Drive) es una fase posterior.
+    API.fotosDoc = new Y.Doc();
+    API.fotosMap = API.fotosDoc.getMap("blobs");
+    try { API.fotosIdb = new window.IndexeddbPersistence("f123-yjs-fotos-" + API.roomId, API.fotosDoc); } catch (_) {}
+    try {
+      API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
+      API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
+    } catch (_) {}
+    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay, API.fotosIdb); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
+    API.fotosDoc.on("update", function (update, origin) {
+      if (origin === "bc" || origin === "red" || (API.fotosIdb && origin === API.fotosIdb)) { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
+      try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
+      API.fotosCanal.enviarUpdate(update);
+    });
+
+    // SYNC DE VENTAS/OPS (JFC 2026-09-10, "que sincronice TODO"). Doc SEPARADO de
+    // eventos append-only: opId -> op. Cada venta/movimiento viaja como un hecho
+    // inmutable y se aplica UNA sola vez por OCSync.aplicarOpRemota (idempotente
+    // por opId). Sala de relay "-ops" aparte. Los ops PROPIOS (mismo deviceId) no
+    // se re-aplican: ya se aplicaron al hacer la acción. Esto es event-sourcing
+    // sobre CRDT: transporte confiable (Yjs) + aplicación segura (handler probado).
+    // Va detrás del MISMO flag y en paralelo al sync viejo (respaldo), así que un
+    // op duplicado por los dos transportes se aplica una vez y no dobla la plata.
+    API.opsDoc = new Y.Doc();
+    API.opsMap = API.opsDoc.getMap("eventos");
+    try { API.opsIdb = new window.IndexeddbPersistence("f123-yjs-ops-" + API.roomId, API.opsDoc); } catch (_) {}
+    try {
+      API.opsBc = new BroadcastChannel("f123-yjs-ops-" + API.roomId);
+      API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
+    } catch (_) {}
+    API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb); // ckpt: ops es pequeño
+    API.opsDoc.on("update", function (update, origin) {
+      if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
+      try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
+      API.opsCanal.enviarUpdate(update);
+    });
+    // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
+    window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
+    // An op that arrived before its product must run once the catalog catches up.
+    API.doc.on("update", function () { if (API.esLicenciaPruebaJfc && API.opsMap && API.opsMap.size) pedirProcesarEventos(); });
+    window.addEventListener("oc-catalogo-cambiado", pedirProcesarEventos);
+
+    function sincronizarVisibilidad() {
+      var activo = !document.hidden;
+      [API.canal, API.fotosCanal, API.opsCanal].forEach(function (c) {
+        if (c) { if (activo) c.reanudar(); else c.pausar(); }
+      });
+    }
+    window.addEventListener("oc-tab-session-changed", sincronizarVisibilidad);
+    document.addEventListener("visibilitychange", sincronizarVisibilidad);
+    API.canal.conectar();      // catálogo + _meta (nombre, pinsRol) — sala "-y"
+    API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
+    API.opsCanal.conectar();   // ventas/ops — sala "-ops"
+    // The channels were just connected. Re-invoking reanudar() on a visible
+    // tab repeats all three connection attempts when relay is offline.
+    // A hidden/inactive tab must still be paused immediately (no data sends).
+    if (document.hidden) sincronizarVisibilidad();
+    conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
+    conectarHechos();    // cartera y caja chica: hechos inmutables por ID
+    // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
+    if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
+    // v667: el catalogo cargado de IndexedDB tambien rehidrata punteros de foto vacios (tras la hidratacion local).
+    if (API.idb && API.idb.once) API.idb.once("synced", function () { setTimeout(pedirVolcarFotos, 1500); });
+    // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
+    if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
+    API.estado = "activo";
+    log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
+  }
+
+  function reintentoLocalAplicacion(aplicar) {
+    var timer = null, espera = 2000, pendiente = false, detenido = false, doc = API.doc;
+    function licencia() { try { return window.OCTienda && window.OCTienda.licenciaActual ? window.OCTienda.licenciaActual() : (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseCode; } catch (_) { return null; } }
+    var origen = licencia();
+    function vigente() { return !detenido && API.doc === doc && !doc.isDestroyed && licencia() === origen; }
+    function cancelar() { clearTimeout(timer); timer = null; pendiente = false; espera = 2000; }
+    function ejecutar() { timer = null; if (!vigente()) { cancelar(); return; } if (document.hidden) return; pendiente = false; try { aplicar(); } catch (e) { log("reintento local:", e && e.message); pedir(); } }
+    function pedir() {
+      if (!vigente() || timer) return;
+      pendiente = true;
+      if (document.hidden) return;
+      var demora = espera; espera = Math.min(600000, espera * 2);
+      timer = setTimeout(ejecutar, demora);
+    }
+    function volver() { if (!vigente()) { cancelar(); return; } if (pendiente && !document.hidden) { clearTimeout(timer); ejecutar(); } }
+    window.addEventListener("online", volver); document.addEventListener("visibilitychange", volver);
+    window.addEventListener("oc-licencia-disponible", volver);
+    doc.on("destroy", function () { detenido = true; cancelar(); window.removeEventListener("online", volver); document.removeEventListener("visibilitychange", volver); window.removeEventListener("oc-licencia-disponible", volver); });
+    return { pedir: pedir, cancelar: cancelar, vigente: vigente };
+  }
+
+  function conectarHechos() {
+    var intentos = 0, importando = false, pendiente = false;
+    var conocidos = Object.create(null);
+    var rechazados = Object.create(null), retry = reintentoLocalAplicacion(importar);
+    function hechos() { return window.AMG && window.AMG.Hechos; }
+    function publicar(h) {
+      if (!h || !h.id || !API.hechosMap) return;
+      var anterior = API.hechosMap.get(h.id);
+      if (anterior && JSON.stringify(anterior) !== JSON.stringify(h)) {
+        log("colision de hecho financiero:", h.id); return;
+      }
+      if (!anterior) API.hechosMap.set(h.id, h);
+    }
+    function importar() {
+      var ledger = hechos();
+      if (!ledger || !retry.vigente()) return;
+      if (importando) { pendiente = true; return; }
+      importando = true;
+      var lista = [];
+      API.hechosMap.forEach(function (h) { if (h && h.id && !conocidos[h.id] && rechazados[h.id] !== h) lista.push(h); });
+      var transitorio = false;
+      Promise.allSettled(lista.map(function (h) { return Promise.resolve().then(function () { return ledger.importarRemoto(h); }); }))
+        .then(function (resultados) {
+          resultados.forEach(function (r, i) {
+            if (r.status === "rejected") {
+              log("hecho remoto rechazado:", r.reason && r.reason.message);
+              if (r.reason && /^(AbortError|UnknownError|QuotaExceededError|InvalidStateError|TimeoutError)$/.test(r.reason.name)) transitorio = true;
+              else rechazados[lista[i].id] = lista[i];
+            }
+            else conocidos[lista[i].id] = true;
+          });
+        }).finally(function () {
+          importando = false;
+          if (transitorio) retry.pedir(); else retry.cancelar();
+          if (pendiente) { pendiente = false; importar(); }
+        });
+    }
+    function arrancarPuente() {
+      var ledger = hechos();
+      if (!ledger) { if (++intentos < 20) setTimeout(arrancarPuente, 100); return; }
+      API.hechosListos = function () {
+        var ready = !importando && !pendiente;
+        API.hechosMap.forEach(function (h) { if (h && h.id && !conocidos[h.id]) ready = false; });
+        return ready;
+      };
+      window.addEventListener("oc-hecho-local", function (ev) { if (ev.detail && ev.detail.id) conocidos[ev.detail.id] = true; publicar(ev.detail); });
+      ledger.todos().then(function (lista) { lista.forEach(function (h) { conocidos[h.id] = true; publicar(h); }); importar(); })
+        .catch(function (e) { log("hechos locales:", e && e.message); });
+      API.doc.on("update", function (_update, origin) {
+        if (origin === "red" || origin === "bc" || origin === "idb") importar();
+      });
+      if (API.idb && API.idb.once) API.idb.once("synced", importar);
+    }
+    setTimeout(arrancarPuente, 0);
+  }
+
+  // ===================================================================
+  // VENTAS/OPS device-to-device (event-sourcing sobre CRDT).
+  // ===================================================================
+  function miDeviceId() {
+    try { return String((window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || ""); } catch (_) { return ""; }
+  }
+  function publicarOpLocal(op) {
+    if (!op || !op.opId || !API.opsMap) return;
+    try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
+  }
+  var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
+  // A rejected durable local commit must not wait forever for ANOTHER remote
+  // packet. Reuse the existing bounded exponential retry, scoped to the active
+  // Y.Doc and licence so an old notebook can never replay into a new one.
+  var _opsRetry = null, _opsRetryDoc = null;
+  function reintentarImportacionOp() {
+    if (!API.doc || API.doc.isDestroyed) return;
+    if (_opsRetryDoc !== API.doc) {
+      _opsRetryDoc = API.doc;
+      _opsRetry = reintentoLocalAplicacion(procesarEventos);
+    }
+    _opsRetry.pedir(); // one timer, 2s→600s, visibility/destroy-aware
+  }
+  function pedirProcesarEventos() { clearTimeout(_tOps); _tOps = setTimeout(procesarEventos, 200); }
+  function procesarEventos() {
+    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" ||
+        !API.opsMap || _opsAsyncBusy) return;
+    if (!_opsProcesadas) _opsProcesadas = {};
+    var mio = miDeviceId();
+    API.opsMap.forEach(function (op, opId) {
+      if (!op || _opsProcesadas[opId] || _opsAsyncBusy) return;
+      // A local movement was already committed by its originating device.
+      if (mio && String(op.deviceId) === mio) { _opsProcesadas[opId] = 1; return; }
+      function accepted(r) {
+        if (!r || !r.ok) return false; // no product yet / failed disk commit: retry later
+        _opsProcesadas[opId] = 1;
+        if (!r.repetida) {
+          try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", {detail:op})); } catch (_) {}
+        }
+        return true;
+      }
+      try {
+        var result = window.OCSync.aplicarOpRemota(op);
+        if (result && typeof result.then === "function") {
+          // Serialize immutable movement commits so an old snapshot cannot race the save.
+          _opsAsyncBusy = true;
+          Promise.resolve(result).then(accepted, function () { return false; })
+            .then(function (ok) {
+              _opsAsyncBusy = false;
+              if (ok) pedirProcesarEventos();
+              else reintentarImportacionOp();
+            }, function () {
+              _opsAsyncBusy = false; reintentarImportacionOp();
+            });
+        } else if (!accepted(result)) reintentarImportacionOp();
+      } catch (_) { reintentarImportacionOp(); }
+    });
+    // Only a fully drained journal may reset the retry backoff. Success of
+    // one op alone cannot cancel retries for another uncommitted operation.
+    if (!_opsAsyncBusy && _opsRetry && _opsRetryDoc === API.doc) {
+      var hayPendientes = false;
+      API.opsMap.forEach(function (op, id) {
+        if (op && !_opsProcesadas[id]) hayPendientes = true;
+      });
+      if (!hayPendientes) _opsRetry.cancelar();
+    }
+  }
+
+  // ===================================================================
+  // B3 — BYTES DE LAS FOTOS device-to-device (doc y relay separados).
+  // ===================================================================
+  var _tVolcar = null, _fotosGuardadoPendiente = false;
+  var _fotosBootstrapNotificado = false;
+  function pedirVolcarFotos() { clearTimeout(_tVolcar); _tVolcar = setTimeout(volcarFotosAlStore, 250); }
+  // v669: Safari standalone PWA can reject an IndexedDB write temporarily.
+  // Keep the Yjs bytes intact, show them from memory, and retry on a real
+  // foreground/online transition (no background polling or destructive cleanup).
+  function reintentarGuardadoFoto() {
+    if (_fotosGuardadoPendiente && !document.hidden) pedirVolcarFotos();
+  }
+  window.addEventListener("online", reintentarGuardadoFoto);
+  document.addEventListener("visibilitychange", reintentarGuardadoFoto);
+
+  // Yjs(fotos) -> OCFotos (IndexedDB local). Cada hash que llegó y no esté local
+  // se guarda; luego se avisa a la UI para que la percha muestre su foto.
+  function volcarFotosAlStore() {
+    if (!window.OCFotos || !API.fotosMap) return;
+    var pend = [], hubo = false, fallaron = false;
+    API.fotosMap.forEach(function (dataUrl, hash) { pend.push([hash, dataUrl]); });
+    var i = 0;
+    (function next() {
+      if (i >= pend.length) {
+        _fotosGuardadoPendiente = fallaron;
+        // v667: hidratar SIEMPRE (no solo si llegaron bytes nuevos): tambien readopta punteros de foto
+        // vacios desde el catalogo compartido (aparato dañado antes de v665). Idempotente.
+        // v290: hidratar fotos de PRODUCTO (poner p.foto desde el hash recibido)
+        // para que la UI, que pinta p.foto, muestre la foto que cruzo.
+        try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
+        // Even when IDB rejected a save, the authenticated Yjs bytes are present
+        // in fotosMap and the shelf recovery view can display them immediately.
+        // An existing hash may already be in IDB before a late catalog pointer arrives.
+        // Notify the shelf view ONCE after initial photo hydration, even when no
+        // byte was newly written, so a fast initial render is not left blank.
+        var primerMapa = !_fotosBootstrapNotificado && pend.length > 0;
+        if (primerMapa) _fotosBootstrapNotificado = true;
+        if (hubo || fallaron || primerMapa) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+        if (fallaron) { try { window.dispatchEvent(new CustomEvent("oc-fotos-persistencia-pendiente")); } catch (_) {} }
+        return;
+      }
+      var hash = pend[i][0], dataUrl = pend[i][1]; i++;
+      // Older peers can send a historical, mislabelled immutable hash pair.
+      // Keep Yjs evidence, but NEVER persist bad bytes under a valid hash key.
+      Promise.resolve().then(async function () {
+        var fotos = window.OCFotos;
+        var validShape = /^[a-f0-9]{64}$/.test(String(hash)) &&
+          /^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl || "");
+        if (!validShape) {
+          API.fotosHashRechazados = (API.fotosHashRechazados || 0) + 1;
+          return next();
+        }
+        var actual = await _esperarFoto(typeof fotos.hashDeDataUrl === "function"
+          ? fotos.hashDeDataUrl(dataUrl) : _hashFotoSinStore(dataUrl));
+        if (actual !== hash) {
+          API.fotosHashRechazados = (API.fotosHashRechazados || 0) + 1;
+          return next();
+        }
+        // Legacy localStorage bytes are readable, but are not an IDB ACK.
+        var yaIdb = typeof fotos.tieneHashSoloIdb === "function"
+          ? await _esperarFoto(fotos.tieneHashSoloIdb(hash)) : false;
+        if (yaIdb) return next();
+        var ok = await _esperarFoto(fotos.guardarPorHash(hash, dataUrl));
+        if (ok === true) hubo = true;
+        else fallaron = true;
+        next();
+      }).catch(function () { fallaron = true; next(); });
+    })();
+  }
+
+  /* SEMBRAR FOTOS AL RELAY (v287, JFC 2026-09-16). El bug: publicarFotosLocales
+     salta las fotos que YA están en el fotosMap (línea "ya publicado"); pero una
+     foto que ya vivía en el Yjs-IDB de fotos nunca genera un update al reconectar
+     -> nunca se persiste como {k:op} -> el relay queda con 0 fotos y el otro
+     aparato no la recibe (verificado: sala -fotos vacía). Y el canal fotos no tiene
+     ckpt (su estado completo supera 256KB). Aquí, al conectar, se RE-manda cada
+     foto EN USO como una op INDIVIDUAL (cada dataURL <180KB por la compresión de
+     vista-perchas.js, así que cabe en el frame). Se arma un update mínimo (un
+     Y.Doc con solo esa foto) y se pasa por enviarUpdate del canal fotos: persiste
+     como op + va en vivo. Guard de sesión para no re-mandar la misma foto en cada
+     reconexión. */
+  var _fotosSembradas = {}, _fotosSembradasDoc = null;
+  // One active pass per Yjs photo room. Reconnect and photo edits during an
+  // ongoing pass request ONE more pass afterwards; none are discarded.
+  var _fotosSembrando = false, _fotosSembrarDeNuevo = false, _fotosReintentoTimer = null, _fotosReintentosLectura = 0;
+  // A pending IDB enumeration/read must not hold single-flight photos forever.
+  // This deadline never drops bytes/ops: later reconnections may retry.
+  function _esperarFoto(p) {
+    var timer;
+    return Promise.race([Promise.resolve(p), new Promise(function (_, reject) {
+      timer = setTimeout(function () { reject(new Error("photo read timed out")); }, 8000);
+    })]).finally(function () { clearTimeout(timer); });
+  }
+  // Yjs may retain photos while OCFotos/IndexedDB is unavailable.
+  // Validate raw bytes without requiring the store to be open.
+  async function _hashFotoSinStore(dataUrl) {
+    var bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1)), bytes = new Uint8Array(bin.length);
+    for (var i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest)).map(function (b) {
+      return b.toString(16).padStart(2,"0");
+    }).join("");
+  }
+  API.sembrarFotos = sembrarFotosAlRelay; // also used by stuck-history reconnect
+  function sembrarFotosAlRelay() {
+    if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
+    if (_fotosSembrando || _fotosReintentoTimer) { _fotosSembrarDeNuevo = true; return; }
+    // A photo room has its own seeded flags; never reuse an old shop's ACKs.
+    var docFotoInicial = API.fotosDoc, mapaFotoInicial = API.fotosMap, canalFotoInicial = API.fotosCanal;
+    if (_fotosSembradasDoc !== docFotoInicial) { _fotosSembradas = {}; _fotosSembradasDoc = docFotoInicial; _fotosReintentosLectura = 0; }
+    var fotoSinLeer = false; // one retry budget per photo-room, never per orphan blob
+    _fotosSembrando = true;
+    // Honor inline product photos and pre-hash perchas before enumerating photo
+    // evidence. Every record is still sent as the same deterministic Yjs op.
+    Promise.resolve().then(function () {
+      return _esperarFoto(window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0);
+    }).catch(function () { return 0; }).then(function () {
+      return _esperarFoto(window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0);
+    }).catch(function () { return 0; }).then(async function () {
+      var cat;
+      try { cat = window.OCSync.catalogoPropio(); } catch (_) { cat = null; }
+      var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
+      var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
+      var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
+      /* H3 / PRIME DIRECTIVE 1AAA:
+         Keep EVERY photo hash, including orphaned evidence and Yjs-only photos,
+         but never materialize the complete hash->dataURL library in RAM on a
+         normal modern device. OCFotos.hashesGuardados includes legacy keys;
+         OCFotos.leerPorHash falls back to their exact bytes when IDB misses.
+         Fallback to the old bulk API only for pre-H3 legacy adapters. */
+      var locales = [], _legacyPrecargadas = null, fotos = window.OCFotos;
+      try {
+        if (fotos && typeof fotos.hashesGuardados === "function") {
+          locales = await _esperarFoto(fotos.hashesGuardados());
+        } else if (fotos && typeof fotos.leerTodosPorHash === "function") {
+          _legacyPrecargadas = await _esperarFoto(fotos.leerTodosPorHash());
+          locales = Object.keys(_legacyPrecargadas || {});
+        }
+      } catch (_) {
+        // A failed local enumeration cannot discard known catalog or Yjs hashes.
+        locales = [];
+      }
+      var hashes = {};
+      hUbic.concat(hProd, hGastos).forEach(function (h) { if (h) hashes[String(h)] = 1; });
+      (Array.isArray(locales) ? locales : []).forEach(function (h) { if (h) hashes[String(h)] = 1; });
+      try {
+        if (API.fotosMap && API.fotosMap.forEach) API.fotosMap.forEach(function (bytes, h) {
+          if (bytes) hashes[String(h)] = 1;
+        });
+      } catch (_) {}
+      // Durable layers have independent encrypted histories. Never mark a hash
+      // seeded on a new relay merely because an older relay already had it.
+      var capaFoto = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
+      var lecturasIDBBloqueadas = 0; // circuit breaker scoped to this pass only
+      for (var hash of Object.keys(hashes)) {
+        if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
+        if (_fotosSembradas[hash] && _fotosSembradas[hash][capaFoto]) continue;
+        try {
+          // Sequential await keeps at most one transient local photo read per
+          // invocation. Retain neither an array nor a map of all image bytes.
+          var dataUrl = (_legacyPrecargadas && _legacyPrecargadas[hash]) || null;
+          // After two consecutive stalled reads, use Yjs evidence without
+          // reopening IndexedDB for every remaining photo in this pass.
+          if (!dataUrl && lecturasIDBBloqueadas < 2 && fotos && typeof fotos.leerPorHash === "function") {
+            try {
+              dataUrl = await _esperarFoto(fotos.leerPorHash(hash));
+              lecturasIDBBloqueadas = 0;
+            } catch (_) { lecturasIDBBloqueadas++; }
+          }
+          if (!dataUrl) dataUrl = (API.fotosMap && API.fotosMap.get(hash)) || null;
+          if (!dataUrl && window.OCSync.fotoInlineProductoPorHash) dataUrl = window.OCSync.fotoInlineProductoPorHash(hash);
+          if (!dataUrl) { if (/^[a-f0-9]{64}$/.test(hash)) fotoSinLeer = true; continue; } // no false ACK
+          // Legacy hash keys may be mislabeled. Never replicate a wrong
+          // immutable Yjs hash->image pair, and never rewrite local evidence.
+          if (!/^[a-f0-9]{64}$/.test(hash) ||
+              !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl) ||
+              await _esperarFoto(fotos && typeof fotos.hashDeDataUrl === "function"
+                ? fotos.hashDeDataUrl(dataUrl) : _hashFotoSinStore(dataUrl)) !== hash) continue;
+          var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
+            "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));
+          var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {
+            return b.toString(16).padStart(2, "0");
+          }).join("");
+          // The relay may switch while the IDB read/digest is awaited. Never
+          // mark the previous layer as seeded if its photo went to the new
+          // socket; queue another pass against the current layer instead.
+          var capaAhora = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
+          // A delayed IndexedDB read belongs to its original authenticated photo room.
+          if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
+          if (capaAhora !== capaFoto) { _fotosSembrarDeNuevo = true; break; }
+          var d = new window.Y.Doc();
+          try {
+            d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
+            d.getMap("blobs").set(hash, dataUrl);
+            var u = window.Y.encodeStateAsUpdate(d);
+            var huboUpdate = false, docFotos = docFotoInicial;
+            function observarUpdate() { huboUpdate = true; }
+            try {
+              docFotos.on("update", observarUpdate);
+              try { window.Y.applyUpdate(docFotos, u, "seed"); }
+              finally { docFotos.off("update", observarUpdate); }
+              if (!huboUpdate && API.fotosCanal && typeof API.fotosCanal.enviarUpdate === "function") {
+                API.fotosCanal.enviarUpdate(u);
+              }
+              if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
+              _fotosSembradas[hash][capaFoto] = 1;
+            } catch (_) {
+              // No success flag: future sessions/layers can retry this photo.
+              try { docFotos.off("update", observarUpdate); } catch (__) {}
+            }
+          } finally { d.destroy(); }
+        } catch (_) { fotoSinLeer = true; }
+      }
+      // Retry only missing/transient local reads, never rejected immutable hashes.
+      if (docFotoInicial === API.fotosDoc && mapaFotoInicial === API.fotosMap) {
+        if (fotoSinLeer && _fotosReintentosLectura < 2) { _fotosReintentosLectura++; _fotosSembrarDeNuevo = true; }
+        else if (!fotoSinLeer) _fotosReintentosLectura = 0;
+      }
+    }).catch(function () {}).finally(function () {
+      _fotosSembrando = false;
+      if (_fotosSembrarDeNuevo) {
+        _fotosSembrarDeNuevo = false;
+        // Debounce relay-layer oscillations; no photo or pending op is discarded.
+        if (!_fotosReintentoTimer) _fotosReintentoTimer = setTimeout(function () {
+          _fotosReintentoTimer = null;
+          sembrarFotosAlRelay();
+        }, _fotosReintentosLectura ? Math.min(8000, 2000 * Math.pow(2, _fotosReintentosLectura - 1)) : 2000);
+      }
+    });
+  }
+
+  /* SEMBRAR VENTAS (dinero) AL RELAY (v292, JFC 2026-09-16, aprobado). Cada venta
+     se manda como op INDIVIDUAL al canal de CATALOGO (mini Y.Doc con esa venta en
+     el map "ventas"), no en el batch de sembrar, para no reventar el frame de
+     256KB con historiales grandes. Add-only por id: el receptor la suma una sola
+     vez (aplicarCatalogo). No duplica plata ni stock (el stock es LWW aparte).
+     Guard de sesion para no re-mandar la misma venta. */
+  function sembrarVentasAlRelay(cat) {
+    if (!window.OCSync || !API.canal || !window.Y || !API.doc) return;
+    var ventas = (cat && cat.ventas) || [];
+    ventas.forEach(function (v) {
+      if (!v || v.id == null) return;
+      var id = String(v.id);
+      var previo = API.mapas.ventas.get(id);
+      if (previo) {
+        var a = v.rev || {}, b = previo.rev || {};
+        var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
+        if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) return;
+      }
+      try {
+        // Y.Map.set emite un delta pequeño por venta y permite publicar una
+        // corrección o anulación posterior sin re-enviar el historial entero.
+        API.doc.transact(function () { API.mapas.ventas.set(id, JSON.parse(JSON.stringify(v))); }, "seed");
+      } catch (_) {}
+    });
+  }
+
+  function sembrarFinanzas(cat) {
+    ["gastos", "transferencias"].forEach(function (col) {
+      (cat[col] || []).forEach(function (r) {
+        if (!r || r.id == null) return;
+        var id = String(r.id), previo = API.mapas[col].get(id);
+        if (previo) {
+          var a = r.rev || {}, b = previo.rev || {};
+          var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
+          if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) return;
+        }
+        try { API.doc.transact(function () { API.mapas[col].set(id, JSON.parse(JSON.stringify(r))); }, "seed"); } catch (_) {}
+      });
+    });
+  }
+
+  function sembrarActividad(cat) {
+    if (!API.mapas.actividad || !window.OCSync.unirActividad) return;
+    (cat.actividad || []).forEach(function (r) {
+      try {
+        var previo = API.mapas.actividad.get(r.id);
+        var unido = window.OCSync.unirActividad(previo ? [previo] : [], [r])[0];
+        if (JSON.stringify(previo) === JSON.stringify(unido)) return;
+        API.doc.transact(function () { API.mapas.actividad.set(r.id, unido); }, "seed");
+      } catch (e) { log("actividad:", e && e.message); }
+    });
+  }
+
+  // OCFotos local -> Yjs(fotos). Publica los blobs de las fotos EN USO (las que
+  // alguna percha referencia por fotoHash) que aún no estén en el doc de fotos.
+  function publicarFotosLocales() {
+    if (!window.OCFotos || !API.fotosMap || !window.OCSync) return;
+    var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+    var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
+    var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean); // v290: fotos de producto tambien
+    var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
+    var initialPhotoMap = API.fotosMap;
+    hUbic.concat(hProd, hGastos).forEach(function (hash) {
+      if (initialPhotoMap.get(hash)) return; // ya publicado
+      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(async function (dataUrl) {
+        // A fallback legacy key may contain bytes of a different image.
+        if (!/^[a-f0-9]{64}$/.test(hash) ||
+            !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl || "") ||
+            !window.OCFotos || typeof window.OCFotos.hashDeDataUrl !== "function") return;
+        try {
+          if (await window.OCFotos.hashDeDataUrl(dataUrl) !== hash) return;
+          // Do not seed the new business's Yjs room after an async old-room read.
+          if (initialPhotoMap !== API.fotosMap || initialPhotoMap.get(hash)) return;
+          initialPhotoMap.set(hash, dataUrl);
+        } catch (_) { /* Keep original bytes, never fake a photo ACK. */ }
+      }).catch(function () {});
+    });
+  }
+
+
+  // ===================================================================
+  // FASE 2 (JFC 2026-09-09) — PUENTE AL STORE REAL, sin perder nada.
+  //
+  // POR QUÉ ASÍ: el sync casero (sync-realtime.js) ya tenía el contrato bueno
+  // y probado en producción. NO se reinventa el merge:
+  //   store -> Yjs : window.OCSync.catalogoPropio() da la foto de las 4
+  //                  colecciones; se vuelca a los Y.Map por id.
+  //   Yjs -> store : window.OCSync.aplicarCatalogo(remoto, null), que es el
+  //                  merge ADD-ONLY ya probado (nunca borra, nunca pisa un ítem
+  //                  existente salvo edición del dueño; el equipo usa LWW con
+  //                  reloj lógico + tombstones). Es exactamente lo que pidió JFC:
+  //                  "los datos a salvo, los merges aditivos, nunca se pierda nada".
+  //
+  // rol = null a propósito: Yjs converge sin saber el rol del emisor, así que la
+  // regla "el dueño pisa nombre/precio" no aplica por este canal; add-only sí, que
+  // es lo que garantiza no perder datos. Si el sync casero sigue encendido, esa
+  // regla la resuelve él. Ver aplicarCatalogo() en mock-backend.js.
+  //
+  // ANTI-BUCLE: al escribir en el store se disparan oc-catalogo-cambiado /
+  // oc-equipo-cambiado, que a su vez re-vuelcan a Yjs. Con _aplicando=true durante
+  // el volcado y comparando por JSON antes de cada set(), el re-vuelco no genera
+  // updates nuevos (no hay diferencias) y el bucle muere solo.
+  // ===================================================================
+  /* Preserve stock fork evidence in the same encrypted Yjs notebook. Every
+     distinct stockBase retains independent PN counters; a conflicting base
+     is NOT automatically a safe common starting stock. */
+  function unirEvidenciasStockYjs(a, b) {
+    var out = {};
+    function guardar(base, pn, ts, epoch) {
+      if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      var ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+      var key = ep ? JSON.stringify([Number(base),ep]) : String(Number(base));
+      var prev = out[key] || {}, acc = Object.assign({}, prev.pn || {});
+      Object.keys(pn).sort().forEach(function (id) {
+        if (!id || id.length > 120) return;
+        var v = pn[id] || {}, add = Number(v.add), sub = Number(v.sub), p = acc[id] || {};
+        if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
+        acc[id] = { add: Math.max(Number(p.add) || 0, add), sub: Math.max(Number(p.sub) || 0, sub) };
+      });
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0),
+        ...(ep ? {epoch:ep} : {}) };
+    }
+    [a,b].forEach(function (source) {
+      var e = source && source.stockEvidencias;
+      if (!e || typeof e !== "object" || Array.isArray(e)) return;
+      Object.keys(e).sort().forEach(function (key) {
+        var v = e[key]; if (v) guardar(v.base, v.pn, v.ts, v.epoch);
+      });
+    });
+    [a,b].forEach(function (source) {
+      if (source) guardar(source.stockBase, source.stockPN, source.stockTs, source.stockEpochId);
+    });
+    var sorted = {};
+    Object.keys(out).sort(function (x,y) {return (Number(x)-Number(y)) || (x < y ? -1 : x > y ? 1 : 0);}).forEach(function (key) {sorted[key]=out[key];});
+    return sorted;
+  }
+
+  /*
+   * P0 forensic candidate: monotonically growing, per-actor stock witnesses.
+   * Y.Map("productos").set(productId, wholeProduct) has LAST-WRITER conflicts:
+   * the peer with stock=2 can mask a confirmed +9 from another peer. Stock
+   * counters therefore need independent Yjs keys, not a single product value.
+   * This witness map is encrypted in the SAME existing Y.Doc, never sent in
+   * plaintext, and never chooses a physical baseline from conflicting bases.
+   *
+   * The key includes the counter snapshot: a stale concurrent write can never
+   * delete a newer counter. No migration, reset, or pruning of historical ops.
+   */
+  function publicarTestigosStock(r, mapa) {
+    if (!r || r.id == null || !mapa) return;
+    var pid = String(r.id);
+    if (!pid || pid.length > 160) return;
+    function registrar(base, pn, ts, epoch) {
+      // New explicit epochs cannot inherit legacy witnesses by numeric coincidence.
+      var ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+
+      var b = Number(base);
+      if (base == null || !Number.isSafeInteger(b) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      Object.keys(pn).forEach(function (actor) {
+        if (!actor || actor.length > 160) return;
+        var z = pn[actor] || {}, add = Number(z.add), sub = Number(z.sub);
+        if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0 || !(add || sub)) return;
+        var key = JSON.stringify([pid, b, ep, actor, add, sub]);
+        if (!mapa.has(key)) mapa.set(key, { p: pid, b: b, e: ep, d: actor, a: add, s: sub, t: Number(ts) || 0 });
+      });
+    }
+    registrar(r.stockBase, r.stockPN, r.stockTs, r.stockEpochId);
+    var evidencias = r.stockEvidencias;
+    if (evidencias && typeof evidencias === "object" && !Array.isArray(evidencias)) {
+      Object.keys(evidencias).forEach(function (key) {
+        var e = evidencias[key]; if (e) registrar(e.base, e.pn, e.ts, e.epoch);
+      });
+    }
+  }
+
+  // Build once per Y.Map. A single remote PN fact must not walk ALL historical
+  // witnesses during each inventory update. No mutation of Yjs or customer data.
+  // A deletion, rewrite or unrecognized change invalidates the index and forces
+  // a full rebuild at the next read (fail closed). Indexed maxima are monotone.
+  var _indicesPNTestigos = new WeakMap();
+  function _indexarPNTestigo(hechos, w) {
+    if (!w || typeof w !== "object") return;
+    var pid = String(w.p || ""), actor = String(w.d || "");
+    var base = Number(w.b), add = Number(w.a), sub = Number(w.s);
+    var epoch = typeof w.e === "string" && w.e.length <= 160 ? w.e : "";
+    if (!pid || pid.length > 160 || !actor || actor.length > 160 || !Number.isSafeInteger(base) ||
+        !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
+    var byProduct = hechos[pid] || (hechos[pid] = Object.create(null));
+    var groupKey = JSON.stringify([base, epoch]);
+    var byBase = byProduct[groupKey] || (byProduct[groupKey] = { base: base, epoch: epoch, pn: {}, ts: 0 });
+    var old = byBase.pn[actor] || { add: 0, sub: 0 };
+    byBase.pn[actor] = { add: Math.max(old.add, add), sub: Math.max(old.sub, sub) };
+    byBase.ts = Math.max(byBase.ts, Number(w.t) || 0);
+  }
+  function _indexPNTestigos(mapa) {
+    var state = _indicesPNTestigos.get(mapa);
+    if (!state) {
+      state = { hechos: Object.create(null), dirty: true };
+      _indicesPNTestigos.set(mapa, state);
+      mapa.observe(function (event) {
+        if (state.dirty) return;
+        // Yjs reports 'add', 'update' and 'delete' for changed keys. Only
+        // brand-new add-only witnesses may be indexed incrementally.
+        if (!event || !event.keysChanged || !event.changes || !event.changes.keys) {
+          state.dirty = true; return;
+        }
+        event.keysChanged.forEach(function (key) {
+          var change = event.changes.keys.get(key);
+          if (!change || change.action !== "add" || !mapa.has(key)) {
+            state.dirty = true; return;
+          }
+          if (!state.dirty) _indexarPNTestigo(state.hechos, mapa.get(key));
+        });
+      });
+    }
+    if (state.dirty) {
+      var hechos = Object.create(null);
+      mapa.forEach(function (w) { _indexarPNTestigo(hechos, w); });
+      state.hechos = hechos;
+      state.dirty = false;
+    }
+    return state.hechos;
+  }
+  function incorporarTestigosStock(productos, mapa) {
+    if (!Array.isArray(productos) || !productos.length) return productos;
+    var hechos = mapa && mapa.size ? _indexPNTestigos(mapa) : Object.create(null);
+    return productos.map(function (p) {
+      if (!p || p.id == null) return p;
+      var porBase = hechos[String(p.id)];
+      var b = p.stockBase == null ? null : Number(p.stockBase);
+      var epoch = typeof p.stockEpochId === "string" && p.stockEpochId.length <= 160 ? p.stockEpochId : "";
+      var activeKey = JSON.stringify([b, epoch]);
+      // An explicit epoch requires independently authenticated Y.Doc facts,
+      // not merely a whole-product PN object (old bridges can relabel it).
+      // Sanitizing the incoming read-model never deletes the local ledger.
+      function sinPruebaEpoca(proof) {
+        // Always return the PRODUCT (never the bare evidence map): a fresh physical count has empty PN and
+        // returning `proof` here replaced the product with its evidence, which the store then dropped (no id).
+        if (!epoch || !Number.isSafeInteger(b) || !p.stockPN ||
+            !Object.keys(p.stockPN).length) return proof ? Object.assign({}, p, { stockEvidencias: proof }) : p;
+        return Object.assign({}, p, {
+          stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
+          ...(proof ? { stockEvidencias: proof } : {})
+        });
+      }
+      if (!porBase) return sinPruebaEpoca(null);
+      var prevProof = p.stockEvidencias && typeof p.stockEvidencias === "object" &&
+        Object.keys(p.stockEvidencias).length > 0;
+      var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
+      // Keep historical fork evidence, but avoid copying every ordinary
+      // same-baseline movement into a second ever-growing backup field.
+      // Restore BOTH explicit epochs from the add-only witness index when
+      // the whole-product Y.Map picked one competing read model. Otherwise
+      // one replica can export the old epoch's movements and the other cannot.
+      // Keep ordinary single-epoch products compact: no duplicate proof blob.
+      var witnessProof = Object.create(null);
+      if (conflictProof || prevProof) Object.keys(porBase).forEach(function (key) {
+        var fact = porBase[key];
+        if (!fact) return;
+        if (fact.epoch) {
+          witnessProof[JSON.stringify([fact.base, fact.epoch])] = {
+            base: fact.base, epoch: fact.epoch, pn: fact.pn, ts: fact.ts
+          };
+        } else if (String(fact.base) !== String(b)) {
+          witnessProof[String(fact.base)] = fact;
+        }
+      });
+      var e = (prevProof || Object.keys(witnessProof).length)
+        ? unirEvidenciasStockYjs(p, { stockEvidencias: witnessProof }) : null;
+      // Distinct explicit epochs are retained in the encrypted witness map;
+      // legacy stockEvidencias cannot represent two equal-number epochs safely.
+      if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
+        // An old bridge may win Y.Map.productos with E2 metadata but E1 PN.
+        // When historical witnesses exist and none are scoped to explicit E2,
+        // those unscoped PN counters are NOT evidence of a new E2 movement.
+        // Retain their original witnesses in the encrypted Y.Doc unchanged.
+        return sinPruebaEpoca(e);
+      }
+      var vistos = porBase[activeKey];
+      // A winning whole-product value is not proof that all its counters belong
+      // to this physical epoch. When independent epoch witnesses conflict,
+      // derive the active counters from the epoch-scoped witness index only.
+      var pn = Object.assign({}, epoch ? vistos.pn : (p.stockPN || {}));
+      Object.keys(vistos.pn).forEach(function (actor) {
+        var old = pn[actor] || {}, newValue = vistos.pn[actor];
+        pn[actor] = { add: Math.max(Number(old.add) || 0, newValue.add),
+                      sub: Math.max(Number(old.sub) || 0, newValue.sub) };
+      });
+      var neto = b + Object.keys(pn).reduce(function (total, actor) {
+        return total + (Number(pn[actor].add) || 0) - (Number(pn[actor].sub) || 0);
+      }, 0);
+      if (!Number.isSafeInteger(neto)) return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
+      return Object.assign({}, p, {
+        stockBase: b, stockPN: pn, stockActual: Math.max(0, neto),
+        stockDeficit: neto < 0 ? -neto : 0,
+        stockTs: Math.max(Number(p.stockTs) || 0, vistos.ts),
+        ...(e ? { stockEvidencias: e } : {})
+      });
+    });
+  }
+  function conectarStore(Y) {
+    if (!window.OCSync || typeof window.OCSync.catalogoPropio !== "function" ||
+        typeof window.OCSync.aplicarCatalogo !== "function") {
+      log("store no disponible (OCSync) — Plan C queda solo como capa CRDT");
+      return;
+    }
+    var _aplicando = false;   // guard: no re-volcar mientras aplicamos al store
+    var _tSeed = null, _tAplica = null;
+    // Reuse only verified product fixed points; either local bytes or a new Y.Map value invalidates them.
+    var _productosSinCambios = new WeakMap();
+    /* Reintento de aplicar() tras fallo (JFC 2026-10-27). Si una aplicacion (selectiva o
+       completa) lanza o termina con ultimaAplicacionAceptada=false, los IDs de
+       _productosRemotos ya se vaciaron: se baja _primerMergeAceptado para que la
+       siguiente aplicacion sea COMPLETA y se agenda UN solo reintento (flag de modulo,
+       nunca se apilan). Backoff acotado sin abandonar; se reinicia al aceptar. */
+    var _retryAplicar = reintentoLocalAplicacion(aplicar);
+    // v604 candidate, fail-closed incremental remote product application.
+    // Track Y.Map keys changed by a remote transaction, NOT the caller's
+    // assumption about a sale; any other map/meta change forces full merge.
+    var _productosRemotos = new Set(), _actividadRemota = new Set(), _otroRemoto = false, _primerMergeAceptado = false;
+    COLECCIONES.forEach(function (col) {
+      var m = API.mapas[col];
+      if (!m || typeof m.observe !== "function") return;
+      m.observe(function (event, txn) {
+        /* Fail closed (JFC 2026-10-27): el unico origen de escritura LOCAL de esta
+           pestana es "seed" (sembrar()); se ignora. Cualquier origen que no sea
+           "seed"/"red"/"bc" (null, idb, otro) fuerza el merge completo. */
+        if (txn && txn.origin !== "seed" && txn.origin !== "red" && txn.origin !== "bc") { _otroRemoto = true; return; }
+        if (!txn || (txn.origin !== "red" && txn.origin !== "bc")) return;
+        if (col !== "productos" && col !== "actividad") { _otroRemoto = true; return; }
+        event.keysChanged.forEach(function (id) {
+          if (!API.mapas[col].has(String(id))) { _otroRemoto = true; return; }
+          if (col === "productos") _productosRemotos.add(String(id));
+          else _actividadRemota.add(String(id));
+        });
+      });
+    });
+    if (API.stockPNTestigos && typeof API.stockPNTestigos.observe === "function") {
+      API.stockPNTestigos.observe(function (event, txn) {
+        // A stock-only witness changes just one product's read model.
+        // An unknown origin, deletion or missing product must instead run the
+        // proven full merge; never silently ignore out-of-order history.
+        if (!txn || (txn.origin !== "seed" && txn.origin !== "red" && txn.origin !== "bc")) {
+          _otroRemoto = true; return;
+        }
+        if (txn.origin === "seed") return;
+        event.keysChanged.forEach(function (key) {
+          var fact = API.stockPNTestigos.get(key), pid = fact && String(fact.p || "");
+          if (!fact || !pid || !API.mapas.productos.has(pid)) {
+            _otroRemoto = true; return;
+          }
+          _productosRemotos.add(pid);
+        });
+      });
+    }
+    if (API.meta && typeof API.meta.observe === "function") {
+      API.meta.observe(function (_event, txn) {
+        if (txn && txn.origin !== "seed") _otroRemoto = true; // red/bc/desconocido (JFC 2026-10-27)
+      });
+    }
+    // Financial facts share the Y.Doc but not COLECCIONES. Never let an
+    // update mixing products and immutable ledger entries use a partial merge.
+    if (API.hechosMap && typeof API.hechosMap.observe === "function") {
+      API.hechosMap.observe(function (_event, txn) {
+        if (txn && txn.origin !== "seed") _otroRemoto = true; // red/bc/desconocido (JFC 2026-10-27)
+      });
+    }
+
+    // store -> Yjs. Add/update por id; nunca borra del Y.Map (add-only también
+    // aguas arriba). Las bajas de equipo viajan como tombstone (borrado:true),
+    // que catalogoPropio() sí incluye, así que la baja converge igual.
+    function sembrar() {
+      if (_aplicando) return;
+      var cat;
+      try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+      if (!cat) return;
+      /* A newly activated, empty phone is NOT evidence that the old shop
+         was deleted. Never publish its fallback name or factory-derived
+         metadata to Yjs while historical pages still need replay. A real
+         existing shop retains its local records and append-only outbox. */
+      if (API.canal && API.canal.recuperando) {
+        // Do not publish a brand-new phone's factory-only catalog. But an
+        // otherwise empty shop can legitimately contain a new expense,
+        // personnel record or device nickname. Those facts must not be
+        // suppressed by the first-join guard (regressions in native CI).
+        var _cuenta = [
+          "productos", "ubicaciones", "ventas", "clientes", "gastos",
+          "transferencias", "promotoras", "sucursales", "ajustes",
+          "categorias", "dispositivos", "actividad"
+        ].reduce(function (n, col) {
+          return n + (Array.isArray(cat[col]) ? cat[col].length : 0);
+        }, 0);
+        if (_cuenta === 0) return;
+      }
+      var miRol = ""; try { if (window.OCAuth && OCAuth.rolActual) miRol = OCAuth.rolActual() || ""; } catch (_) {}
+      try {
+        API.doc.transact(function () {
+          COLECCIONES_BATCH.forEach(function (col) {
+            var filas = cat[col] || [];
+            filas.forEach(function (r) {
+              if (!r || r.id == null) return;
+              var k = String(r.id);
+              var prev = API.mapas[col].get(k);
+              // Even if the complete product object loses Y.Map arbitration,
+              // its PN movements survive as distinct add-only CRDT keys.
+              if (col === "productos") publicarTestigosStock(r, API.stockPNTestigos);
+              var productoEntrada = col === "productos" ? JSON.stringify(r) : null;
+              if (productoEntrada && prev && _productosSinCambios.get(prev) === productoEntrada) return;
+              // A locked tab may know the device profile but no longer have an authenticated role.
+              // Preserve that role while still allowing nickname edits and explicit role changes.
+              if (col === "dispositivos" && prev && !r.rol && prev.rol) r = Object.assign({}, r, { rol: prev.rol });
+              if (prev && col === "ubicaciones") {
+                var ar = r.gastoMensualRev || {}, br = prev.gastoMensualRev || {};
+                var newerMonthly = (Number(ar.c) || 0) > (Number(br.c) || 0) ||
+                  ((Number(ar.c) || 0) === (Number(br.c) || 0) && String(ar.d || "") > String(br.d || ""));
+                if (!newerMonthly) r = Object.assign({}, r, { gastoMensual: prev.gastoMensual, gastoMensualRev: prev.gastoMensualRev });
+
+                /* v448-golden: lifecycle CRDT independiente del rev general.
+                   Un aparato rezagado puede tener nombre/meta/foto con rev general
+                   mayor y aun asi una copia VIEJA de activa/borrado. Preservar en
+                   el Y.Map la revision de lifecycle mas nueva evita que ese reseed
+                   borre la lapida/archivo ANTES de llegar a aplicarCatalogo().
+                   Compatibilidad: bajas legacy sin estadoRev usan su rev general
+                   como evidencia; una copia legacy activa no puede resucitar. */
+                var sr = r.estadoRev || ((r.borrado || r.activa === false) ? (r.rev || null) : null);
+                var sp = prev.estadoRev || ((prev.borrado || prev.activa === false) ? (prev.rev || null) : null);
+                if (sp) {
+                  var src = Number(sr && sr.c) || 0, spc = Number(sp.c) || 0;
+                  var stateNewer = !!sr && (src > spc || (src === spc && String(sr.d || "") > String(sp.d || "")));
+                  if (!stateNewer) {
+                    r = Object.assign({}, r, {
+                      activa: !prev.borrado && prev.activa !== false,
+                      borrado: !!prev.borrado,
+                      estadoRev: sp
+                    });
+                  } else {
+                    r = Object.assign({}, r, { estadoRev: sr });
+                  }
+                } else if (sr) {
+                  r = Object.assign({}, r, { estadoRev: sr });
+                }
+              }
+              if (prev && col === "productos") {
+                // Never conflate physical epochs solely because stockBase matches.
+                // Y.Map.productos is last-writer metadata, not an epoch-proof ledger.
+                var _stockEpochMine = typeof r.stockEpochId === "string" ? r.stockEpochId : "";
+                var _stockEpochDoc = typeof prev.stockEpochId === "string" ? prev.stockEpochId : "";
+                var _samePhysicalEpoch = _stockEpochMine === _stockEpochDoc;
+                var _stockAntesDeArbitrar = r; // preserve losing epoch proof
+                // A single explicit epoch may supersede untagged legacy
+                // metadata. Two competing explicit epochs remain independent:
+                // the owner must reconcile their physical movement histories.
+                // JFC 2026-11-01: between two explicit epochs the latest physical count wins (stockTs, then epoch id),
+                // the same rule as aplicarCatalogo in mock-backend; the loser stays in stockEvidencias below.
+                var _tsMine = Number(r.stockTs) || 0, _tsDoc = Number(prev.stockTs) || 0;
+                var _ganaMio = _tsMine > _tsDoc || (_tsMine === _tsDoc && _stockEpochMine > _stockEpochDoc);
+                // v668: a newer LEGACY count with a DIFFERENT physical base is
+                // still a count (v651 backend rule); the epoch ID alone must not
+                // resurrect an older explicit count. Same-base legacy movement
+                // is NOT a new count and cannot override an explicit epoch.
+                var _legacyAfterExplicit = function (legacy, explicit) {
+                  return legacy.stockBase != null && explicit.stockBase != null &&
+                    Number.isSafeInteger(Number(legacy.stockBase)) &&
+                    Number.isSafeInteger(Number(explicit.stockBase)) &&
+                    Number(legacy.stockBase) !== Number(explicit.stockBase) &&
+                    Number(legacy.stockTs) > Number(explicit.stockTs);
+                };
+                // The physical-count causal frontier must come from the counting device.
+                // No clock or snapshot can prove that a concurrent offline sale was included.
+                var _conteoIncluyo = function (counted, old) {
+                  var w = counted && counted.stockCountWitness, pn = old && old.stockPN;
+                  if (!w || !old || old.stockBase == null || w.base !== Number(old.stockBase) ||
+                      String(w.epoch || "") !== String(old.stockEpochId || "")) return false;
+                  pn = pn && typeof pn === "object" ? pn : {};
+                  return Object.keys(pn).every(function (actor) {
+                    var v = pn[actor] || {}, witnessed = w.pn && w.pn[actor] || {};
+                    return Number.isSafeInteger(Number(v.add)) && Number.isSafeInteger(Number(v.sub)) &&
+                      (Number(witnessed.add) || 0) >= Number(v.add) &&
+                      (Number(witnessed.sub) || 0) >= Number(v.sub);
+                  });
+                };
+                var _conMovimientos = function (x) {
+                  return !!(x && x.stockPN && Object.keys(x.stockPN).some(function (actor) {
+                    var n = x.stockPN[actor] || {};
+                    return Number(n.add) > 0 || Number(n.sub) > 0;
+                  }));
+                };
+                var _basesDistintas = r.stockBase != null && prev.stockBase != null &&
+                  Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
+                  Number(r.stockBase) !== Number(prev.stockBase);
+                var _historiaIncierta = (_basesDistintas || (_stockEpochMine && _stockEpochDoc &&
+                  _stockEpochMine !== _stockEpochDoc)) &&
+                  (_conMovimientos(r) || _conMovimientos(prev)) &&
+                  !_conteoIncluyo(r, prev) && !_conteoIncluyo(prev, r);
+                var _pendienteCausal = r.stockReconciliacionPendiente === true ||
+                  prev.stockReconciliacionPendiente === true || _historiaIncierta;
+                /* v750 fix: orden CAUSAL antes que reloj (misma regla _sucede de aplicarCatalogo en
+                   mock-backend.js; cambiar ambas). El testigo de un recuento nombra la epoca sobre la
+                   que se conto; esa epoca antecesora nunca le gana, aunque una venta sin red traiga
+                   un stockTs posterior. Prueba: test/fable-v750-stock-abc.test.cjs. */
+                var _sucede = function (nuevo, viejo) {
+                  var w = nuevo && nuevo.stockCountWitness;
+                  return !!(w && w.pn && typeof w.pn === "object" && !Array.isArray(w.pn) &&
+                    String(w.epoch || "") === String(viejo.stockEpochId || "") &&
+                    (w.base == null || viejo.stockBase == null || Number(w.base) === Number(viejo.stockBase)));
+                };
+                var _epochPreferred = _samePhysicalEpoch ? null : _sucede(r, prev) ? r : _sucede(prev, r) ? prev :
+                  (_stockEpochMine && !_stockEpochDoc ? (_legacyAfterExplicit(prev, r) ? prev : r) :
+                    (!_stockEpochMine && _stockEpochDoc ? (_legacyAfterExplicit(r, prev) ? r : prev) :
+                      (_stockEpochMine && _stockEpochDoc ? (_ganaMio ? r : prev) : null)));
+                if (_epochPreferred) {
+                  r = Object.assign({}, r, {
+                    stockBase: _epochPreferred.stockBase,
+                    stockPN: _epochPreferred.stockPN,
+                    stockActual: _epochPreferred.stockActual,
+                    stockDeficit: _epochPreferred.stockDeficit,
+                    stockTs: _epochPreferred.stockTs,
+                    stockEpochId: _epochPreferred.stockEpochId,
+                    stockCountWitness: _epochPreferred.stockCountWitness || null
+                  });
+                }
+                if (_pendienteCausal) r = Object.assign({}, r, { stockReconciliacionPendiente: true });
+                var fork = r.stockBase != null && prev.stockBase != null &&
+                  Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
+                  Number(r.stockBase) !== Number(prev.stockBase);
+                if (fork || (!_samePhysicalEpoch && _stockEpochMine && _stockEpochDoc) ||
+                    (r.stockEvidencias && Object.keys(r.stockEvidencias).length) ||
+                    (prev.stockEvidencias && Object.keys(prev.stockEvidencias).length)) {
+                  r = Object.assign({}, r, { stockEvidencias: unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar) });
+                }
+                var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
+                var baseMia = r.stockBase == null ? null : Number(r.stockBase);
+                /* v515: con bases distintas ANTES se hacia `return`: este aparato dejaba de publicar
+                   el producto entero (stock, nombre, precio) para siempre. Ahora gana el cambio de
+                   stock mas reciente; el resto de la ficha se publica igual. Regla identica a
+                   _ganaEpocaStockRemota en mock-backend.js. Prueba: test/stock-base-conflicto-v515. */
+                var conflictoBase = basePrev !== null && baseMia !== null && basePrev !== baseMia;
+                if (conflictoBase && _samePhysicalEpoch) {
+                  var claveEp = function (x) {
+                    var q = x && x.stockPN && typeof x.stockPN === "object" ? x.stockPN : {};
+                    return JSON.stringify([Number(x && x.stockBase), Object.keys(q).sort().map(function (k) { return [k, Number(q[k].add) || 0, Number(q[k].sub) || 0]; })]);
+                  };
+                  var tMio = Number(r.stockTs) || 0, tDoc = Number(prev.stockTs) || 0;
+                  // v517 (informe Codex #2): mismo filtro que mock-backend: un sello >5 min en el futuro del reloj comun no gana.
+                  var relojRaw = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? window.OCLatencia.ahoraRelay() : null;
+                  var ahoraC = typeof relojRaw === "number" && Number.isFinite(relojRaw) && relojRaw >= 1000000000000 ? relojRaw : NaN;
+                  var futuroMio = Number.isFinite(ahoraC) && tMio > ahoraC + 300000, futuroDoc = Number.isFinite(ahoraC) && tDoc > ahoraC + 300000;
+                  var ganoYo = futuroMio !== futuroDoc ? !futuroMio : (tMio !== tDoc ? tMio > tDoc : claveEp(r) > claveEp(prev));
+                  if (!ganoYo) r = Object.assign({}, r, { stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual, stockTs: prev.stockTs, stockDeficit: prev.stockDeficit });
+                }
+                var base = baseMia !== null ? baseMia : basePrev;
+                if (_samePhysicalEpoch && !conflictoBase && base !== null && Number.isFinite(base)) {
+                  var pn = Object.assign({}, prev.stockPN || {});
+                  Object.keys(r.stockPN || {}).forEach(function (id) {
+                    var antes = pn[id] || {}, nuevo = r.stockPN[id] || {};
+                    pn[id] = { add: Math.max(Number(antes.add) || 0, Number(nuevo.add) || 0),
+                               sub: Math.max(Number(antes.sub) || 0, Number(nuevo.sub) || 0) };
+                  });
+                  r = Object.assign({}, r, { stockBase: base, stockPN: pn });
+                  r.stockActual = Math.max(0, base + Object.keys(pn).reduce(function (n, id) {
+                    return n + (Number(pn[id].add) || 0) - (Number(pn[id].sub) || 0);
+                  }, 0));
+                }
+              }
+              // v664: un aparato SIN el puntero de foto nunca vacia el de otro (add-only).
+              if (col === "productos" && prev && prev.fotoHash && !r.fotoHash) r = Object.assign({}, r, { fotoHash: prev.fotoHash });
+              // Una réplica rezagada no debe volver a publicar una ficha anterior
+              // encima de una edición o baja que ya llegó al documento común.
+              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales" || col === "ubicaciones" || col === "productos" || col === "gastos" || col === "transferencias" || col === "categorias" || col === "ajustes") &&
+                  (r.rev || prev.rev)) {
+                var a = r.rev || {}, b = prev.rev || {};
+                var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
+                if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) {
+                  if (col === "productos") {
+                    /* P0 v558: metadata rev and stock revision are INDEPENDENT.
+                       Before: stale local metadata preserved prev.name but ALWAYS
+                       overwrote prev.stockActual, even if local was old ZERO;
+                       then it forged stockTs=max(old,new), making it appear current.
+                       Choose stock only by its own ledger/clock evidence. */
+                    var _rt = Number(r.stockTs) || 0, _pt = Number(prev.stockTs) || 0;
+                    var _rb = r.stockBase != null && Number.isFinite(Number(r.stockBase)) ? Number(r.stockBase) : null;
+                    var _pb = prev.stockBase != null && Number.isFinite(Number(prev.stockBase)) ? Number(prev.stockBase) : null;
+                    var _rp = r.stockPN && typeof r.stockPN === "object" ? r.stockPN : null;
+                    var _pp = prev.stockPN && typeof prev.stockPN === "object" ? prev.stockPN : null;
+                    var _nowRaw = (window.OCLatencia && window.OCLatencia.ahoraRelay) ?
+                      window.OCLatencia.ahoraRelay() : null;
+                    // Number(null) === 0: a fresh phone without a relay clock
+                    // must not treat every genuine epoch-millisecond sale as future.
+                    var _now = typeof _nowRaw === "number" && Number.isFinite(_nowRaw) &&
+                      _nowRaw > 0 ? _nowRaw : null;
+                    var _notFuture = _now === null || _rt <= _now + 300000;
+                    var _sameLedger = _rb !== null && _pb !== null && _rb === _pb && !!_rp && !!_pp;
+                    var _epochNewer = _rb !== null && !!_rp && _rt > _pt && _notFuture;
+                    var _legacyNewer = _rb === null && _pb === null && _rt > _pt && _notFuture &&
+                      Number.isFinite(Number(r.stockActual)) && Number(r.stockActual) >= 0 &&
+                      !(Number(r.stockActual) === 0 && Number(prev.stockActual) > 0);
+                    /* The FIRST real PN sale must not be discarded merely
+                       because a just-synced legacy product has a clock a few
+                       milliseconds newer. Require matching physical base,
+                       nonempty positive operation counters, plausible relay
+                       time and a narrow skew window. Ancient PN remains blocked. */
+                    var _pnEntries = Object.keys(_rp || {});
+                    var _pnValid = _pnEntries.length > 0 && _pnEntries.every(function (id) {
+                      var fact = _rp[id] || {}, add = Number(fact.add), sub = Number(fact.sub);
+                      return Number.isSafeInteger(add) && Number.isSafeInteger(sub) &&
+                        add >= 0 && sub >= 0;
+                    });
+                    var _pnNet = _pnValid ? _pnEntries.reduce(function (sum, id) {
+                      return sum + Number(_rp[id].add) - Number(_rp[id].sub);
+                    }, 0) : NaN;
+                    var _pnProof = _pnValid && Number.isSafeInteger(_rb + _pnNet) &&
+                      Math.max(0, _rb + _pnNet) === Number(r.stockActual) &&
+                      _pnEntries.some(function (id) {
+                        return Number(_rp[id].add) > 0 || Number(_rp[id].sub) > 0;
+                      });
+                    var _firstLedger = _rb !== null && _pb === null && _pnProof &&
+                      Number(prev.stockActual) === _rb && _rt > 0 &&
+                      _rt >= _pt - 2000 && _notFuture;
+                    var _stockValido = _samePhysicalEpoch &&
+                      (_sameLedger || _epochNewer || _legacyNewer || _firstLedger);
+                    var _safeStock = !_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev);
+                    r = Object.assign({}, prev, {
+                      stockBase: _safeStock.stockBase,
+                      stockPN: _safeStock.stockPN,
+                      stockActual: _safeStock.stockActual,
+                      stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
+                      stockDeficit: _safeStock.stockDeficit,
+                      stockEpochId: _safeStock.stockEpochId,
+                      stockCountWitness: _safeStock.stockCountWitness || null,
+                      stockReconciliacionPendiente: r.stockReconciliacionPendiente === true || prev.stockReconciliacionPendiente === true,
+                      /* FOTOS (v664): este camino conserva la ficha del doc (prev). El puntero
+                         de foto es ADD-ONLY: si prev no lo tiene y yo si, se publica; nunca se
+                         reemplaza uno existente ni se vacia. Antes se perdia siempre aqui
+                         (hashearFotosProductos no sube rev) y el catalogo compartido quedaba sin fotoHash. */
+                      /* v665: la MISMA revision (c y d iguales) con otro hash no vacio es la foto NUEVA que este aparato
+                         acaba de hashear tras editarla (PATCH sube rev y deja fotoHash null; el hash llega despues sin
+                         subir rev). Antes "prev.fotoHash ||" dejaba para siempre el puntero viejo y la foto nueva nunca
+                         cruzaba. Una revision MENOR nunca reemplaza (aparato rezagado). Los bytes viejos siguen en OCFotos. */
+                      fotoHash: (ac > 0 && ac === bc && String(a.d || "") === String(b.d || "") && r.fotoHash) ? r.fotoHash : (prev.fotoHash || r.fotoHash || null)
+                    });
+                  }
+                  else if (col === "ubicaciones" && !prev.fotoHash && r.fotoHash) r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev, fotoHash: r.fotoHash, fotoRev: r.fotoRev || null });
+                  else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
+                  else return;
+                }
+              }
+              var js = JSON.stringify(r);
+              // Solo si cambió: evita tormenta de updates binarios por el relay.
+              if (!prev || JSON.stringify(prev) !== js) API.mapas[col].set(k, JSON.parse(js));
+              if (productoEntrada === js) _productosSinCambios.set(API.mapas[col].get(k), productoEntrada);
+            });
+          });
+          /* NOMBRE DEL NEGOCIO (A1, JFC 2026-09-10). No mergeaba porque el
+             puente aplicaba con rol=null y aplicarCatalogo solo adopta el nombre
+             si el local está vacío. Ahora el nombre del DUEÑO gana, como la regla
+             de jerarquía de siempre: guardamos junto al nombre si quien lo puso es
+             el dueño; el otro aparato aplica con rolRemoto="dueno" y lo adopta.
+             Un no-dueño no pisa un nombre ya marcado como del dueño. */
+          /* P0: local name may come from f123_owned on a just-purged phone,
+             while the remote CRDT history and credentials are still loading.
+             Never give that stale bootstrap name owner authority in the
+             shared doc. Resume ordinary name changes after confirmed pull. */
+          if (cat.nombreNegocio && !(API.canal && API.canal.recuperando)) {
+            var soyDueno = miRol === "dueno";
+            var yaEsDueno = API.meta.get("nombreEsDueno") === true;
+            /* DESEMPATE DETERMINISTA (v283, JFC 2026-09-15). Antes un dueño pisaba
+               el nombre compartido cada vez que sembraba -> con DOS aparatos dueño
+               era una guerra de nombres que nunca convergía. Ahora gana el rename
+               de dueño MÁS RECIENTE por sello de tiempo: un dueño solo escribe el
+               nombre si su ts es >= al del doc (o si el doc aún no es de dueño). */
+            // v290 (#2): desempate PRIMARIO por rev monotónico (inmune a relojes
+            // desfasados), secundario por ts.
+            var revMeta = Number(API.meta.get("nombreRev")) || 0;
+            var revMio = Number(cat.nombreNegocioRev) || 0;
+            var tsMeta = Number(API.meta.get("nombreTs")) || 0;
+            var tsMio = Number(cat.nombreNegocioTs) || 0;
+            if (soyDueno) {
+              // No desempatar por timestamp: el reloj local puede estar adelantado.
+              var _gano = !yaEsDueno || revMio > revMeta;
+              if (_gano) {
+                if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
+                // Y.Map.set emits an update even for the same value. Idle scans
+                // must not create another encrypted operation in the relay.
+                if (revMio && revMeta !== revMio) API.meta.set("nombreRev", revMio);
+                if (tsMio && tsMeta !== tsMio) API.meta.set("nombreTs", tsMio);
+                if (!yaEsDueno) API.meta.set("nombreEsDueno", true);
+              }
+            } else if (!yaEsDueno && !API.meta.get("nombreNegocio")) {
+              API.meta.set("nombreNegocio", cat.nombreNegocio);
+              API.meta.set("nombreEsDueno", false);
+            }
+          }
+          if (cat.pinsRol && miRol && !(API.canal && API.canal.recuperando)) {
+            var pinsPrev = API.meta.get("pinsRol") || {}, pinsNext = Object.assign({}, pinsPrev);
+            // A fresh device must never publish factory/demo PINs over the team's credentials.
+            [["owner", "789"], ["emp", "260"], ["acct", "357"]].forEach(function (role) {
+              var p = String(cat.pinsRol[role[0]] || "");
+              // Owner PIN is an explicitly rotated credential. Another phone's
+              // older local profile is not authority to overwrite the notebook.
+              // Old shells can continue writing pinsRol; the separate explicit
+              // owner key survives their automatic catalog scans.
+              if (role[0] === "owner" && (
+                  /^\d{3}$/.test(String(API.meta.get("ownerPinConfirmado") || "")) ||
+                  (/^\d{3}$/.test(String(pinsPrev.owner || "")) &&
+                   pinsPrev.owner !== "789" && pinsPrev.owner !== "456"))) return;
+              if (/^\d{3}$/.test(p) && p !== role[1] && p !== "456") pinsNext[role[0]] = p;
+            });
+            if (JSON.stringify(pinsNext) !== JSON.stringify(pinsPrev)) API.meta.set("pinsRol", pinsNext);
+          }
+        }, "seed"); // origin "seed": estos updates no deben re-aplicarse al store
+      } catch (e) { log("sembrar:", e && e.message); }
+      // B3: publicar al doc de fotos los blobs de perchas Y productos que tienen
+      // foto. Antes se asegura que las fotos de PRODUCTO tengan hash (v290): una
+      // foto recien puesta se hashea y se publica sin esperar a reconectar.
+      try {
+        if (window.OCSync && window.OCSync.hashearFotosProductos) {
+          window.OCSync.hashearFotosProductos().then(function () { try { publicarFotosLocales(); } catch (_) {} }).catch(function () { try { publicarFotosLocales(); } catch (_) {} });
+        } else { publicarFotosLocales(); }
+      } catch (_) { try { publicarFotosLocales(); } catch (_) {} }
+      // v292: sembrar las ventas (dinero) como ops individuales (add-only).
+      try { sembrarVentasAlRelay(cat); } catch (_) {}
+      try { sembrarFinanzas(cat); } catch (_) {}
+      try { sembrarActividad(cat); } catch (_) {}
+    }
+
+    // P0 v692: iOS can suspend a 0-ms task as soon as the installed PWA
+    // goes to the background. After a STRICTLY COMMITTED physical count,
+    // place that exact new epoch in the EXISTING Y.Doc synchronously.
+    // This is a local seed, not a network ACK, new stock op or transport swap.
+    // The ordinary scheduled event + retry sweep remain unchanged.
+    API.sembrarConteoConfirmado = function (productoId, epoca) {
+      if (API.estado !== "activo" || !productoId || !epoca ||
+          !API.mapas || !API.mapas.productos ||
+          !window.OCSync || typeof window.OCSync.catalogoPropio !== "function") return false;
+      var cat;
+      try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
+      var p = cat && (cat.productos || []).find(function (x) {
+        return x && String(x.id) === String(productoId);
+      });
+      // Queued remote merges can supersede a local count during its commit:
+      // never republish the obsolete epoch as a supposedly fresh fact.
+      if (!p || String(p.stockEpochId || "") !== String(epoca)) return false;
+      sembrar(); // Y.Doc transaction/update happens in this very task
+      var shared = API.mapas.productos.get(String(productoId));
+      return !!(shared && String(shared.stockEpochId || "") === String(epoca) &&
+        Number(shared.stockActual) === Number(p.stockActual));
+    };
+
+    // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge
+    // add-only probado. Síncrono: aplicarCatalogo no es async.
+    var ultimaAplicacionVisible = Promise.resolve(false), ultimaAplicacionAceptada = false;
+    var ultimaAplicacionPins = Promise.resolve(false), aplicacionActual = 0;
+    API._catalogoRevision = 0;
+    API.confirmarCatalogoDurable = function () {
+      if (_tAplica) { clearTimeout(_tAplica); _tAplica = null; aplicar(); }
+      if (!ultimaAplicacionAceptada || !window.OCSync || typeof window.OCSync.confirmarCatalogoDurable !== "function") return Promise.resolve(false);
+      var actual = aplicacionActual;
+      return ultimaAplicacionPins.then(function (ok) {
+        if (ok !== true || actual !== aplicacionActual || !ultimaAplicacionAceptada) return false;
+        return Promise.resolve(window.OCSync.confirmarCatalogoDurable()).then(function (guardado) {
+          return guardado === true && actual === aplicacionActual && !_tAplica;
+        });
+      }).catch(function () { return false; });
+    };
+    API.confirmarCatalogoVisible = function () {
+      if (_tAplica) { clearTimeout(_tAplica); _tAplica = null; aplicar(); }
+      var receipt = ultimaAplicacionVisible, revision = API._catalogoRevision;
+      if (!API.hechosListos || !API.hechosListos()) return Promise.resolve(false);
+      return Promise.resolve(receipt).then(function (ok) {
+        return ok === true && receipt === ultimaAplicacionVisible && revision === API._catalogoRevision &&
+          !_tAplica && API.hechosListos();
+      });
+    };
+    function aplicar() {
+      if (_aplicando) return;
+      aplicacionActual++;
+      ultimaAplicacionAceptada = false;
+      ultimaAplicacionPins = Promise.resolve(false);
+      ultimaAplicacionVisible = Promise.resolve(false);
+      // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
+      // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
+      var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot && !(API.canal.accesoListo && API.canal.accesoListo()) ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var confirmado = String(API.meta.get("ownerPinConfirmado") || "");
+      if (remoto.pinsRol && /^\d{3}$/.test(confirmado) && confirmado !== "456") {
+        remoto.pinsRol = Object.assign({}, remoto.pinsRol, { owner: confirmado });
+      }
+      // Only after a verified full application. A product-only Yjs update has
+      // already been decrypted, and the unchanged collections are no-ops.
+      // Financial ops live in the separate append-only channel and are NEVER
+      // inferred or omitted based on a product's stock revision.
+      var soloProductos = _primerMergeAceptado && !_otroRemoto && _productosRemotos.size > 0 &&
+        !(API.canal && API.canal.recuperando);
+      var cambiosProductos = soloProductos ? Array.from(_productosRemotos) : [];
+      var cambiosActividad = soloProductos ? Array.from(_actividadRemota) : [];
+      _productosRemotos.clear(); _actividadRemota.clear(); _otroRemoto = false;
+      var hay = false;
+      COLECCIONES.forEach(function (c) {
+        remoto[c] = soloProductos ?
+          (c === "productos" ? cambiosProductos.map(function (id) { return API.mapas.productos.get(id); }).filter(Boolean) :
+            c === "actividad" ? cambiosActividad.map(function (id) { return API.mapas.actividad.get(id); }).filter(Boolean) : [])
+          : valores(c);
+        if (remoto[c].length) hay = true;
+      });
+      // The app's catalog API accepts partial arrays but requires these two.
+      // Empty shelves never mean deletion: the merge is append-only.
+      if (soloProductos && (remoto.productos.length !== cambiosProductos.length ||
+          remoto.actividad.length !== cambiosActividad.length)) {
+        soloProductos = false;
+        COLECCIONES.forEach(function (c) { remoto[c] = valores(c); });
+      }
+      // Never trust the winning whole-object Y.Map value to contain every
+      // independent device's PN counters. Restore them from append-only keys.
+      remoto.productos = incorporarTestigosStock(remoto.productos, API.stockPNTestigos);
+      // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
+      // aplicarse aunque no haya entidades — antes se descartaba y el nombre nunca
+      // llegaba a un aparato que recibió primero el _meta.
+      if (!hay && !remoto.nombreNegocio && !remoto.pinsRol) { ultimaAplicacionAceptada = true; ultimaAplicacionPins = Promise.resolve(true); return; }
+      // rolRemoto="dueno" si el nombre lo puso un dueño (A1): así aplicarCatalogo
+      // adopta el nombre del negocio aunque el local ya tenga otro. Para el resto
+      // de reglas (nombre/precio de ítems) esto solo habilita que el nombre del
+      // dueño gane; el add-only del catálogo no cambia.
+      var rolRemoto = (API.meta.get("nombreEsDueno") === true) ? "dueno" : null;
+      _aplicando = true;
+      var _fallo = false;
+      try {
+        var r = soloProductos
+          ? window.OCSync.aplicarCatalogo(remoto, rolRemoto, true, true)
+          : window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only incremental product-only merges defer A/B
+        ultimaAplicacionAceptada = !!(r && r.ok && r.actividadCompleta !== false);
+        if (ultimaAplicacionAceptada && !soloProductos) _primerMergeAceptado = true;
+        ultimaAplicacionPins = Promise.resolve(r && r.pinsConfirmados).then(function (ok) { return ok === true; }, function () { return false; });
+        // A2/A3 (JFC 2026-09-10): si el merge sumó algo, avisar a la UI para que
+        // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
+        // suelto, y (b) re-pinte la vista Hoy (si no, el hero se queda en
+        // "Loading your business..."). La UI escucha oc-sync-merge en index.html.
+        // v289: incluir r.actualizados -> una actualizacion SOLO de stock/precio
+        // (sin altas) tambien re-pinta la UI: es el refresco "en segundos" del CDC.
+        if (r && r.ok && (r.agregadasU || r.agregadosP || r.actualizados || r.ventasAgregadas || r.miembrosAgregados || r.miembrosActualizados || r.miembrosQuitados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
+          // Una fusión de dos ledgers de stock debe volver al doc de inmediato;
+          // esperar al barrido de 2 s dejaría a un tercer aparato con una sola venta.
+          setTimeout(sembrar, 0);
+          try {
+            window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: {
+              perchas: r.agregadasU || 0, productos: r.agregadosP || 0, actualizados: r.actualizados || 0, ventas: r.ventasAgregadas || 0,
+              miembros: (r.miembrosAgregados || 0) + (r.miembrosActualizados || 0) + (r.miembrosQuitados || 0), clientes: r.clientesAgregados || 0,
+              promotoras: r.promotorasAgregadas || 0, sucursales: r.sucursalesAgregadas || 0
+            } }));
+            if (window.OCSyncRender && typeof window.OCSyncRender.esperar === "function")
+              ultimaAplicacionVisible = window.OCSyncRender.esperar();
+          } catch (_) {}
+        }
+      }
+      catch (e) { log("aplicar:", e && e.message); _fallo = true; }
+      _aplicando = false;
+      // (JFC 2026-10-27) excepcion o no aceptada -> proxima aplicacion completa + 1 reintento.
+      if (_fallo || !ultimaAplicacionAceptada) falloAplicacion();
+      else _retryAplicar.cancelar();
+    }
+    function falloAplicacion() {
+      _primerMergeAceptado = false;
+      _retryAplicar.pedir();
+    }
+    function valores(col) { var o = API.get(col), a = []; for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) a.push(o[k]); return a; }
+
+    // Cambios locales del catálogo / equipo -> re-volcar a Yjs (con rebote).
+    // Son las MISMAS señales que escucha el sync casero (mock-backend las emite).
+    /* v516 (JFC 2026-10-14: "app + dashboard tan reactive como entre subsecciones... INSTANTANEO").
+       Medido con el relay real entre dos aparatos: ~530 ms de los cuales 400 eran esta espera y
+       100 la del que recibe; la red ~30 ms. Ahora 30 ms: junta los eventos de una misma venta
+       (salen en el mismo instante) sin frenar el cambio. Una espera que NO se reinicia con cada
+       evento, para que una rafaga no lo posponga. Prueba: test/sync-instantaneo-v516.test.js */
+    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () {
+      _tSeed = null;
+      sembrar();
+      // Live publication already reconciled the local catalog. Reuse its
+      // post-publication signature; the periodic safety sweep still runs
+      // at least every 10 seconds (max four skipped 2s intervals).
+      _barridoFirma = firmaBarrido();
+      _barridoSaltos = 0;
+    }, 0); } // v517: 0 ms (JFC: "40 ms o menos"); junta lo del mismo instante
+    window.addEventListener("oc-catalogo-cambiado", pedirSeed);
+    window.addEventListener("oc-equipo-cambiado", pedirSeed);
+
+    // Convergencia remota (relay) o de otra pestaña (BroadcastChannel) -> aplicar.
+    // Los updates propios de sembrar() llevan origin "seed" y se ignoran aquí.
+    API.doc.on("update", function (update, origin) {
+      if (origin !== "red" && origin !== "bc") {
+        // (JFC 2026-10-27) origen propio = "seed"; cualquier otro desconocido fuerza merge completo.
+        if (origin !== "seed") _otroRemoto = true;
+        return;
+      }
+      API._catalogoRevision++;
+      /* Coalescer con espera máxima acotada. El debounce anterior reiniciaba
+         300 ms con CADA update y una ráfaga podía posponer indefinidamente el
+         nombre/stock visible. El primer update agenda una aplicación próxima;
+         los siguientes quedan incluidos en el mismo documento Yjs. */
+      if (!_tAplica) _tAplica = setTimeout(function () {
+        _tAplica = null;
+        aplicar();
+      }, 0); // v517: 0 ms (v516: 20, antes 100). Junta las rafagas del mismo instante
+    });
+
+    // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya
+    // había guardado localmente (por si este aparato arrancó offline) y luego
+    // SEMBRAMOS lo local que aún no esté en Yjs. Ambos son idempotentes.
+    function primerCruce() { aplicar(); sembrar(); }
+    if (API.idb && typeof API.idb.on === "function") API.idb.once ? API.idb.once("synced", primerCruce) : API.idb.on("synced", primerCruce);
+    else setTimeout(primerCruce, 800);
+    // Red de seguridad si "synced" no llega (idb deshabilitado en algún navegador).
+    setTimeout(function () { if (API.estado === "activo") sembrar(); }, 2500);
+    /* RE-PUBLICACION PERIODICA (v302). Barata: el batch de sembrar() solo escribe
+       al Y.Map "si cambió", asi que si nada cambio NO manda nada. Sirve de red: si
+       un cambio local (stock por cualquier ruta, etc.) no disparo oc-catalogo-
+       cambiado, igual se publica en <=10 s. Asi el stock y todo cambio cruzan sin
+       depender de que cada ruta emita el evento. */
+    // Recovery sweep every 2s for a missed local event, not an SLA certificate.
+    // The live event path publishes immediately. The current 150ms diagnostic
+    // starts at publication and cannot certify time spent before that boundary.
+    // This local sweep sends nothing when the catalog is unchanged.
+    /* v609 perf (CPU en reposo): el barrido se salta si NO cambio nada desde el ultimo: misma revision durable
+       local (OCSync.revisionLocal) y ningun update del doc Yjs. Maximo 4 saltos seguidos, asi que la
+       garantia "se publica en <=10 s" se mantiene aunque la firma no detecte un cambio. Sin revisionLocal
+       (arneses viejos) nunca se salta. */
+    var _barridoFirma = null, _barridoSaltos = 0, _docUpdates = 0;
+    if (!API._cuentaUpdatesBarrido && API.doc && API.doc.on) { API._cuentaUpdatesBarrido = true; API.doc.on("update", function () { _docUpdates++; }); }
+    function firmaBarrido() {
+      try { var f = window.OCSync && window.OCSync.revisionLocal; return typeof f === "function" ? f.call(window.OCSync) + "|" + _docUpdates : null; } catch (_) { return null; }
+    }
+    if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () {
+      try {
+        if (API.estado !== "activo") return;
+        // Recover an explicit Owner PIN edit after reconnect/restart, without
+        // changing inventory or seeding credentials from an unverified room.
+        // The secure helper checks previous owner hash, license, active session
+        // and fully recovered live channel; no timers or network if no intent.
+        if (window.OCSecure && window.OCSecure.pinOwnerPendienteLocal &&
+            window.OCSecure.pinOwnerPendienteLocal() &&
+            window.OCSecure.reconciliarCambioPinOwnerPendiente) {
+          Promise.resolve(window.OCSecure.reconciliarCambioPinOwnerPendiente()).catch(function () {});
+        }
+        var firma = firmaBarrido();
+        if (firma !== null && firma === _barridoFirma && _barridoSaltos < 4) { _barridoSaltos++; return; }
+        _barridoSaltos = 0; _barridoFirma = firma;
+        sembrar();
+        _barridoFirma = firmaBarrido(); // sembrar() puede escribir al doc: la firma de referencia es la posterior
+      } catch (_) {}
+    }, 2000);
+
+    // P0 v633 R3: verify recoverable exact Owner PIN+revision from committed
+    // local IndexedDB journal; Y.Doc RAM updates are not a durability receipt.
+    API.confirmarPinOwnerDurable = function (nuevo, revision) {
+      var pin = String(nuevo || "");
+      if (!/^\d{3}$/.test(pin) || !Number.isSafeInteger(revision) || revision < 1 ||
+          !API.doc || !API.meta || !API.roomId || !API.idb ||
+          !API.canal || API.canal.recuperando !== false) return Promise.resolve(false);
+      var room = API.roomId, doc = API.doc, idb = API.idb, db = idb.db;
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates"))
+        return Promise.resolve(false);
+      function matches(meta) {
+        return String(meta.get("ownerPinConfirmado") || "") === pin &&
+          Number(meta.get("ownerPinCambioRev")) === revision;
+      }
+      if (!matches(API.meta)) return Promise.resolve(false);
+      return new Promise(function (resolve) {
+        var rows = null, done = false;
+        function finish(ok) { if (!done) { done = true; resolve(ok === true); } }
+        try {
+          var tx = db.transaction(["updates"], "readonly");
+          var req = tx.objectStore("updates").getAll();
+          req.onsuccess = function () { rows = req.result; };
+          req.onerror = function () { finish(false); };
+          tx.onerror = function () { finish(false); };
+          tx.onabort = function () { finish(false); };
+          tx.oncomplete = function () {
+            if (!Array.isArray(rows) || !rows.length) return finish(false);
+            var restored;
+            try {
+              restored = new Y.Doc();
+              for (var i = 0; i < rows.length; i++) {
+                if (!rows[i] || !Number.isSafeInteger(rows[i].byteLength) || !rows[i].byteLength)
+                  return finish(false);
+                Y.applyUpdate(restored, new Uint8Array(rows[i]), "journal-proof");
+              }
+              if (restored.store && (restored.store.pendingStructs || restored.store.pendingDs))
+                return finish(false);
+              finish(matches(restored.getMap("_meta")) &&
+                API.roomId === room && API.doc === doc &&
+                API.idb === idb && API.idb.db === db &&
+                API.canal && API.canal.recuperando === false && matches(API.meta));
+            } catch (_) { finish(false); }
+            finally { if (restored) restored.destroy(); }
+          };
+        } catch (_) { finish(false); }
+      });
+    };
+
+    // P0 v621: only an explicit change from an authenticated Owner screen may
+    // replace a custom notebook owner PIN. Routine background seeding cannot.
+    API.publicarCambioPinOwner = function (nuevo, revisionEsperada) {
+      var pin = String(nuevo || "");
+      if (!/^\d{3}$/.test(pin) || pin === "456" || pin === "789" ||
+          API.estado !== "activo" || !API.doc || !API.meta || !API.roomId ||
+          !API.canal || API.canal.recuperando) return false;
+      try {
+        if (!window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
+        var T = window.OCTienda;
+        if (T && typeof T.licenciaActual === "function") {
+          var lic = String(T.licenciaActual() || "");
+          var own = JSON.parse(localStorage.getItem("f123_owned") || "{}") || {};
+          if (!/^F123-/.test(lic) || lic !== String(own.licenseCode || "")) return false;
+        }
+        var prev = API.meta.get("pinsRol") || {};
+        var revRaw = Number(API.meta.get("ownerPinCambioRev"));
+        var rev = Number.isSafeInteger(revRaw) && revRaw >= 0 ? revRaw : 0;
+        if (revisionEsperada !== undefined && revisionEsperada !== rev) return false;
+        if (prev.owner === pin && API.meta.get("ownerPinConfirmado") === pin) return true;
+        if (rev >= Number.MAX_SAFE_INTEGER) return false;
+        API.doc.transact(function () {
+          API.meta.set("pinsRol", Object.assign({}, prev, { owner: pin }));
+          // A later authorized return to an earlier PIN must be distinguishable
+          // from an old offline retry with the same three digits.
+          API.meta.set("ownerPinConfirmado", pin);
+          API.meta.set("ownerPinCambioRev", rev + 1);
+        }, "seed");
+        return API.meta.get("ownerPinConfirmado") === pin &&
+          API.meta.get("ownerPinCambioRev") === rev + 1;
+      } catch (_) { return false; }
+    };
+
+    API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
+  }
+
+  window.addEventListener("oc-licencia-disponible", arrancar);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arrancar);
+  else arrancar();
+})();

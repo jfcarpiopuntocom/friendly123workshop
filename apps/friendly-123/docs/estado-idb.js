@@ -1,0 +1,481 @@
+// estado-idb.js — friendly-123 · Espejo del estado del negocio en IndexedDB
+// ============================================================================
+// BUG QUE ARREGLA (JFC 2026-08-17, en su propia PC, encontrado en amigable-123
+// y portado aqui porque la causa es identica: mismo origen, mismo techo):
+//   "me dijo 'La memoria de este navegador está llena: los cambios nuevos NO se
+//    están guardando' y eso jamas debe decir en mi PC donde soooobra espacio"
+//
+// Tenia razon y el disco no tenia nada que ver. localStorage NO crece con el
+// disco: los navegadores le dan un tope fijo de ~5 MB POR ORIGEN, y las tres
+// apps (amigable / friendly-123 / consultorio-123) comparten el mismo origen de
+// GitHub Pages. Con fotos de producto y un log de actividad largo, ese techo se
+// toca en una PC con 900 GB libres exactamente igual que en un telefono viejo.
+//
+// IndexedDB, en cambio, SI escala con el disco (tipicamente cientos de MB o mas,
+// negociado contra el espacio real disponible). Este modulo guarda ahi una copia
+// completa del estado cada vez que se guarda, y mock-backend.js la usa como red:
+//
+//   1. localStorage funciona  -> se guarda en los dos. Nada cambia para nadie.
+//   2. localStorage se lleno  -> IndexedDB recibe el estado COMPLETO igual, y el
+//                                cartel rojo de "no se esta guardando" NO sale,
+//                                porque seria mentira: si se guardo.
+//   3. IndexedDB tampoco pudo -> ahi si, cartel rojo. Eso es un problema de
+//                                verdad y el dueno tiene que respaldar ya.
+//
+// Al arrancar, mock-backend compara la revision (_rev) de los dos y se queda con
+// la MAS NUEVA. Si localStorage se quedo atras por falta de espacio, el negocio
+// sigue completo igual.
+//
+// REGLA DE LA CASA: si IndexedDB no existe o falla, todo esto es un no-op y la
+// app se comporta exactamente como antes. Cero dependencia obligatoria.
+// ============================================================================
+(function () {
+  "use strict";
+
+  var DB_NAME = "f123_estado";      // aislamiento.js le pone el namespace solo
+  var STORE = "estado";
+  var CLAVE = "actual";
+  var SOPORTADO = !!(window.indexedDB && typeof window.indexedDB.open === "function");
+  // Sticky per-browser capability proof OUTSIDE the potentially failing IDB.
+  // Unknown must never mean 'never opened'. A legacy seal/A-B state makes a
+  // fresh missing marker ambiguous, so it never authorizes downgrade.
+  var CAP_KEY = "f123_idb_capability_v1";
+  function capLeer() {
+    try {
+      var v = localStorage.getItem(CAP_KEY);
+      return ["never_opened","opened_once","opened_and_failed"].includes(v) ? v : "unknown";
+    } catch (_) { return "unknown"; }
+  }
+  function capGuardar(v) {
+    try {
+      var old = capLeer();
+      if (old === "opened_once" && v === "never_opened") return false;
+      if (old === "opened_and_failed" && v === "never_opened") return false;
+      localStorage.setItem(CAP_KEY, v);
+      return localStorage.getItem(CAP_KEY) === v;
+    } catch (_) { return false; }
+  }
+  function capTieneHistoria() {
+    try {
+      for (var i=0;i<localStorage.length;i++) {
+        var k=localStorage.key(i) || "";
+        if ((k.indexOf("f123_estado_v4") === 0 || k.indexOf("amigable_demo_state_v4") === 0) &&
+            localStorage.getItem(k) !== null) return true;
+      }
+    } catch (_) { return true; }
+    return false;
+  }
+  // The ONLY automatic 'never opened' registration: a genuinely fresh
+  // notebook whose native IDB API does not even exist. If legacy data exists
+  // but history is unknown, require explicit reconciliation, not fake ACK.
+  if (!SOPORTADO && capLeer() === "unknown" && !capTieneHistoria()) capGuardar("never_opened");
+  function capConfirmada() { capGuardar("opened_once"); }
+  function capFallida() {
+    var old = capLeer();
+    if (old === "opened_once" || old === "opened_and_failed") capGuardar("opened_and_failed");
+  }
+
+  var dbPromise = null;
+  function abrirDB() {
+    if (dbPromise) return dbPromise;
+    var req;
+    try { req = indexedDB.open(DB_NAME, 1); } catch (err) { return Promise.reject(err); }
+    var promise, settled = false;
+    promise = new Promise(function (resolve, reject) {
+      function fail(err) {
+        if (settled) return;
+        settled = true;
+        if (dbPromise === promise) dbPromise = null;
+        reject(err);
+      }
+      req.onupgradeneeded = function () {
+        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
+      };
+      req.onsuccess = function () {
+        var db = req.result;
+        if (settled) { db.close(); return; }
+        settled = true;
+        db.onversionchange = function () { db.close(); if (dbPromise === promise) dbPromise = null; };
+        resolve(db);
+      };
+      req.onerror = function () { fail(req.error); };
+      req.onblocked = function () { fail(new Error("IndexedDB bloqueado")); };
+    });
+    dbPromise = promise;
+    return promise;
+  }
+
+  /* ESCRITURAS AGRUPADAS (caza de bugs 2026-08-18). El espejo se dispara en
+     CADA guardado, o sea en cada venta. En una feria con ventas seguidas eran
+     decenas de escrituras del estado entero por minuto, cada una serializando
+     todo el negocio.
+
+     Se agrupan: la primera escribe ya —para no perder nada si el navegador se
+     cierra en el acto— y las siguientes se juntan en una sola al final de la
+     rafaga. Nunca se pierde la ULTIMA, que es la que importa.
+
+     `guardar()` sigue devolviendo la promesa del resultado REAL de escritura,
+     porque mock-backend decide con eso si sale el cartel rojo: prometer un
+     true optimista seria justo la mentira que este modulo vino a quitar. */
+  var _pend = null, _reloj = null, _confirmaciones = [], _cola = Promise.resolve();
+  var AGRUPAR_MS = 400;
+
+  function volcarPendiente() {
+    if (!_pend) return;
+    var estado = _pend, confirmar = _confirmaciones;
+    _pend = null; _confirmaciones = [];
+    guardar(estado).then(function (ok) { confirmar.forEach(function (resolve) { resolve(ok); }); });
+  }
+
+  function guardarYa(estado) {
+    if (_reloj) { clearTimeout(_reloj); _reloj = null; }
+    // Flush older snapshots before queuing this exact durable boundary.
+    volcarPendiente();
+    return guardar(estado);
+  }
+
+  function guardarAgrupado(estado, exigirCompleto) {
+    if (!SOPORTADO || !estado) return Promise.resolve(false);
+    if (exigirCompleto) return guardarYa(estado);
+    /* Primera de la rafaga: va directo, sin esperar. */
+    if (!_reloj) {
+      /* M3: si guardar rechaza, el next-turn NO deja el reloj colgado. Antes,
+         al fallar el guardado en el fin de la rafaga, el reloj se limpiaba
+         pero podia haber una escritura pospuesta sin nadie que la disparara. */
+      var resultado = guardar(estado);
+      _reloj = setTimeout(function () {
+        _reloj = null;
+        volcarPendiente();
+      }, AGRUPAR_MS);
+      return resultado;
+    }
+    /* Dentro de la rafaga: se queda solo la mas nueva. */
+    _pend = estado;
+    return new Promise(function (resolve) { _confirmaciones.push(resolve); });
+  }
+
+  /* Guarda el estado completo. Devuelve true SOLO si de verdad quedo escrito:
+     mock-backend decide con esto si el aviso rojo sale o no, asi que aqui no se
+     puede ser optimista. */
+  function guardar(estado) {
+    var resultado = _cola.then(function () { return escribir(estado); });
+    _cola = resultado.then(function () {}, function () {});
+    return resultado;
+  }
+  // (JFC 2026-10-28) causa del ultimo fallo de escritura: el clasificador de mock-backend la lee (cuota real -> cartel rojo).
+  var _ultimoError = null;
+  async function escribir(estado) {
+    if (!SOPORTADO || !estado || typeof estado !== "object") return false;
+    try {
+      var db = await abrirDB();
+      const guardado = await new Promise(function (resolve, reject) {
+        var tx = db.transaction(STORE, "readwrite");
+        // A late mirror must never overwrite a newer cross-tab sale.
+        const copia = JSON.parse(JSON.stringify(estado));
+        let accepted = false;
+        const req = tx.objectStore(STORE).get(CLAVE);
+        req.onsuccess = function () {
+          const old = req.result;
+          if (old && Number(old._rev) >= Number(copia._rev)) {
+            accepted = old._rev === copia._rev && old._abCommit === copia._abCommit;
+            return;
+          }
+          tx.objectStore(STORE).put(copia, CLAVE);
+          accepted = true;
+        };
+        tx.oncomplete = function () { if (accepted) capConfirmada(); resolve(accepted); };
+        tx.onerror = function () { reject(tx.error); };
+        tx.onabort = function () { reject(tx.error || new Error("abortada")); };
+      });
+      _ultimoError = null;
+      return guardado === true;
+    } catch (err) {
+      _ultimoError = err || null;
+      try { console.error("[estado-idb] guardar:", err); } catch (_) {}
+      return false;
+    }
+  }
+
+  // v680 P0: On a VERIFIED IndexedDB quota abort, recover only space occupied
+  // by obsolete, generated OFFLINE shell caches. Never touch IDB, photos, sales,
+  // PIN, Yjs, the current shell or the last three previous shell generations.
+  // The CAS transaction has already aborted; a new transaction must still
+  // confirm the exact snapshot before returning success.
+  function _esCuotaEstricto(e) {
+    return !!e && (e.name === "QuotaExceededError" ||
+      e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014);
+  }
+  async function _soltarShellObsoleto() {
+    const c = window.caches;
+    if (!c || typeof c.keys !== "function" || typeof c.delete !== "function") return false;
+    try {
+      // v767 (revision 13 nov 2026): SOLO el canal activo. Antes se borraba cualquier
+      // f123-shell-vN vieja sin mirar el canal: desde la app estable caia la cache de
+      // rollback (/previo/) o de /next/, y un /next/ mas nuevo movia "ultima". Misma regla
+      // que _soltarShellSecundarioVerificado (abajo) y esDeMiCanal() en sw.js: el canal
+      // sale de la ruta de la pagina; sin sufijo = estable. Nunca tocar otro canal.
+      // Prueba: test/p0-v767-shell-obsoleto-por-canal.test.cjs
+      const ruta = window.location && typeof window.location.pathname === "string" ? window.location.pathname : "";
+      const canalActivo = (/\/(next|previo)\//.exec(ruta) || [])[1] || "";
+      const nombres = (await c.keys()).filter(function (nombre) {
+        const m = /-(next|previo)$/.exec(String(nombre));
+        return (m ? m[1] : "") === canalActivo;
+      });
+      // Preserve the active/newest shell and three preceding versions. The
+      // historical v676 cutoff alone cannot recover quota on Opera v683+.
+      // Never touch unrelated caches, IDB, photos or customer data.
+      const versiones = nombres.map(function (nombre) {
+        const m = /^f123-shell-v([0-9]+)(?:-|$)/.exec(nombre);
+        return m ? Number(m[1]) : 0;
+      });
+      const ultima = Math.max(0, ...versiones);
+      const antiguos = nombres.filter(function (nombre) {
+        const m = /^f123-shell-v([0-9]+)(?:-|$)/.exec(nombre);
+        if (!m) return false;
+        const version = Number(m[1]);
+        return version > 0 && version < 676 ||
+          (ultima >= 680 && version > 0 && version < ultima - 3);
+      });
+      let liberado = false;
+      for (const nombre of antiguos) {
+        try { if (await c.delete(nombre)) liberado = true; } catch (_) {}
+      }
+      return liberado;
+    } catch (_) { return false; }
+  }
+
+  // v682 Safari P0: the SW activation normally purges the older shell
+  // caches BEFORE a quota failure. Release only OPTIONAL, regenerable files
+  // of the ONLINE-VERIFIED current shell; preserve every essential offline
+  // bootstrap script and all customer IndexedDB, photos, PIN and Yjs data.
+  // A failed cache operation never counts as a successful business write.
+  async function _soltarShellSecundarioVerificado() {
+    const c = window.caches, loc = window.location;
+    if (!c || typeof c.keys !== "function" || typeof c.open !== "function" ||
+        !loc || typeof loc.pathname !== "string" ||
+        typeof navigator === "undefined" || navigator.onLine !== true ||
+        typeof fetch !== "function") return false;
+    try {
+      const respuesta = await fetch("./version.json", { cache: "no-store" });
+      if (!respuesta || !respuesta.ok) return false;
+      const v = await respuesta.json();
+      if (!v || !/^f123-shell-v[1-9][0-9]*$/.test(String(v.shell || "")) ||
+          !/^golden[1-9][0-9]*$/.test(String(v.cacheGeneration || ""))) return false;
+      const canal = /\/(next|previo)\//.exec(loc.pathname);
+      const nombre = v.shell + "-" + v.cacheGeneration + (canal ? "-" + canal[1] : "");
+      // Do NOT create an absent cache and do NOT touch another channel.
+      if (!(await c.keys()).includes(nombre)) return false;
+      const cache = await c.open(nombre);
+      if (!cache || typeof cache.keys !== "function" || typeof cache.delete !== "function") return false;
+      const raiz = "/friendly-123/" + (canal ? canal[1] + "/" : "");
+      const recursos = await cache.keys();
+      let liberado = false;
+      for (const peticion of recursos) {
+        const url = String(peticion && peticion.url || "");
+        // The generated shell owns these exact static resources, not any
+        // user-photo, private backup, state, script or downloadable customer PDF.
+        const ruta = url.replace(/^https?:\/\/[^/]+/, "");
+        if (!ruta.startsWith(raiz)) continue;
+        const archivo = ruta.slice(raiz.length);
+        if (!/^(?:vendor\/jspdf-4\.2\.1\.umd\.min\.js|vendor\/jspdf-autotable-5\.0\.9\.min\.js|manual\.html|manual-logo\.png|fonts\/(?:space-grotesk-latin|source-sans-3-latin|jetbrains-mono-latin|inter-latin)\.woff2)$/.test(archivo)) continue;
+        try { if (await cache.delete(peticion)) liberado = true; } catch (_) {}
+      }
+      return liberado;
+    } catch (_) { return false; }
+  }
+
+  // Atomic durable revision fence. Two tabs cannot acknowledge two different
+  // sales from the same base revision. IndexedDB serializes overlapping
+  // readwrite transactions; no 10-second Web Locks wait or cross-tab lease.
+  // v755: both callers (mock-backend) pass a fresh JSON-parsed snapshot they never mutate, and put()
+  // structured-clones it; the former JSON.parse(JSON.stringify()) was a redundant full copy per sale.
+  function guardarConRevision(estado, revisionAplicada) {
+    if (!SOPORTADO || !estado || !Number.isSafeInteger(revisionAplicada)) return Promise.resolve(false);
+    // v760 (WebKit bug 315804): a hung IDB never settles. After 8 s this CAS is abandoned: it settles
+    // false (TimeoutError) so the caller uses the A/B journal, it releases the queue, the next CAS
+    // reopens IDB, and it never puts afterwards (an older snapshot cannot land after a newer one).
+    // If the put was already sent, the transaction is aborted first so it cannot commit later; if the
+    // browser is already committing it (abort throws), the CAS is NOT abandoned: its real result decides.
+    let abandonada = false, reloj = null, txConPut = null;
+    const tope = new Promise(function (listo) {
+      reloj = setTimeout(function () {
+        if (txConPut) { try { txConPut.abort(); } catch (_) { return; } }
+        abandonada = true;
+        dbPromise = null;
+        const e = new Error("IndexedDB no respondio"); e.name = "TimeoutError";
+        _ultimoError = e;
+        listo(false);
+      }, 8000);
+    });
+    const trabajo = _cola.then(async function () {
+      const copia = estado;
+      let conexion = abrirDB();
+      let db = await conexion;
+      let conexionCerrada = false;
+      const intento = () => new Promise(function (resolve) {
+        let accepted = false, errorTx = null; // cada transacción reporta SOLO su propio error
+        if (abandonada) { resolve(false); return; }
+        // Money/stock uses strict durability where the browser supports the hint.
+        let tx;
+        try { tx = db.transaction(STORE, "readwrite", { durability: "strict" }); }
+        catch (error) {
+          // A PWA resumed after suspension may keep a closed cached IDB handle.
+          // No transaction was created, so no sale could have committed here.
+          _ultimoError = error || null;
+          conexionCerrada = !!error && error.name === "InvalidStateError";
+          resolve(false);
+          return;
+        }
+        const req = tx.objectStore(STORE).get(CLAVE);
+        req.onsuccess = function () {
+          const actual = req.result;
+          const rev = Number((actual && actual._rev) || 0);
+          if (abandonada) return; // abandoned after the limit: commit nothing
+          // Revision fence: another tab already advanced. Not a storage error; the caller retries on the new base.
+          if (rev > revisionAplicada || rev >= Number(copia._rev)) {
+            // P0 #607: distinguish revision fences from quota failures; no customer data.
+            try { console.warn("[estado-idb] strict CAS revision fence", {
+              diskAhead: rev > revisionAplicada,
+              candidateNotNewer: rev >= Number(copia._rev)
+            }); } catch (_) {}
+            return;
+          }
+          try {
+            tx.objectStore(STORE).put(copia, CLAVE);
+            accepted = true;
+            txConPut = tx;
+          } catch (error) {
+            // An exception inside an IDB callback does not reject the outer
+            // Promise. Keep the actual quota cause for the in-UI warning.
+            errorTx = error || new Error("IDB put failed");
+            try { tx.abort(); } catch (_) { _ultimoError = errorTx; resolve(false); }
+          }
+        };
+        tx.oncomplete = function () {
+          txConPut = null;
+          if (abandonada) { resolve(false); return; } // late event of an abandoned CAS: keep the TimeoutError
+          _ultimoError = accepted ? null : errorTx; // fence rejection => null, never a stale earlier error
+          if (accepted) capConfirmada();
+          resolve(accepted);
+        };
+        tx.onabort = function () {
+          txConPut = null;
+          if (abandonada) { resolve(false); return; } // aborted by the limit above: nothing was committed
+          capFallida();
+          _ultimoError = errorTx || tx.error || new Error("IDB transaction aborted");
+          try { console.warn("[estado-idb] strict transaction aborted", _ultimoError && _ultimoError.name || "UnknownError"); } catch (_) {}
+          resolve(false);
+        };
+        tx.onerror = function () { errorTx = errorTx || tx.error || null; };
+      });
+      const primero = await intento();
+      if (primero === true) return true;
+      if (conexionCerrada) {
+        // Reopen ONCE, then rerun the same CAS in a new atomic transaction.
+        // Never downgrade to A/B or trust RAM: the disk revision is read again.
+        try { db.close(); } catch (_) {}
+        if (dbPromise === conexion) dbPromise = null;
+        conexionCerrada = false;
+        try { conexion = abrirDB(); db = await conexion; }
+        catch (error) { _ultimoError = error || null; return false; }
+        return intento();
+      }
+      // P0 v690 (installed iOS PWA): an IDB transaction that ABORTED with a
+      // transient non-quota error has not committed. Retry this exact snapshot
+      // and the exact same CAS revision ONCE; a concurrent writer is still
+      // fenced by the second transaction. Never retry a revision refusal
+      // (lastError=null), a real quota error, or an unknown failure.
+      const errorPrimero = _ultimoError;
+      if (errorPrimero && (errorPrimero.name === "AbortError" ||
+          errorPrimero.name === "TransactionInactiveError")) {
+        return intento();
+      }
+      if (!_esCuotaEstricto(errorPrimero)) return false;
+      // A genuine quota abort may recover after releasing obsolete caches.
+      // On Safari these were usually deleted by SW activation already:
+      // optionally release only verified ONLINE, secondary current-shell files.
+      // Both paths rerun the SAME strict CAS; no optimistic stock ACK.
+      if (await _soltarShellObsoleto()) {
+        const retryOld = await intento();
+        if (retryOld === true || !_esCuotaEstricto(_ultimoError)) return retryOld;
+      }
+      if (!await _soltarShellSecundarioVerificado()) return false;
+      return intento();
+    }).catch(function (e) { _ultimoError = e || null; return false; });
+    trabajo.then(function () { clearTimeout(reloj); }, function () {});
+    const op = Promise.race([trabajo, tope]);
+    _cola = op.then(function () {}, function () {});
+    return op;
+  }
+
+  async function leer() {
+    if (!SOPORTADO) return null;
+    try {
+      var db = await abrirDB();
+      return await new Promise(function (resolve, reject) {
+        var tx = db.transaction(STORE, "readonly");
+        var req = tx.objectStore(STORE).get(CLAVE);
+        req.onsuccess = function () {
+          // Repair a missing marker from an existing durable IDB snapshot.
+          // No empty database can prove prior use; unknown stays unknown.
+          if (req.result) capConfirmada();
+          resolve(req.result || null);
+        };
+        req.onerror = function () { reject(req.error); };
+      });
+    } catch (err) {
+      try { console.error("[estado-idb] leer:", err); } catch (_) {}
+      return null;
+    }
+  }
+
+  /* Borra el espejo. Se usa en un solo caso legitimo: el dueno activa su
+     negocio y elige "empezar vacio". Sin esto, el espejo conserva la revision
+     con el catalogo de demo y el rescate asincrono del arranque puede
+     repintarlo encima del negocio recien vaciado (JFC 2026-08-19: "dije que
+     prefiero la tienda vacia PERO SIGUEN CARGADAS LAS CAMISETAS").
+
+     Tambien cancela cualquier guardado agrupado que estuviera en vuelo: si un
+     estado viejo se escribiera 400 ms despues del borrado, el espejo volveria
+     a tener la demo y el bug reaparecia en el siguiente arranque. */
+  async function borrar() {
+    if (!SOPORTADO) return false;
+    try {
+      if (_reloj) { clearTimeout(_reloj); _reloj = null; }
+      _pend = null;
+      _confirmaciones.forEach(function (resolve) { resolve(false); }); _confirmaciones = [];
+    } catch (_) {}
+    var resultado = _cola.then(function () { return borrarActual(); });
+    _cola = resultado.then(function () {}, function () {});
+    return resultado;
+  }
+  async function borrarActual() {
+    try {
+      var db = await abrirDB();
+      await new Promise(function (resolve, reject) {
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).delete(CLAVE);
+        tx.oncomplete = resolve;
+        tx.onerror = function () { reject(tx.error); };
+        tx.onabort = function () { reject(tx.error || new Error("abortada")); };
+      });
+      return true;
+    } catch (err) {
+      try { console.error("[estado-idb] borrar:", err); } catch (_) {}
+      return false;
+    }
+  }
+
+  /* Cuanto espacio hay DE VERDAD. Sirve para no acusar al dispositivo de estar
+     lleno cuando el que se lleno fue el cajoncito de localStorage. */
+  async function espacio() {
+    try {
+      if (!navigator.storage || !navigator.storage.estimate) return null;
+      var e = await navigator.storage.estimate();
+      if (!e || !e.quota) return null;
+      return { usado: e.usage || 0, tope: e.quota, libre: e.quota - (e.usage || 0) };
+    } catch (_) { return null; }
+  }
+
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, capacidad: capLeer, ultimoError: function () { return _ultimoError; } };
+})();

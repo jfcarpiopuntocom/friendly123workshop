@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<script>
+// A manual Purge & Reload may use ?_purge=TIMESTAMP to bypass HTTP caches.
+// Once this document has loaded, remove only that transient marker from the
+// shareable address. Preserve other query parameters, hash and recovery button.
+(function () {
+  try {
+    var clean = new URL(location.href);
+    if (!clean.searchParams.has("_purge")) return;
+    clean.searchParams.delete("_purge");
+    history.replaceState(history.state, "", clean.pathname + clean.search + clean.hash);
+  } catch (_) { /* URL cleanup must never prevent app startup. */ }
+})();
+</script>
+<!-- Fetch the login dependencies while the parser keeps their original execution order. -->
+
+
+
+<!-- CHARSET ARRIBA DEL TODO (JFC/Belén 2026-09-03): el <meta charset> estaba en
+     el byte ~4041, pasado el limite de 1024 del spec HTML. El navegador de Belén
+     caia a otra codificacion y TODO el español acentuado (í é ñ) salia como
+     mojibake — peor en el menu de Advanced, que es el mas cargado de texto. Con
+     el charset como PRIMER hijo de <head> se decodifica UTF-8 en todo aparato.
+     El <meta charset> de mas abajo queda como redundancia inofensiva (gana el
+     primero). Cambio aditivo: no toca ningun dato ni flujo. -->
+<!-- BUG FIJADO (JFC 2026-08-19, caza produccion): lang="es" era herencia del
+     fork de amigable; el default aqui es ingles. i18n.js reasigna
+     document.documentElement.lang al cambiar de idioma, pero el primer paint
+     y los crawlers/social previews leian "es" antes de eso. -->
+
+<!-- SAFEGUARD NUCLEAR (2026-07-17): repara dispositivos atrapados con un SW
+     viejo que no tiene el kill-switch de version. Corre ANTES que todo.
+     Si el SW viejo sirve este HTML cacheado, este script no estara ahi y no
+     pasa nada. Si el SW es network-first (como el actual), el HTML es fresco
+     y este script detecta SWs obsoletos y los mata. Cubre el caso de que el
+     navegador sirva el HTML fresco pero los sub-recursos (JS) desde cache
+     vieja del SW. Al desregistrar el SW viejo y purgar caches, el siguiente
+     reload carga todo fresco. Solo dispara UNA vez (flag en localStorage). -->
+<!-- AISLAMIENTO DE ALMACENAMIENTO — DEBE IR PRIMERO, ANTES QUE TODO.
+     Las 3 apps de la linea se sirven desde el mismo origen de GitHub Pages y
+     localStorage es por origen, no por carpeta: sin esto se pisan datos entre
+     si. Tambien coordina dos pestanas de la misma app. Si se mueve mas abajo,
+     otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
+<script src="./aislamiento.js"></script>
+<script>
+/* Las rutas historicas de canario y rewind permanecen fuera de indexacion. */
+(function(){
+  try{
+    if(/\/(next|previo)\//.test(location.pathname)){var mr=document.createElement("meta");mr.name="robots";mr.content="noindex,nofollow";document.head.appendChild(mr);return;}
+  }catch(_){}
+})();
+</script>
+<!-- The automatic pre-login SW/cache purge was retired: it could unregister
+     the active shell and reload before PIN/Yjs/IDB startup on a new browser.
+     The user-triggered Purge & Reload recovery button remains available. -->
+<!-- OC_DEMO se setea aquí, al inicio del head, antes de que cualquier script
+     se cargue. Así cargarDashboardInicial() siempre ve la bandera correcta
+     aunque mock-backend.js tarde en ejecutarse (red lenta / carga asíncrona). -->
+<script>window.OC_DEMO = true;</script>
+<!-- Capa bilingüe EN/ES (default inglés). Carga en el HEAD, antes del script
+     principal, para que window.t() exista cuando las vistas se rendericen. -->
+<script defer src="./i18n.js"></script>
+<!-- Prueba de 30 días de friendly (decisión JFC 2026-09-22). Va antes de
+     mock-backend.js, que la consulta en cada escritura. Si no cargara, la app
+     NO se bloquea: la compuerta falla abierta. -->
+<script defer src="./licencia-prueba.js"></script>
+<!-- BUG FIX 2026-07-01: estos dos scripts FALTABAN en docs/ — la demo nunca
+     interceptaba fetch() y todo /api/* devolvia 404 (selector de sucursal
+     roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
+     para que el mock ya este instalado cuando el app arranque. NO QUITAR. -->
+<script defer src="./barcode128.js"></script>
+<script defer src="./qrcode-local.js"></script>
+<!-- tutorial-ui.js: ahora lo pide carga-tardia.js despues de la primera pantalla (v599). barcode128/qrcode siguen al arranque: una etiqueta impresa en los primeros segundos no puede salir sin codigo. -->
+<!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
+<!-- Local-first: pocketbase-client.js se carga SIEMPRE pero queda dormido
+     si el dueño no guardó una URL de PocketBase en Avanzado (localStorage
+     OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
+     estática, o server.js real en el servidor local del negocio. -->
+<script defer src="./pocketbase-client.js"></script>
+<script defer src="./estado-ab.js"></script>
+<script defer src="./estado-idb.js"></script>
+<script defer src="./canarios.js"></script>
+<script defer src="./copiar-libre.js"></script>
+<script defer src="./invariantes.js"></script>
+<script defer src="./core/payout-ledger.js"></script>
+<script defer src="./core/ledger.js"></script>
+<script defer src="./core/sales-audit.js"></script>
+<script defer src="./core/business-read-model.js"></script>
+<script defer src="./customer-profile.js"></script>
+<script defer src="./sales-audit-ui.js"></script>
+<script defer src="./core/demo-huellas.js"></script>
+<script defer src="./mock-backend.js"></script>
+<script defer src="./red-segura.js"></script>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Language" content="en">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title data-i18n="meta.title.app">friendly-123</title>
+<meta name="description" content="friendly-123: shelf control, customers and commissions for your business. Bilingual, offline, no spreadsheets.">
+<!-- iOS Safari + WhatsApp legibility stack: light-only, prevents auto-dark repaint -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#0F1923">
+<!-- Light-only (JFC 2026-10-25): no page-wide inversion or stored theme read. -->
+<!-- Open Graph: link previews in WhatsApp / social when the URL is shared -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="friendly-123">
+<meta property="og:description" content="Your business, in color. Serverless point of sale and inventory control for small business.">
+<meta property="og:image" content="https://jfcarpio.com/friendly123/og-friendly123.jpg">
+<meta property="og:url" content="https://jfcarpiopuntocom.github.io/friendly-123/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://jfcarpio.com/friendly123/og-friendly123.jpg">
+<!-- SEO 2026-09-25: og:image relativa no la resuelven WhatsApp ni redes; se usa la imagen 1200x630 de la landing. -->
+<!-- v577: 123 in exact magenta/orange/blue from the approved local logo; never recolored. -->
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/f123-color-v577-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/f123-color-v577-32.png">
+<link rel="icon" type="image/x-icon" href="./favicon-v577.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/f123-color-v577-180.png">
+<!-- manifest.json habilita "Instalar en pantalla de inicio" como OPCION adicional.
+     La app funciona perfectamente como website sin instalar — esto es solo una
+     mejora opcional para quienes prefieren el ícono en la pantalla principal.
+     FEATURE — ACTIVO (JFC 2026-07-08). Para desactivar: quitar esta línea. -->
+<link rel="manifest" href="./manifest.json">
+<!-- ORIGEN DEL CODIGO (Bloque P, JFC 2026-09-24). Vacio = todo desde github.io,
+     como siempre. Con una URL https://.../docs/ el cargador (cargador.js) pide
+     los scripts de su lista a ese origen (Hostinger) y cae a github.io si falla.
+     Un aparato puede probarlo solo (canario) con localStorage f123_origen_codigo
+     desde Advanced, sin tocar este meta. NO poner una URL aqui hasta que el
+     canario diga "same shell" y "0 fell back" durante dias. -->
+<meta name="oc-origen-codigo" content="">
+<!-- Bloque 2 SEO (JFC 2026-09-24): canonical + datos estructurados de la app. -->
+<link rel="canonical" href="https://jfcarpiopuntocom.github.io/friendly-123/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"friendly-123","url":"https://jfcarpiopuntocom.github.io/friendly-123/","applicationCategory":"BusinessApplication","operatingSystem":"Any (web, offline-capable)","inLanguage":["en","es"],"description":"Your store, in color. Inventory, one-tap sales, consignment shelves and commissions for small retail. Works offline.","offers":{"@type":"Offer","price":"399","priceCurrency":"USD","description":"One-time payment, 5-year license, support and updates included"}}
+</script>
+
+<!-- v510 (Oct14fixes 6, JFC 2026-10-14: "en la splash cambia la tipografia un par de veces, A-B-A-B").
+     Causa medida: las letras venian de Google con display=swap; el splash pintaba la letra de
+     reemplazo y ~1,2 s despues cambiaba a la de marca, y al pasar al PIN otra vez. Ahora las
+     letras viven en ./fonts (licencia OFL), se precargan y el service worker las guarda.
+     font-display: optional = si la letra no esta lista al primer pintado, se queda UNA sola
+     letra en esa vista; nunca cambia a mitad. Desde la segunda visita sale del telefono. -->
+<link rel="preload" href="./fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./app-style-01.min.css">
+<link rel="stylesheet" href="./app-style-02.min.css">
+<!-- app-style-03 (FAB Daily Summary / modal): antes estaba a mitad del body y bloqueaba el render; v599 lo sube al head. -->
+<link rel="stylesheet" href="./app-style-03.min.css">
+<link rel="preload" as="image" href="./img/logo-720.png">
+</head>
+<body>
+
+<!-- Splash brevisimo de arranque: dice "friendly-123" (marca de la linea de apps
+     contables amigables). Si un cliente pide su propia marca aqui, se cambia
+     este texto; el default SIEMPRE es "friendly-123". Se desvanece a los ~0.8s. -->
+<!-- 2026-10-01 (JFC "debloat + nuestro propio CDN"): el logo ya NO va en base64. Pesaba
+     583 KB (PNG 2088 px) dentro de este archivo y se repetia en 5 paginas. Ahora es
+     ./img/logo-720.png (18 KB, 720 px, 128 colores, visualmente igual a 340 px CSS):
+     se precarga con <link rel=preload> en el <head> y el SW lo guarda en SHELL, asi que
+     solo la PRIMERA visita lo pide a la red. Si no abre, avisa al canario
+     (splash-logo-no-abre). No volver a incrustarlo: ver docs/img/LEEME.md.
+     Nota historica abajo. -->
+<!-- Logo embebido en base64 (JFC 2026-07-18, paridad con AMIGABLE): la splash
+     es lo PRIMERO que se ve al abrir la app, antes de que cargue ningun otro
+     recurso -- el logo va inline para que aparezca instantaneo, sin depender
+     de una segunda peticion de red a logo.png (evita el parpadeo de "sin
+     logo" un instante). -->
+<div id="oc-splash" aria-hidden="true"><img src="./img/logo-720.png" onerror="try{OCCanarios.fallo('arranque','splash-logo-no-abre')}catch(_){}" alt="friendly-123"><p class="oc-splash-tag">Stop guessing. Start seeing.</p></div>
+
+<header>
+  <div class="marca">
+    <!-- NO logoHeader aquí — logo friendly-123 va SOLO encima de Help(?), en brandWrap (help-ui.js).
+         Misma decisión que AMIGABLE (2026-07-15, JFC). NO AGREGAR sello/logoHeader de vuelta. -->
+    <div>
+      <h1><span id="oc-negocio-nombre" data-i18n="header.bizNameDefault">My store or shelf(s)</span></h1>
+      <div id="oc-header-apodo" style="display:none;margin-top:2px;font-size:13px;line-height:1.3;color:var(--ink-soft,#5d5340);">
+        <span id="oc-header-apodo-txt"></span>
+      </div>
+      <div class="sub" data-i18n="brand.slogan">Manage your business, in color</div>
+      <div id="oc-offline-badge" style="display:none;font-size:13px;font-weight:700;color:#fff;background:var(--sim-naranja-dk,#C05000);padding:2px 8px;border-radius:999px;margin-top:4px;width:fit-content;">📴 <span data-i18n="offline.badge">Offline — saved locally</span></div>
+    </div>
+  </div>
+  <!-- Switch bilingüe EN/ES + sello "Truly bilingual". Va en el header, discreto
+       pero siempre visible. Inglés por defecto. Wiring en el script principal. -->
+  <div class="oc-lang-wrap" title="Language / Idioma">
+    <div class="oc-lang-pill" role="group" aria-label="Language">
+      <button type="button" class="oc-lang-btn" data-lang="en">EN</button>
+      <button type="button" class="oc-lang-btn" data-lang="es">ES</button>
+    </div>
+    <span class="oc-bilingual" data-i18n="brand.bilingual">Truly bilingual</span>
+  </div>
+  <div class="selector-ubicacion">
+    <label for="selectUbicacion" data-i18n="header.locationLabel">Store / shelf</label>
+    <select id="selectUbicacion"></select>
+    <span id="oc-ubicacion-estado" data-i18n="header.locationsLoadError" role="status" aria-live="polite" style="display:none;color:var(--rojo-ink,#a3392a);font-size:13px;font-weight:700;">Could not refresh locations. Previous selection is kept.</span>
+  </div>
+</header>
+
+<nav>
+  <button data-vista="hoy" class="activo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="4.6" y1="4.6" x2="6.6" y2="6.6"></line><line x1="17.4" y1="17.4" x2="19.4" y2="19.4"></line><line x1="4.6" y1="19.4" x2="6.6" y2="17.4"></line><line x1="17.4" y1="6.6" x2="19.4" y2="4.6"></line></svg>
+    <span data-i18n="nav.today">Today</span>
+  </button>
+  <button data-vista="inventario">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="8" height="8"></rect><rect x="13" y="10" width="8" height="8"></rect><rect x="8" y="3" width="8" height="6"></rect></svg>
+    <span data-i18n="nav.inventory">Inventory</span>
+  </button>
+  <button data-vista="escanear">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+    <span data-i18n="nav.sell">Sold</span>
+  </button>
+  <!-- Panel de fotos de perchas con semaforo de meta (vista-perchas.js) -->
+  <button data-vista="perchas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    <span data-i18n="nav.shelves">Shelves</span>
+  </button>
+  <button data-vista="clientes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"></circle><path d="M2.8 20c0-3.4 2.8-5.6 6.2-5.6s6.2 2.2 6.2 5.6"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M15.4 14.9c2.9 0 5.8 1.8 5.8 5.1"></path></svg>
+    <span data-i18n="nav.customers">Customers</span>
+  </button>
+  <button data-vista="comisiones">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></svg>
+    <span data-i18n="nav.commissions">Commissions</span>
+  </button>
+  <!-- GASTOS (2026-08-27): registrar gastos individuales y ver gastos vs ingresos. -->
+  <button data-vista="gastos">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path><path d="M16 12h.01M3 9h18"></path></svg>
+    <span data-i18n="nav.expenses">Expenses</span>
+  </button>
+  <!-- ETIQUETAS (JFC 2026-08-28): bajado en prioridad, tras Expenses y antes de Advanced. -->
+  <button data-vista="etiquetas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.2V5a1 1 0 0 1 1-1h6.2L21 14.8 13.8 22 3 11.2z"></path><circle cx="7.6" cy="7.6" r="1.3" fill="currentColor" stroke="none"></circle></svg>
+    <span data-i18n="nav.labels">Labels</span>
+  </button>
+  <button data-vista="avanzado">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+    <span data-i18n="nav.advanced">Advanced</span>
+  </button>
+</nav>
+
+<main>
+
+  <!-- VISTA: HOY -->
+  <section id="vista-hoy" class="vista activa">
+    <div id="heroSemaforo" class="hero-semaforo verde tag-card">
+      <h2 id="heroTitulo" data-i18n="hoy.loading">Loading your business...</h2>
+      <p id="heroSubtitulo"></p>
+      <!-- Reloj (sin clima: soberanía, cero llamadas externas). Actualiza cada 20s. -->
+      <div id="heroReloj" style="position:absolute;bottom:10px;right:12px;background:rgba(0,0,0,.5);color:#fff;-webkit-text-fill-color:#fff;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;padding:4px 10px;border-radius:20px;"></div>
+    </div>
+
+    <details style="margin:0 0 8px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.hoy.1">1. The color banner tells you the state of your business at a glance: green = healthy, yellow = needs attention, red = act now.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.hoy.2">2. “Today's alerts” lists exactly what to fix first — read it top to bottom.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.hoy.3">3. Starred products (⭐) are what the owner wants pushed today — offer these first.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.hoy.4html">4. Owner only: check <strong>In / Out / Profit today</strong> to see the day's money without opening any report.</p>
+      </div>
+    </details>
+
+    <div class="grid-resumen">
+      <!-- Plata del negocio (entra/sale/ganancia/inventario): SOLO dueño. Gated en cargarHoy() via clase fin-dueno. -->
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.moneyIn">In today</div>
+        <div class="valor" id="resEntra">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.moneyOut">Out today</div>
+        <div class="valor" id="resSale">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.profit">Profit today</div>
+        <div class="valor" id="resGanancia">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card fin-dueno">
+        <div class="etiqueta" data-i18n="hoy.inventoryValue">Your inventory is worth</div>
+        <div class="valor" id="resInventario">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta" data-i18n="hoy.salesToday">Sales today</div>
+        <div class="valor" id="resVentasCount">0</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta" data-i18n="hoy.avgSale">Average sale</div>
+        <div class="valor" id="resTicketProm">$0.00</div>
+      </div>
+    </div>
+
+    <details id="ocAvisosHoy" class="avisos-hoy">
+      <summary id="ocAvisosHoyTitulo">Today's alerts</summary>
+      <ul class="lista-alertas" id="listaAlertas"></ul>
+    </details>
+    <details id="ocRestockHoy" style="display:none;margin:8px 0 14px;border:1px solid var(--linea,#D7E0E8);border-radius:8px;padding:8px 12px;background:var(--blanco-calido,#fbf5e8);">
+      <summary id="ocRestockHoyTitulo" style="cursor:pointer;min-height:32px;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68);"></summary>
+      <ul class="lista-alertas" id="listaReposicionHoy" style="margin:10px 0 0;"></ul>
+    </details>
+    <!-- Para impulsar hoy: productos estrella (el dueño los marca en Inventario).
+         Visible para TODOS, sobre todo para el encargado. Debajo de Alertas. -->
+    <div id="estrellaHoy"></div>
+    <!-- Mood/flavor del día (12 posibles), SOLO dueño (clase fin-dueno la oculta
+         al encargado en cargarHoy). Va al fondo, debajo de todo. -->
+    <div id="moodHoy" class="fin-dueno"></div>
+  </section>
+
+  <!-- VISTA: INVENTARIO -->
+  <section id="vista-inventario" class="vista">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+      <h3 class="seccion" style="margin-top:0;flex:1;" data-i18n="inv.heading">My products</h3>
+      <!-- Alta libre (+): SOLO dueno. Se revela en cargarInventario() segun rol. -->
+      <button id="btnAltaProducto" class="ir" style="display:none;padding:10px 16px;flex-shrink:0;" onclick="abrirAltaProducto()" data-i18n="inv.add">+ Add</button>
+    </div>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.1">1. Tap a product to open its full record: price, supplier, and quick sell / adjust / label buttons.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.2">2. Use the +/− buttons to correct stock without opening the full record — pick a reason from the list.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.3">3. Filter by color (Urgent / Review / Opportunity…) to focus on one type of problem at a time.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.4">4. The star (★) marks products the owner wants everyone pushing today.</p>
+      </div>
+    </details>
+    <div class="filtros-estado fila-deslizable" id="filtrosEstado">
+      <!-- Filtros alineados a la semantica Simon CONGELADA (2026-07-07):
+           amarillo=Oportunidad, naranja=Revisar, azul=Dato, negro=Dormido -->
+      <button data-estado="" class="activo" data-i18n="filter.all">All</button>
+      <button data-estado="rojo" data-i18n="filter.urgent">Urgent</button>
+      <button data-estado="naranja" data-i18n="filter.review">Review</button>
+      <button data-estado="amarillo" data-i18n="filter.opportunity">Opportunity</button>
+      <button data-estado="verde" data-i18n="filter.healthy">Healthy</button>
+      <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
+    </div>
+    <div class="barra-busca-orden barra-media">
+    <input id="inputBuscarInventario" type="search" data-i18n-attr="placeholder:inv.searchPlaceholder" placeholder="Search by name, SKU or category…" style="width:100%;padding:10px 12px;margin-bottom:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:15px;">
+    <!-- Ordenar por columna (2026-07-29): mismo dato, otra vista — no reemplaza
+         la busqueda de arriba, la complementa. Todos los roles la ven: el
+         inventario es operativo, no dato personal de cliente. -->
+    <div id="ordenInventario" class="fila-deslizable" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px;">
+      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;" data-i18n="inv.sortBy">Sort by:</span>
+    </div>
+    </div>
+    <!-- M6: resumen por familia. Vive ARRIBA del grid y no lo altera: si
+         esta seccion fallara, la cuadricula sigue igual. -->
+    <label id="invAgruparWrap" style="display:none;align-items:center;gap:9px;min-height:44px;font-size:15px;font-weight:700;cursor:pointer;margin:2px 0 6px;">
+      <!-- i18n (JFC 2026-09-24, shell 376): antes "Agrupar por familia" fijo en espanol en la UI inglesa. -->
+      <input type="checkbox" id="invAgrupar" style="width:22px;height:22px;"> <span data-i18n="inv.groupByFamily">Group by family</span>
+    </label>
+    <div id="invFamilias" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;"></div>
+    <div class="grid-cajas" id="gridInventario"></div>
+    <!-- Log de movimientos: SOLO dueño, anti-descuadre -->
+    <div id="seccionLogAjustes" style="display:none;">
+      <h3 class="seccion" style="margin-top:24px;" data-i18n="inv.recentMoves">Latest movements</h3>
+      <div id="logAjustes" style="max-height:300px;overflow-y:auto;"></div>
+    </div>
+    <!-- Perchas agrupadas por Sucursal (SOLO dueño). Percha = unidad operativa en UI;
+         Sucursal = agrupador backend/reporting. JFC 2026-07-02. -->
+    <div id="seccionPerchas" style="display:none;">
+      <h3 class="seccion" style="margin-top:24px;" data-i18n="shelves.heading">Shelves</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px;" data-i18n="shelves.intro">Each shelf is an operating unit. Shelves are grouped into branches for reporting and consignment settlement.</p>
+      <div id="gridPerchas"></div>
+      <!-- Crear sucursal nueva -->
+      <div class="tag-card" style="text-align:left;margin-top:14px;">
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="shelves.addBranch">Add branch</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:13px;"><span data-i18n="common.name">Name</span><br>
+            <input id="sucursalNombre" type="text" placeholder="e.g. Downtown, Holiday Market" data-i18n-attr="placeholder:shelves.branchPlaceholder" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <button id="sucursalCrear" class="ir" style="padding:10px 16px;background:var(--ink-soft,#5d5340);border-color:var(--ink,#211c14);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;" data-i18n="shelves.addBranchBtn">+ Add branch</button>
+        </div>
+        <p id="sucursalMsg" style="font-size:14px;margin-top:8px;"></p>
+      </div>
+      <!-- Crear percha dentro de una sucursal -->
+      <div class="tag-card" style="text-align:left;margin-top:14px;">
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="shelves.addShelf">Add shelf</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:13px;"><span data-i18n="common.name">Name</span><br>
+            <input id="perchaNombre" type="text" placeholder="e.g. Front Window Shelf" data-i18n-attr="placeholder:shelves.shelfPlaceholder" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.branch">Branch</span><br>
+            <select id="perchaSucursal" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></select></label>
+          <label style="font-size:13px;"><span data-i18n="common.type">Type</span><br>
+            <select id="perchaTipo" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
+              <option value="propio" data-i18n="type.own">Own</option>
+              <option value="socio" data-i18n="type.partner">Partner</option>
+              <option value="franquicia" data-i18n="type.franchise">Franchise</option>
+              <option value="consignacion" data-i18n="type.consignment">Consignment</option>
+            </select></label>
+          <!-- LAS DOS FORMAS DE DECIR EL MISMO TRATO (JFC 2026-08-18). El
+               vendedor piensa "me llevo el 10"; la galeria piensa "retengo el
+               15 y el artista se lleva 85". Es el mismo reparto leido al reves:
+               se escribe en el campo que uno tenga en la cabeza y el otro se
+               calcula solo, asi que es imposible dejar un reparto que no suma
+               100. Se guarda un unico numero —lo que se lleva el asociado— y
+               aparte como lo dice este negocio. -->
+          <label style="font-size:13px;"><span data-i18n="common.takesPct">Associate takes %</span><br>
+            <input id="perchaComision" type="number" min="0" max="100" step="0.5" placeholder="e.g. 25" data-i18n-attr="placeholder:common.phCommission25" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.houseKeepsPct">House keeps %</span><br>
+            <input id="perchaCasa" type="number" min="0" max="100" step="0.5" placeholder="e.g. 75" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="shelves.monthlyTarget">Monthly target $</span><br>
+            <input id="perchaMeta" type="number" min="0" placeholder="e.g. 300" data-i18n-attr="placeholder:common.phTarget300" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <!-- TRATOS MIXTOS (JFC 2026-08-19). El motor de reparto en
+               mock-backend.js YA soportaba minimoGarantizado y contribFija
+               (ver repartir(): el minimo levanta la comision cuando el % da
+               menos, y la contribucion fija se descuenta ANTES del %), pero el
+               formulario nunca los mandaba, asi que todo trato salia como %
+               puro. Estos dos campos son lo unico que faltaba para armar las
+               tres formas: % puro (dejar ambos vacios), minimo + % (llenar el
+               minimo), y aporte fijo antes del % (llenar la contribucion).
+               Vacio = 0 = se comporta exactamente como antes: cero migracion,
+               ningun trato existente cambia de valor. -->
+          <label style="font-size:13px;"><span data-i18n="shelves.guaranteedMin">Guaranteed minimum $</span><br>
+            <input id="perchaMinimo" type="number" min="0" step="any" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="shelves.fixedContrib">Fixed contribution $</span><br>
+            <input id="perchaContrib" type="number" min="0" step="any" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <button id="perchaCrear" class="ir" style="padding:10px 16px;" data-i18n="shelves.addShelfBtn">+ Add shelf</button>
+        </div>
+        <p id="perchaMsg" role="status" aria-live="polite" style="font-size:14px;margin-top:8px;"></p>
+      </div>
+      <!-- Modo Feria de fin de semana (rec 10): percha de consignación temporal.
+           Al cerrarla se archiva (conserva historial) y salta a Comisiones. -->
+      <div class="tag-card" style="text-align:left;margin-top:14px;border:2px dashed var(--rust,#E86040);">
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="fair.heading">Weekend pop-up</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="fair.intro">Create a temporary shelf for a 2-3 day event. When you close it, it is archived with its history and you see its settlement instantly.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:13px;"><span data-i18n="fair.eventName">Event name</span><br>
+            <input id="feriaNombre" type="text" placeholder="e.g. Farmers Market" data-i18n-attr="placeholder:fair.namePlaceholder" style="padding:8px;border:2px solid var(--rust);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.commissionPct">Commission %</span><br>
+            <input id="feriaComision" type="number" min="0" max="100" placeholder="e.g. 30" data-i18n-attr="placeholder:common.phCommission30" style="padding:8px;border:2px solid var(--rust);border-radius:5px;width:90px;"></label>
+          <button id="feriaAbrir" class="ir" style="padding:10px 16px;background:var(--rust-deep,#C05000);color:#fff;border-color:var(--rust-deep,#C05000);" data-i18n="fair.open">Open pop-up</button>
+        </div>
+        <p id="feriaMsg" style="font-size:14px;margin-top:8px;"></p>
+        <!-- Eventos archivados (JFC/Belén 2026-09-03): las ferias cerradas ya
+             conservan su historial y liquidación; faltaba una forma clara de
+             encontrarlas. Aditivo: lista los eventos cerrados con acceso a su
+             liquidación. Se llena desde cargarPerchas(). -->
+        <div id="feriasArchivadas" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  
+    <!-- Matriz BCG del inventario (JFC 2026-07-07): bien al fondo, solo dueno -->
+    <div id="matrizBCG" style="margin-top:26px;"></div>
+    <!-- Traslado de ítems entre perchas (JFC 2026-09-04): breezy, al fondo. -->
+    <div id="oc-traslado-inv" style="margin-top:26px;"></div>
+</section>
+
+  <!-- VISTA: ESCANEAR -->
+  <section id="vista-escanear" class="vista">
+    <!-- VENDER (JFC 2026-07-07): identidad = control de inventario, no POS.
+         Sin carrito ni "cobrar": un toque en la cuadricula = una salida
+         registrada (con deshacer de 5s). Debajo queda el buscador/escaner de
+         siempre, y al final el CIERRE DEL DIA para quien no registra en vivo.
+         El id vista-escanear se conserva: lo referencian el autofoco del
+         lector y el nav; solo cambia lo que el usuario ve. -->
+    <h3 class="seccion" style="margin-top:0;" data-i18n="sold.heading">Sold</h3>
+    <p class="solo-pc" style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="sold.intro">Open a product, review the sale details and confirm. Scroll down to pick a customer or record the day's close.</p>
+    <!-- ¿Cómo usar Vender? Guía colapsable para el operador. -->
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="sold.howToggle">How does it work? ▸</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step0">1. Search by name or filter by category, at the top.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step1">2. Pick the customer (if any) in the selector below.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step2">3. Open the product, review quantity, price, customer and payment, then confirm.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step3">4. A blue notice appears below: tap it within 5s if it was a mistake.</p>
+        <p style="margin:0;font-size:14px;color:var(--ink);" data-i18n-html="sold.step4html">5. If you don't ring up live, use <strong>Day close</strong> at the end.</p>
+      </div>
+    </details>
+    <!-- Modo de venta: dos RUTAS, no una restricción. "Quick tap" (default,
+         sin cambios) para una salida suelta; "Fill a basket" para juntar
+         varios productos, ver el subtotal, y cobrar todo junto con el
+         cliente ya elegido arriba. Ninguna reemplaza a la otra. -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button id="btnModoQuick" data-modo-venta="quick" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">⚡ Quick tap</button>
+      <button id="btnModoCarrito" data-modo-venta="carrito" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">🧺 Fill a basket</button>
+    </div>
+    <!-- Buscador/filtro rapido ANTES del grid tactil (JFC 2026-07-30). Solo
+         filtra los botones ya renderizados por cargarGridVender() - no
+         toca esa logica ni el listener delegado de venta. -->
+    <div id="venderBuscador" class="barra-media" style="margin-bottom:12px;">
+      <input id="venderBuscarInput" type="text" data-i18n-attr="placeholder:sold.searchPlaceholder" placeholder="Search by name or category..."
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;font-size:15px;margin-bottom:8px;">
+      <div id="venderCategoriaChips" class="fila-deslizable" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <!-- CLIENTE ARRIBA (2026-08-27, bloque 1e): el selector de cliente se elige
+         ANTES de tocar los productos, no al final. Barra prominente sobre el
+         grid. Incluye el botón negro "Show customers" para ver la lista de
+         compradores de un ítem/evento. -->
+    <div class="tag-card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin-bottom:12px;">
+      <label style="font-size:16px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+        <span data-i18n="sold.customerLabel">Customer:</span>
+        <select id="ventaCliente" style="flex:1;min-width:140px;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;font-size:15px;">
+          <option value="" data-i18n="sold.counterSale">Walk-in customer</option>
+        </select>
+      </label>
+      <button id="btnNuevoCliente" type="button"
+        style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;" data-i18n="sold.newCustomer">+ New customer</button>
+      <button id="btnShowCustomers" type="button" title="Show customers"
+        style="font-size:13px;font-weight:700;padding:6px 12px;border:2px solid #0F1923;border-radius:6px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17 14c2.5.4 4 2.3 4 5"/></svg>
+        <span data-i18n="sold.showCustomers" style="margin-left:4px;">Show customers</span>
+      </button>
+    </div>
+    <p class="solo-pc" style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: open a product and review the sale</p>
+    <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
+    <!-- Carrito de "Fill a basket": aparece solo en ese modo. Cada linea es
+         editable (+/- y quitar). El cobro final es UNA sola accion clara,
+         para que se sienta que la venta quedo completa y guardada. -->
+    <div id="panelCarrito" class="tag-card" style="display:none;margin-bottom:18px;padding:14px 16px;">
+      <h4 style="margin:0 0 8px;font-size:16px;">Your basket</h4>
+      <div id="listaCarrito"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid var(--linea,#D7E0E8);">
+        <strong style="font-size:15px;">Subtotal</strong>
+        <strong id="subtotalCarrito" style="font-size:20px;color:#0F1923;">$0.00</strong>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button id="btnVaciarCarrito" style="flex:0 0 auto;font-size:14px;padding:9px 14px;border-radius:8px;border:2px solid #C0392B;background:transparent;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">Empty basket</button>
+        <button id="btnSellarVenta" style="flex:1;font-size:16px;font-weight:700;padding:9px 14px;border-radius:8px;border:2px solid #006B3C;background:#006B3C;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">✓ Check out</button>
+      </div>
+      <p id="carritoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
+    </div>
+    <div class="panel-escaner tag-card">
+      <h4 style="margin:0 0 6px;font-size:17px;" data-i18n="sold.scanHeading">Scan or search by code</h4>
+      <p data-i18n="sold.scanIntro">Type or paste the barcode / SKU. (On a tablet with a camera, the reader connects right here.)</p>
+      <input id="inputEscaner" type="text" placeholder="e.g. 7501234567001 or MAR-RED-20" data-i18n-attr="placeholder:sold.scanPlaceholder" autocomplete="off">
+      <br>
+      <button class="ir" id="btnEscanear" data-i18n="sold.searchBtn">Search</button>
+      <!-- EVENTO ACTIVO (JFC 2026-08-25): mismo patron que el selector de cliente.
+           Se elige el evento UNA vez del pulldown (o se crea con "+ Nuevo evento")
+           y cada venta se le suma sola — nunca se vuelve a pedir el nombre. Al lado,
+           dos botones que SUMAN sin reordenar nada: ver invitados y exportar CSV. -->
+      <div style="margin-top:12px;" id="oc-evento-wrap">
+        <label style="font-size:16px;font-weight:700;color:var(--ink);"><span data-i18n="sold.eventLabel">Event:</span>
+          <select id="ventaEvento" style="padding:9px;border:2px solid var(--azul-medio);border-radius:6px;max-width:100%;margin-left:6px;">
+            <option value="" data-i18n="sold.noEvent">No event (regular sale)</option>
+          </select>
+        </label>
+        <button id="btnNuevoEvento" type="button"
+          style="font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;" data-i18n="sold.newEvent">+ New event</button>
+        <button id="btnEventoInvitados" type="button" title="Guests"
+          style="display:none;font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17 14c2.5.4 4 2.3 4 5"/></svg>
+          <span data-i18n="sold.eventGuests" style="margin-left:4px;">Guests</span></button>
+        <button id="btnEventoExport" type="button" title="Export CSV"
+          style="display:none;font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+          <span data-i18n="sold.eventExport" style="margin-left:4px;">Export</span></button>
+        <div id="oc-evento-nuevo" style="display:none;margin-top:8px;">
+          <input id="oc-evento-nombre" type="text" maxlength="120" autocomplete="off" placeholder="Event or class name" data-i18n-attr="placeholder:sold.eventNamePh"
+            style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;max-width:220px;">
+          <input id="oc-evento-fecha" type="date" data-i18n-attr="title:sold.eventDatePh" title="Date (optional)"
+            style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;margin-left:6px;">
+          <button id="oc-evento-fijar" type="button" class="ir" style="padding:8px 14px;margin-left:6px;" data-i18n="sold.eventSet">Set</button>
+        </div>
+        <p id="oc-evento-hint" style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin:6px 0 0;display:none;" data-i18n="sold.eventActiveHint">Every product you tap is added to this event until you set it back to “No event”. You won't be asked for the name again.</p>
+      </div>
+      <div class="ficha-resultado" id="fichaResultado"></div>
+    </div>
+
+    <!-- LISTA DE VENTAS EDITABLE (JFC 2026-09-02): "en Sold falta una lista
+         dinamica, expandible de lo que ya se vendio y obvio debe poder editarse
+         con lapicitos por si hubo errores u otras necesidades de cambios" +
+         "cancelar ex post tambien". Expandible; cada venta se edita (cantidad,
+         forma de pago, factura, notas) o se cancela. Todo va al log con usuario
+         y dispositivo responsable.
+         JFC 2026-09-30 (v430): va ENCIMA de "Day close" (se usa mas). -->
+    <details id="ventasSold" class="tag-card" style="margin-top:18px;padding:14px 16px;">
+      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.logSummary">🧾 Sales log — edit or undo</summary>
+      <p style="font-size:14px;color:var(--ink-soft);margin:6px 0 10px;" data-i18n="sold.logIntro">Everything already sold. Tap the pencil to fix a mistake, or ↶ to undo a sale. Every change is recorded with who did it and from which device.</p>
+      <div id="ventasSoldAudit" style="margin:12px 0;"></div>
+      <div id="ventasSoldLista"></div>
+    </details>
+    <!-- CIERRE DEL DIA: conciliacion en un solo paso, cero trabajo en horario
+         de venta. Genera ventas reales de hoy (split de comisiones incluido). -->
+    <details id="cierreDia" class="tag-card" style="margin-top:18px;padding:14px 16px;">
+      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.closeSummary">🌙 Day close — reconcile everything at once</summary>
+      <p style="font-size:15px;color:var(--ink-soft);" data-i18n="sold.closeIntro">The taps in the grid above are already counted for today. Note ONLY the extra you didn't record live: how many units of each product went out. It all applies together when you close.</p>
+      <div id="cierreLista"></div>
+      <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
+      <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
+    </details>
+    <!-- CIERRE DEL DIA EN MOVIL (JFC 2026-08-19): el FAB flotante tapaba el
+         menu inferior, asi que en telefono la misma pantalla de cierre se abre
+         desde aqui, dentro de SOLD, que es su sitio logico. Es EL MISMO modal
+         (#eod-modal) y el mismo handler: cero logica duplicada. Se muestra
+         solo si el rol puede verla (lo decide actualizarFAB()). -->
+    <div id="eod-inline-wrap">
+      <button type="button" id="eod-inline">Daily Summary</button>
+    </div>
+  </section>
+
+  <!-- VISTA: ETIQUETAS -->
+  <section id="vista-etiquetas" class="vista">
+    <!-- ESCANEAR PRIMERO (JFC 2026-09-22). Va ARRIBA de la lista de impresion a
+         proposito: una etiqueta se imprime UNA vez y se escanea muchas, asi que
+         la accion frecuente es la que debe estar bajo el pulgar, no enterrada
+         debajo de una grilla. Ademas es el empujon para que el equipo escanee en
+         vez de teclear: teclear un codigo a mano es de donde salen las ventas
+         cargadas al producto equivocado.
+         NO se duplica la logica de navegacion: se dispara el click del boton del
+         nav que ya existe, asi el resaltado del menu y el cargador de la vista
+         quedan sincronizados solos (si algun dia cambia la navegacion, esto
+         sigue funcionando porque usa el mismo camino que el usuario). -->
+    <div id="labels-escanear-bloque" style="margin:0 0 18px;">
+      <button type="button" id="btnLabelsEscanear"
+        style="display:block;width:100%;min-height:56px;padding:15px 18px;border:2px solid #0A0A0F;border-radius:10px;background:var(--rust-boton,#C0472B);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-family:var(--font-display,sans-serif);font-size:18px;font-weight:800;letter-spacing:.01em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;"
+        data-i18n="labels.scanCta">Scan a label</button>
+      <p style="margin:8px 0 0;font-size:15px;line-height:1.45;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;text-align:center;"
+        data-i18n="labels.scanHint">Point the camera at a printed label to sell or restock it — faster than typing the code, and it can't go to the wrong product.</p>
+    </div>
+
+    <h3 class="seccion" style="margin-top:0;" data-i18n="labels.viewHeading">Labels ready to print</h3>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.1">1. Tap any product card to open its printable label.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.3">2. Tap the barcode itself to print or save just the barcode, for smaller labels.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">3. The QR contains the product code for compatible scanners; it does not publish or open the business record.</p>
+      </div>
+    </details>
+    <div class="grid-etiquetas" id="gridEtiquetas"></div>
+  </section>
+
+  <!-- VISTA: PERCHAS — panel de fotos con semaforo de meta (JFC 2026-07-02).
+       El grid lo renderiza vista-perchas.js; el dueño toca una foto para
+       tomarla con la camara (se guarda en localStorage, resize 640px). -->
+  <section id="vista-perchas" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="shelves.myShelvesHeading">My shelves</h3>
+    <!-- JFC 2026-09-24: la UI se aparta. La intro vive dentro de "How does it work?";
+         orden + Agregar comparten UNA barra (vp-orden). Mas espacio para las fotos. -->
+    <details style="margin:0 0 10px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 8px;font-size:14px;color:var(--ink);font-weight:700;" data-i18n="shelves.myShelvesIntro">Real photos of each shelf with its target status. Tap a photo to update it.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.shelf.1">1. Tap a shelf's photo to update it with a new one — resized automatically, no bulky files.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.shelf.2">2. The colored ring around each photo shows how close that shelf is to its monthly target.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.shelf.3html">3. Owner only: manage shelves, branches and weekend pop-ups from <strong>Inventory → Shelves</strong>, further down.</p>
+      </div>
+    </details>
+    <div id="vp-orden" class="tag-card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px;padding:10px 14px;text-align:left;">
+      <span style="font-size:14px;font-weight:700;color:var(--ink);align-self:center;" data-i18n="inv.sortBy">Sort by:</span>
+    </div>
+    <div id="vp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;"></div>
+    <!-- TRANSFERS ENTRE PERCHAS (JFC 2026-08-28). Movido de Advanced a Perchas:
+         es una operación de inventario entre ubicaciones, no configuración
+         técnica. El usuario piensa en perchas cuando mueve stock. -->
+    <!-- Traslado breezy de ítems entre perchas (JFC 2026-09-04): mover 1 ítem
+         de una percha a otra en 3 toques. Va aquí y también al fondo de Inventario. -->
+    <div id="oc-traslado-perchas" style="margin-top:26px;"></div>
+    <div id="vp-transfers" style="margin-top:26px;"></div>
+  </section>
+
+  <!-- VISTA: COMISIONES (solo dueño) -->
+  <!-- VISTA: CLIENTES (JFC 2026-07-07) — codigo unico + estaciones RFM.
+       El encargado ve la lista y puede registrar clientes; los montos y la
+       matriz de estaciones son SOLO del dueno (cargarClientes aplica el rol). -->
+  <section id="vista-clientes" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="cust.heading">My customers</h3>
+    <p class="solo-pc" style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="cust.intro">Your whole customer list, live and searchable. Further down, the behavior read tells you who you can count on.</p>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.1">1. Add a customer once — they get a unique code and are placed in a “season” automatically based on how they buy.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.2">2. Owner only: further down, the behavior matrix shows who you can count on and who is worth watching.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.3">3. Rate each customer's behavior — it builds a history only staff can see.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.4">4. Already have a customer list? Import it all at once from a CSV further down.</p>
+      </div>
+    </details>
+    <!-- 2026-09-26 (navaja suiza): el alta de cliente se usa de vez en cuando; se pliega en un
+         boton y la lista (el negocio) sube. Mismos ids: el codigo de alta no cambia. -->
+    <details id="cliAltaPlegable" class="alta-plegable">
+    <summary class="ir" style="display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;cursor:pointer;list-style:none;" data-i18n="cust.addBtn">+ Add customer</summary>
+    <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+      <input id="cliNombre" type="text" placeholder="Customer name" data-i18n-attr="placeholder:cust.namePlaceholder" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <input id="cliTelefono" type="tel" placeholder="WhatsApp (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <label style="font-size:14px;display:flex;align-items:center;gap:6px;"><input id="cliCuenca" type="checkbox"><span data-i18n="cust.cuenca">Lives in Cuenca</span></label>
+      <select id="cliGenero" aria-label="Gender" data-i18n-attr="aria-label:cust.gender" style="padding:10px;border:2px solid var(--azul-medio);border-radius:6px;"><option value="unknown" data-i18n="cust.genderUnknown">Gender: unknown</option><option value="male" data-i18n="cust.genderMale">Male</option><option value="female" data-i18n="cust.genderFemale">Female</option></select>
+      <select id="cliEdad" aria-label="Age range" data-i18n-attr="aria-label:cust.ageRange" style="padding:10px;border:2px solid var(--azul-medio);border-radius:6px;"></select>
+      <select id="cliPais" aria-label="Country" data-i18n-attr="aria-label:cust.country" style="padding:10px;border:2px solid var(--azul-medio);border-radius:6px;"></select>
+      <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
+    </div>
+    </details>
+    <p id="cliMsg" role="status" aria-live="polite" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
+    <div id="listaClientes" style="margin-top:14px;"></div>
+    <div id="matrizClientes" style="margin-top:26px;"></div>
+
+    <!-- Importar CSV de clientes (JFC 2026-07-07): SOLO dueno, al fondo fondo.
+         cargarClientes() lo muestra/oculta segun rol. El encargado JAMAS lo ve:
+         para el encargado solo existe el alta manual de arriba. -->
+    <div id="cliImportarBloque" style="display:none;margin-top:34px;padding-top:20px;border-top:2px solid var(--linea,#D7E0E8);">
+      <h3 class="seccion" style="margin-top:0;" data-i18n="cust.importHeading">Import your customer list from a file</h3>
+      <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n-html="cust.importIntro">If you already have your customers in Excel or on your phone, save the file as <strong>CSV</strong> with two columns, <strong>name</strong> and <strong>phone</strong>, and upload it here. Each one gets their unique code automatically; duplicates (same name) are skipped.</p>
+      <input type="file" id="cliCsvFile" accept=".csv,text/csv" style="font-size:16px;">
+      <p id="cliCsvMsg" style="font-size:15px;font-weight:700;margin:10px 0 0;"></p>
+    </div>
+  </section>
+
+  <section id="vista-comisiones" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="comm.heading">Commissions</h3>
+    <!-- JFC 2026-09-24 (Bloque 6): la UI se aparta. Intro y "como funciona" comparten
+         una linea; el control de la vista (mes, vista, acciones) es UNA barra. -->
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:0 0 10px;">
+    <details style="margin:0;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 8px;font-size:14px;color:var(--ink);font-weight:700;" data-i18n="comm.intro">What you owe each promoter this month, calculated sale by sale — no spreadsheets, no surprises.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.1">1. Each partner/promoter shelf shows what they've sold this month and what you owe them.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.comm.2html">2. Tap <strong>“What if I sell more?”</strong> to simulate a bigger month and see the commission change live.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.comm.3html">3. When you pay, tap <strong>“Record payment”</strong> — enter what you actually paid, keep partial balances visible, and get an itemized WhatsApp receipt.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.4">4. The ranking shows who's selling the most — and flags anyone who's gone quiet.</p>
+      </div>
+    </details>
+    </div>
+    <!-- JFC 2026-09-23: primero la plata (por producto), el alta de comisionistas al final. -->
+    <div id="listaComisiones"></div>
+    <div id="gestionPromotoras" style="margin-top:28px;"></div>
+    <!-- JFC 2026-09-23: ranking y matriz RFM al fondo de todo (lo que menos se mira, y hay poca data aun). -->
+    <div id="rankingComisiones" style="margin-top:28px;"></div>
+  </section>
+
+  <!-- Overlay del editor de comisión (portado de AMIGABLE 2026-09-01, Opción B):
+       editor con barra de tramos + modalidad artista/vendedora. Mobile-first. -->
+  <div id="oc-comision-overlay" style="display:none;position:fixed;inset:0;z-index:10001;background:#0F141E;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">
+    <div id="oc-comision-caja" style="max-width:460px;width:100%;margin:16px auto;"></div>
+  </div>
+
+  <!-- VISTA: GASTOS (2026-08-27) — registrar gastos individuales y ver gastos vs ingresos. -->
+  <section id="vista-gastos" class="vista">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2px;">
+      <div style="width:6px;height:38px;border-radius:3px;background:linear-gradient(180deg,#C0392B,#F97316);flex:none;"></div>
+      <div>
+        <h3 class="seccion" style="margin:0;" data-i18n="exp.heading">Expenses</h3>
+        <div style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.1em;margin-top:1px;">Cash out · under control</div>
+      </div>
+    </div>
+    <p style="font-size:14px;color:var(--ink-soft);margin:8px 0 0;max-width:600px;" data-i18n="exp.intro">Record what you spend and see it against what you earn — no spreadsheets, no surprises.</p>
+    <details style="margin:10px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.1">1. Type what it was, the amount and the date, then tap "Add expense".</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.2">2. The summary shows this month's expenses, all-time expenses, and — for the owner — sales and net.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.3">3. Pick a category (rent, utilities, payroll…) so the summary groups spending by type.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.4">4. Staff see only expenses; the owner sees the full picture (sales and net).</p>
+      </div>
+    </details>
+    <div id="gastosResumen" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div id="gastosPorCategoria" style="margin-bottom:14px;"></div>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p style="margin:0 0 8px;font-size:14px;font-weight:700;" data-i18n="exp.record">Record an expense</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="gastoConcepto" type="text" placeholder="What was it? (e.g. rent, supplies, transport)" style="flex:2;min-width:160px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <select id="gastoCategoria" title="Category" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+          <option value="rent" data-i18n="exp.cat.rent">Rent</option>
+          <option value="utilities" data-i18n="exp.cat.utilities">Utilities</option>
+          <option value="inventory" data-i18n="exp.cat.inventory">Inventory / supplies</option>
+          <option value="payroll" data-i18n="exp.cat.payroll">Payroll / staff</option>
+          <option value="services" data-i18n="exp.cat.services">Professional services</option>
+          <option value="marketing" data-i18n="exp.cat.marketing">Marketing</option>
+          <option value="transport" data-i18n="exp.cat.transport">Transport / delivery</option>
+          <option value="taxes" data-i18n="exp.cat.taxes">Taxes / fees</option>
+          <option value="maintenance" data-i18n="exp.cat.maintenance">Maintenance / repairs</option>
+          <option value="other" selected data-i18n="exp.cat.other">Other</option>
+        </select>
+        <input id="gastoMonto" type="number" min="0" step="any" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <input id="gastoFecha" type="date" style="flex:1;min-width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <!-- JFC 2026-09-08: nº de factura/invoice del proveedor externo, para control tributario básico. Opcional. -->
+        <label><span data-i18n="exp.paymentMethod">Payment method</span>
+          <select id="gastoMetodoPago"><option value="cash" data-i18n="exp.cash">Cash</option><option value="transfer" data-i18n="exp.transfer">Transfer</option></select>
+        </label>
+        <label><span data-i18n="exp.receiptPhoto">Receipt photo (optional)</span>
+          <input id="gastoFoto" type="file" accept="image/jpeg,image/png,image/webp">
+        </label>
+        <label><span data-i18n="exp.allocation">Expense belongs to</span><select id="gastoDestino"><option value="" data-i18n="exp.general">General business expense</option></select></label>
+        <button class="ir" onclick="registrarGasto()" style="font-size:14px;padding:9px 16px;">+ Add expense</button>
+      </div>
+      <p id="gastoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
+    </div>
+    <div id="listaGastos" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- VISTA: AVANZADO -->
+  <section id="vista-avanzado" class="vista">
+    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.heading">Advanced controls</h3>
+    <!-- AVISO DE HORA (JFC 2026-09-30): va AQUI, en el encabezado de Advanced, y no dentro de una
+         pestana: la primera version vivia en "Shared notebook" y el dueño no la veia en la vista
+         normal. Lo pinta avanzado-extra.js (_pintarReloj) solo si el reloj del aparato esta corrido
+         mas de 1 minuto contra el relay. Solo avisa; no toca datos. No mover a una pestana. -->
+    <p id="oc-reloj-aviso" role="alert" style="display:none;font-size:16px;font-weight:700;margin:10px 0;padding:10px 12px;border:2px solid var(--rojo-ink,#a3392a);border-radius:10px;color:#1a1a1a;background:#fff;"></p>
+    <!-- AVISO DE DATOS (JFC 2026-09-30, invariantes.js): mismo lugar y misma regla que el aviso de hora
+         (encabezado de Advanced, no dentro de una pestana). Solo dueno/admin. Lo llena avanzado-extra.js
+         con GET /api/invariantes. Solo informa: nunca cambia un monto. -->
+    <p id="oc-invariantes-aviso" role="alert" style="display:none;font-size:16px;font-weight:700;margin:10px 0;padding:10px 12px;border:2px solid var(--rojo-ink,#a3392a);border-radius:10px;color:#1a1a1a;background:#fff;"></p>
+    <details style="margin:-4px 0 12px;font-size:14px;">
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
+      <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.adv.1">1. Set your monthly expenses once — the app splits them across the real days in the month automatically.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.adv.2">2. P&L, balance sheet and valued inventory update live from your actual sales and stock — no manual entry.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.adv.3">3. This section is for the accountant or a deep review — day-to-day work happens in Today / Inventory / Sold.</p>
+      </div>
+    </details>
+    <div class="avanzado-aviso" data-i18n-html="adv.notice">This is where the technical detail of the business lives: activity, expenses, and the accounting layer (T-accounts, P&amp;L, balance sheet, and valued inventory). It's not for day-to-day — it's for the accountant, the manager, or anyone who wants to see the numbers in depth. That's why the accounting part asks for a separate passcode.</div>
+
+    <!-- Identity editing lives in Advanced; header names remain read-only. Existing handlers and roles are unchanged. -->
+    <details id="oc-identity-settings" class="tag-card" open style="text-align:left;margin:12px 0;padding:12px 14px;">
+      <summary data-i18n="adv.identityHeading" style="cursor:pointer;font-weight:700;">Store &amp; device names</summary>
+      <div style="display:flex;flex-wrap:wrap;gap:14px 24px;margin-top:12px;align-items:center;">
+        <div id="oc-identity-store-edit"><span data-i18n="adv.identityStore">Store name</span> <button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:6px;font-size:18px;line-height:1;min-width:32px;min-height:32px;background:transparent;border:none;color:var(--rust-ink,#E86040);cursor:pointer;vertical-align:middle;padding:4px 6px;">✎</button></div>
+        <div id="oc-advanced-device-edit" style="display:none;"><span data-i18n="adv.identityDevice" style="font-weight:700;">Device name</span> <strong id="oc-advanced-device-name" style="margin-left:5px;overflow-wrap:anywhere;"></strong> <span id="oc-advanced-device-env" style="display:inline-block;margin-left:7px;padding:2px 7px;border:1px solid var(--azul-suave,#dde5ec);border-radius:6px;font-size:12px;color:var(--ink-soft,#5d5340);vertical-align:middle;" title="Automatically detected on this device"></span> <button type="button" id="oc-header-apodo-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" aria-label="Name this device" style="background:transparent;border:1px solid currentColor;border-radius:6px;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:21px;line-height:1;min-width:40px;min-height:40px;padding:6px 9px;margin-left:7px;vertical-align:middle;">✎</button></div>
+      </div>
+      <p id="oc-negocio-estado" data-i18n="header.bizNameSaveError" role="alert" style="display:none;color:var(--rojo-ink,#a3392a);font-size:13px;font-weight:700;margin:4px 0;">Could not save the business name. The previous name is kept; try again.</p>
+    </details>
+
+    <!-- Actividad ya no tiene botón propio en el nav (JFC, 2026-07-01: "eso
+         NO necesita un botón en el main") — vive aquí, es historial operativo,
+         no algo que se consulte varias veces al día como Hoy o Escanear. -->
+    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.recentActivity">Recent activity</h3>
+    <div id="listaActividad" class="tag-card" style="text-align:left;max-height:280px;overflow-y:auto;"></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.timezoneHeading">Timezone</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p data-i18n="adv.timezoneIntro">Used to decide what counts as "today" for sales, expenses, and daily close. Pick your store's timezone, or leave it on auto to use this device's timezone.</p>
+      <select id="selectTimezone" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;max-width:320px;"></select>
+      <p id="msgTimezone" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.monthlyExpenses">Monthly expenses</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p data-i18n-html="adv.expensesIntro">Rent, electricity, payroll, internet, etc. Enter the monthly total for the selected location. It's split across the real days in the month to estimate the daily operating cost in the P&amp;L.</p>
+      <div id="gastosSelectorWrap" style="display:none;margin-bottom:12px;">
+        <label style="font-size:14px;font-weight:700;"><span data-i18n="adv.pickLocation">Pick a location to edit its expenses:</span><br>
+          <select id="gastosUbicSelector" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;"></select></label>
+      </div>
+      <input id="inputGastosMensuales" type="number" min="0" step="any" placeholder="e.g. 350.00" data-i18n-attr="placeholder:adv.expensesPlaceholder" style="text-align:left; max-width:220px;">
+      <br>
+      <button class="ir" id="btnGuardarGastos" data-i18n="adv.save">Save</button>
+      <p id="msgGastos" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.pnlHeading">Profit &amp; loss (today)</h3>
+    <!-- v359 (JFC 2026-09-23): impuesto configurable del cuaderno compartido. -->
+    <div id="ocImpuestoCfg" style="margin:0 0 12px;"></div>
+    <div class="tabla-wrap"><table class="reporte" id="tablaPL"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.balanceHeading">Simplified balance sheet</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaBalance"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <h3 class="seccion" data-i18n="adv.valuedInvHeading">Valued inventory</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaValorizado"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+    <!-- El toggle "New sync (experimental)" se movió (JFC 2026-09-10) al pie del
+         panel "Shared notebook" (subsección de equipo/sync), lo inyecta
+         avanzado-extra.js. Aquí ya no va. -->
+  </section>
+
+</main>
+
+<footer>
+  <em data-i18n="footer.tagline">friendly-123: shelf, customer, and commission control</em>
+  <br>Made In Cuenca: intuitive business apps &mdash; powered by <a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">avatiun.com</a>, 2026
+</footer>
+
+<!-- MODAL ETIQUETA -->
+<div class="modal-fondo" id="modalEtiqueta">
+  <div class="etiqueta-imprimible tag-card" id="contenidoEtiqueta">
+    <button class="cerrar" id="cerrarModal">✕</button>
+  </div>
+  <!-- Botones de acción fuera de la etiqueta imprimible: no aparecen en el preview ni en papel -->
+  <div id="oc-etiqueta-acciones" class="no-print" style="margin-top:12px;text-align:center;"></div>
+</div>
+
+<!-- Modal de ficha/edición de producto (JFC 2026-07-07): la tarjeta de
+     Inventario abre AQUÍ su editor, sin saltar a Vender. -->
+<div class="modal-fondo" id="modalFicha">
+  <div class="tag-card" style="max-width:560px;width:94%;max-height:86vh;overflow-y:auto;position:relative;padding:18px;background:var(--blanco-calido,#F8F9FB);border-radius:12px;">
+    <button class="cerrar" id="cerrarModalFicha" style="position:absolute;top:8px;right:10px;">✕</button>
+    <div id="fichaModalBody" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<script src="./app-inline-01.min.js" defer></script>
+
+<script defer src="./crypto-store.js"></script>
+<script defer src="./email-recovery.js"></script>
+<script defer src="./device-identity.js"></script>
+<script defer src="./storage-durabilidad.js"></script>
+  <script defer src="./peer-sync.js"></script>
+  <script defer src="./vendor/supabase-relay.min.js"></script>
+  <script defer src="./firebase-relay.js"></script>
+  <script defer src="./relay-selector.js"></script>
+  <script defer src="./sync-realtime.js"></script>
+  <script defer src="./sync-watchdog.js"></script>
+  <script defer src="./auth-ui.js"></script>
+  <!-- DORMIDO (orden de JFC, 2026-11-12): tab-session.js ya no se carga; el archivo se conserva. -->
+  <script defer src="./soporte-visual.js"></script>
+  <script defer src="./backup-scheduler.js"></script>
+<script defer src="./avanzado-extra.js"></script>
+<!-- Vista del artista (benchmark #6, JFC 2026-09-24): solo con PIN de artista. La frontera real es la compuerta de mock-backend.js. -->
+<script defer src="./artista.js"></script>
+<script defer src="./geo-ping.js"></script>
+<!-- Novedades: experimental employee gamification (EXPERIMENTAL FEATURE,
+     JFC 2026-07-22). Separate module, ON by DEFAULT (owner can turn it off
+     in Advanced with an explicit "0").
+     See novedades.js for detail — never touches real sales/inventory. -->
+<script defer src="./novedades.js"></script>
+<script defer src="./help-ui.js"></script>
+<!-- idb-fotos.js (JFC 2026-07-18): DEBE cargar antes de vista-perchas.js —
+     expone window.OCFotos, que vista-perchas.js usa para persistir fotos de
+     percha en IndexedDB en vez de localStorage. -->
+<script defer src="./idb-fotos.js"></script>
+<script defer src="./expense-receipt.js"></script>
+<!-- v448 GOLDEN G07: hexagonal photo core. Domain + application load before the UI adapter. -->
+<script defer src="./core/shelf-photo-policy.js"></script>
+<script defer src="./application/recover-shelf-photo.js"></script>
+<script defer src="./idb-archivo.js"></script>
+<script defer src="./simon-config.js"></script>
+<script defer src="./percha-reposicion.js"></script>
+<script defer src="./micelio-vivo.js"></script>
+<script defer src="./device-environment.js"></script>
+<script defer src="./micelio-ui.js"></script>
+<script defer src="./borradores.js"></script>
+<script defer src="./vista-perchas.js"></script>
+<script defer src="./welcome-ui.js"></script>
+<script defer src="./carga-tardia.js"></script>
+<!-- Ganchos del embudo SOLO en el demo (JFC 2026-09-24, shell 375). Tarjetas en linea, nunca modales. Ver ganchos-demo.js. -->
+<script defer src="./ganchos-demo.js"></script>
+<!-- MICELIO (homologado de AMIGABLE, 2026-07-28). El bus va primero:
+     hechos.js se engancha a el al cargar. Ver docs/reconciliacion.js. -->
+<script defer src="./event-bus.js"></script>
+<script defer src="./logger.js"></script>
+<script defer src="./telemetry.js"></script>
+<script defer src="./identity-context.js"></script>
+<script defer src="./audit-store.js"></script>
+<script defer src="./sync-queue.js"></script>
+<script defer src="./sync-outbox.js"></script>
+<!-- Plan C del sync redundante (Yjs/CRDT). ENCENDIDO por defecto (JFC 2026-09-15):
+     es el único motor que cruza los BYTES de las fotos (sala "-fotos"). Solo se
+     apaga si localStorage["OC_YJS_FASE0"]==="0". Corre en paralelo al sync viejo.
+     Carga su bundle vendorizado a demanda. -->
+<!-- Medicion correlacionada de entrega visible. Va ANTES de sync-yjs.js porque este engancha
+     window.OCLatencia al conectar. Si no cargara, sync-yjs sigue funcionando
+     igual: lo unico que se pierde es el numero, nunca el dato. -->
+<script defer src="./sync-latencia.js"></script>
+<script defer src="./sync-yjs.js"></script>
+<script defer src="./owner-approved-inventory-repair.js"></script>
+<script defer src="./ui-actions.js"></script>
+<script defer src="./feature-gate.js"></script>
+<script defer src="./salud-app.js"></script>
+<script defer src="./hechos.js"></script>
+<script defer src="./reconciliacion.js"></script>
+<script defer src="./cartera.js"></script>
+<script defer src="./plan-pagos.js"></script>
+<script defer src="./plan-pagos-ui.js"></script>
+<script defer src="./caja-chica.js"></script>
+<!-- uFuzzy (JFC 2026-07-30): busqueda tolerante a errores de tipeo para
+     Clientes (via lista-dinamica.js). Vendorizado localmente, MIT, sin
+     CDN, sin build step - si falta o falla, lista-dinamica.js cae sola al
+     filtro por substring de siempre (ver feedback_aislar_fallos_ui_nunca_datos). -->
+<script defer src="./vendor/ufuzzy.min.js"></script>
+<script defer src="./lista-dinamica.js"></script>
+<!-- MiniSearch (JFC 2026-07-30): busqueda tolerante + filtro por categoria
+     para el grid tactil de Sold. Mismo criterio de aislamiento: si falla,
+     el buscador cae al filtro por substring que ya existia. -->
+<script defer src="./vendor/minisearch.min.js"></script>
+<script defer src="./respaldo-empleado.js"></script>
+<!-- CARGADOR DE CODIGO (Bloque P, fase A canario, JFC 2026-09-24). Los cuatro
+     scripts de abajo ya no son <script src>: los pide cargador.js, en orden,
+     desde el origen remoto si hay uno (Hostinger) y desde github.io si no o
+     si falla. Son los ULTIMOS de la pagina y se cuidan solos con readyState,
+     por eso son el canario: si algo sale mal solo se pierde edutips, la marca
+     del workshop o el inspector, nunca ventas ni inventario.
+     La lista de un solo renglon la lee check-sw.sh (G6): cada archivo tiene
+     que seguir en el SHELL de sw.js. Si cargador.js no cargara, el inline de
+     abajo escribe los <script> locales de siempre (document.write mismo
+     origen, permitido). -->
+<script defer src="./estado-cifrado.js"></script>
+<script defer src="./cargador.js"></script>
+<script src="./app-inline-02.min.js" defer></script>
+<script src="./app-inline-03.min.js" defer></script>
+
+<!-- oc-toast-venta: a nivel de body para que sea visible desde cualquier vista.
+     El toast usa position:fixed pero un padre con display:none lo oculta igual.
+     Fix 2026-07-07: mover fuera de pintarFicha() y de cualquier vista. -->
+<div id="oc-toast-venta"></div>
+
+<!-- PANTALLA DE DATOS DE VENTA (portado de amigable-123, JFC 2026-08-26). Overlay
+     a nivel de body: aparece centrado al vender, sin importar desde dónde. -->
+<div id="oc-ventainfo-overlay" style="display:none;position:fixed;inset:0;z-index:10001;background:#0F141E;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">
+  <div id="oc-ventainfo-caja" style="max-width:460px;width:100%;margin:16px auto;"></div>
+</div>
+
+<!-- =====================================================================
+     FEATURE: ocConfirm()/ocAlert() — reemplazo de confirm()/alert() nativos.
+     Los diálogos nativos bloquean el hilo, se ven fuera de lugar en el
+     estilo de la app, y en el navegador interno de WhatsApp/Instagram a
+     veces ni siquiera se muestran (devuelven false/undefined al instante).
+     Estas versiones son promesas resueltas por un modal propio, con el
+     mismo lenguaje visual del resto de la app (tag-card, colores Simon).
+     Uso: if (!(await ocConfirm("¿Seguro?"))) return;   await ocAlert("Error X");
+     ===================================================================== -->
+<div id="oc-modal-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,20,30,0.55);align-items:center;justify-content:center;padding:20px;">
+  <div id="oc-modal-caja" class="tag-card" style="max-width:380px;width:100%;text-align:left;background:var(--blanco-calido,#fbf5e8);padding:22px 20px;border-radius:12px;">
+    <div id="oc-modal-msg" style="font-size:15px;color:var(--ink,#211c14);white-space:pre-line;margin-bottom:18px;"></div>
+    <div id="oc-modal-botones" style="display:flex;gap:10px;justify-content:flex-end;"></div>
+  </div>
+</div>
+<script src="./app-inline-04.min.js" defer></script>
+
+<!-- =====================================================================
+     (Eliminado 2026-08-27) La vista de mostrador fullscreen "Mostrar al
+     cliente" fue reemplazada por el modal de compradores (abrirCompradores).
+     El botón 👁 de la ficha ahora abre la lista de compradores del producto.
+     ===================================================================== -->
+
+<!-- ═════════ 2026-08-19, JFC: llegar por el QR del equipo ═════════════
+     El QR del panel de sync lleva una URL con ?join=F123-XXXX-XXXX. Antes
+     llevaba texto suelto y la camara del telefono contestaba "No usable data
+     found". Aqui solo se GUARDA el codigo y se avisa: NO se activa nada solo.
+     Unirse a una sala es una decision del dueno, no algo que pase por escanear.
+     El codigo queda en sessionStorage y Avanzado -> Sync lo encuentra ya
+     escrito en el campo "Join this team". Se limpia la URL para que no quede
+     el codigo en la barra ni en el historial. -->
+<script src="./app-inline-05.min.js" defer></script>
+
+<!-- ═════════ 2026-08-19, aprobado JFC: FAB "Close the day" ═════════════
+     Boton flotante abajo a la derecha (el hueco que dejo el pulsar).
+     Un solo click: (1) trae /api/dashboard con el resumen de hoy;
+     (2) muestra el resumen y ofrece descargar respaldo. No reimplementa
+     ninguna logica de negocio — solo llama endpoints existentes y usa el
+     mismo Blob-download que Avanzado. Si /api/dashboard falla, dice por
+     que. Solo se muestra si hay sesion de dueno o admin. -->
+<button type="button" id="fab-eod" aria-label="Daily Summary">Daily Summary</button>
+<div id="eod-modal" role="dialog" aria-modal="true" aria-labelledby="eod-t">
+  <div class="card">
+    <h3 id="eod-t">Daily Summary</h3>
+    <div id="eod-body">Loading today's summary…</div>
+    <div class="row">
+      <button type="button" class="btn btn-p" id="eod-backup">Download backup</button>
+      <button type="button" class="btn btn-o" id="eod-close">Close</button>
+    </div>
+    <p id="eod-msg"></p>
+  </div>
+</div>
+<script src="./app-inline-06.min.js" defer></script>
+
+<script src="./app-inline-07.min.js" defer></script>
+</body></html>

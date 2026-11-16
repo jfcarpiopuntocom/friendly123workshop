@@ -1,0 +1,288 @@
+// VENTA DURABLE + FALTANTE VISIBLE (JFC 2026-09-29; retoma el trabajo que Codex dejó sin subir).
+// Bug 1: dos aparatos sin red venden la ULTIMA unidad. El contador compartido suma
+// bien (base 1, -1 -1 = -1) pero Math.max(0, ...) lo mostraba como 0: el faltante
+// de 1 unidad desaparecia y nadie sabia que habia que contar la percha.
+// Bug 2: la venta respondia "ok" y recien DESPUES (en finally) intentaba guardar.
+// Si fallaban localStorage e IndexedDB, la app decia "vendido", la op ya habia
+// salido a los otros aparatos y la venta se perdia al recargar.
+// Pruebas escritas antes del arreglo: 1, 2 y 3 rojas en v420; 4 es de fijacion.
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const { webcrypto } = require('node:crypto');
+const { setTimeout: delay } = require('node:timers/promises');
+const { browser } = require('./helpers/browser.cjs');
+
+async function peer() {
+  const w = browser();
+  delete w.JSON;
+  Object.assign(w, { crypto: webcrypto, TextEncoder, TextDecoder,
+    WebSocket: class { constructor() { throw new Error('No real relay allowed in tests'); } },
+    BroadcastChannel: class { constructor() { throw new Error('No cross-test channels'); } } });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'), w);
+  w.IndexeddbPersistence = class { once() {} };
+  w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'SYNTHETIC-ISOLATED-FIXTURE' }));
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8'), w);
+  for (let i = 0; i < 100 && w.OCYjs.estado !== 'activo'; i++) await delay(10);
+  return w;
+}
+function transfer(from, to) {
+  to.Y.applyUpdate(to.OCYjs.doc, from.Y.encodeStateAsUpdate(from.OCYjs.doc), 'red');
+  to.OCYjs._store.aplicar();
+}
+async function conStock(w, id, n) {
+  const fx = await w.request('/api/respaldo/exportar');
+  const p = fx.productos.find((x) => x.stockActual >= 1);
+  // Both devices were provisioned from the SAME authenticated physical recount
+  // before disconnecting. A fixture may not silently invent two PN baselines.
+  p.id = id; p.stockActual = n; p.stockBase = n; p.stockPN = {};
+  p.stockEpochId = "stock-epoch-fixture-" + id;
+  p.stockCountTs = Date.parse("2026-11-12T00:00:00Z");
+  p.stockCountWitness = { base:null, epoch:"", pn:{} };
+  fx.productos = [p]; fx.ventas = []; fx.movimientos = [];
+  await w.request('/api/respaldo/importar', 'POST', fx);
+}
+const prod = async (w, id) => (await w.request('/api/respaldo/exportar')).productos.find((p) => p.id === id);
+
+test('1. Yjs: both devices sell the last unit offline -> 0 on shelf, deficit 1 visible, both sales kept', async () => {
+  const a = await peer(), b = await peer();
+  await conStock(a, 'p-ultima', 1); await conStock(b, 'p-ultima', 1);
+  const va = await a.request('/api/productos/p-ultima/venta', 'POST', { cantidad: 1 });
+  const vb = await b.request('/api/productos/p-ultima/venta', 'POST', { cantidad: 1 });
+  a.OCYjs._store.sembrar(); b.OCYjs._store.sembrar();
+  transfer(a, b); transfer(b, a);
+  a.OCYjs._store.sembrar(); b.OCYjs._store.sembrar();
+  transfer(a, b); transfer(b, a);
+  for (const w of [a, b]) {
+    const p = await prod(w, 'p-ultima');
+    assert.equal(p.stockActual, 0, 'shelf never shows negative units');
+    assert.equal(p.stockDeficit, 1, 'the missing unit is recorded, not hidden');
+    const ids = (await w.request('/api/ventas/todas')).map((v) => v.id);
+    assert.ok(ids.includes(va.ventaId) && ids.includes(vb.ventaId), 'both sales survive');
+  }
+});
+
+test('2. old merge path (aplicarCatalogo): same case keeps the deficit and shows it on the product card data', async () => {
+  const a = browser(), b = browser();
+  await conStock(a, 'p-ultima2', 1); await conStock(b, 'p-ultima2', 1);
+  await a.request('/api/productos/p-ultima2/venta', 'POST', { cantidad: 1 });
+  await b.request('/api/productos/p-ultima2/venta', 'POST', { cantidad: 1 });
+  a.receive(b); b.receive(a);
+  for (const w of [a, b]) {
+    const p = await prod(w, 'p-ultima2');
+    assert.equal(p.stockActual, 0);
+    assert.equal(p.stockDeficit, 1);
+    const card = (await w.request('/api/productos')).find((x) => x.id === 'p-ultima2');
+    assert.equal(card.stockDeficit, 1, 'the inventory card receives the deficit');
+  }
+});
+
+test('2b. restocking pays the deficit first and both devices agree after syncing', async () => {
+  const a = browser(), b = browser();
+  await conStock(a, 'p-repone', 1); await conStock(b, 'p-repone', 1);
+  await a.request('/api/productos/p-repone/venta', 'POST', { cantidad: 1 });
+  await b.request('/api/productos/p-repone/venta', 'POST', { cantidad: 1 });
+  a.receive(b); b.receive(a);
+  const r = await a.request('/api/productos/p-repone/ajustar', 'POST', { delta: 3, motivo: 'conteo' });
+  assert.equal(r.stockActual, 2, '3 in, 1 owed: 2 on the shelf');
+  assert.equal(r.stockDeficit, 0);
+  b.receive(a); a.receive(b);
+  for (const w of [a, b]) {
+    const p = await prod(w, 'p-repone');
+    assert.equal(p.stockActual, 2); assert.equal(p.stockDeficit, 0);
+  }
+});
+
+test('2c. pinning (DDIA J2): one device restocks +3 while another sells 2 -> coherent balance on both', async () => {
+  const a = browser(), b = browser();
+  await conStock(a, 'p-ddia', 5); await conStock(b, 'p-ddia', 5);
+  await a.request('/api/productos/p-ddia/ajustar', 'POST', { delta: 3, motivo: 'compra' });
+  await b.request('/api/productos/p-ddia/venta', 'POST', { cantidad: 2 });
+  a.receive(b); b.receive(a);
+  for (const w of [a, b]) {
+    const p = await prod(w, 'p-ddia');
+    assert.equal(p.stockActual, 6, '5 + 3 - 2'); assert.equal(p.stockDeficit || 0, 0);
+  }
+});
+
+test('3. both stores fail: the sale answers an error, nothing changes and nothing is sent', async () => {
+  const w = browser();
+  await conStock(w, 'p-disco', 5);
+  const antes = await w.request('/api/respaldo/exportar');
+  let emitidas = 0;
+  w.OCSyncEmit = () => { emitidas++; };
+  const setItem = w.localStorage.setItem.bind(w.localStorage);
+  w.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  w.OCEstadoIDB = { guardar: async () => { throw new Error('IDB down'); } };
+  const r = await w.fetch('/api/productos/p-disco/venta', { method: 'POST', body: JSON.stringify({ cantidad: 2 }) });
+  w.localStorage.setItem = setItem; delete w.OCEstadoIDB;
+  assert.ok(r.status >= 500, 'the sale must not claim success, got ' + r.status);
+  const despues = await w.request('/api/respaldo/exportar');
+  assert.equal(despues.productos.find((p) => p.id === 'p-disco').stockActual, 5, 'stock rolled back');
+  assert.equal(despues.ventas.length, antes.ventas.length, 'no ghost sale');
+  assert.equal(despues.movimientos.length, antes.movimientos.length, 'no ghost log entry');
+  assert.equal(emitidas, 0, 'no stock op leaves the device');
+});
+
+test('4. pinning: localStorage full but IndexedDB accepts -> the sale is confirmed and sent', async () => {
+  const w = browser();
+  await conStock(w, 'p-idb', 5);
+  let emitidas = 0;
+  w.OCSyncEmit = () => { emitidas++; };
+  const setItem = w.localStorage.setItem.bind(w.localStorage);
+  w.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  // Since v620 strict money/stock ACK uses guardarConRevision(), not the
+  // retired guardar() mirror API. The fixture must simulate that durable CAS.
+  let idbCommit = null;
+  w.OCEstadoIDB = {
+    guardarConRevision: async (snapshot, expectedRevision) => {
+      assert.ok(Number.isSafeInteger(expectedRevision), 'valid prior revision required');
+      assert.ok(snapshot._rev > expectedRevision, 'write must advance revision');
+      idbCommit = JSON.parse(JSON.stringify(snapshot));
+      return true;
+    },
+    guardar: async () => true
+  };
+  const r = await w.fetch('/api/productos/p-idb/venta', { method: 'POST', body: JSON.stringify({ cantidad: 2 }) });
+  w.localStorage.setItem = setItem; delete w.OCEstadoIDB;
+  assert.equal(r.status, 200);
+  assert.ok(idbCommit, 'sale may be acknowledged only after simulated IDB commit');
+  assert.equal(idbCommit.productos.find((p) => p.id === 'p-idb').stockActual, 3,
+    'the committed snapshot must include the physical stock movement');
+  assert.equal((await prod(w, 'p-idb')).stockActual, 3);
+  assert.equal(emitidas, 1);
+});
+
+
+test('P0 #607: stale A/B quota does not mislabel a revision-fenced sale as out of storage', async () => {
+  const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
+  await conStock(w, 'p-cas-fence', 5);
+  let emitidas = 0;
+  w.OCSyncEmit = () => { emitidas++; };
+  const originalSet = w.localStorage.setItem.bind(w.localStorage);
+  // Leave an actual old A/B quota error, then restore the storage. The next
+  // strict CAS rejection is from IDB, not a new quota error.
+  w.localStorage.setItem = () => { throw new DOMException('synthetic previous quota', 'QuotaExceededError'); };
+  const previous = await w.fetch('/api/config/retencion', {
+    method: 'PUT', body: JSON.stringify({ dias: 14 })
+  });
+  w.localStorage.setItem = originalSet;
+  assert.equal(previous.status, 507, 'fixture established a prior quota failure');
+  w.OCEstadoIDB = {
+    soportado: true,
+    guardarConRevision: async () => false,
+    ultimoError: () => null
+  };
+  const response = await w.fetch('/api/productos/p-cas-fence/venta', {
+    method: 'POST', body: JSON.stringify({ cantidad: 1 })
+  });
+  const payload = await response.json();
+  assert.equal(response.status, 503, 'IDB revision fence is not device quota');
+  assert.equal(payload.code, 'SALE_DURABILITY_UNCONFIRMED');
+  assert.doesNotMatch(payload.error, /space left|sin espacio|quedó sin espacio/i);
+  const after = await w.request('/api/respaldo/exportar');
+  assert.equal(after.productos.find(p => p.id === 'p-cas-fence').stockActual, 5);
+  assert.equal(after.ventas.length, 0, 'unconfirmed sale must be rolled back');
+  assert.equal(emitidas, 0, 'no stock movement may leave without strict ACK');
+});
+
+
+test('P0 #607: background A/B quota still reports quota with a strict IDB CAS present', async () => {
+  const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
+  let quotaSignals = 0;
+  w.addEventListener('oc-memoria-llena', event => {
+    if (event.detail && event.detail.llena === true) quotaSignals++;
+  });
+  // On a non-financial background save the A/B backup, not strict CAS, is
+  // the failing writer. A null last strict-CAS error MUST NOT mask its quota.
+  w.OCEstadoIDB = {
+    soportado: true,
+    guardarConRevision: async () => true,
+    guardar: async () => false,
+    ultimoError: () => null
+  };
+  const originalSet = w.localStorage.setItem.bind(w.localStorage);
+  w.localStorage.setItem = () => {
+    throw new DOMException('synthetic background quota', 'QuotaExceededError');
+  };
+  await w.fetch('/api/ubicaciones', {
+    method: 'POST', body: JSON.stringify({ nombre: 'Synthetic background quota rack', tipo: 'propio' })
+  });
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+  w.localStorage.setItem = originalSet;
+  assert.ok(quotaSignals > 0, 'a real background A/B quota failure must remain visible');
+});
+
+
+// P0 v689: A single-apparatus PWA must not turn a newer durable local revision
+// into a false 'storage unavailable' when adjusting +1. No Sync3 mocks needed.
+test('P0 v689 RED: stock +1 rebases one newer strict CAS revision and persists exactly once', async () => {
+  const w = browser();
+  await conStock(w, 'p-local-plus', 0);
+  const prior = await w.request('/api/respaldo/exportar');
+  const disk = JSON.parse(JSON.stringify(prior));
+  disk._rev = Number(prior._rev || 0) + 1; // prior background save on THIS device
+  let strictCalls = 0, emitted = 0, reads = 0;
+  w.OCSyncEmit = (kind) => { if (kind === 'ajuste') emitted++; return true; };
+  w.OCEstadoIDB = {
+    soportado: true,
+    ultimoError: () => null,
+    leer: async () => { reads++; return JSON.parse(JSON.stringify(disk)); },
+    guardarConRevision: async (candidate, expectedRev) => {
+      strictCalls++;
+      if (expectedRev !== disk._rev) return false; // exact CAS fence, not quota
+      disk._rev = candidate._rev;
+      Object.assign(disk, JSON.parse(JSON.stringify(candidate)));
+      return true;
+    }
+  };
+  const response = await w.fetch('/api/productos/p-local-plus/ajustar', {
+    method: 'POST', body: JSON.stringify({ delta: 1, motivo: 'restock' })
+  });
+  assert.equal(response.status, 200, 'one new local revision must be retried once after rollback');
+  assert.equal(strictCalls, 2, 'one failed CAS + one durable successful retry');
+  assert.equal(reads, 1, 'rebase uses one exact durable snapshot');
+  assert.equal(emitted, 1, 'stock operation emitted once only after confirmed save');
+  assert.equal(disk.productos.find(p => p.id === 'p-local-plus').stockActual, 1);
+  assert.equal(disk.movimientos.length, prior.movimientos.length + 1, 'no duplicate stock log');
+  assert.equal((await w.request('/api/productos/p-local-plus')).stockActual, 1);
+});
+
+test('P0 JFC: IDB quota uses verified A/B for +1; unchanged CAS still rejects without stock op', async () => {
+  for (const reason of ['QuotaExceededError', 'unchanged']) {
+    const w = browser();
+    await conStock(w, 'p-no-false-ack', 0);
+    const before = await w.request('/api/respaldo/exportar');
+    const err = reason === 'QuotaExceededError' ? Object.assign(new Error('quota'), { name: 'QuotaExceededError' }) : null;
+    let emitted = 0, reads = 0;
+    w.OCSyncEmit = (kind) => { if (kind === 'ajuste') emitted++; return true; };
+    w.OCEstadoIDB = {
+      soportado: true,
+      guardarConRevision: async () => false,
+      ultimoError: () => err,
+      leer: async () => { reads++; return JSON.parse(JSON.stringify(before)); }
+    };
+    const response = await w.fetch('/api/productos/p-no-false-ack/ajustar', {
+      method: 'POST', body: JSON.stringify({ delta: 1 })
+    });
+    const backedUp=reason==='QuotaExceededError';
+    assert.equal(response.status, backedUp ? 200 : 503,
+      'IDB quota alone is not an error if the local A/B commit is verified');
+    assert.equal(emitted, backedUp ? 1 : 0,'exactly one stock op only after durable commit');
+    assert.equal((await w.request('/api/productos/p-no-false-ack')).stockActual, backedUp ? 1 : 0);
+    assert.equal((await w.request('/api/respaldo/exportar')).movimientos.length,
+      before.movimientos.length+(backedUp ? 1 : 0));
+    if (backedUp) {
+      const journal=JSON.parse(w.localStorage.getItem('f123_estado_v4_journal')||'null');
+      assert.ok(journal&&journal.phase==='COMMITTED',
+        'the stock adjustment needs a durable A/B commit, never a memory-only success');
+      const saved=JSON.parse(journal.candidateRaw);
+      assert.equal(saved.productos.find(p=>p.id==='p-no-false-ack').stockActual,1);
+    }
+    assert.ok(reads <= 1, 'failed CAS must not loop');
+  }
+});
