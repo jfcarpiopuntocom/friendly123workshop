@@ -28,3 +28,11 @@
 - Relevo Notion: https://app.notion.com/p/4181642b67f381c0a3eff1ff56e44902 .
 
 **Estado verificable de la importación:** solo completar tras observar el commit/CI del nuevo repo. No inferir resultado a partir de este documento.
+
+## Verificación final de base importada — GitHub Actions 16 nov 2026
+
+La ejecución [#43813598515](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43813598515) concluyó **SUCCESS** en SHA exacto `c13c57a20a232cdfd9742500ad8c359d7d37a6cf`, CI del **NUEVO repositorio único**, no de un repo anterior. Logs: bloques **8 + 5 + 22 + 28 + 33 + 21 = 117/117 PASS; 0 FAIL**. Incluye Playwright Chromium/WebKit sintético (SW bloqueado), venta/offline/recarga/crédito/abono/comisión, dos pestañas, movimientos stock/fiados, dinero, foto y roles/IndexedDB.
+
+La fase RED previa se debía a dos errores de portado del arnés, **no a fallos comerciales**: faltaba copiar `lab/stock-journal/` (cuatro archivos públicos, trasladados SHA idénticos), y el test importado había sido adaptado a firma futura CAS v782 en vez del contrato original v781. Se restauró la prueba nativa v781; ninguna operación del backend se cambió para «pasar» el test.
+
+**Limitación NO negociable:** este verde certifica SOLO la base pública **v781** importada y casos sintéticos. NO incluye ni certifica los injertos comerciales v782/v783, emisor WS Team real, fotos remotas reales, operador de comercio en iPhone físico ni sync A→B→A. Codex debe traer los commits finales v783, pasarlos por revisión de secretos (repo PUBLICO), y repetir la suite **sobre el SHA nuevo**. Rama protegida por proceso, PR #17 sin merge/despliegue.
