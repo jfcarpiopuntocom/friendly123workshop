@@ -1,3 +1,7 @@
+> **RELEVO MÁS RECIENTE · 16 nov 2026 · SHA `507e402585d66a9cd00d11a85eb4f6107fed6a24`.** La candidata de Codex está aquí: `projects/assembled-v783/app/` y `projects/assembled-v783/relay/`, **no** en la copia histórica `apps/friendly-123/`. Desde el relevo anterior, [PR #25](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/25) añadió un inbox SQLite durable de comandos tipados (`stored-for-application`, NO ACK comercial), [PR #26](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/26) añadió un Y.Doc público separado por allowlist (NO habilitó `cat`) y [PR #27](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/27) corrigió compatibilidad de licencias con el issuer WS. **3 piezas aditivas, cero activaciones y NO-GO comercial**. [Detalles PR #25](reports/2026-11-16-typed-command-inbox.md) · [seguridad Yjs PR #26](reports/2026-11-16-safe-catalog-projection.md) · [licencias PR #27](reports/2026-11-16-ops-license-compat.md). Los permisos remotos `ops:expense` y `ops:payment` NO están concedidos en el issuer; mantener fail-closed. No duplicar trabajo de Codex, ni confundir el éxito de 483 pruebas dirigidas con auditoría global (todavía ROJA); PWA aplazada. **Leer este aviso antes de la narrativa cronológica que sigue.**
+
+---
+
 # friendly-123 assembled v783 — entrada compartida
 
 ## Continuación actual: Dinero por defecto en nuevas ventas de la candidata — WIP
