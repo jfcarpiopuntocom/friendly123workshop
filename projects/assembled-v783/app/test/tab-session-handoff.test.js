@@ -482,6 +482,8 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    const oldRack=before.ubicaciones.find(u=>u.id===rack.id);
    const oldProduct=before.productos.find(p=>p.id===product.id);
    assert.ok(oldRack&&!oldRack.borrado&&oldProduct&&!oldProduct.borrado,'synthetic live rack and product required');
+   assert.equal(Object.prototype.hasOwnProperty.call(before.configuracion.gastosMensuales,rack.id),true,
+     'new rack has a durable monthly expense configuration entry');
    const result=await page.evaluate(async({id,productId})=>{
      const idb=window.OCEstadoIDB;
      if(typeof idb?.guardarConRevision!=='function'||typeof window.OCEstadoAB?.crear!=='function')
@@ -507,7 +509,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
        return {status:response.status,body:await response.json(),idbDenied,abDenied,announced,
          rack:backup.ubicaciones.find(u=>u.id===id),
          product:backup.productos.find(p=>p.id===productId),
-         movements:backup.movimientos.length};
+         movements:backup.movimientos.length,
+         expensePresent:Object.prototype.hasOwnProperty.call(backup.configuracion.gastosMensuales,id),
+         expenseAmount:backup.configuracion.gastosMensuales[id]};
      }finally{
        idb.guardar=save;idb.guardarConRevision=cas;idb.ultimoError=err;
        Storage.prototype.setItem=write;
@@ -524,6 +528,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.deepEqual(result.rack.rev,oldRack.rev,'rack revision must not advance');
    assert.deepEqual(result.product.rev,oldProduct.rev,'product revision must not advance');
    assert.equal(result.movements,before.movimientos.length,'rejected deletion must not append movement');
+   assert.equal(result.expensePresent,true,'rejected deletion preserves the rack monthly expense entry');
+   assert.equal(result.expenseAmount,before.configuracion.gastosMensuales[rack.id],
+     'rejected deletion retains the monthly expense value');
    const response=await page.evaluate(async id=>{
      const r=await fetch('/api/ubicaciones/'+id,{method:'DELETE'});
      return {status:r.status,body:await r.json()};
@@ -546,6 +553,8 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal(saved.productos.filter(p=>p.id===product.id&&p.borrado).length,1);
    assert.equal(saved.movimientos.filter(m=>m.tipo==='ubicacion-borrada'&&m.detalle?.ubicacion===rackName).length,1,
      'one durable deletion movement, not a duplicate from the failed attempt');
+   assert.equal(Object.prototype.hasOwnProperty.call(saved.configuracion.gastosMensuales,rack.id),false,
+     'confirmed deletion removes only its own monthly expense entry');
    assert.equal(saved.ventas.length,before.ventas.length,'unrelated seed sales remain intact');
   }finally{await web.close();}
  });
