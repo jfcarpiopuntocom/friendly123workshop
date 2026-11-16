@@ -1,0 +1,57 @@
+diff --git a/projects/assembled-v783/app/docs/mock-backend.js b/projects/assembled-v783/app/docs/mock-backend.js
+index eaf9f9e..445f1fd 100644
+--- a/projects/assembled-v783/app/docs/mock-backend.js
++++ b/projects/assembled-v783/app/docs/mock-backend.js
+@@ -6028,8 +6028,8 @@
+         _recargarSiOtraPestanaEscribio();
+         const r = aplicarCatalogo({ ubicaciones: Array.isArray(recibido.ubicaciones) ? recibido.ubicaciones : [], productos: Array.isArray(recibido.productos) ? recibido.productos : [], usuarios: Array.isArray(recibido.usuarios) ? recibido.usuarios : undefined, pinsRol: recibido.pinsRol || null }, null);
+         _adoptarPinDeFoto(recibido);
+-        await guardarEstadoLocal();
+-        return r;
++        const guardado = await guardarEstadoLocal();
++        return guardado === true ? r : { ok: false, error: "Incoming records were not saved." };
+       };
+       const operacion = _colaEscriturasLocal.then(aplicar);
+       _colaEscriturasLocal = operacion.catch(() => {});
+diff --git a/projects/assembled-v783/app/docs/version-manifest.json b/projects/assembled-v783/app/docs/version-manifest.json
+index c137dbb..e558246 100644
+--- a/projects/assembled-v783/app/docs/version-manifest.json
++++ b/projects/assembled-v783/app/docs/version-manifest.json
+@@ -28,7 +28,7 @@
+     "./vendor/money-imported.min.js": "sha256-571da731b0ac32151eba878b2d067b22a8ed6af72e269c435c94ec8a06c89a17",
+     "./vendor/workbox-imported.min.js": "sha256-baad3de8960a3865b2f8f9c6ee0ca95f953252289a8f470a5647273472bcd968",
+     "./team-authority-client.js": "sha256-8df9583c993730438bf0550374611efa7a7c824ca95db302b67bdc3ccba1f5f1",
+-    "./mock-backend.js": "sha256-51c7a45080f0dd106e2108d4c174bd1764bf8086bc1ab0a39e3a7e06f785a3b7",
++    "./mock-backend.js": "sha256-693a82bc39d68b57f7621844a597cb4d9ecd82fe552793680c805ec34cf04cda",
+     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
+     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
+     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
+diff --git a/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs b/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs
+index 7e747cc..2e431a2 100644
+--- a/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs
++++ b/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs
+@@ -25,6 +25,24 @@ test('stale durable fichas receiver preserves a peer tab rack, sale and stock on
+  assert.equal(products.find(p=>p.id===product.id)?.stockActual,2,'do not erase peer product or replay its stock delta');
+  assert.equal(sales.filter(s=>s.productoId===product.id).length,1,'peer sale must remain exactly once');
+ });
++test('failed fichas persistence is not confirmed; the same incoming record retries once after recovery',async()=>{
++ const w=browser();w.OCAuth={rolActual:()=> 'dueno'};
++ const set=w.localStorage.setItem;
++ w.localStorage.setItem=(key,value)=>{
++  if(String(key).startsWith('f123_estado_v4'))throw new DOMException('synthetic disk refusal','SecurityError');
++  return set(key,value);
++ };
++ const incoming={ubicaciones:[{
++  id:'synthetic-recovery-rack',nombre:'Synthetic recovery rack',tipo:'propio',activa:true,rev:{c:99,d:'synthetic'}
++ }]};
++ const failed=await w.OCSync.aplicarFichas(incoming);
++ assert.equal(failed.ok,false,'a merged RAM snapshot is not a confirmed save');
++ w.localStorage.setItem=set;
++ const recovered=await w.OCSync.aplicarFichas(incoming);
++ assert.equal(recovered.ok,true);
++ const cold=browser(w.localStorage);cold.OCAuth={rolActual:()=> 'dueno'};
++ assert.equal((await cold.request('/api/ubicaciones')).filter(r=>r.id==='synthetic-recovery-rack').length,1);
++});
+ for(const change of ['notebook','generation'])test(`queued fichas cannot enter a changed ${change} or adopt its PIN`,async()=>{
+  const w=browser();w.OCAuth={rolActual:()=> 'dueno'};
+  const product=await w.request('/api/productos','POST',{

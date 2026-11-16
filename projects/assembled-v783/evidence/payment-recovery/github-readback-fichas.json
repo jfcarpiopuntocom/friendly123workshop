@@ -1,0 +1,46 @@
+{
+  "commit": "d132bf77c26a2b05e4cbdd523a5a93b0df1e206a",
+  "files": [
+    {
+      "path": "projects/assembled-v783/app/docs/mock-backend.js",
+      "sha": "eaf9f9e74a8d9383ea049d73a4114b2a3823e7b3",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/d132bf77c26a2b05e4cbdd523a5a93b0df1e206a/projects/assembled-v783/app/docs/mock-backend.js",
+      "error": false,
+      "localGitBlob": "eaf9f9e74a8d9383ea049d73a4114b2a3823e7b3",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/docs/sync-realtime.js",
+      "sha": "f23f075569d614c0d68ad3e283a22826cc342d0f",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/d132bf77c26a2b05e4cbdd523a5a93b0df1e206a/projects/assembled-v783/app/docs/sync-realtime.js",
+      "error": false,
+      "localGitBlob": "f23f075569d614c0d68ad3e283a22826cc342d0f",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs",
+      "sha": "7e747cc26282ce0ef9c0927b7fb84cde1ab3638b",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/d132bf77c26a2b05e4cbdd523a5a93b0df1e206a/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs",
+      "error": false,
+      "localGitBlob": "7e747cc26282ce0ef9c0927b7fb84cde1ab3638b",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/test/p0-stale-fichas-browser.test.cjs",
+      "sha": "5e9a25d5cccb512fad71e6daa840976a42bef5fd",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/d132bf77c26a2b05e4cbdd523a5a93b0df1e206a/projects/assembled-v783/app/test/p0-stale-fichas-browser.test.cjs",
+      "error": false,
+      "localGitBlob": "5e9a25d5cccb512fad71e6daa840976a42bef5fd",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/docs/version-manifest.json",
+      "sha": "c137dbb650d93ee01d531918ca6751d08fa06b3e",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/d132bf77c26a2b05e4cbdd523a5a93b0df1e206a/projects/assembled-v783/app/docs/version-manifest.json",
+      "error": false,
+      "localGitBlob": "c137dbb650d93ee01d531918ca6751d08fa06b3e",
+      "match": true
+    }
+  ],
+  "allMatch": true
+}

@@ -1,0 +1,32 @@
+✔ stale durable fichas receiver preserves a peer tab rack, sale and stock on cold readback (132.362762ms)
+✖ failed fichas persistence is not confirmed; the same incoming record retries once after recovery (23.746239ms)
+✔ queued fichas cannot enter a changed notebook or adopt its PIN (35.756185ms)
+✔ queued fichas cannot enter a changed generation or adopt its PIN (9.001223ms)
+✔ fichas wait behind an in-flight local sale and keep the incoming intention stable (41.486347ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 851.298107
+
+✖ failing tests:
+
+test at test/p0-stale-fichas-peer-save.test.cjs:28:1
+✖ failed fichas persistence is not confirmed; the same incoming record retries once after recovery (23.746239ms)
+  AssertionError [ERR_ASSERTION]: a merged RAM snapshot is not a confirmed save
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-stale-fichas-peer-save.test.cjs:39:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
