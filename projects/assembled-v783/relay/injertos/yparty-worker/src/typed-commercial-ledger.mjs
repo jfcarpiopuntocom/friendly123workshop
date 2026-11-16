@@ -5,16 +5,25 @@
 const KINDS=Object.freeze({
   'sale.record':{scope:'ops:sale',detail:'productId',quantity:true},
   'expense.record':{scope:'ops:expense',detail:'categoryId',quantity:false},
-  'credit.payment.record':{scope:'ops:payment',detail:'receivableId',quantity:false}
+  'credit.payment.record':{scope:'ops:payment',detail:'receivableId',quantity:false},
+  // A customer payment is not a receivable nor a payment allocation.
+  // Existing receivable receipts keep their original canonical bytes.
+  'credit.customer.payment.record':{scope:'ops:payment',detail:'clienteId',quantity:false,customerPayment:true}
 });
 const LICENSE=/^F123-[A-Z0-9*~$=-]{8,34}$/;
 const ID=/^[A-Za-z0-9_-]{1,64}$/;
 const OP_ID=/^[A-Za-z0-9_-]{8,96}$/;
+// The browser already commits customer-payment:<uuid>. Never re-key a paid op.
+// This syntax is accepted ONLY for the explicit customer-payment contract.
+const CUSTOMER_PAYMENT_OP_ID=/^customer-payment:[A-Za-z0-9_-]{8,79}$/;
 const MAX_AMOUNT=10_000_000_000;
 function validate(command){
   if(!command||typeof command!=='object'||Array.isArray(command))return null;
   const contract=KINDS[command.kind];
-  if(!contract || !LICENSE.test(command.license||'') || !OP_ID.test(command.opId||''))
+  if(!contract || !LICENSE.test(command.license||'') ||
+     !(contract.customerPayment
+       ? CUSTOMER_PAYMENT_OP_ID.test(command.opId||'')
+       : OP_ID.test(command.opId||'')))
     return null;
   const required=['opId','license','kind',contract.detail,'amountCents',...(contract.quantity?['quantity']:[])];
   // Unknown keys are denied rather than accidentally storing PINs, contacts or
@@ -24,6 +33,7 @@ function validate(command){
      !ID.test(command[contract.detail]||'') ||
      !Number.isSafeInteger(command.amountCents) ||
      command.amountCents<0 || command.amountCents>MAX_AMOUNT ||
+     (contract.customerPayment && command.amountCents===0) ||
      (contract.quantity && (!Number.isSafeInteger(command.quantity)||command.quantity<1||command.quantity>10000)))
     return null;
   // Canonical order means identical operations hash to identical bytes regardless
