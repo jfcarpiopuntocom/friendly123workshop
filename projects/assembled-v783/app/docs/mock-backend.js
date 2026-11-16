@@ -7086,6 +7086,7 @@
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
+        const _racksAntes = ubicaciones.length, _movAntes = movimientos.length, _selloAntes = selloUltimo;
         const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0), baseComision: _baseComisionValida(body.baseComision) || null };
         nueva.rev = _revNueva();
         nueva.estadoRev = nueva.rev;
@@ -7094,8 +7095,28 @@
         // gastosMensuales, por lo que la suma "todas" las excluia hasta que se
         // guardara algun gasto para ellas. Se inicializa en 0 al crearlas.
         gastosMensuales[nueva.id] = 0;
-        mov("ubicacion-alta", { ubicacion: nueva.nombre });
-        avisarCatalogoCambiado(); // la percha nueva viaja al resto del negocio
+        // No release to Yjs before a verified local commit.
+        mov("ubicacion-alta", { ubicacion: nueva.nombre }, false);
+        debePersistir = false; // strict commit below replaces the generic fire-and-forget finally.
+        const _rackSaved = await guardarEstadoLocal(true);
+        if (_rackSaved !== true) {
+          // Only undo our exact provisional tail. Never truncate concurrent peer facts.
+          if (ubicaciones.length === _racksAntes + 1 &&
+              ubicaciones[_racksAntes] === nueva &&
+              movimientos.length === _movAntes + 1 &&
+              movimientos[_movAntes]?.tipo === "ubicacion-alta") {
+            ubicaciones.pop();
+            movimientos.pop();
+            selloUltimo = _selloAntes;
+            delete gastosMensuales[nueva.id];
+          } else {
+            _estadoLecturaBloqueada = true; // ambiguous interleaving: preserve evidence, block unsafe subsequent writes.
+            _errorBloqueoLectura = new Error("Rack commit failed with concurrent changes");
+          }
+          return J({ error: "The location was NOT saved. Retry after checking your locations.",
+            code: "RACK_DURABILITY_UNCONFIRMED" }, 503);
+        }
+        avisarCatalogoCambiado(); // publication is after durable commit, once.
         return J(nueva);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "PUT") {
