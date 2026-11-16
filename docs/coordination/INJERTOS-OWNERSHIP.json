@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "repository": "jfcarpiopuntocom/friendly123workshop",
+  "targetBranch": "integrate/browser-injertos-20261116",
+  "baseWorkshopSha": "b3963d938d9544dfdb1ce6a76c8bba262390f99c",
+  "note": "Coordination-only advisory guard. Names are task ownership labels, not verified GitHub identities or remote permissions. Revise ownership deliberately before changing another agent's files.",
+  "owners": [
+    {
+      "pattern": "apps/friendly-123/**",
+      "owner": "codex",
+      "purpose": "Integrated commercial app, frontend/backend and historic tests"
+    },
+    {
+      "pattern": "injertos/**",
+      "owner": "codex",
+      "purpose": "Actual open-source integrations: money, photos, y-partyserver, Team"
+    },
+    {
+      "pattern": "qa/browser/**",
+      "owner": "sol",
+      "purpose": "Independent synthetic browser QA"
+    },
+    {
+      "pattern": "qa/coordination/**",
+      "owner": "sol",
+      "purpose": "Coordination and no-clobber guard"
+    },
+    {
+      "pattern": "qa/seguridad/**",
+      "owner": "claude",
+      "purpose": "Independent security regression"
+    },
+    {
+      "pattern": "docs/coordination/**",
+      "owner": "shared",
+      "purpose": "Progress summaries and handoffs; git conflicts still require human resolution"
+    },
+    {
+      "pattern": ".github/workflows/qa-no-clobber.yml",
+      "owner": "sol",
+      "purpose": "Independent coordination CI"
+    },
+    {
+      "pattern": ".github/workflows/qa-browser-integration.yml",
+      "owner": "sol",
+      "purpose": "Existing synthetic browser CI"
+    }
+  ],
+  "components": [
+    {
+      "id": "public-baseline-v781",
+      "status": "integrated",
+      "proofSha": "fc98e4ee992240a5395cc84e6ab8c56dadc58036",
+      "paths": [
+        "apps/friendly-123/docs/index.html"
+      ],
+      "detail": "Exact public baseline was imported and verified. Not v783."
+    },
+    {
+      "id": "synthetic-browser-matrix",
+      "status": "integrated",
+      "proofSha": "c13c57a20a232cdfd9742500ad8c359d7d37a6cf",
+      "paths": [
+        "qa/browser/browser-first-commercial.test.cjs"
+      ],
+      "detail": "117/117 on v781: no physical Safari/Opera, no remote authorization."
+    },
+    {
+      "id": "codex-v782-transition",
+      "status": "pending",
+      "paths": [],
+      "detail": "Frozen v782 patch has not been imported into workshop; must reconcile with future v783 work"
+    },
+    {
+      "id": "codex-v783-integrated-business",
+      "status": "pending",
+      "paths": [],
+      "detail": "Owner Codex; real patch bytes are not in workshop"
+    },
+    {
+      "id": "dinero-js-money-adapter",
+      "status": "pending",
+      "paths": [],
+      "detail": "Do not create duplicate money engine while Codex working"
+    },
+    {
+      "id": "y-partyserver-authenticated-relay",
+      "status": "pending",
+      "paths": [],
+      "detail": "Legacy prototype has known auth and read privacy gap, no release"
+    },
+    {
+      "id": "y-indexeddb-persistence",
+      "status": "pending",
+      "paths": [],
+      "detail": "No persisted vendor adapter proof in workshop"
+    },
+    {
+      "id": "team-real-role-authority",
+      "status": "pending",
+      "paths": [],
+      "detail": "Server-issued human identity and revocation not yet landed here"
+    },
+    {
+      "id": "photo-byte-ack-remote",
+      "status": "pending",
+      "paths": [],
+      "detail": "Real photo bytes and durable remote receipt not yet landed here"
+    },
+    {
+      "id": "workbox-pwa",
+      "status": "deferred",
+      "paths": [],
+      "detail": "User ordered PWA changes for tomorrow"
+    }
+  ]
+}

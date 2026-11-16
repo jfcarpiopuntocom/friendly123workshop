@@ -1,0 +1,33 @@
+{
+  "name": "friendly-123",
+  "short_name": "friendly",
+  "description": "Manage your business, in color. Inventory, clients, commissions and racks for small business - no servers, your data stays yours.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8F9FB",
+  "theme_color": "#0F1923",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "./icons/f123-color-v577-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/f123-color-v577-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/f123-color-v577-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "/friendly-123/",
+  "scope": "./"
+}

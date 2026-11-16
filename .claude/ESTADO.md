@@ -1,3 +1,7 @@
+> **ACTUALIZACIÓN PRIORITARIA — 16 NOV 2026.** El estado que sigue a continuación es un ARCHIVO HISTÓRICO de septiembre y no refleja el proyecto actual. Nueva autoridad de JFC: **todo el coding de friendly-123 se centraliza en ESTE repositorio `jfcarpiopuntocom/friendly123workshop`**, rama `integrate/browser-injertos-20261116`, app en `apps/friendly-123/`, injertos en `injertos/`, tests en `qa/`, relevo en `docs/coordination/`. **No escribir nuevas mejoras** en `friendly-123` ni `friendly-123-injertos` (lectura histórica). **Hoy browser**, PWA mañana. La base pública copiada es v781 `94a4e047`; v782/v783 con injertos aún no integrados aquí. Leer `AGENTS.md` y `docs/coordination/ESTADO-UNIFICACION-2026-11-16.md`. Evitar datos/credenciales privados porque el repo es público.
+
+---
+
 # ESTADO — memoria de trabajo mutable (patrón SKILL.state)
 
 > **Qué es esto.** Implementación del paper *SKILL.state: Scalable Long-Horizon

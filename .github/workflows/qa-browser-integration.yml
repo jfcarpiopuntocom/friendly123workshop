@@ -1,0 +1,95 @@
+name: Unified Workshop · Browser-first commercial regression (NO PWA / NO DEPLOY)
+on:
+  push:
+    branches: [integrate/browser-injertos-20261116]
+    paths:
+      - "apps/friendly-123/**"
+      - "injertos/**"
+      - "qa/browser/**"
+      - ".github/workflows/qa-browser-integration.yml"
+  # Validate the proposed Codex/Claude merge before accepting it, not afterwards.
+  pull_request:
+    branches: [integrate/browser-injertos-20261116]
+    paths:
+      - "apps/friendly-123/**"
+      - "injertos/**"
+      - "qa/browser/**"
+      - "qa/seguridad/**"
+      - ".github/workflows/qa-browser-integration.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  commercial-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      F123_QA_CLIENT_ROOT: ${{ github.workspace }}/apps/friendly-123
+    steps:
+      - name: Checkout single-source workshop
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify app is in the canonical subfolder
+        run: |
+          test -s apps/friendly-123/docs/index.html
+          test -s apps/friendly-123/docs/mock-backend.js
+          test -s qa/browser/browser-first-commercial.test.cjs
+          node --check apps/friendly-123/docs/mock-backend.js
+          node --check qa/browser/browser-first-commercial.test.cjs
+          node --check qa/browser/adjust-legacy-static-assertion.cjs
+      - name: Install locked dependencies and Chromium/WebKit
+        working-directory: apps/friendly-123
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+      - name: Browser synthetic checkout, offline, credit, commission, reload
+        working-directory: apps/friendly-123
+        run: node --test --test-concurrency=1 --test-timeout=180000 ../../qa/browser/browser-first-commercial.test.cjs
+      - name: Multi-tab stock and sale races
+        working-directory: apps/friendly-123
+        run: node --test --test-concurrency=1 --test-timeout=180000 test/linus-dos-pestanas.test.js
+      - name: Durable sale cancellation, fiado and stock journal
+        working-directory: apps/friendly-123
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-cancelacion-tardia-durable.test.cjs \
+            test/fiado-durable-venta-v519.test.js \
+            test/stock-journal-yjs.test.cjs
+      - name: Financial cents, settlements, commissions and dashboards
+        working-directory: apps/friendly-123
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/dinero-centavos.test.js \
+            test/dinero-paso-dolar.test.js \
+            test/medio-pago-comision.test.js \
+            test/comision-por-producto.test.js \
+            test/p0-v778-comisiones-sin-recorrer.test.cjs \
+            test/p0-v779-resumen-pausa-venta.test.cjs \
+            test/p0-v780-comisiones-pinta-ultima.test.cjs
+      - name: Photos hash, bytes readback, fallback and backup
+        working-directory: apps/friendly-123
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-photo-hash-ack-variant.test.cjs \
+            test/photo-hash-durable-4d.test.cjs \
+            test/p0-h3-photo-legacy-fallback.test.cjs \
+            test/yjs-photo-seed-stable.test.js \
+            test/backup-fotos.test.js \
+            test/p0-v746-photo-independent-budget.test.cjs
+      - name: Roles, PIN, local A/B, IndexedDB atomicity
+        working-directory: apps/friendly-123
+        run: |
+          # Imported v781 has the ORIGINAL two-argument CAS source and its native test.
+          # Do not replace it with the v782/v783 test signature before those injertos exist.
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/advanced-device-roles.test.cjs \
+            test/linus-roles-matriz.test.js \
+            test/p0-idb-closed-handle-reopen-sale.test.cjs \
+            test/p0-sales-atomic-idb-webkit-browser.test.cjs \
+            test/p0-missing-pin-state.test.cjs \
+            test/incident-idb-payout-name-photo-race-4d-v2.test.cjs
+      - name: Never auto-GO or deploy
+        run: |
+          echo "Only workshop source checked. No automatic publication."
+          echo "Browser QA is not a real remote Team issuer or physical A-B-A proof."

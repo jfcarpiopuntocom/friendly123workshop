@@ -1,0 +1,87 @@
+name: Import public friendly-123 source into unified workshop app subfolder
+on:
+  push:
+    branches: [integrate/browser-injertos-20261116]
+    paths: [.github/workflows/import-public-f123-app.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  copy-public-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout canonical workshop branch (no other roots touched)
+        uses: actions/checkout@v4
+        with:
+          ref: integrate/browser-injertos-20261116
+          path: workshop
+          persist-credentials: false
+      - name: Checkout exact PUBLIC friendly-123 baseline
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 94a4e047cdb0b2b14cbab004de599d7e43fef79b
+          path: public-source
+          persist-credentials: false
+      - name: Reproducible import in isolated application subfolder
+        shell: bash
+        working-directory: workshop
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "jfcarpiopuntocom/friendly123workshop"
+          test "$(git rev-parse --abbrev-ref HEAD)" = "integrate/browser-injertos-20261116"
+          test "$(git -C ../public-source rev-parse HEAD)" = "94a4e047cdb0b2b14cbab004de599d7e43fef79b"
+          test ! -e apps/friendly-123
+          mkdir -p apps/friendly-123
+          for folder in docs src test scripts cloudflare-worker cloudflare-sync-relay cloudflare-supabase-relay supabase-relay; do
+            if test -d "../public-source/$folder"; then
+              mkdir -p "apps/friendly-123/$folder"
+              cp -a "../public-source/$folder/." "apps/friendly-123/$folder/"
+            fi
+          done
+          for file in package.json package-lock.json wrangler.jsonc server.js data.js db.js umbrales.js; do
+            if test -f "../public-source/$file"; then
+              cp "../public-source/$file" "apps/friendly-123/$file"
+            fi
+          done
+          test -s apps/friendly-123/docs/index.html
+          test -s apps/friendly-123/docs/mock-backend.js
+          test -s apps/friendly-123/docs/estado-idb.js
+          cmp ../public-source/docs/index.html apps/friendly-123/docs/index.html
+          cmp ../public-source/docs/mock-backend.js apps/friendly-123/docs/mock-backend.js
+          cmp ../public-source/docs/estado-idb.js apps/friendly-123/docs/estado-idb.js
+          node --check apps/friendly-123/docs/mock-backend.js
+          node --check apps/friendly-123/docs/estado-idb.js
+          cat > apps/friendly-123/SOURCE-OF-TRUTH.md <<'EOF'
+          # Unified integration tree (16 Nov 2026)
+          **This directory is the ONLY app coding tree for all collaborators.**
+          Base copied byte-exact from PUBLIC `jfcarpiopuntocom/friendly-123`
+          commit `94a4e047cdb0b2b14cbab004de599d7e43fef79b` (v781).
+          **It is NOT v782 or the complete Codex v783 patch.**
+          Changes MUST be made here by Codex/Claude/Sol via reviewable commits,
+          never in legacy workshop `/docs`, original production repo, or private
+          former QA repo. No production deployment or user data in this branch.
+          Workbox/PWA changes deferred; browser commercial flows prioritized.
+          See `/AGENTS.md` and `/docs/coordination/ESTADO-UNIFICACION-2026-11-16.md`.
+          EOF
+          git add -A -- apps/friendly-123
+          # Exact upstream bytes may contain pre-existing whitespace. Keep them unchanged.
+          # The three core files were byte-compared with cmp above; do not rewrite upstream source.
+          git diff --cached --stat | tail -n 25
+          git diff --cached --stat | tail -n 25
+          git config user.name "friendly-123 unified workshop importer"
+          git config user.email "f123-workshop@users.noreply.github.com"
+          git commit -m "feat(unify): import public v781 full client source into apps/friendly-123 (no deploy)"
+      - name: Push only to this branch, never main or production
+        shell: bash
+        working-directory: workshop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --abbrev-ref HEAD)" = "integrate/browser-injertos-20261116"
+          gh auth setup-git
+          git remote set-url origin "https://github.com/jfcarpiopuntocom/friendly123workshop.git"
+          git push origin HEAD:refs/heads/integrate/browser-injertos-20261116
+          echo "PUBLIC WORKSHOP branch holds PUBLIC source. No production deployment."

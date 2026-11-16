@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Manifesto | Software that respects the people who sell</title>
+
+<!-- WhatsApp / Social Preview -->
+<meta property="og:title" content="Manifesto: the software your business deserves" />
+<meta property="og:description" content="A local-first system, no subscription, works offline, and speaks in clear colors. For people selling from shelves, booths and small stores." />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="og:title" content="Manifesto: the software your business deserves" />
+<meta property="og:description" content="A local-first system, no subscription, works offline, and speaks in clear colors. For people selling from shelves, booths and small stores." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://jfcarpiopuntocom.github.io/AMIGABLE/manifiesto.html" />
+<meta property="og:image" content="https://jfcarpiopuntocom.github.io/AMIGABLE/favicon.png" />
+<meta property="og:image:width" content="256" />
+<meta property="og:image:height" content="256" />
+<meta property="og:locale" content="es_EC" />
+<meta name="twitter:image" content="https://jfcarpiopuntocom.github.io/AMIGABLE/favicon.png" />
+<meta name="color-scheme" content="light only" />
+<meta name="supported-color-schemes" content="light" />
+<meta name="theme-color" content="#FFFFFF" />
+<link rel="canonical" href="https://jfcarpiopuntocom.github.io/AMIGABLE/manifiesto.html" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F1923;
+    --ink-soft:#2C3E50;
+    --muted:#2C3E50;
+    --line:#E2E8ED;
+    --bg:#FFFFFF;
+    --bg-soft:#F8F9FB;
+    --accent:#2E6278;
+    --accent-2:#00C87A;
+    --accent-3:#E86040;
+    --serif:'Space Grotesk', 'Avenir Next Condensed', sans-serif;
+    --sans:'Source Sans 3', 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--ink);color:#fff}
+
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 40px;
+    backdrop-filter:blur(20px) saturate(180%);
+    background:rgba(255,255,255,.75);
+    border-bottom:1px solid rgba(11,18,32,.06);
+  }
+  nav .brand{
+    font-family:var(--serif);
+    font-size:22px;
+    letter-spacing:-.01em;
+    display:flex;align-items:center;gap:10px;
+  }
+  /* LOGO REAL (JFC, 2026-08-13): wordmark de logo.png embebido en base64.
+     NO volver a reemplazarlo por el texto de la marca ni encogerlo. */
+  nav .brand .brand-logo{height:38px;width:auto;flex-shrink:0;display:block;}
+  @media (max-width:640px){nav .brand .brand-logo{height:30px;}}
+  nav .brand .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    box-shadow:0 0 0 4px rgba(11,95,255,.12);
+  }
+  nav .links{display:flex;gap:28px;align-items:center;font-size:14px;font-weight:500}
+  nav .links a{color:var(--ink-soft);text-decoration:none;transition:color .2s}
+  nav .links a:hover{color:var(--ink)}
+  .lang-toggle{
+    display:inline-flex;align-items:center;gap:0;
+    border:1px solid var(--line);border-radius:999px;
+    padding:3px;background:#fff;
+    font-size:13px;font-weight:600;
+  }
+  .lang-toggle a,.lang-toggle span{text-decoration:none;display:inline-flex;align-items:center;}
+  .lang-toggle button,.lang-toggle a,.lang-toggle span{
+    border:0;background:transparent;padding:6px 14px;border-radius:999px;
+    cursor:pointer;color:var(--muted);font-weight:600;
+    transition:all .25s ease;
+  }
+  .lang-toggle span.active,.lang-toggle button.active{background:var(--ink);color:#fff}
+
+  .hero{
+    position:relative;
+    padding:200px 40px 140px;
+    text-align:center;
+    overflow:hidden;
+  }
+  .mesh{
+    position:absolute;inset:-30%;z-index:0;
+    filter:blur(90px);opacity:.6;
+    pointer-events:none;
+  }
+  .mesh span{
+    position:absolute;border-radius:50%;
+    mix-blend-mode:multiply;
+    animation:float 22s ease-in-out infinite;
+  }
+  .mesh .a{width:620px;height:620px;background:#C9D9FF;top:-15%;left:8%;animation-delay:0s}
+  .mesh .b{width:480px;height:480px;background:#B8F1D8;top:25%;right:-8%;animation-delay:-7s}
+  .mesh .c{width:420px;height:420px;background:#FFD9C4;bottom:-15%;left:35%;animation-delay:-14s}
+  @keyframes float{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(70px,-50px) scale(1.1)}
+    66%{transform:translate(-50px,40px) scale(.92)}
+  }
+  .hero-inner{position:relative;z-index:1;max-width:980px;margin:0 auto}
+  .eyebrow{
+    display:inline-block;
+    font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);
+    padding:8px 18px;border:1px solid rgba(11,95,255,.18);border-radius:999px;
+    background:rgba(11,95,255,.05);
+    margin-bottom:32px;
+  }
+  h1{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(48px,7.2vw,98px);
+    line-height:1.02;
+    letter-spacing:-.025em;
+    margin-bottom:32px;
+  }
+  h1 em{font-style:italic;color:var(--accent)}
+  .hero p.lead{
+    font-size:clamp(18px,1.65vw,22px);
+    color:var(--ink-soft);
+    max-width:720px;margin:0 auto 48px;
+    line-height:1.58;
+  }
+  .hero-cta{
+    display:inline-flex;gap:16px;flex-wrap:wrap;justify-content:center;
+  }
+  .btn{
+    display:inline-flex;align-items:center;gap:12px;
+    padding:18px 32px;border-radius:999px;
+    font-size:15px;font-weight:600;
+    text-decoration:none;cursor:pointer;border:0;
+    transition:transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s;
+  }
+  .btn-primary{background:var(--ink);color:#fff;box-shadow:0 12px 35px -12px rgba(11,18,32,.45)}
+  .btn-primary:hover{transform:translateY(-3px);box-shadow:0 20px 45px -15px rgba(11,18,32,.55)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--bg-soft)}
+
+  section{padding:130px 40px;position:relative}
+  .container{max-width:1200px;margin:0 auto}
+  .section-head{max-width:820px;margin:0 auto 80px;text-align:center}
+  h2{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(36px,4.8vw,62px);
+    line-height:1.08;
+    letter-spacing:-.02em;
+    margin-bottom:24px;
+  }
+  h2 em{font-style:italic;color:var(--accent)}
+  .section-head p{font-size:19px;color:var(--ink-soft);line-height:1.65}
+
+  .manifesto{
+    background:var(--bg-soft);
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .manifesto-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:2px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:24px;
+    overflow:hidden;
+  }
+  .manifesto-cell{
+    background:#fff;
+    padding:42px 34px;
+    transition:background .3s;
+  }
+  .manifesto-cell:hover{background:#FAFBFC}
+  .manifesto-cell .icon{
+    font-size:28px;
+    margin-bottom:18px;
+    display:block;
+  }
+  .manifesto-cell h4{
+    font-size:17px;
+    font-weight:700;
+    margin-bottom:12px;
+    letter-spacing:-.01em;
+  }
+  .manifesto-cell p{
+    font-size:15px;
+    color:var(--ink-soft);
+    line-height:1.65;
+  }
+
+  .audiences{display:grid;grid-template-columns:repeat(2,1fr);gap:28px}
+  .aud-card{
+    position:relative;
+    padding:48px 42px;
+    border:1px solid var(--line);
+    border-radius:28px;
+    background:#fff;
+    transition:transform .45s cubic-bezier(.2,.8,.2,1), box-shadow .45s;
+    transform-style:preserve-3d;
+  }
+  .aud-card:hover{
+    transform:translateY(-8px);
+    box-shadow:0 35px 70px -30px rgba(11,18,32,.2);
+  }
+  .aud-icon{
+    width:64px;height:64px;border-radius:18px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:30px;margin-bottom:26px;
+    background:linear-gradient(135deg,#F0F5FF,#E6F7EF);
+    border:1px solid var(--line);
+  }
+  .aud-card h3{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:32px;
+    letter-spacing:-.01em;
+    margin-bottom:12px;
+  }
+  .aud-card .sub{
+    font-size:13px;
+    color:var(--accent);
+    font-weight:700;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    margin-bottom:20px;
+  }
+  .aud-card p{
+    font-size:15.5px;
+    color:var(--ink-soft);
+    line-height:1.7;
+    margin-bottom:22px;
+  }
+  .aud-card ul{list-style:none;padding:0}
+  .aud-card li{
+    font-size:14.5px;
+    color:var(--ink-soft);
+    padding:11px 0 11px 28px;
+    position:relative;
+    border-top:1px dashed var(--line);
+  }
+  .aud-card li:first-child{border-top:0}
+  .aud-card li::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:19px;
+    width:14px;
+    height:2px;
+    background:var(--accent);
+    border-radius:2px;
+  }
+
+  .colors{
+    background:#0B1220;
+    color:#fff;
+    border-radius:32px;
+    margin:0 28px;
+    padding:110px 70px;
+  }
+  .colors h2{color:#fff}
+  .colors h2 em{color:#8FB4FF}
+  .colors .section-head p{color:#CCCCCC}
+  .color-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:24px;
+    margin-top:60px;
+  }
+  .color-card{
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:20px;
+    padding:32px 28px;
+    transition:all .3s ease;
+  }
+  .color-card:hover{
+    background:rgba(255,255,255,.07);
+    transform:translateY(-4px);
+  }
+  .color-dot{
+    width:28px;height:28px;border-radius:999px;
+    margin-bottom:18px;
+    box-shadow:0 0 0 6px rgba(255,255,255,.06);
+  }
+  .color-card h4{font-size:18px;font-weight:700;margin-bottom:8px}
+  .color-card p{font-size:14.5px;color:#CCCCCC;line-height:1.65}
+
+  .features{background:var(--bg)}
+  .feat-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+    gap:48px 42px;
+    margin-top:70px;
+  }
+  .feat{
+    padding-top:32px;
+    border-top:1px solid var(--line);
+  }
+  .feat .tag{
+    display:inline-block;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    padding:4px 11px;
+    border-radius:999px;
+    margin-bottom:14px;
+  }
+  .feat.ventas .tag{background:#FFE9E2;color:#C05000}
+  .feat.inv .tag{background:#E6F9F0;color:#00A35A}
+  .feat.com .tag{background:#FFF0E6;color:#E85D2E}
+  .feat h4{font-size:19px;font-weight:700;margin-bottom:12px;letter-spacing:-.01em}
+  .feat p{font-size:15px;color:var(--ink-soft);line-height:1.7}
+
+  .philosophy{
+    background:linear-gradient(180deg,#F8F9FB 0%,#fff 100%);
+  }
+  .philosophy-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:28px;
+  }
+  .philo-card{
+    padding:42px 36px;
+    border:1px solid var(--line);
+    border-radius:24px;
+    background:#fff;
+  }
+  .philo-card h4{
+    font-size:20px;
+    margin-bottom:14px;
+    font-weight:700;
+  }
+  .philo-card p{
+    color:var(--ink-soft);
+    font-size:15.5px;
+    line-height:1.7;
+  }
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:50px}
+  .stat{
+    text-align:center;
+    padding:42px 24px;
+    border:1px solid var(--line);
+    border-radius:24px;
+    background:#fff;
+  }
+  .stat .big{
+    font-family:var(--serif);
+    font-style:italic;
+    font-size:68px;
+    line-height:1;
+    color:var(--ink);
+    letter-spacing:-.025em;
+  }
+  .stat .big .unit{font-size:34px;color:var(--accent);margin-left:6px}
+  .stat .lbl{font-size:14px;color:var(--muted);margin-top:14px;letter-spacing:.02em}
+
+  .cta{
+    text-align:center;
+    padding:150px 40px;
+    background:
+      radial-gradient(700px circle at 15% 25%, rgba(11,95,255,.07), transparent 55%),
+      radial-gradient(600px circle at 85% 75%, rgba(0,200,122,.07), transparent 55%),
+      #fff;
+  }
+  .cta h2{margin-bottom:26px}
+  .cta p{
+    font-size:19px;
+    color:var(--ink-soft);
+    max-width:680px;
+    margin:0 auto 44px;
+    line-height:1.65;
+  }
+
+  footer{
+    padding:60px 40px;
+    border-top:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:13px;
+    color:var(--muted);
+    flex-wrap:wrap;
+    gap:16px;
+  }
+
+  .reveal{opacity:0;transform:translateY(32px);transition:all .85s cubic-bezier(.2,.8,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  @media (max-width:900px){
+    nav{padding:14px 20px}
+    nav .links{display:none}
+    .hero{padding:160px 20px 100px}
+    section{padding:90px 20px}
+    .audiences{grid-template-columns:1fr}
+    .color-grid,.feat-grid,.stats{grid-template-columns:1fr}
+    .colors{margin:0 12px;padding:80px 28px;border-radius:24px}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="brand"><span class="dot"></span><img class="brand-logo" alt="friendly-123" src="./img/logo-720.png"></div>
+  <div class="links">
+    <a href="#problema">The problem</a>
+    <a href="#filosofia">Beliefs</a>
+    <a href="#colores">The color language</a>
+    <a href="#audiencias">Who it is for</a>
+  </div>
+  <!-- El ES no traduce esta pagina: lleva a amigable-123, que ES el producto en
+       espanol, con su propio precio y su propia licencia. Una sola fuente por
+       idioma, cero copias que sincronizar a mano. -->
+  <div class="lang-toggle" role="group">
+    <a href="https://jfcarpiopuntocom.github.io/AMIGABLE/manifiesto.html">ES</a>
+    <span class="active">EN</span>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="mesh">
+    <span class="a"></span>
+    <span class="b"></span>
+    <span class="c"></span>
+  </div>
+  <div class="hero-inner">
+    <span class="eyebrow reveal" id="hero-eyebrow">A manifesto against software that extracts value from the people who sell</span>
+    
+    <h1 id="hero-title" class="reveal" data-delay="1">
+      My business does not need<br>
+      <em>another subscription forever.</em><br>
+      It needs clarity and control.
+    </h1>
+    
+    <p id="hero-lead" class="lead reveal" data-delay="2">
+      I am tired of depending on an unstable connection. I am tired of paying every month for something I use every day. I am tired of someone else holding my sales and inventory data. I want a system that works offline, that keeps my data on my own device, and that explains itself with clear colors.
+    </p>
+    
+    <div class="hero-cta reveal" data-delay="3">
+      <a class="btn btn-primary" href="#colores">
+        See the color system <span>→</span>
+      </a>
+      <a class="btn btn-ghost" href="#filosofia">Read the manifesto</a>
+    </div>
+  </div>
+</header>
+
+<!-- PROBLEMA -->
+<section id="problema">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal">The real problem</span>
+      <h2 class="reveal" data-delay="1">Modern software is built<br>to <em>extract</em>, not to serve.</h2>
+      <p class="reveal" data-delay="2">
+        Most of the tools small shops use today were built to sell you a subscription, not to solve your actual problems. They require a connection, they track you, they show you ads, and when the internet goes down they simply stop working.
+      </p>
+    </div>
+
+    <div class="manifesto-grid">
+      <div class="manifesto-cell reveal">
+        <span class="icon">💸</span>
+        <h4>You pay every month even for what you never use</h4>
+        <p>Most inventory and point of sale systems put you on a monthly plan even if you use 20% of the features. Stop paying and you lose access to your own information.</p>
+      </div>
+      <div class="manifesto-cell reveal" data-delay="1">
+        <span class="icon">📡</span>
+        <h4>They depend on a stable connection</h4>
+        <p>Storefronts, market stalls and weekend booths lose signal all the time. A system that only works online is a system that leaves you stuck exactly when you need it most.</p>
+      </div>
+      <div class="manifesto-cell reveal" data-delay="2">
+        <span class="icon">👁️</span>
+        <h4>Your data is not really yours</h4>
+        <p>Most software keeps your information on the vendor's cloud. If they shut down, change their pricing or have an outage, you lose years of sales and inventory history.</p>
+      </div>
+      <div class="manifesto-cell reveal" data-delay="3">
+        <span class="icon">🎨</span>
+        <h4>They force you to read cold numbers</h4>
+        <p>Most systems show you tables and charts. Almost none tell you, with a single color, which product is about to put your operation at risk and which one is quietly making you money.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FILOSOFÍA -->
+
+<!-- MISSION AND VISION
+     Single source: MISION-VISION.md in the amigable-123 repo root. The three
+     products share these two statements. If they change there, change them here.
+     They are written to be repeated from memory: they name the problem and the
+     world after the problem, not the product. Do NOT make them longer. -->
+<section id="mision" style="background:#F8F9FB;">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal">Mission and vision</span>
+      <h2 class="reveal" data-delay="1">Why this notebook<br>exists.</h2>
+    </div>
+    <div style="max-width:820px;margin:0 auto;">
+      <div class="reveal" style="border-left:5px solid #E86040;padding:8px 0 8px 26px;margin-bottom:40px;">
+        <p style="font-size:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#E86040;margin:0 0 12px;">Mission</p>
+        <p style="font-family:var(--serif);font-size:28px;line-height:1.35;font-weight:700;color:#0F1923;margin:0 0 16px;">No small business should depend on one person remembering everything.</p>
+        <p style="font-size:18px;line-height:1.65;color:#2C3E50;margin:0;">We take what a business knows out of the owner's head and put it where their people can see it, every day, without asking permission.</p>
+      </div>
+      <div class="reveal" data-delay="1" style="border-left:5px solid #00C87A;padding:8px 0 8px 26px;">
+        <p style="font-size:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#00C87A;margin:0 0 12px;">Vision</p>
+        <p style="font-family:var(--serif);font-size:28px;line-height:1.35;font-weight:700;color:#0F1923;margin:0 0 16px;">A business of your own that does not cost you your own life.</p>
+        <p style="font-size:18px;line-height:1.65;color:#2C3E50;margin:0;">Small shops where the owner locks up at six, goes home, and the business still knows what it knows. Where the team is not waiting for instructions because they are already looking at the same thing. Where the person who started it has the time and the head for something beyond their own inventory.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="filosofia" class="philosophy">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal">What we believe</span>
+      <h2 class="reveal" data-delay="1">What we believe.</h2>
+    </div>
+
+    <div class="philosophy-grid">
+      <!-- 2026-08-13: la tarjeta anterior de datos decia "encryption is real", lo que
+           sugeria que guardamos tu informacion cifrada en algun lado. No la guardamos
+           en ningun lado. NO CLOUD es arquitectura, no promesa. No suavizar esto. -->
+      <div class="philo-card reveal">
+        <h4>Your data is yours, and that gets proven in architecture</h4>
+        <p>No server of ours holds your inventory, your sales, or your customers. Not even encrypted. We do not store them because we do not have them.</p>
+      </div>
+      <div class="philo-card reveal" data-delay="1">
+        <h4>A color reads in one second. A report never does.</h4>
+        <p>Green, gold, orange, red, black. Five colors tell you what today needs without reading a single number. On most days that is the whole interface.</p>
+      </div>
+      <div class="philo-card reveal" data-delay="2">
+        <h4>Sharing what you know with your team is not losing control</h4>
+        <p>It is the only thing that gives it back. An owner who is the only one who knows where everything is does not have control. They have a chain.</p>
+      </div>
+      <div class="philo-card reveal" data-delay="3">
+        <h4>One price, five years, no monthly rent</h4>
+        <p>You pay once and the tool is yours for five years. No charge per user, per location, or for growing.</p>
+      </div>
+      <div class="philo-card reveal" data-delay="4">
+        <h4>It fits on the phone you already own</h4>
+        <p>If it works on a 2016 phone on mobile data with the power out, it works anywhere. That is the floor, not the exception.</p>
+      </div>
+      <div class="philo-card reveal" data-delay="5">
+        <h4>Small deserves serious tools</h4>
+        <p>The corner shop, the bookstore, the clothing store and the weekend booth have spent years with software built for someone else and badly trimmed down. They deserve something designed for them from the start.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COLORES -->
+<section id="colores" class="colors">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal">The color language</span>
+      <h2 class="reveal" data-delay="1">Five colors.<br><em>Immediate clarity.</em></h2>
+      <p class="reveal" data-delay="2">
+        The color system is not decoration. It is a way of thinking. In under three seconds you know the real state of your whole inventory without reading a single figure.
+      </p>
+    </div>
+
+    <div class="color-grid">
+      <div class="color-card reveal">
+        <div class="color-dot" style="background:#E8365D"></div>
+        <h4 style="color:#E8365D">Red, emergency</h4>
+        <p>Critical stock or expired product. Act now. This one cannot wait until Monday.</p>
+      </div>
+      <div class="color-card reveal" data-delay="1">
+        <div class="color-dot" style="background:#F97316"></div>
+        <h4 style="color:#F97316">Orange, check soon</h4>
+        <p>Getting close to the limit. You have a few days, but do not ignore it.</p>
+      </div>
+      <div class="color-card reveal" data-delay="2">
+        <div class="color-dot" style="background:#FFC700"></div>
+        <h4 style="color:#B8860B">Gold, opportunity</h4>
+        <p>Good margin and decent turnover. This product pays you back if you push it a little harder.</p>
+      </div>
+      <div class="color-card reveal" data-delay="3">
+        <div class="color-dot" style="background:#00C87A"></div>
+        <h4 style="color:#00C87A">Green, healthy</h4>
+        <p>All good. Keep selling. This is where most of your inventory should be.</p>
+      </div>
+      <div class="color-card reveal" data-delay="1">
+        <div class="color-dot" style="background:#0A0A0F"></div>
+        <h4 style="color:#fff">Black, sleeping capital</h4>
+        <p>Products that have not sold in a long time. Money stuck on the shelf. You decide: clear it out, promote it, or take the loss.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIENCIAS -->
+<section id="audiencias">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal">Built for the people behind the counter</span>
+      <h2 class="reveal" data-delay="1">How you sell does not matter.<br>Knowing <em>how it is going</em> does.</h2>
+    </div>
+
+    <div class="audiences">
+      <!-- Ferias -->
+      <article class="aud-card reveal" data-tilt>
+        <div class="aud-icon">🎪</div>
+        <div class="sub">FAIRS &middot; MARKETS &middot; EVENTS</div>
+        <h3>The booth that goes up and comes down</h3>
+        <p>My business runs on events that last a few days. I have no time for complicated systems and no stable signal at the venue. I need something that works on bad reception, closes out fast at the end of the day, and does not bill me monthly for something I use a few weekends a year.</p>
+        <ul>
+          <li>Event mode: open and close the shelf with one tap when the fair ends.</li>
+          <li>Full offline selling, with encrypted QR sync afterward.</li>
+          <li>Staff commissions calculated automatically per event.</li>
+          <li>Print-ready labels before each day starts.</li>
+        </ul>
+      </article>
+
+      <!-- Almacenes -->
+      <article class="aud-card reveal" data-delay="1" data-tilt>
+        <div class="aud-icon">🏬</div>
+        <div class="sub">STORES &middot; FIXED LOCATIONS</div>
+        <h3>The shop that cannot afford a mistake</h3>
+        <p>A neighborhood store lives on details. A product that expires without anyone noticing, an item that has not moved in months, a gap in the numbers nobody can explain. You need a system that tells you in plain colors what needs attention today, what is paying you back, and what is freezing your capital.</p>
+        <ul>
+          <li>Five color states, from healthy to sleeping capital.</li>
+          <li>Expiration alerts with exact days left and a rotation suggestion.</li>
+          <li>Automatic detection of sleeping products (45 days without a sale).</li>
+          <li>Accounting reports ready for your bookkeeper, behind their own passcode.</li>
+        </ul>
+      </article>
+
+      <!-- Múltiples perchas -->
+      <article class="aud-card reveal" data-delay="2" data-tilt>
+        <div class="aud-icon">📍</div>
+        <div class="sub">MULTIPLE SHELVES &middot; SEVERAL LOCATIONS</div>
+        <h3>The owner who cannot be everywhere at once</h3>
+        <p>You have one shelf downtown, another at the market, maybe one more at a fair. Each with its own rhythm, its own staff and its own register. Selling is not the problem. Knowing which one is performing, which one owes you money and which one is under target without anyone telling you, that is the problem. You need real visibility without being physically in each place.</p>
+        <ul>
+          <li>Stock transfers between locations, with approval and a full trail.</li>
+          <li>Side by side: sales, margin, target and effective commission per location.</li>
+          <li>Automatic monthly payouts with progressive commission tiers.</li>
+          <li>Encrypted sync across every device you use (register, stockroom, phone).</li>
+        </ul>
+      </article>
+
+      <!-- Emprendedores -->
+      <article class="aud-card reveal" data-delay="3" data-tilt>
+        <div class="aud-icon"></div>
+        <div class="sub">FIRST-TIME OWNERS &middot; STARTING OUT</div>
+        <h3>The one starting out who does not want to repeat the usual mistakes</h3>
+        <p>Starting a business is hard enough. Doing it without knowing whether you are up or down, which product is paying you back, or what your inventory actually looks like is close to impossible. You need something simple that carries you from the first sale to the first real balance, without learning accounting or paying a consultant.</p>
+        <ul>
+          <li>Add products in seconds, with barcodes and labels ready to print.</li>
+          <li>Full exportable backup, plus a local vault with automatic restore points.</li>
+          <li>CSV accounting report with tax breakdown for your bookkeeper.</li>
+          <li>Access recovery by email, plus a master security code.</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section id="impacto">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal">The impact that actually counts</span>
+      <h2 class="reveal" data-delay="1">The numbers that change<br>when you stop guessing.</h2>
+    </div>
+
+    <div class="stats">
+      <div class="stat reveal">
+        <div class="big"><span class="counter" data-target="65">0</span><span class="unit">%</span></div>
+        <div class="lbl">Less time lost on manual counts and reconciliations</div>
+      </div>
+      <div class="stat reveal" data-delay="1">
+        <div class="big"><span class="counter" data-target="3">0</span><span class="unit">×</span></div>
+        <div class="lbl">Faster detection of the products killing your capital</div>
+      </div>
+      <div class="stat reveal" data-delay="2">
+        <div class="big"><span class="counter" data-target="100">0</span><span class="unit">%</span></div>
+        <div class="lbl">Traceability on every unit sold and every dollar in or out</div>
+      </div>
+      <div class="stat reveal" data-delay="3">
+        <div class="big"><span class="counter" data-target="0">0</span></div>
+        <div class="lbl">Dependence on spreadsheets, notebooks or outside consultants to understand your business</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="container">
+    <span class="eyebrow reveal">Start whenever you want</span>
+    <h2 class="reveal" data-delay="1">Your counter deserves a system<br>that <em>does not steal your time or your money.</em></h2>
+    
+    <p class="reveal" data-delay="2">
+      This was not built to sell you a subscription for life. It was built so you have clarity, control and peace of mind, even when the internet goes down, even if you never want a monthly bill, and even if you want your data to stay only yours.
+    </p>
+
+    <div class="hero-cta reveal" data-delay="3">
+      <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/">
+        Try the full demo <span>→</span>
+      </a>
+      <a class="btn btn-ghost" href="https://jfcarpio.com">Talk to the person who built it</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>Something built exactly for this already exists. It is called <strong>friendly-123</strong>.</div>
+  <div>Built with respect for the people behind the counter. &nbsp;<a href="https://jfcarpio.com" style="color:#CCCCCC;">jfcarpio.com</a></div>
+</footer>
+
+<script>
+// Reveal on scroll
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add("in");
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+
+document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+
+// 3D Tilt
+document.querySelectorAll(".aud-card").forEach(card => {
+  card.addEventListener("mousemove", e => {
+    const rect = card.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 8;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -8;
+    card.style.transform = `perspective(1200px) rotateX(${y}deg) rotateY(${x}deg) translateY(-6px)`;
+  });
+  card.addEventListener("mouseleave", () => {
+    card.style.transform = "";
+  });
+});
+
+// Counters
+const counters = document.querySelectorAll(".counter");
+const cio = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const el = entry.target;
+    const target = parseInt(el.dataset.target);
+    const duration = 1600;
+    const start = performance.now();
+    
+    function update(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(target * eased);
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+    cio.unobserve(el);
+  });
+}, { threshold: 0.6 });
+
+counters.forEach(c => cio.observe(c));
+</script>
+
+<script>
+// Version kill-switch (parity with index.html, 2026-07-17): si la version
+// publicada cambio, purga caches y recarga. Evita que leads con este HTML
+// cacheado queden atascados en una version vieja para siempre.
+(async function(){try{
+var r=await fetch("./version.json?ts="+Date.now(),{cache:"no-store"});
+if(!r.ok){try{var eb=JSON.parse(localStorage.getItem("f123_errores")||"[]");eb.push({ts:Date.now(),tipo:"version-check",msg:"version.json "+r.status});if(eb.length>50)eb.splice(0,eb.length-50);localStorage.setItem("f123_errores",JSON.stringify(eb))}catch(_){}return}
+var v=String(((await r.json())||{}).version||"");if(!v)return;
+var K="f123_version_vista",prev=localStorage.getItem(K);
+if(prev===v)return;localStorage.setItem(K,v);
+try{var cs=await caches.keys();for(var c of cs){try{await caches.delete(c)}catch(_){}}}catch(_){}
+location.reload();
+}catch(_){}})();
+</script>
+</body>
+</html>

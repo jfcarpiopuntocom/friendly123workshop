@@ -1,0 +1,102 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { chromium } = require('playwright');
+
+const root = path.resolve(__dirname, '..');
+const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+
+test('Prime Directive 1AAA: photo persistence is append-only/copy-only', () => {
+  const idb = read('docs/idb-fotos.js');
+  const vp = read('docs/vista-perchas.js');
+  const auth = read('docs/auth-ui.js');
+  const sync = read('docs/sync-yjs.js');
+
+  assert.doesNotMatch(idb, /objectStore\(STORE\)\.delete\(id\)/);
+  assert.doesNotMatch(idb, /localStorage\.removeItem\(claveVieja\(id\)\)/);
+  assert.doesNotMatch(idb, /if \(ok\) localStorage\.removeItem\(k\)/);
+  assert.match(idb, /Prime Directive: foto preservada/);
+  assert.match(idb, /async function blindarEvidencia/);
+  assert.match(idb, /async function inventariarEvidencia/);
+
+  assert.doesNotMatch(vp, /OCFotos\.borrarFoto\(perchaGestionId\)/);
+  assert.doesNotMatch(vp, /delete fotoCache\[perchaGestionId\]/);
+  assert.match(vp, /Photo Recovery Vault/);
+  assert.match(vp, /Restore photo/);
+  assert.match(vp, /window\.OCYjs\.get\('ubicaciones'\)/);
+  assert.doesNotMatch(auth, /f123_foto_percha_[\s\S]{0,300}removeItem/,
+    'start-empty must not destroy legacy photo evidence');
+  assert.match(sync, /leerTodosPorHash/,
+    'orphan hash evidence must be eligible for reseeding to the owner\'s photo channel');
+});
+
+test('Photo Recovery Vault never overwrites a current shelf photo until explicit historical restore click', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<!doctype html><html><body><section id="vista-perchas" class="activa"><div id="vp-orden"></div><div id="vp-grid"></div><div id="vp-transfers"></div></section></body></html>');
+    await page.evaluate(() => {
+      window.t = (k) => ({
+        'shelves.noRacksYet':'No shelves yet','shelves.noTarget':'No target','shelves.ofTargetMet':'% target',
+        'shelves.monthlySales':'Monthly sales','shelves.target':'Target','shelves.commission':'Commission',
+        'shelves.promoter':'Promoter','shelves.open':'Open','shelves.transfersHeading':'Transfers',
+        'shelves.addRackBtn':'Add shelf','common.close':'Close','shelves.newRackTitle':'New shelf',
+        'shelves.rackNameLabel':'Name','shelves.rackNamePlaceholder':'Shelf name','shelves.assignHint':'Assign',
+        'shelves.createRackBtn':'Create'
+      }[k] || k);
+      window.OCI18n = { locale: () => 'en-US' };
+      window.OCMoneda = { codigo: () => 'USD' };
+      window.__F123_DIAG_PHOTO_VAULT = true;
+      window.OCAuth = { puedeGestionar: () => true, rolActual: () => 'owner' };
+      window.__byId = {};
+      window.__puts = [];
+      const current = 'data:image/png;base64,Q1VSUkVOVC1QSE9UTw==';
+      window.__shelf = { id:'u1', nombre:'Shelf One', tipo:'propio', activa:true, fotoHash:'current-hash' };
+      const orphan = 'data:image/png;base64,T1JQSEFOLVBIT1RP';
+      window.OCFotos = {
+        migrarSiHaceFalta: async()=>{},
+        blindarEvidencia: async()=>({}),
+        leerTodas: async()=>({...window.__byId}),
+        leerTodosPorHash: async()=>({'orphan-hash': orphan, 'current-hash': current}),
+        leerPorHash: async(h)=>h==='orphan-hash'?orphan:(h==='current-hash'?current:null),
+        guardarFoto: async(id,d)=>{ window.__byId[id]=d; return true; },
+        guardarFotoContenido: async()=>null,
+        guardarPorHash: async()=>true,
+        hashDeDataUrl: async()=>null
+      };
+      window.OCSync = { catalogoPropio: () => ({ ubicaciones:[{...window.__shelf}], productos:[] }) };
+      window.OCYjs = {
+        get: (col) => col === 'ubicaciones' ? ({ u1: { ...window.__shelf } }) : ({}),
+        fotosMap: new Map(),
+        historialFotosPorPercha: async () => ({ u1: ['orphan-hash'] })
+      };
+      window.fetch = async (input, options={}) => {
+        const url=String(input), m=options.method||'GET';
+        if(m==='PUT'){ window.__puts.push({url,body:JSON.parse(options.body||'{}')}); window.__shelf.fotoHash=window.__puts.at(-1).body.fotoHash; return new Response('{}',{status:200}); }
+        let body=[];
+        if(url==='/api/ubicaciones') body=[{...window.__shelf}];
+        else if(url==='/api/liquidaciones'||url==='/api/promotoras'||url==='/api/transferencias'||url==='/api/ventas/todas') body=[];
+        return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
+      };
+    });
+    await page.addScriptTag({ path: path.join(root, 'docs/core/shelf-photo-policy.js') });
+    await page.addScriptTag({ path: path.join(root, 'docs/application/recover-shelf-photo.js') });
+    await page.addScriptTag({ path: path.join(root, 'docs/vista-perchas.js') });
+    await page.evaluate(() => window.VPerchas.cargar());
+    assert.equal(await page.locator('[data-vault-shelf="orphan-hash"]').count(), 1,
+      'the old exact shelf photo remains available only in diagnostic recovery');
+    assert.equal(await page.evaluate(() => window.__puts.length), 0,
+      'exact history must never auto-overwrite a valid current shelf photo');
+
+    await page.selectOption('[data-vault-shelf="orphan-hash"]', 'u1');
+    await page.click('[data-vault-restore="orphan-hash"]');
+    await page.waitForTimeout(100);
+    const out = await page.evaluate(() => ({ puts: window.__puts, saved: window.__byId.u1 || null }));
+    assert.equal(out.puts.length, 1);
+    assert.equal(out.puts[0].body.fotoHash, 'orphan-hash');
+    assert.equal(out.saved, 'data:image/png;base64,T1JQSEFOLVBIT1RP');
+  } finally {
+    await browser.close();
+  }
+});
