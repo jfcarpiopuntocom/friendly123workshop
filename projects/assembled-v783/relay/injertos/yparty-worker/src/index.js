@@ -21,10 +21,42 @@ export class Tienda extends YServer {
   comprobacionEnCurso = null;
 
   secureReady = false;
+  outboundQueue = Promise.resolve();
+  outboundViews = new WeakMap();
+  outboundViewSet = new WeakSet();
+
+  salidaSegura(connection) {
+    if (!secureMode(this.env) || this.outboundViewSet.has(connection)) return connection;
+    if (this.outboundViews.has(connection)) return this.outboundViews.get(connection);
+    const view = new Proxy(connection, {
+      get: (target,key) => {
+        if (key === 'send') return message => {
+          // YServer broadcasts from lifecycle/awareness too. Guard the actual send,
+          // not only inbound edits. Preserve per-room output order across async checks.
+          const payload = typeof message === 'string' ? message : new Uint8Array(message).slice();
+          const next = this.outboundQueue.then(async () => {
+            if (connection.readyState !== 1) return;
+            const access = connection.state?.accesoFirmado;
+            const current = unexpired(access) ? await askAuthority(this.env,'check',access) : null;
+            if (!current || !unexpired(current)) { connection.setState(p=>({...p,accesoFirmado:null})); connection.close(1008,'Acceso no autorizado'); return; }
+            if (connection.readyState !== 1) return;
+            connection.setState(p=>({...p,accesoFirmado:current}));
+            connection.send(payload);
+          });
+          this.outboundQueue = next.catch(() => { if (connection.readyState === 1) connection.close(1008,'Salida no autorizada'); });
+          this.ctx.waitUntil(this.outboundQueue);
+        };
+        const value = Reflect.get(target,key,target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      }
+    });
+    this.outboundViews.set(connection,view); this.outboundViewSet.add(view);
+    return view;
+  }
 
   *getConnections(tag) {
     for (const connection of super.getConnections(tag)) {
-      if (!secureMode(this.env) || (this.secureReady && unexpired(connection.state?.accesoFirmado))) yield connection;
+      if (!secureMode(this.env) || (this.secureReady && unexpired(connection.state?.accesoFirmado))) yield this.salidaSegura(connection);
     }
   }
 
@@ -37,7 +69,7 @@ export class Tienda extends YServer {
       const access = await askAuthority(this.env,'check',ticketRequest(contexto.request,this.name));
       if (!access || conexion.readyState !== 1) { conexion.close(1008,'Acceso no autorizado'); return; }
       conexion.setState(previous => ({...previous,accesoFirmado:access}));
-      super.onConnect(conexion,contexto);
+      super.onConnect(this.salidaSegura(conexion),contexto);
       return;
     }
     conexion.setState(previo => ({ ...previo, accesoPiloto: identidad(contexto.request) }));
@@ -48,7 +80,7 @@ export class Tienda extends YServer {
     if (secureMode(this.env)) {
       if (this.falloPersistencia || !unexpired(conexion.state?.accesoFirmado)) { conexion.close(1008,'Acceso no autorizado'); return; }
       await this.comprobarConexiones();
-      if (!this.falloPersistencia && conexion.readyState === 1 && unexpired(conexion.state?.accesoFirmado)) super.onMessage(conexion,mensaje);
+      if (!this.falloPersistencia && conexion.readyState === 1 && unexpired(conexion.state?.accesoFirmado)) super.onMessage(this.salidaSegura(conexion),mensaje);
       return;
     }
     if (this.falloPersistencia || !conexion.state?.accesoPiloto || conexion.readyState !== 1) {
@@ -110,7 +142,7 @@ export class Tienda extends YServer {
         await this.comprobarConexiones();
         if (conexion.readyState !== 1 || !unexpired(conexion.state?.accesoFirmado)) return;
       }
-      this.sendCustomMessage(conexion, "estado-durable:" + huella);
+      this.sendCustomMessage(this.salidaSegura(conexion), "estado-durable:" + huella);
     } catch (_) { /* Sin confirmación, la caja conserva el respaldo. */ }
   }
 
