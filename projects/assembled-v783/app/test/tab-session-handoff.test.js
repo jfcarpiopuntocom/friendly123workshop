@@ -465,3 +465,97 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
   } finally { await web.close(); }
  });
 }
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 rack DELETE cascade rejects an unconfirmed local save (${name})`,{timeout:60000},async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const ctx=await context(web),{page}=await seed(ctx);
+   await ownerLogin(page,'synthetic rack DELETE durable '+name);
+   const rackName='Synthetic rejected rack deletion '+name;
+   const rack=await api(page,'/api/ubicaciones','POST',{nombre:rackName,tipo:'propio'});
+   const product=await api(page,'/api/productos','POST',{
+     nombre:'Synthetic deletion item '+name,sku:'SYN-DELETE-'+name,barcode:'SYN-DELETE-'+name,
+     precio:19,costo:6,stockInicial:3,ubicacionId:rack.id
+   });
+   const before=await api(page,'/api/respaldo/exportar');
+   const oldRack=before.ubicaciones.find(u=>u.id===rack.id);
+   const oldProduct=before.productos.find(p=>p.id===product.id);
+   assert.ok(oldRack&&!oldRack.borrado&&oldProduct&&!oldProduct.borrado,'synthetic live rack and product required');
+   assert.equal(Object.prototype.hasOwnProperty.call(before.configuracion.gastosMensuales,rack.id),true,
+     'new rack has a durable monthly expense configuration entry');
+   const result=await page.evaluate(async({id,productId})=>{
+     const idb=window.OCEstadoIDB;
+     if(typeof idb?.guardarConRevision!=='function'||typeof window.OCEstadoAB?.crear!=='function')
+       throw Error('real local strict and A/B adapters required');
+     const save=idb.guardar,cas=idb.guardarConRevision,err=idb.ultimoError,
+       write=Storage.prototype.setItem;
+     let idbDenied=0,abDenied=0,announced=0;
+     const onCatalog=()=>announced++;
+     window.addEventListener('oc-catalogo-cambiado',onCatalog);
+     idb.guardar=async()=>{idbDenied++;return false;};
+     idb.guardarConRevision=async()=>{idbDenied++;return false;};
+     idb.ultimoError=()=>new DOMException('Synthetic IDB quota','QuotaExceededError');
+     Storage.prototype.setItem=function(key,value){
+       const k=String(key);
+       if(k.includes('f123_estado_v4')&&/_(?:journal|A|B|ptr)$/.test(k)){
+         abDenied++;throw new DOMException('Synthetic A/B quota','QuotaExceededError');
+       }
+       return write.call(this,key,value);
+     };
+     try{
+       const response=await fetch('/api/ubicaciones/'+id,{method:'DELETE'});
+       const backup=await(await fetch('/api/respaldo/exportar')).json();
+       return {status:response.status,body:await response.json(),idbDenied,abDenied,announced,
+         rack:backup.ubicaciones.find(u=>u.id===id),
+         product:backup.productos.find(p=>p.id===productId),
+         movements:backup.movimientos.length,
+         expensePresent:Object.prototype.hasOwnProperty.call(backup.configuracion.gastosMensuales,id),
+         expenseAmount:backup.configuracion.gastosMensuales[id]};
+     }finally{
+       idb.guardar=save;idb.guardarConRevision=cas;idb.ultimoError=err;
+       Storage.prototype.setItem=write;
+       window.removeEventListener('oc-catalogo-cambiado',onCatalog);
+     }
+   },{id:rack.id,productId:product.id});
+   assert.equal(result.status,507,'quota-lost DELETE must never acknowledge cascade as success');
+   assert.equal(result.body.code,'RACK_DELETE_STORAGE_QUOTA');
+   assert.ok(result.idbDenied>0,'IDB failure injection must execute');
+   assert.ok(result.abDenied>0,'A/B journal failure injection must execute');
+   assert.equal(result.announced,0,'failed tombstones must never publish to Yjs');
+   assert.equal(result.rack.borrado,oldRack.borrado,'failed DELETE restores rack');
+   assert.equal(result.product.borrado,oldProduct.borrado,'failed DELETE restores product');
+   assert.deepEqual(result.rack.rev,oldRack.rev,'rack revision must not advance');
+   assert.deepEqual(result.product.rev,oldProduct.rev,'product revision must not advance');
+   assert.equal(result.movements,before.movimientos.length,'rejected deletion must not append movement');
+   assert.equal(result.expensePresent,true,'rejected deletion preserves the rack monthly expense entry');
+   assert.equal(result.expenseAmount,before.configuracion.gastosMensuales[rack.id],
+     'rejected deletion retains the monthly expense value');
+   const response=await page.evaluate(async id=>{
+     const r=await fetch('/api/ubicaciones/'+id,{method:'DELETE'});
+     return {status:r.status,body:await r.json()};
+   },rack.id);
+   assert.equal(response.status,200,JSON.stringify(response));
+   assert.equal(response.body.productosBorrados,1,'accepted retry must delete precisely one fake product');
+   const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   await cold.waitForFunction(async({id,productId,rackName})=>{
+     const state=await window.OCEstadoIDB?.leer?.();
+     return state?.ubicaciones?.filter(u=>u.id===id&&u.borrado).length===1 &&
+       state?.productos?.filter(p=>p.id===productId&&p.borrado).length===1 &&
+       state?.movimientos?.filter(m=>m.tipo==='ubicacion-borrada'&&m.detalle?.ubicacion===rackName).length===1;
+   },{id:rack.id,productId:product.id,rackName},{timeout:10000,polling:100}).catch(async err=>{
+     const state=await cold.evaluate(async()=>await window.OCEstadoIDB?.leer?.());
+     const markers=state?.movimientos?.filter(m=>m.tipo==='ubicacion-borrada').length;
+     throw Error(String(err)+'; deletion movement count='+String(markers));
+   });
+   const saved=await cold.evaluate(async()=>await window.OCEstadoIDB?.leer?.());
+   assert.equal(saved.ubicaciones.filter(u=>u.id===rack.id&&u.borrado).length,1);
+   assert.equal(saved.productos.filter(p=>p.id===product.id&&p.borrado).length,1);
+   assert.equal(saved.movimientos.filter(m=>m.tipo==='ubicacion-borrada'&&m.detalle?.ubicacion===rackName).length,1,
+     'one durable deletion movement, not a duplicate from the failed attempt');
+   assert.equal(Object.prototype.hasOwnProperty.call(saved.configuracion.gastosMensuales,rack.id),false,
+     'confirmed deletion removes only its own monthly expense entry');
+   assert.equal(saved.ventas.length,before.ventas.length,'unrelated seed sales remain intact');
+  }finally{await web.close();}
+ });
+}
