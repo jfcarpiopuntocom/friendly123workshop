@@ -23,7 +23,7 @@ jobs:
           ref: 94a4e047cdb0b2b14cbab004de599d7e43fef79b
           path: public-source
           persist-credentials: false
-      - name: Read-only provenance: source pinned, no other app changes
+      - name: Read-only provenance - source pinned, no other app changes
         shell: bash
         working-directory: workshop
         run: |
