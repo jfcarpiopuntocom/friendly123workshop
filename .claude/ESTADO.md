@@ -1,3 +1,5 @@
+> Estado vigente · 16 nov 2026: JFC fijó este repositorio como taller común de coding. Leer AGENTS.md → projects/assembled-v783/START-HERE.md → projects/assembled-v783/STATUS.md. Las secciones siguientes son historia de septiembre y NO describen el estado actual ni el destino del trabajo.
+
 # ESTADO — memoria de trabajo mutable (patrón SKILL.state)
 
 > **Qué es esto.** Implementación del paper *SKILL.state: Scalable Long-Horizon

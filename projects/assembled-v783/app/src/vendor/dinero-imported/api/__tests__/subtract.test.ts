@@ -1,0 +1,200 @@
+import { EUR, USD } from '../../currencies';
+import Big from 'big.js';
+import * as fc from 'fast-check';
+import {
+  castToBigintCurrency,
+  castToBigjsCurrency,
+  createNumberDinero,
+  createBigintDinero,
+  createBigjsDinero,
+} from 'test-utils';
+
+import { add, equal, subtract, toSnapshot } from '..';
+
+describe('subtract', () => {
+  describe('number', () => {
+    const dinero = createNumberDinero;
+
+    it('subtracts positive Dinero objects', () => {
+      const d1 = dinero({ amount: 500, currency: USD });
+      const d2 = dinero({ amount: 100, currency: USD });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: 400,
+        currency: USD,
+        scale: 2,
+      });
+    });
+    it('subtracts negative Dinero objects', () => {
+      const d1 = dinero({ amount: -500, currency: USD });
+      const d2 = dinero({ amount: -100, currency: USD });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: -400,
+        currency: USD,
+        scale: 2,
+      });
+    });
+    it('normalizes the result to the highest scale', () => {
+      const d1 = dinero({ amount: 500, currency: USD });
+      const d2 = dinero({ amount: 1000, currency: USD, scale: 3 });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: 4000,
+        currency: USD,
+        scale: 3,
+      });
+    });
+    it('throws when using different currencies', () => {
+      const d1 = dinero({ amount: 500, currency: USD });
+      const d2 = dinero({ amount: 100, currency: EUR });
+
+      expect(() => {
+        // @ts-expect-error different currencies
+        subtract(d1, d2);
+      }).toThrowErrorMatchingInlineSnapshot(
+        `[Error: [Dinero.js] Objects must have the same currency.]`
+      );
+    });
+  });
+  describe('bigint', () => {
+    const dinero = createBigintDinero;
+    const bigintUSD = castToBigintCurrency(USD);
+    const bigintEUR = castToBigintCurrency(EUR);
+
+    it('subtracts positive Dinero objects', () => {
+      const d1 = dinero({ amount: 500n, currency: bigintUSD });
+      const d2 = dinero({ amount: 100n, currency: bigintUSD });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: 400n,
+        currency: bigintUSD,
+        scale: 2n,
+      });
+    });
+    it('subtracts negative Dinero objects', () => {
+      const d1 = dinero({ amount: -500n, currency: bigintUSD });
+      const d2 = dinero({ amount: -100n, currency: bigintUSD });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: -400n,
+        currency: bigintUSD,
+        scale: 2n,
+      });
+    });
+    it('normalizes the result to the highest scale', () => {
+      const d1 = dinero({ amount: 500n, currency: bigintUSD });
+      const d2 = dinero({ amount: 1000n, currency: bigintUSD, scale: 3n });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: 4000n,
+        currency: bigintUSD,
+        scale: 3n,
+      });
+    });
+    it('throws when using different currencies', () => {
+      const d1 = dinero({ amount: 500n, currency: bigintUSD });
+      const d2 = dinero({ amount: 100n, currency: bigintEUR });
+
+      expect(() => {
+        // @ts-expect-error different currencies
+        subtract(d1, d2);
+      }).toThrowErrorMatchingInlineSnapshot(
+        `[Error: [Dinero.js] Objects must have the same currency.]`
+      );
+    });
+  });
+  describe('Big.js', () => {
+    const dinero = createBigjsDinero;
+    const bigjsUSD = castToBigjsCurrency(USD);
+    const bigjsEUR = castToBigjsCurrency(EUR);
+
+    it('subtracts positive Dinero objects', () => {
+      const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+      const d2 = dinero({ amount: new Big(100), currency: bigjsUSD });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: new Big(400),
+        currency: bigjsUSD,
+        scale: new Big(2),
+      });
+    });
+    it('subtracts negative Dinero objects', () => {
+      const d1 = dinero({ amount: new Big(-500), currency: bigjsUSD });
+      const d2 = dinero({ amount: new Big(-100), currency: bigjsUSD });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: new Big(-400),
+        currency: bigjsUSD,
+        scale: new Big(2),
+      });
+    });
+    it('normalizes the result to the highest scale', () => {
+      const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+      const d2 = dinero({
+        amount: new Big(1000),
+        currency: bigjsUSD,
+        scale: new Big(3),
+      });
+
+      const snapshot = toSnapshot(subtract(d1, d2));
+
+      expect(snapshot).toEqual({
+        amount: new Big(4000),
+        currency: bigjsUSD,
+        scale: new Big(3),
+      });
+    });
+    it('throws when using different currencies', () => {
+      const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+      const d2 = dinero({ amount: new Big(100), currency: bigjsEUR });
+
+      expect(() => {
+        // @ts-expect-error different currencies
+        subtract(d1, d2);
+      }).toThrowErrorMatchingInlineSnapshot(
+        `[Error: [Dinero.js] Objects must have the same currency.]`
+      );
+    });
+  });
+  describe('properties', () => {
+    const dinero = createNumberDinero;
+    const safeAmount = fc.integer({ min: -100000, max: 100000 });
+
+    it('self-subtraction yields zero: subtract(a, a) has amount 0', () => {
+      fc.assert(
+        fc.property(safeAmount, (a) => {
+          const d = dinero({ amount: a, currency: USD });
+
+          expect(toSnapshot(subtract(d, d)).amount).toBe(0);
+        })
+      );
+    });
+    it('is the inverse of add: add(subtract(a, b), b) equals a', () => {
+      fc.assert(
+        fc.property(safeAmount, safeAmount, (a, b) => {
+          const d1 = dinero({ amount: a, currency: USD });
+          const d2 = dinero({ amount: b, currency: USD });
+
+          expect(equal(add(subtract(d1, d2), d2), d1)).toBe(true);
+        })
+      );
+    });
+  });
+});

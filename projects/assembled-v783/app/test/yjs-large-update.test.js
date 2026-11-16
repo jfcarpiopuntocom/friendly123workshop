@@ -1,0 +1,63 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+
+async function waitFor(check, description, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() >= deadline) assert.fail(description + ' (deadline exceeded)');
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+}
+
+test('large Yjs updates are bounded before send and reassembled exactly once', async () => {
+  const source = fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8');
+  const block = source.slice(source.indexOf('  function _frame('), source.indexOf('  // Carga perezosa'));
+  const sockets = [];
+  class Socket {
+    constructor() { this.readyState = 1; this.sent = []; sockets.push(this); }
+    send(bytes) { this.sent.push(bytes); }
+  }
+  const applied = [];
+  const c = {
+    API: { clave: 'fixture', roomId: 'fixture' }, RELAY_URL: 'fixture:', crypto: require('node:crypto').webcrypto, WebSocket: class { constructor() { throw Error('Raw relay fallback forbidden'); } },
+    window: { F123Relay: { connect: () => new Socket() } },
+    document: { hidden:false, addEventListener(){} },
+    Y: { applyUpdate(_doc, bytes) { applied.push(Array.from(bytes)); } },
+    log() {}, setTimeout() {}, clearTimeout() {}, Date, Math, JSON, Uint8Array, ArrayBuffer, TextEncoder,
+    btoa: s => Buffer.from(s, 'binary').toString('base64'),
+    cifrarBin: async (_key, bytes) => bytes.slice().buffer,
+    descifrarBin: async (_key, bytes) => new Uint8Array(bytes),
+  };
+  vm.createContext(c);
+  vm.runInContext(block + '\nthis.makeChannel = crearCanal;', c);
+  const db={objectStoreNames:{contains:k=>k==='updates'},
+    transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
+  const persistence = {whenSynced:Promise.resolve(),db,get:async()=>null,set:async()=>{}};
+  const sender = c.makeChannel(c.Y, {}, '-y', 'test', false, null, persistence);
+  const receiver = c.makeChannel(c.Y, {}, '-y', 'test', false, null, persistence);
+  sender.conectar(); receiver.conectar();
+  const original = new Uint8Array(400 * 1024);
+  for (let i = 0; i < original.length; i++) original[i] = i % 251;
+  sender.enviarUpdate(original);
+  const sent = sockets[0].sent;
+  await waitFor(() => sent.length === 6, `expected 6 durable/live frames; got ${sent.length}`);
+  assert.equal(sent.length, 6, 'three binary chunks and three persisted ops');
+  for (const frame of sent) assert.ok((typeof frame === 'string' ? frame.length : frame.byteLength) < 256 * 1024);
+  for (const frame of sent.filter(x => x instanceof ArrayBuffer).reverse()) sockets[1].onmessage({ data: frame });
+  await waitFor(() => applied.length === 1, `expected first complete Yjs update; got ${applied.length}`);
+  assert.equal(applied.length, 1);
+  assert.deepEqual(applied[0], Array.from(original));
+  const lateReceiver = c.makeChannel(c.Y, {}, '-y', 'late', false, null, persistence);
+  lateReceiver.conectar();
+  for (const op of sent.filter(x => typeof x === 'string').reverse()) {
+    const bytes = Buffer.from(JSON.parse(op).c, 'base64');
+    const copy = Uint8Array.from(bytes);
+    sockets[2].onmessage({ data: copy.buffer });
+  }
+  await waitFor(() => applied.length === 2, `expected late replay update; got ${applied.length}`);
+  assert.equal(applied.length, 2, 'offline pull can rebuild from persisted chunks');
+  assert.deepEqual(applied[1], Array.from(original));
+});

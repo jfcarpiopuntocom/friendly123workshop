@@ -1,0 +1,77 @@
+'use strict';
+// v665: a pull page that the tie trim shortens must still say more=true, or the reader stops with ops unread.
+const { test } = require('node:test'), assert = require('node:assert/strict');
+const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+const SRC = fs.readFileSync(path.join(__dirname, '../docs/firebase-relay.js'), 'utf8');
+test('v665: tie trim on a full page keeps more=true', async () => {
+  const stamps = [1, 2, 3, 3, 4, 5], ops = {};
+  stamps.forEach((s, i) => { ops['op' + i] = { s, c: Buffer.from('x' + i).toString('base64'), lam: 0 }; });
+  const fetchFn = async (url) => {
+    const u = new URL(url);
+    let body = null;
+    if (/\/k\.json/.test(u.pathname)) body = null;
+    else if (/\/o\.json/.test(u.pathname)) {
+      const start = Number(u.searchParams.get('startAt') || 0), lim = Number(u.searchParams.get('limitToFirst') || 1e9);
+      const rows = Object.entries(ops).filter(([, v]) => v.s >= start).sort((a, b) => a[1].s - b[1].s).slice(0, lim);
+      body = Object.fromEntries(rows);
+    }
+    const t = JSON.stringify(body);
+    return { ok: true, status: 200, text: async () => t, headers: { get: () => null } };
+  };
+  const w = { TextEncoder, JSON, Promise, Number, String, Object, Math, EventTarget, Event, MessageEvent, DOMException, URLSearchParams, setTimeout, clearTimeout, btoa, atob, Blob, Uint8Array, ArrayBuffer };
+  w.window = w; vm.runInNewContext(SRC, w);
+  const R = w.F123FirebaseRelay.create({ fetch: fetchFn, EventSource: null });
+  const ws = R.connect('wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + 'a'.repeat(40) + '-fotos');
+  const pages = [];
+  ws.addEventListener('message', (e) => { if (typeof e.data === 'string') { const m = JSON.parse(e.data); if (m.k === 'pull-page') pages.push(m); } });
+  await new Promise(r => setTimeout(r, 30));
+  ws.send(JSON.stringify({ k: 'pull', v: 2, rev: 0, seq: 0, limit: 4 }));
+  await new Promise(r => setTimeout(r, 60));
+  assert.equal(pages.length, 1);
+  assert.equal(pages[0].n, 2, 'ops with s=3 are held for the next page');
+  assert.equal(pages[0].more, true);
+  assert.equal(pages[0].seq, 2);
+});
+
+// v734: tanda de 48 operaciones; si una respuesta supera el tope de bytes, esa conexion vuelve a 12 y reintenta una vez.
+function relayConFetch(fetchFn) {
+  const w = { TextEncoder, JSON, Promise, Number, String, Object, Math, EventTarget, Event, MessageEvent, DOMException, URLSearchParams, setTimeout, clearTimeout, btoa, atob, Blob, Uint8Array, ArrayBuffer, Date, console };
+  w.window = w; vm.runInNewContext(SRC, w);
+  return w.F123FirebaseRelay.create({ fetch: fetchFn, EventSource: null });
+}
+test('v734: la primera tanda pide 48 operaciones aunque la app pida 64', async () => {
+  const limites = [];
+  const fetchFn = async (url) => {
+    const u = new URL(url); let body = null;
+    if (/\/o\.json/.test(u.pathname)) { limites.push(Number(u.searchParams.get('limitToFirst'))); body = {}; }
+    const t = JSON.stringify(body); return { ok: true, status: 200, text: async () => t, headers: { get: () => null } };
+  };
+  const R = relayConFetch(fetchFn);
+  const ws = R.connect('wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + 'a'.repeat(40) + '-y');
+  await new Promise(r => setTimeout(r, 30));
+  ws.send(JSON.stringify({ k: 'pull', v: 2, rev: 0, seq: 0, limit: 64 }));
+  await new Promise(r => setTimeout(r, 60));
+  assert.equal(limites[0], 192); // v751: catalogo y operaciones piden 192 (antes 48)
+});
+test('v734: una tanda que pasa del tope de bytes vuelve a 12 y no cierra la conexion', async () => {
+  const limites = []; let cerrado = false;
+  const fetchFn = async (url) => {
+    const u = new URL(url); let t = 'null';
+    if (/\/o\.json/.test(u.pathname)) {
+      const lim = Number(u.searchParams.get('limitToFirst')); limites.push(lim);
+      t = lim > 12 ? '{"x":"' + 'a'.repeat(5 * 1024 * 1024) + '"}' : '{}';
+    }
+    return { ok: true, status: 200, text: async () => t, headers: { get: () => null } };
+  };
+  const R = relayConFetch(fetchFn);
+  const ws = R.connect('wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + 'a'.repeat(40) + '-y');
+  ws.addEventListener('close', () => { cerrado = true; });
+  const paginas = [];
+  ws.addEventListener('message', (e) => { if (typeof e.data === 'string') { const m = JSON.parse(e.data); if (m.k === 'pull-page') paginas.push(m); } });
+  await new Promise(r => setTimeout(r, 30));
+  ws.send(JSON.stringify({ k: 'pull', v: 2, rev: 0, seq: 0, limit: 64 }));
+  await new Promise(r => setTimeout(r, 120));
+  assert.deepEqual(limites.slice(0, 2), [192, 12], 'primero 192 (v751; antes 48), luego 12 tras pasar del tope');
+  assert.equal(paginas.length, 1, 'la pagina llega con la tanda de 12');
+  assert.equal(cerrado, false, 'no se cierra la conexion');
+});

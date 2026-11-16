@@ -1,0 +1,16 @@
+import type { DineroBinaryOperation } from '../../../core';
+
+/**
+ * Returns the product of two bigints.
+ *
+ * @param multiplicand - The bigint to multiply.
+ * @param multiplier - The bigint to multiply with.
+ *
+ * @returns The product of the two bigints.
+ */
+export const multiply: DineroBinaryOperation<bigint> = (
+  multiplicand,
+  multiplier
+) => {
+  return multiplicand * multiplier;
+};

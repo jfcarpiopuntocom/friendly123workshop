@@ -1,0 +1,20 @@
+✔ verified Owner receives a short room-bound credential with no echoed PIN (18.987798ms)
+✔ copied browser verification and arbitrary principal cannot mint credentials (2.008798ms)
+✔ cross-license room and invalid TTL are rejected without an issued nonce (2.821678ms)
+✔ a room ticket is single use even under concurrent consumers and factory restart (5.664147ms)
+✔ wrong key, altered payload, wrong room/instance/scope never consume the nonce (2.852174ms)
+✔ expiry and clock rollback reject issued and already consumed credentials (5.783205ms)
+✔ Owner PIN revision change revokes existing tickets and sessions (4.388836ms)
+✔ registered instance revocation is checked at consume and subsequent delivery checks (1.799493ms)
+✔ real Team credentials preserve admin/employee identity and need explicit trusted QA grants (7.299894ms)
+✔ Team revision and inactive member invalidate consumed sessions without deleting local business data (2.671727ms)
+✔ contador/artista/demo cannot inherit broad commercial rooms even from overbroad grants (3.740177ms)
+✔ separate WS secret is required and storage failure fails closed (1.032721ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.410053

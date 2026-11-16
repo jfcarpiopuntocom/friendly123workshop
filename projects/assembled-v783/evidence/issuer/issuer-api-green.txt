@@ -1,0 +1,29 @@
+✔ HTTP API checks real Owner authority and preserves roles without returning PIN digests (74.81573ms)
+✔ disabled or non-pilot authority cannot mutate a customer record (3.032845ms)
+✔ missing or reused secret fails closed and stale revision is HTTP conflict (3.918885ms)
+✔ oversized streaming request is cancelled before consuming the full body (4.355792ms)
+✔ failed request body produces a closed rejection rather than an unhandled exception (1.241104ms)
+✔ verified Owner receives a short room-bound credential with no echoed PIN (14.540947ms)
+✔ copied browser verification and arbitrary principal cannot mint credentials (1.557398ms)
+✔ cross-license room and invalid TTL are rejected without an issued nonce (2.168326ms)
+✔ a room ticket is single use even under concurrent consumers and factory restart (4.278525ms)
+✔ wrong key, altered payload, wrong room/instance/scope never consume the nonce (3.111197ms)
+✔ expiry and clock rollback reject issued and already consumed credentials (5.581412ms)
+✔ Owner PIN revision change revokes existing tickets and sessions (4.751766ms)
+✔ registered instance revocation is checked at consume and subsequent delivery checks (2.242508ms)
+✔ real Team credentials preserve admin/employee identity and need explicit trusted QA grants (7.964341ms)
+✔ Team revision and inactive member invalidate consumed sessions without deleting local business data (3.064522ms)
+✔ contador/artista/demo cannot inherit broad commercial rooms even from overbroad grants (4.253848ms)
+✔ separate WS secret is required and storage failure fails closed (1.128865ms)
+✔ actual API issues from real authority and only trusted service consumes/checks (57.594291ms)
+✔ disabled, wrong pilot, missing or reused secrets never call the authority (3.337552ms)
+✔ browser principal and role are not accepted in place of a real Owner PIN (1.786322ms)
+✔ invalid policy and request streams fail closed without forwarding (1.732122ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 401.790113

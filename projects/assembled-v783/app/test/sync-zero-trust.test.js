@@ -1,0 +1,354 @@
+// sync-zero-trust.test.js — Blindaje del Hybrid Proxy Tunnel Sync Engine.
+// Se corre con: npm test  (node --test).
+//
+// ALCANCE REAL DE ESTA SUITE (aviso agregado JFC 2026-09-22, no cambia ninguna
+// prueba): parte de las aserciones de abajo verifican el CIFRADO de verdad
+// (derivan la clave y descifran), pero otras solo comprueban que ciertos
+// simbolos EXISTEN en el codigo fuente. Esas ultimas no prueban que la funcion
+// llegue a ejecutarse ni que el dato termine bien guardado. No tratar un verde
+// de esta suite como evidencia de convergencia extremo a extremo.
+// Para comportamiento real de sync usar, en este mismo repo:
+//   test/yjs-bridge.test.js     — puente Yjs con el bundle real
+//   test/sync-behavior.test.js  — convergencia entre dos backends aislados
+//   test/sync-hardening.test.js — regresiones de rev/verbo HTTP (v332-v333)
+//
+// Garantiza lo que el relay NO debe poder hacer y lo que el cifrado SI debe
+// garantizar, replicando la MISMA derivacion que docs/sync-realtime.js:
+//   - Una sala equivocada NO descifra (aislamiento real).
+//   - El id de sala depende del codigo (mismo codigo = misma sala).
+//   - El relay no lee ni interpreta los cuerpos (bytes cifrados).
+//   - Nadie pisa indexedDB.open / indexedDB.put (regla dura del spec).
+//   - El stock viaja como operaciones con dedup, no como "ultima escritura".
+
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
+
+const RAIZ = path.join(__dirname, '..');
+const SYNC = fs.readFileSync(path.join(RAIZ, 'docs', 'sync-realtime.js'), 'utf8');
+const YJS = fs.readFileSync(path.join(RAIZ, 'docs', 'sync-yjs.js'), 'utf8');
+const RELAY = fs.readFileSync(path.join(RAIZ, 'cloudflare-sync-relay', 'worker.js'), 'utf8');
+const MOCK = fs.readFileSync(path.join(RAIZ, 'docs', 'mock-backend.js'), 'utf8');
+
+// --- Replica EXACTA de la cripto de sync-realtime.js (no un juguete) ---
+const SALT_FIJO = 'amigable-sync-v1';
+const subtle = globalThis.crypto.subtle;
+async function derivarClave(codigo) {
+  const enc = new TextEncoder();
+  const base = await subtle.importKey('raw', enc.encode(codigo), 'PBKDF2', false, ['deriveKey']);
+  return subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode(SALT_FIJO), iterations: 100000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
+async function idDeSala(codigo) {
+  const enc = new TextEncoder();
+  const hash = await subtle.digest('SHA-256', enc.encode('amigable-sala:' + codigo));
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
+}
+async function cifrar(clave, objeto) {
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const datos = new TextEncoder().encode(JSON.stringify(objeto));
+  const cif = await subtle.encrypt({ name: 'AES-GCM', iv }, clave, datos);
+  const paquete = new Uint8Array(iv.length + cif.byteLength);
+  paquete.set(iv, 0); paquete.set(new Uint8Array(cif), iv.length);
+  return paquete.buffer;
+}
+async function descifrar(clave, buffer) {
+  const bytes = new Uint8Array(buffer);
+  const iv = bytes.slice(0, 12), cif = bytes.slice(12);
+  const claro = await subtle.decrypt({ name: 'AES-GCM', iv }, clave, cif);
+  return JSON.parse(new TextDecoder().decode(claro));
+}
+
+test('una sala equivocada NO descifra; la propia si', async () => {
+  const claveA = await derivarClave('F123-AAAA-AAAA-AAAA-AAAAA');
+  const claveB = await derivarClave('F123-BBBB-BBBB-BBBB-BBBBB');
+  const paquete = await cifrar(claveA, { tipo: 'venta', delta: -1, opId: 'x1' });
+
+  // La sala correcta lee el contenido tal cual.
+  const claro = await descifrar(claveA, paquete);
+  assert.equal(claro.opId, 'x1');
+  assert.equal(claro.delta, -1);
+
+  // Otra sala (otra licencia) NO puede: AES-GCM falla la autenticacion.
+  await assert.rejects(descifrar(claveB, paquete));
+});
+
+test('el id de sala depende del codigo (mismo codigo = misma sala)', async () => {
+  const a1 = await idDeSala('F123-AAAA-AAAA-AAAA-AAAAA');
+  const a2 = await idDeSala('F123-AAAA-AAAA-AAAA-AAAAA');
+  const b1 = await idDeSala('F123-BBBB-BBBB-BBBB-BBBBB');
+  assert.equal(a1, a2, 'mismo codigo debe dar misma sala');
+  assert.notEqual(a1, b1, 'codigos distintos deben caer en salas distintas');
+  assert.match(a1, /^[0-9a-f]{40}$/);
+});
+
+test('el relay es zero-knowledge: guarda/mueve sobres pero NUNCA descifra', () => {
+  // El relay puede parsear el SOBRE de metadatos (k/id/lam/c opaco) para saber
+  // que hacer, pero NUNCA descifra ni lee el contenido de negocio.
+  // Ed25519 verifies the operator's export signature; SHA-256 identifies an
+  // unchanged ciphertext checkpoint. Neither API opens a business envelope.
+  // Ban data-opening/key-derivation APIs, rather than the entire Web Crypto
+  // namespace, and retain opaque-byte preservation in relay-export.test.js.
+  assert.ok(!/decrypt|descifrar/i.test(RELAY), 'el relay no debe descifrar nada');
+  assert.doesNotMatch(RELAY, /subtle\s*\.\s*(encrypt|deriveKey|deriveBits)\s*\(/i);
+  assert.doesNotMatch(RELAY, /AES-GCM|PBKDF2|licen[cs]eCode|SALT_FIJO/);
+  // El ciphertext `c` se guarda/reenvia tal cual (opaco): nunca se interpreta.
+  assert.match(RELAY, /INSERT OR IGNORE INTO ops/); // se guarda cifrado
+  assert.match(RELAY, /b64aBuf/);                    // se reenvia como bytes, sin abrir
+  // Reenvia al RESTO de la sala, nunca al propio emisor (no eco).
+  assert.ok(/s\s*===\s*servidor/.test(RELAY) && /continue/.test(RELAY), 'debe excluir al emisor');
+  // Tiene topes de clientes, de tamano de frame y de operaciones por sala.
+  assert.match(RELAY, /MAX_CLIENTES_SALA/);
+  assert.match(RELAY, /MAX_FRAME_BYTES/);
+  assert.match(RELAY, /MAX_OPS_SALA/);
+  assert.match(RELAY, /CREATE INDEX IF NOT EXISTS ops_lam ON ops\(lam\)/);
+  assert.match(RELAY, /CREATE INDEX IF NOT EXISTS ops_lam_id ON ops\(lam, id\)/);
+  assert.doesNotMatch(RELAY, /SELECT COUNT\(\*\) AS n FROM ops/);
+  assert.doesNotMatch(RELAY, /DELETE FROM ops WHERE id IN/,
+    'capacity cannot discard encrypted history without a covering checkpoint');
+  assert.match(RELAY, /Number\(capacity\[0\]\.span\) >= MAX_OPS_SALA/);
+  assert.doesNotMatch(RELAY, /_opsDesdePoda/);
+  // Sin KV de negocio: solo SQLite del Durable Object para los sobres cifrados.
+  assert.ok(!/env\.\w*KV/i.test(RELAY), 'el relay no debe usar KV de negocio');
+});
+
+test('nadie pisa indexedDB.open ni indexedDB.put (regla dura del spec)', () => {
+  const prohibido = [/indexedDB\.open\s*=/, /indexedDB\.put\s*=/, /IDBObjectStore\.prototype\.put\s*=/, /IDBFactory\.prototype\.open\s*=/];
+  for (const re of prohibido) {
+    assert.ok(!re.test(SYNC), 'sync-realtime.js no debe reasignar ' + re);
+    assert.ok(!re.test(RELAY), 'el relay no debe reasignar ' + re);
+  }
+});
+
+test('el stock viaja como operaciones con dedup, no como ultima escritura', () => {
+  // El cliente reenvia OPS con opId, y el backend deduplica por opId.
+  assert.match(SYNC, /opId/);
+  assert.match(MOCK, /_opsAplicadas/);
+  // Existe el aplicador de op remota (delta de stock), no un "set stock = N".
+  assert.match(MOCK, /aplicarOpRemota/);
+});
+
+// --- Red de seguridad "JAMAS quedemos mal": local-first + cola + catch-up ---
+// (JFC 2026-08-25). Estos tests son guardarrailes: si alguien quita la cola o
+// el catch-up, la garantia de "nunca se pierde una venta" se rompe en silencio.
+
+test('una venta sin conexion se encola y nunca se pierde', () => {
+  // Sin WebSocket abierto, la op se encola.
+  const emitter = SYNC.slice(SYNC.indexOf('window.OCSyncEmit = function'), SYNC.indexOf('function encolar(op)'));
+  const queued = emitter.indexOf('const encolada = encolar(op)');
+  // Legacy-room path still queues before broadcasting. Plan C roomless path
+  // uses the already-persistent Yjs opsDoc, not the capped legacy queue.
+  const legacy = emitter.slice(emitter.indexOf('if (!sala.codigo'), emitter.length);
+  assert.ok(queued >= 0 && legacy.indexOf('const encolada = encolar(op)') < legacy.indexOf('oc-op-local'),
+    'legacy durable queue precedes Yjs event');
+  // Roomless Plan C now journals locally BEFORE attempting Yjs publication;
+  // it must not depend on Yjs being active at the time of the sale.
+  assert.match(emitter, /const pendientes = leerPendientesYjs\(licencia\)/,
+    'roomless Plan C loads its per-license durable journal');
+  assert.match(emitter, /if \(!guardarPendientesYjs\(licencia, pendientes\)\) return false;/,
+    'roomless Plan C refuses ACK if its journal cannot persist');
+  assert.match(SYNC, /yjs\.codigoCuaderno !== licencia/,
+    'roomless replay cannot publish to a different business');
+  assert.match(emitter, /if \(!encolada\) return false;/);
+  // Y si cifrar() falla con el socket abierto, tambien cae a la cola (no se pierde).
+  assert.match(SYNC, /\.catch\(\(\)\s*=>\s*encolar\(op\)\)/);
+});
+
+test('al reconectar se vacia la cola y se pide lo que falto (catch-up)', () => {
+  // onopen dispara el vaciado de la cola y el catch-up.
+  assert.match(SYNC, /ws\.onopen\s*=/);
+  assert.match(SYNC, /vaciarCola\(\)/);
+  assert.match(SYNC, /pedirCatchup\(\)/);
+  // El que responde el catch-up manda cada op como una Op normal (mismo dedup).
+  assert.match(SYNC, /function responderCatchup/);
+});
+
+test('la reconexion usa backoff con tope (no martillea al relay)', () => {
+  assert.match(SYNC, /Math\.min\(reintentoMs \* 2, 30000\)/);
+});
+
+test('idempotencia: aplicar la misma op dos veces = una sola (contrato de dedup)', () => {
+  // Modelo del contrato que hace seguras la cola, el catch-up y cualquier
+  // transporte redundante: se deduplica por opId. Replica la idea de
+  // _opsAplicadas en mock-backend.js.
+  const vistos = new Set();
+  let stock = 5;
+  const aplicar = (op) => { if (vistos.has(op.opId)) return; vistos.add(op.opId); stock += op.delta; };
+  const venta = { opId: 'v1', delta: -1 };
+  aplicar(venta); aplicar(venta); // llega dos veces (WS + catch-up)
+  assert.equal(stock, 4, 'una op repetida no debe descontar dos veces');
+  aplicar({ opId: 'v2', delta: -1 }); // otra venta distinta
+  assert.equal(stock, 3, 'dos ventas distintas si descuentan las dos');
+});
+
+// --- Bitacora cifrada en el relay (checkpoint + oplog), JFC 2026-08-25 ---
+
+test('el sobre de la bitacora (base64) va y vuelve, y solo la sala correcta lo abre', async () => {
+  // Replica: el cliente cifra -> base64 (ab2b64) -> el relay guarda `c` -> al
+  // hacer pull lo decodifica a bytes y lo reenvia -> el cliente lo descifra.
+  const ab2b64 = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return Buffer.from(s, 'binary').toString('base64'); };
+  const b64ab = (b64) => { const bin = Buffer.from(b64, 'base64'); return bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength); };
+  const claveA = await derivarClave('F123-CCCC-CCCC-CCCC-CCCCC');
+  const claveB = await derivarClave('F123-DDDD-DDDD-DDDD-DDDDD');
+  const buf = await cifrar(claveA, { tipo: '__checkpoint__', payload: { productos: [{ id: 'p1', stockActual: 7 }] } });
+  const c = ab2b64(buf);                 // lo que guarda el relay (opaco)
+  const reconstruido = b64ab(c);         // lo que reenvia el relay al hacer pull
+  const claro = await descifrar(claveA, reconstruido);
+  assert.equal(claro.tipo, '__checkpoint__');
+  assert.equal(claro.payload.productos[0].stockActual, 7);
+  await assert.rejects(descifrar(claveB, reconstruido)); // otra sala no lo abre
+});
+
+test('el cliente persiste ops, sube checkpoint y jala del relay al conectar', () => {
+  assert.match(SYNC, /k:\s*"op"/);     // cada op tambien va a la bitacora
+  assert.match(SYNC, /k:\s*"ckpt"/);   // sube checkpoints
+  assert.match(SYNC, /k:\s*"pull"/);   // pide lo que le falta al conectar
+  assert.match(SYNC, /subirCheckpoint\(true\)/);
+  assert.match(SYNC, /pullDelRelay\(\)/);
+});
+
+test('el catch-up Yjs pagina y reanuda: una reconexion no relee miles de filas', () => {
+  assert.match(RELAY, /k:\s*"pull-page"/);
+  assert.match(RELAY, /WHERE rowid > \? ORDER BY rowid ASC LIMIT \?/);
+  assert.match(RELAY, /SELECT rowid AS seq, c FROM ops/);
+  assert.match(YJS, /f123_yjs_pull_cursor_/);
+  assert.match(YJS, /persistencia\.get\(_pullCursorKey\)/);
+  const proofStart = YJS.indexOf('    function guardarPruebaCausal(cursor, pendientes) {');
+  const proofEnd = YJS.indexOf('    function cursorValido(', proofStart);
+  assert.ok(proofStart >= 0 && proofEnd > proofStart, 'causal cursor proof helper exists');
+  const proof = YJS.slice(proofStart, proofEnd);
+  const barrier = proof.indexOf('return barreraYjsConfirmada().then(');
+  const write = proof.indexOf('return persistencia.set(_pullCursorKey, prueba);');
+  const readback = proof.indexOf('return persistencia.get(_pullCursorKey);');
+  const advance = proof.indexOf('_appliedPullCursor = cursor;');
+  assert.ok(barrier >= 0 && barrier < write && write < readback && readback < advance,
+    'journal barrier, cursor write, readback and applied-cut advance stay ordered');
+  assert.match(YJS, /return guardarPruebaCausal\(siguiente, null\)/,
+    'fully-applied pages use the durable proof path too');
+  assert.match(YJS, /k:\s*"pull",\s*v:\s*2/);
+  assert.match(YJS, /nombre === "fotos" \? 4 : 64/);
+  assert.match(YJS, /k\s*===\s*"pull-page"/);
+  assert.match(YJS, /grupo\.cuenta !== total\) return true/,
+    'un trozo valido no debe impedir confirmar la pagina que lo contiene');
+  assert.doesNotMatch(YJS, /ws\.send\(JSON\.stringify\(\{\s*k:\s*"pull",\s*lam:\s*0\s*\}\)\)/);
+});
+
+test('el cursor del relay pagina por orden de llegada aunque los relojes de los aparatos difieran', () => {
+  const filas = [
+    { seq: 1, lam: 9000, id: 'a' }, { seq: 2, lam: 10, id: 'b' },
+    { seq: 3, lam: 5000, id: 'c' }, { seq: 4, lam: 9, id: 'd' },
+  ];
+  let cursor = 0, recibidas = [];
+  for (;;) {
+    const pagina = filas.filter((f) => f.seq > cursor).slice(0, 2);
+    if (!pagina.length) break;
+    recibidas = recibidas.concat(pagina.map((f) => f.id));
+    cursor = pagina[pagina.length - 1].seq;
+  }
+  assert.deepEqual(recibidas, ['a', 'b', 'c', 'd']);
+});
+
+test('el relay v2 ejecuta paginas reales y devuelve un cursor reanudable', async () => {
+  const modulo = await import('data:text/javascript;base64,' + Buffer.from(RELAY).toString('base64'));
+  const filas = Array.from({ length: 18 }, (_, i) => ({
+    seq: i + 1,
+    lam: i < 17 ? 10 : 11,
+    id: String(i).padStart(2, '0'),
+    c: Buffer.from(String(i)).toString('base64'),
+  }));
+  const sql = {
+    exec(query, ...args) {
+      if (/SELECT lam, c, rev FROM ckpt/.test(query)) return { toArray: () => [] };
+      if (/SELECT rowid AS seq, c FROM ops/.test(query)) {
+        const [seq, limit] = args;
+        const page = filas.filter((f) => f.seq > seq).slice(0, limit);
+        return { toArray: () => page };
+      }
+      return { toArray: () => [] };
+    },
+  };
+  const sala = new modulo.SalaSync({ storage: { sql } }, {});
+  const enviados = [];
+  const sock = { readyState: 1, send: (dato) => enviados.push(dato) };
+
+  sala._responderPullV2(sock, { rev: -1, seq: 0, limit: 16 });
+  const marca1 = JSON.parse(enviados.at(-1));
+  assert.deepEqual({ rev: marca1.rev, seq: marca1.seq, more: marca1.more, n: marca1.n },
+    { rev: 0, seq: 16, more: true, n: 16 });
+
+  enviados.length = 0;
+  sala._responderPullV2(sock, { rev: marca1.rev, seq: marca1.seq, limit: 16 });
+  const marca2 = JSON.parse(enviados.at(-1));
+  assert.deepEqual({ rev: marca2.rev, seq: marca2.seq, more: marca2.more, n: marca2.n },
+    { rev: 0, seq: 18, more: false, n: 2 });
+});
+
+test('el checkpoint v2 poda solo la secuencia confirmada y rechaza carreras', async () => {
+  const modulo = await import('data:text/javascript;base64,' + Buffer.from(RELAY + '\n//ckpt-test').toString('base64'));
+  let ckpt = { lam: 100, rev: 3, v: 2, c: 'viejo' };
+  const podas = [];
+  const sql = {
+    exec(query, ...args) {
+      if (/SELECT lam, rev, v FROM ckpt/.test(query)) return { toArray: () => [ckpt] };
+      if (/INSERT INTO ckpt\(k, lam, c, rev, v\)/.test(query)) {
+        ckpt = { lam: args[0], c: args[1], rev: args[2], v: 2 };
+      }
+      if (/DELETE FROM ops WHERE rowid <= \?/.test(query)) podas.push(args[0]);
+      return { toArray: () => [] };
+    },
+  };
+  const sala = new modulo.SalaSync({ storage: { sql } }, {});
+
+  sala._guardarCkpt(200, 'nuevo', 2, 3, 42);
+  assert.deepEqual(ckpt, { lam: 200, c: 'nuevo', rev: 4, v: 2 });
+  assert.deepEqual(podas, [42]);
+
+  sala._guardarCkpt(300, 'carrera', 2, 3, 99);
+  sala._guardarCkpt(400, 'legacy', 1, 0, 0);
+  assert.deepEqual(ckpt, { lam: 200, c: 'nuevo', rev: 4, v: 2 });
+  assert.deepEqual(podas, [42]);
+});
+
+test('el backoff Yjs solo se reinicia tras una conexion estable', () => {
+  assert.doesNotMatch(YJS, /ws\.onopen\s*=\s*function\s*\(\)\s*\{\s*reintentos\s*=\s*0/,
+    'abrir el socket no basta: un socket que cae enseguida no debe reiniciar el backoff');
+  assert.match(YJS, /T_CONEXION_ESTABLE_MS/);
+  assert.match(YJS, /setTimeout\(function\s*\(\)\s*\{[\s\S]*reintentos\s*=\s*0;[\s\S]*T_CONEXION_ESTABLE_MS/);
+});
+
+test('el checkpoint solo se restaura en un dispositivo FRESCO (sin ventas propias)', () => {
+  // La proteccion clave: nunca pisa el stock de una caja activa.
+  // (JFC 2026-08-27) la implementacion se refactorizo de "return no-fresco" a
+  // merge add-only con bandera fresco: el stock del checkpoint solo se adopta
+  // cuando el aparato no tiene ventas propias.
+  assert.match(MOCK, /aplicarCheckpoint/);
+  assert.match(MOCK, /const fresco = ventas\.length === 0/);
+  assert.match(MOCK, /Object\.assign\(\{\}, p, \{ stockActual: stk \}\)/);
+});
+
+// --- Licencia: el checksum es GUARD, no PUERTA (JFC 2026-08-25) ---
+test('el algoritmo de checksum del generador y del validador coincide', () => {
+  // Replica _ocCheck (auth-ui) y la validacion de activar (sync-realtime):
+  // deben dar el MISMO simbolo, si no, una licencia legitima fallaria.
+  const B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", CHK = B32 + "*~$=U";
+  const check = (cuerpo) => { let acc = 0; for (let i = 0; i < cuerpo.length; i++) { const v = B32.indexOf(cuerpo[i]); if (v < 0) return ""; acc = (acc * 32 + v) % 37; } return CHK.charAt(acc); };
+  // 5 cuerpos aleatorios de 16 chars B32 -> su check valida
+  for (let t = 0; t < 5; t++) {
+    let cuerpo = "";
+    for (let i = 0; i < 16; i++) cuerpo += B32.charAt(Math.floor(Math.random() * 32));
+    const chk = check(cuerpo);
+    const completo = cuerpo + chk;
+    // el validador recomputa y compara el char 16
+    assert.equal(check(completo.slice(0, 16)), completo.charAt(16));
+  }
+});
+
+test('el checksum ya NO rechaza (guard, no puerta): no bloquea licencias reales', () => {
+  // La usuaria real quedaba fuera por este hard-reject. Ya no debe existir.
+  assert.ok(!/That code has a typo\. Check it character by character\./.test(SYNC),
+    'activar() no debe RECHAZAR por checksum; es un guard (aviso), no una puerta');
+  assert.match(SYNC, /guard, no puerta/i);
+});

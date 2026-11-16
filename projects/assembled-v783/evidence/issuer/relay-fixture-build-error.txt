@@ -1,0 +1,122 @@
+(node:10297) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/assembled-candidate/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/assembled-candidate/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✘ [ERROR] Could not resolve "partyserver"
+
+    src/index.js:4:37:
+      4 │ import { routePartykitRequest } from "partyserver";
+        ╵                                      ~~~~~~~~~~~~~
+
+  The "main" field here was ignored. Main fields must be configured explicitly when using the "neutral" platform.
+
+    node_modules/partyserver/package.json:9:2:
+      9 │   "main": "dist/index.js",
+        ╵   ~~~~~~
+
+  You can mark the path "partyserver" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+✘ [ERROR] Could not resolve "partyserver"
+
+    node_modules/y-partyserver/dist/server/index.js:4:23:
+      4 │ import { Server } from "partyserver";
+        ╵                        ~~~~~~~~~~~~~
+
+  The "main" field here was ignored. Main fields must be configured explicitly when using the "neutral" platform.
+
+    node_modules/partyserver/package.json:9:2:
+      9 │   "main": "dist/index.js",
+        ╵   ~~~~~~
+
+  You can mark the path "partyserver" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+✖ copied identifiers without a ticket receive zero Yjs frames (55.263472ms)
+✖ real Owner ticket opens private YServer, persists facts, and cannot replay (0.890828ms)
+✖ missing authority fails closed before any Yjs state (0.936577ms)
+✖ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (0.090335ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 581.499746
+
+✖ failing tests:
+
+test at qa/p0-real-session-room.test.mjs:18:1
+✖ copied identifiers without a ticket receive zero Yjs frames (55.263472ms)
+  Error: Build failed with 2 errors:
+  node_modules/y-partyserver/dist/server/index.js:4:23: ERROR: Could not resolve "partyserver"
+  src/index.js:4:37: ERROR: Could not resolve "partyserver"
+      at failureErrorWithLog (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:1467:15)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:926:25
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:878:52
+      at buildResponseToResult (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:924:7)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:951:16
+      at responseCallbacks.<computed> (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:514:28)
+      at addChunk (node:internal/streams/readable:569:12) {
+    errors: [ { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' }, { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' } ],
+    warnings: []
+  }
+
+test at qa/p0-real-session-room.test.mjs:19:1
+✖ real Owner ticket opens private YServer, persists facts, and cannot replay (0.890828ms)
+  Error: Build failed with 2 errors:
+  node_modules/y-partyserver/dist/server/index.js:4:23: ERROR: Could not resolve "partyserver"
+  src/index.js:4:37: ERROR: Could not resolve "partyserver"
+      at failureErrorWithLog (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:1467:15)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:926:25
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:878:52
+      at buildResponseToResult (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:924:7)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:951:16
+      at responseCallbacks.<computed> (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:514:28)
+      at addChunk (node:internal/streams/readable:569:12) {
+    errors: [ { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' }, { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' } ],
+    warnings: []
+  }
+
+test at qa/p0-real-session-room.test.mjs:20:1
+✖ missing authority fails closed before any Yjs state (0.936577ms)
+  Error: Build failed with 2 errors:
+  node_modules/y-partyserver/dist/server/index.js:4:23: ERROR: Could not resolve "partyserver"
+  src/index.js:4:37: ERROR: Could not resolve "partyserver"
+      at failureErrorWithLog (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:1467:15)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:926:25
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:878:52
+      at buildResponseToResult (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:924:7)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:951:16
+      at responseCallbacks.<computed> (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:514:28)
+      at addChunk (node:internal/streams/readable:569:12) {
+    errors: [ { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' }, { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' } ],
+    warnings: []
+  }
+
+test at qa/p0-real-session-room.test.mjs:21:1
+✖ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (0.090335ms)
+  Error: Build failed with 2 errors:
+  node_modules/y-partyserver/dist/server/index.js:4:23: ERROR: Could not resolve "partyserver"
+  src/index.js:4:37: ERROR: Could not resolve "partyserver"
+      at failureErrorWithLog (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:1467:15)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:926:25
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:878:52
+      at buildResponseToResult (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:924:7)
+      at /workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:951:16
+      at responseCallbacks.<computed> (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:514:28)
+      at addChunk (node:internal/streams/readable:569:12) {
+    errors: [ { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' }, { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "partyserver"' } ],
+    warnings: []
+  }

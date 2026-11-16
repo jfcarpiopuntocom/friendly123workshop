@@ -1,0 +1,30 @@
+import { toDecimal as coreToDecimal } from '../core';
+import type { ToDecimalParams, Dinero, DineroTransformer } from '../core';
+
+export function toDecimal<TAmount, TCurrency extends string>(
+  dineroObject: Dinero<TAmount, TCurrency>
+): string;
+
+export function toDecimal<TAmount, TOutput, TCurrency extends string>(
+  dineroObject: Dinero<TAmount, TCurrency>,
+  transformer: DineroTransformer<TAmount, TOutput, string, TCurrency>
+): TOutput;
+
+/**
+ * Get the amount of a Dinero object in decimal form.
+ *
+ * @param dineroObject - The Dinero object to format.
+ * @param transformer - A transformer function.
+ *
+ * @returns The amount in decimal form.
+ *
+ * @public
+ */
+export function toDecimal<TAmount, TOutput, TCurrency extends string>(
+  ...[dineroObject, transformer]: ToDecimalParams<TAmount, TOutput, TCurrency>
+) {
+  const { calculator } = dineroObject;
+  const toDecimalFn = coreToDecimal<TAmount, TOutput>(calculator);
+
+  return toDecimalFn(dineroObject, transformer);
+}

@@ -1,0 +1,313 @@
+import { EUR, MGA, USD } from '../../currencies';
+import Big from 'big.js';
+import * as fc from 'fast-check';
+import {
+  castToBigintCurrency,
+  castToBigjsCurrency,
+  createNumberDinero,
+  createBigintDinero,
+  createBigjsDinero,
+} from 'test-utils';
+
+import { equal } from '..';
+
+describe('equal', () => {
+  describe('number', () => {
+    const dinero = createNumberDinero;
+
+    describe('decimal currencies', () => {
+      it('returns true when amounts and currencies are equal', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 500, currency: USD });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 800, currency: USD });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when currencies are not equal', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 500, currency: EUR });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when amounts and currencies are not equal', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 800, currency: EUR });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns true when amounts are equal after normalization', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 5000, currency: USD, scale: 3 });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal after normalization', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 500, currency: USD, scale: 3 });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+    });
+    describe('non-decimal currencies', () => {
+      it('returns true when amounts and currencies are equal', () => {
+        const d1 = dinero({ amount: 5, currency: MGA });
+        const d2 = dinero({ amount: 5, currency: MGA });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal', () => {
+        const d1 = dinero({ amount: 5, currency: MGA });
+        const d2 = dinero({ amount: 8, currency: MGA });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when currencies are not equal', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 500, currency: MGA });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when amounts and currencies are not equal', () => {
+        const d1 = dinero({ amount: 500, currency: USD });
+        const d2 = dinero({ amount: 8, currency: MGA });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns true when amounts are equal after normalization', () => {
+        const d1 = dinero({ amount: 5, currency: MGA });
+        const d2 = dinero({ amount: 25, currency: MGA, scale: 2 });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal after normalization', () => {
+        const d1 = dinero({ amount: 25, currency: MGA });
+        const d2 = dinero({ amount: 25, currency: MGA, scale: 2 });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+    });
+  });
+  describe('bigint', () => {
+    const dinero = createBigintDinero;
+    const bigintUSD = castToBigintCurrency(USD);
+    const bigintEUR = castToBigintCurrency(EUR);
+    const bigintMGA = castToBigintCurrency(MGA);
+
+    describe('decimal currencies', () => {
+      it('returns true when amounts and currencies are equal', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 500n, currency: bigintUSD });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 800n, currency: bigintUSD });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when currencies are not equal', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 500n, currency: bigintEUR });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when amounts and currencies are not equal', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 800n, currency: bigintEUR });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns true when amounts are equal after normalization', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 5000n, currency: bigintUSD, scale: 3n });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal after normalization', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 500n, currency: bigintUSD, scale: 3n });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+    });
+    describe('non-decimal currencies', () => {
+      it('returns true when amounts and currencies are equal', () => {
+        const d1 = dinero({ amount: 5n, currency: bigintMGA });
+        const d2 = dinero({ amount: 5n, currency: bigintMGA });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal', () => {
+        const d1 = dinero({ amount: 5n, currency: bigintMGA });
+        const d2 = dinero({ amount: 8n, currency: bigintMGA });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when currencies are not equal', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 500n, currency: bigintMGA });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when amounts and currencies are not equal', () => {
+        const d1 = dinero({ amount: 500n, currency: bigintUSD });
+        const d2 = dinero({ amount: 8n, currency: bigintMGA });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns true when amounts are equal after normalization', () => {
+        const d1 = dinero({ amount: 5n, currency: bigintMGA });
+        const d2 = dinero({ amount: 25n, currency: bigintMGA, scale: 2n });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal after normalization', () => {
+        const d1 = dinero({ amount: 25n, currency: bigintMGA });
+        const d2 = dinero({ amount: 25n, currency: bigintMGA, scale: 2n });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+    });
+  });
+  describe('Big.js', () => {
+    const dinero = createBigjsDinero;
+    const bigjsUSD = castToBigjsCurrency(USD);
+    const bigjsEUR = castToBigjsCurrency(EUR);
+    const bigjsMGA = castToBigjsCurrency(MGA);
+
+    describe('decimal currencies', () => {
+      it('returns true when amounts and currencies are equal', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({ amount: new Big(500), currency: bigjsUSD });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({ amount: new Big(800), currency: bigjsUSD });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when currencies are not equal', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({ amount: new Big(500), currency: bigjsEUR });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when amounts and currencies are not equal', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({ amount: new Big(800), currency: bigjsEUR });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns true when amounts are equal after normalization', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({
+          amount: new Big(5000),
+          currency: bigjsUSD,
+          scale: new Big(3),
+        });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal after normalization', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({
+          amount: new Big(500),
+          currency: bigjsUSD,
+          scale: new Big(3),
+        });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+    });
+    describe('non-decimal currencies', () => {
+      it('returns true when amounts and currencies are equal', () => {
+        const d1 = dinero({ amount: new Big(5), currency: bigjsMGA });
+        const d2 = dinero({ amount: new Big(5), currency: bigjsMGA });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal', () => {
+        const d1 = dinero({ amount: new Big(5), currency: bigjsMGA });
+        const d2 = dinero({ amount: new Big(8), currency: bigjsMGA });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when currencies are not equal', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({ amount: new Big(500), currency: bigjsMGA });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns false when amounts and currencies are not equal', () => {
+        const d1 = dinero({ amount: new Big(500), currency: bigjsUSD });
+        const d2 = dinero({ amount: new Big(8), currency: bigjsMGA });
+
+        // @ts-expect-error different currencies
+        expect(equal(d1, d2)).toBe(false);
+      });
+      it('returns true when amounts are equal after normalization', () => {
+        const d1 = dinero({ amount: new Big(5), currency: bigjsMGA });
+        const d2 = dinero({
+          amount: new Big(25),
+          currency: bigjsMGA,
+          scale: new Big(2),
+        });
+
+        expect(equal(d1, d2)).toBe(true);
+      });
+      it('returns false when amounts are not equal after normalization', () => {
+        const d1 = dinero({ amount: new Big(25), currency: bigjsMGA });
+        const d2 = dinero({
+          amount: new Big(25),
+          currency: bigjsMGA,
+          scale: new Big(2),
+        });
+
+        expect(equal(d1, d2)).toBe(false);
+      });
+    });
+  });
+  describe('properties', () => {
+    const dinero = createNumberDinero;
+    const safeAmount = fc.integer({ min: -100000, max: 100000 });
+
+    it('is reflexive: equal(a, a) is always true', () => {
+      fc.assert(
+        fc.property(safeAmount, (a) => {
+          const d = dinero({ amount: a, currency: USD });
+
+          expect(equal(d, d)).toBe(true);
+        })
+      );
+    });
+    it('is symmetric: equal(a, b) equals equal(b, a)', () => {
+      fc.assert(
+        fc.property(safeAmount, safeAmount, (a, b) => {
+          const d1 = dinero({ amount: a, currency: USD });
+          const d2 = dinero({ amount: b, currency: USD });
+
+          expect(equal(d1, d2)).toBe(equal(d2, d1));
+        })
+      );
+    });
+  });
+});

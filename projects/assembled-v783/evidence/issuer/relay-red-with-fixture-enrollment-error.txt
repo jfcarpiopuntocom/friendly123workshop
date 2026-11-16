@@ -1,0 +1,90 @@
+(node:10339) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/assembled-candidate/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/assembled-candidate/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ copied identifiers without a ticket receive zero Yjs frames (3861.457506ms)
+✖ real Owner ticket opens private YServer, persists facts, and cannot replay (13.932882ms)
+✖ missing authority fails closed before any Yjs state (3.519426ms)
+✖ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (3.807789ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5525.481639
+
+✖ failing tests:
+
+test at qa/p0-real-session-room.test.mjs:18:1
+✖ copied identifiers without a ticket receive zero Yjs frames (3861.457506ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:18:126)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-real-session-room.test.mjs:19:1
+✖ real Owner ticket opens private YServer, persists facts, and cannot replay (13.932882ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  403 !== 200
+  
+      at issue (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:12:237)
+      at async TestContext.<anonymous> (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:19:121)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-real-session-room.test.mjs:20:1
+✖ missing authority fails closed before any Yjs state (3.519426ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  403 !== 200
+  
+      at issue (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:12:237)
+      at async TestContext.<anonymous> (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:20:98)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-real-session-room.test.mjs:21:1
+✖ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (3.807789ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  403 !== 200
+  
+      at issue (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:12:237)
+      at async TestContext.<anonymous> (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:21:183)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

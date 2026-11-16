@@ -1,0 +1,1246 @@
+// COMPARTIDO: portado y mantenido identico entre apps hermanas a proposito.
+// vista-perchas.js — Panel de perchas tipo CARPETA con semáforo de META.
+// AMIGABLE (demo de Amigable: punto de venta y control de inventario)
+// JFC 2026-07-02. Gestion completa (renombrar, borrar, agregar) 2026-07-08.
+//
+// MODELO CARPETA (pedido JFC 2026-07-02): cada percha es una CARPETA y su foto
+// es la portada. Tocar la percha ABRE la carpeta y muestra las tarjetas de sus
+// productos (los "archivos"); tocar un producto abre su ficha (conecta la info,
+// se puede vender/editar ahí). El dueño puede RENOMBRAR, BORRAR y AGREGAR
+// perchas desde el ícono ✎ (abre modal) y desde el botón "Agregar +" arriba.
+//
+//   - FOTO REAL por percha: dueño toca → cámara → resize 640px → localStorage.
+//   - semáforo por CUMPLIMIENTO DE META: verde ≥100% · amarillo 70-99% ·
+//     rojo <70% · azul sin meta.
+//   - badge inferior izquierdo: "% meta cumplida"; badge "dormida Xd" si aplica.
+//   - fila de datos (Ventas/Meta/Comisión/Promotora/e): SOLO dueño.
+//
+// INTEGRACIÓN: el botón nav data-vista="perchas" y la sección #vista-perchas
+// viven ESTÁTICOS en index.html. refrescarVistaActiva() llama VPerchas.cargar().
+
+(function () {
+  'use strict';
+
+  const API = '/api';
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => {
+    if (n == null || n === '' || !Number.isFinite(Number(n))) return '—';
+    const v = Number(n);
+    try {
+      const loc = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US";
+      return new Intl.NumberFormat(loc, { style: "currency", currency: (window.OCMoneda && window.OCMoneda.codigo()) || "USD" }).format(v);
+    } catch (_) { return "$" + v.toFixed(2); }
+  };
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Colores Simon exactos — mismos que .caja en index.html
+  /* PALETA SIMON EXACTA (JFC 2026-09-24, fix): este archivo usaba tonos
+     parecidos (#1DB954, #FFB300, #E53935, #2196F3) que no eran el semaforo de
+     la app. reglas-friendly: los mismos hex en alertas, hero, filtros y bordes.
+     Texto sobre verde/amarillo/azul en tinta (contraste >= 5:1); sobre rojo, blanco. */
+  const SIMON = {
+    verde:    { bg: '#00C87A', border: '#00C87A', tx: '#0F1923', txs: '#0F1923' },
+    amarillo: { bg: '#FFC700', border: '#FFC700', tx: '#0F1923', txs: '#0F1923' },
+    rojo:     { bg: '#E8365D', border: '#E8365D', tx: '#ffffff', txs: '#ffffff' },
+    azul:     { bg: '#5294AC', border: '#5294AC', tx: '#0F1923', txs: '#0F1923' },
+  };
+  const ORDEN = { rojo: 0, amarillo: 1, verde: 2, azul: 3 };
+
+  // Nombre de cada percha, cacheado del último cargar() para títulos de carpeta.
+  let nombrePorId = {};
+
+  // One coherent local read per refresh, indexed once for all shelves. Include
+  // every copy of a conflicting sale ID in each affected shelf's quarantine.
+  function finanzasPorPercha(perchas, corte, month, zone) {
+    const result = new Map(), RM = window.OCBusinessReadModel;
+    if (!RM || !corte || corte.schema!==1 || !Array.isArray(corte.ventas) || !Array.isArray(corte.ajustesComision)) return result;
+    const byId = new Map(), buckets = new Map();
+    for (const v of corte.ventas) {
+      if (!v) continue;
+      const key = v.id == null || v.id === '' ? v : String(v.id);
+      if (!byId.has(key)) byId.set(key, []);
+      byId.get(key).push(v);
+    }
+    for (const copies of byId.values()) {
+      const locations = new Set(copies.map(v=>String(v.ubicacionId || '')));
+      for (const id of locations) {
+        if (!buckets.has(id)) buckets.set(id, []);
+        for (const v of copies) buckets.get(id).push(v);
+      }
+    }
+    for (const u of perchas) {
+      const r = RM.businessResult({sales:buckets.get(String(u.id)) || [], adjustments:corte.ajustesComision,
+        month,zone,scope:{locationId:u.id},coverage:{sales:true,adjustments:true,coherent:true}});
+      result.set(String(u.id), {ventasMes:r.netCents===null?null:r.netCents/100,
+        comision:r.artistShareCents===null?null:r.artistShareCents/100});
+    }
+    return result;
+  }
+
+  // Ordenar por columna (2026-07-29) — complementa el semaforo por defecto.
+  const COLUMNAS_PERCHA = [
+    { key: 'nombre', label: 'Name' },
+    { key: 'ventasMes', label: 'Monthly sales' },
+    { key: 'cumplimiento', label: 'Target %' },
+  ];
+  let _ordenPercha = { col: null, asc: true };
+  function pintarBotonesOrdenPercha() {
+    const cont = document.getElementById('vp-orden');
+    if (!cont) return;
+    if (!cont.dataset.listo) {
+      cont.dataset.listo = '1';
+      COLUMNAS_PERCHA.forEach((c) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.ordPerchaCol = c.key;
+        /* JFC 2026-09-24: las pastillas de orden son teclas del case (.tecla), la
+           activa se hunde. Mismo idioma que Commissions y el nav. */
+        b.className = 'tecla';
+        b.style.cssText = 'font-size:13px;min-height:36px;padding:4px 10px;margin:0;';
+        cont.appendChild(b);
+      });
+      cont.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-ord-percha-col]');
+        if (!b) return;
+        const key = b.dataset.ordPerchaCol;
+        if (_ordenPercha.col === key) _ordenPercha.asc = !_ordenPercha.asc;
+        else { _ordenPercha.col = key; _ordenPercha.asc = true; }
+        cargar();
+      });
+    }
+    /* El boton Agregar (si existe) siempre al final de la barra, a la derecha. */
+    { const add = document.getElementById('vp-btn-agregar'); if (add && add.parentNode === cont) cont.appendChild(add); }
+    cont.querySelectorAll('[data-ord-percha-col]').forEach((b) => {
+      const c = COLUMNAS_PERCHA.find((x) => x.key === b.dataset.ordPerchaCol);
+      const activo = _ordenPercha.col === b.dataset.ordPerchaCol;
+      b.classList.toggle('hundida', activo);
+      b.textContent = c.label + (activo ? (_ordenPercha.asc ? ' ↑' : ' ↓') : '');
+    });
+  }
+
+  // Percha activa en el modal de gestión (editar/borrar).
+  let perchaGestionId = null;
+
+  // ── semáforo por cumplimiento de meta ──────────────────────────────────────
+  function semaforoMeta(cumplimiento) {
+    if (cumplimiento === null || cumplimiento === undefined) return 'azul';
+    if (cumplimiento >= 100) return 'verde';
+    if (cumplimiento >= 70)  return 'amarillo';
+    return 'rojo';
+  }
+
+  // ── fotos en IndexedDB (JFC 2026-07-18) ────────────────────────────────────
+  // Antes vivian en localStorage (limite practico ~5-10MB; con 10-15 perchas
+  // con foto ya reventaba — "espacio lleno"). Ahora persisten en IndexedDB
+  // (ver idb-fotos.js), sin ese techo. getFoto() sigue siendo SINCRONO: lee de
+  // un cache que se actualiza al terminar precargarFotos(); el grid puede pintar
+  // antes y _tarjeta() no cambia de forma.
+  let fotoCache = {};
+  let _fotoEspera = null;
+  const getFoto = (id) => fotoCache[id] || null;
+  async function precargarFotos(estaCarga) {
+    if (!window.OCFotos) return; // idb-fotos.js no cargo: sin fotos, sin crash
+    const cacheAlInicio = Object.assign({}, fotoCache);
+    await window.OCFotos.migrarSiHaceFalta(); // G04: copy-only, nunca borra origen
+    if (window.OCFotos.blindarEvidencia) {
+      try { await window.OCFotos.blindarEvidencia(); } catch (_) {}
+    }
+    const fotos = await window.OCFotos.leerTodas();
+    if (estaCarga === cargaEnCurso) {
+      const actualizadas = Object.assign({}, fotoCache);
+      Object.keys(fotos || {}).forEach((id) => {
+        if (fotoCache[id] === cacheAlInicio[id]) actualizadas[id] = fotos[id];
+      });
+      fotoCache = actualizadas;
+    }
+  }
+  function pintarFotosPerchas(perchas, estaCarga) {
+    const seccion = $('vista-perchas'), grid = $('vp-grid');
+    if (estaCarga !== cargaEnCurso || !seccion || !seccion.classList.contains('activa') || !grid) return;
+    const visuales = grid.querySelectorAll('[data-vp-foto-visual]');
+    perchas.forEach((u) => {
+      const foto = getFoto(u.id);
+      if (!foto) return;
+      const visual = Array.from(visuales).find((el) => el.dataset.vpFotoVisual === String(u.id));
+      if (!visual) return;
+      if (visual.tagName === 'IMG') { visual.src = foto; return; }
+      const img = document.createElement('img');
+      img.dataset.vpFotoVisual = String(u.id);
+      img.src = foto;
+      img.alt = '';
+      img.style.cssText = 'width:100%;height:170px;object-fit:cover;display:block;';
+      visual.replaceWith(img);
+    });
+  }
+
+  /* FOTO — calidad alta PERO bajo el tope del relay (JFC 2026-09-10, fix A).
+     El relay corta cualquier frame > 256 KB (MAX_FRAME_BYTES en el worker); una
+     foto de 1600px/0.9 pesaba 300-600 KB en dataURL → el relay mataba el socket
+     de fotos ("frame too big"), la foto NO cruzaba y el canal reconectaba en
+     bucle (parte del límite diario del worker). Ahora se redimensiona en cascada
+     hasta que el dataURL quede < ~180 KB (así el frame cifrado < 256 KB): sigue
+     nítida (arranca en 1400px/0.82) pero SIEMPRE cruza. Nunca agranda (Math.min 1). */
+  const FOTO_BYTES_MAX = 180000; // margen bajo los 256 KB del relay (base64 + AES)
+  function redimensionar(file, cb) {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      const intentos = [[1400, 0.82], [1200, 0.8], [1000, 0.75], [820, 0.7], [640, 0.62]];
+      const rend = (lado, q) => {
+        const escala = Math.min(1, lado / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * escala);
+        cv.height = Math.round(img.height * escala);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        return cv.toDataURL('image/jpeg', q);
+      };
+      let out = rend(intentos[0][0], intentos[0][1]);
+      for (let i = 1; i < intentos.length && out.length > FOTO_BYTES_MAX; i++) out = rend(intentos[i][0], intentos[i][1]);
+      // Piso duro (fix A, 2026-09-10): si una imagen rarísima sigue pasada tras el
+      // paso más chico, un último recurso que SIEMPRE cabe en el frame del relay.
+      if (out.length > FOTO_BYTES_MAX) out = rend(480, 0.5);
+      cb(out);
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
+  // ── tarjeta de percha (portada de la carpeta) ──────────────────────────────
+  function _tarjeta(p) {
+    const c = SIMON[p.semaforo];
+    // JFC 2026-08-25: el admin ve TODO lo financiero igual que el dueno. La
+    // unica diferencia dueno/admin es gestionar admins (agregar/quitar/degradar),
+    // que se controla aparte en Avanzado. Aqui, datos financieros de la percha
+    // y gestion visible = dueno O admin (puedeGestionar()).
+    const esDueno = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
+    const foto = getFoto(p.id);
+
+    const visual = foto
+      ? `<img data-vp-foto-visual="${esc(p.id)}" src="${foto}" alt="" style="width:100%;height:170px;object-fit:cover;display:block;">`
+      /* Sin foto (JFC 2026-09-24): fondo BLANCO con la inicial en tinta, no un
+         bloque pintado del color del semaforo (lucia roto). El semaforo ya vive
+         en el borde de 3px y en el punto de estado; no hace falta repetirlo. */
+      : `<div data-vp-foto-visual="${esc(p.id)}" data-vp-inicial="${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}" style="width:100%;height:170px;display:flex;align-items:center;justify-content:center;
+           background:#FFFFFF;color:var(--ink,#0F1923);font-family:var(--font-display);font-size:56px;font-weight:700;
+           box-shadow:inset 0 0 0 2px var(--hairline,#E8ECF2);">
+           ${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}</div>`;
+
+    const badgeMeta = p.cumplimiento === null ? (p.meta > 0 ? window.t('shelves.targetPending') : window.t('shelves.noTarget')) : p.cumplimiento.toFixed(0) + window.t('shelves.ofTargetMet');
+
+    const datos = esDueno ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:12px 14px;background:var(--blanco-calido,#fbf5e8);">
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.monthlySales')}</span>
+          <strong style="font-size:16px;color:var(--ink);">${money(p.ventasMes)}</strong></div>
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.target')}</span>
+          <strong style="font-size:16px;color:var(--ink);">${p.meta ? money(p.meta) : '—'}</strong></div>
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.commission')}</span>
+          <strong style="font-size:16px;color:var(--ink);">${money(p.comision)}</strong></div>
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.promoter')}</span>
+          <strong style="font-size:16px;color:var(--ink);">${p.promotor ? esc(p.promotor) : '—'}</strong></div>
+      </div>` : '';
+
+    // La tarjeta ENTERA abre la carpeta al tocarla (data-vp-abrir). 2026-09-26 (axe-core:
+    // nested-interactive): ya no se declara role=button (tenia botones adentro); el acceso por
+    // teclado es el boton real "Open", con el mismo data-vp-abrir. Se quito un title en espanol.
+    return `
+      <div class="tag-card vp-carpeta" data-vp-abrir="${esc(p.id)}"
+        style="padding:0;overflow:hidden;border:3px solid ${c.border};border-radius:14px;cursor:pointer;">
+        <div style="position:relative;">
+          ${visual}
+          <span style="position:absolute;top:10px;right:10px;width:18px;height:18px;border-radius:50%;
+            background:${c.bg};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+          <span style="position:absolute;bottom:10px;left:10px;font-family:var(--font-mono);font-size:13px;
+            font-weight:700;background:#0F1923;color:#fff;padding:4px 10px;border-radius:20px;">${badgeMeta}</span>
+          ${(p.diasSinVenta != null && p.diasSinVenta >= 7) ? `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:#C41E3A;color:#fff;padding:3px 9px;border-radius:20px;">dormida ${p.diasSinVenta}d</span>` : ''}
+          <!-- Abrir carpeta: pista visual -->
+          <button type="button" data-vp-abrir="${esc(p.id)}" style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:13px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;border:0;min-height:32px;cursor:pointer;">${window.t('shelves.open')} ▸</button>
+          ${esDueno ? `<button data-vp-foto="${esc(p.id)}" title="Cambiar foto" style="position:absolute;bottom:10px;right:10px;font-size:16px;line-height:1;
+            background:rgba(0,0,0,.55);border:none;padding:6px 8px;border-radius:8px;color:#fff;cursor:pointer;" aria-label="Cambiar foto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>` : ''}
+        </div>
+        <div style="padding:10px 14px ${esDueno ? '0' : '12px'};background:var(--blanco-calido,#fbf5e8);display:flex;align-items:center;gap:8px;">
+          <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${esc(p.nombre)}</strong>
+          ${p.activa === false ? '<span style="font-size:13px;font-family:var(--font-mono);color:var(--rojo,#a3392a);">INACTIVA</span>' : ''}
+          ${esDueno ? `<button data-vp-rename="${esc(p.id)}" title="Editar o borrar esta percha" style="font-size:15px;line-height:1;background:transparent;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;padding:2px 4px;">✎</button>` : ''}
+        </div>
+        ${datos}
+      </div>`;
+  }
+
+  // ── carga y render del grid de portadas ────────────────────────────────────
+  // Inyecta el botón general "Agregar +" al inicio de la sección Mis perchas.
+  // Se llama desde cargar() (post-login), es idempotente.
+  // JFC 2026-08-25: el admin TAMBIEN puede agregar perchas (igual que ya podia
+  // en Inventario → seccionPerchas, que usa puedeGestionar). Antes este boton
+  // era solo-dueno y el admin quedaba capado en la vista de fotos. Crear percha
+  // es gestion de catalogo, no reparto de plata (eso sigue solo-dueno).
+  function inyectarBotonAgregar() {
+    const puede = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
+    const seccion = document.getElementById('vista-perchas');
+    const grid = document.getElementById('vp-grid');
+    const existente = document.getElementById('vp-btn-agregar');
+    if (!puede) { if (existente) existente.remove(); return; } // staff/demo: sin botón
+    if (existente || !seccion || !grid) return;
+    const btnAgregar = document.createElement('button');
+    btnAgregar.id = 'vp-btn-agregar';
+    btnAgregar.textContent = window.t('shelves.addRackBtn');
+    /* JFC 2026-09-24: el boton vive en la misma barra que el orden (a la derecha),
+       no en una linea propia. Mismo color de siempre. */
+    btnAgregar.style.cssText = 'display:inline-block;margin:0 0 0 auto;padding:8px 16px;min-height:40px;' +
+      'border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);' +
+      'color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;' +
+      'font-size:14px;font-weight:700;cursor:pointer;';
+    btnAgregar.addEventListener('click', abrirAgregar);
+    const barra = document.getElementById('vp-orden');
+    if (barra) barra.appendChild(btnAgregar); else seccion.insertBefore(btnAgregar, grid);
+  }
+
+  // G09: estas dos caches son SOLO aceleradores de una lectura que cambia
+  // durante la hidratacion de Yjs / checkpoints. Nunca pueden convertirse en
+  // verdad de sesion: si el sync anuncia fotos nuevas, se invalidan antes de
+  // repintar para que una lectura temprana "{}" no deje Shelves vacio para siempre.
+  let _historialFotosExactoPromise = null;
+  let _historialFotosCheckpointsPromise = null;
+
+  // Re-pinta los textos fijos que se construyen UNA sola vez al cargar el
+  // script (botón "Agregar +", modal "carpeta" y modal "Nueva percha") —
+  // esos innerHTML no se regeneran solos al cambiar de idioma.
+  /* B3/G09: cuando el sync baja fotos nuevas de otro aparato
+     (sync-yjs dispara oc-fotos-actualizadas), invalidar PRIMERO toda evidencia
+     derivada y luego re-pintar. El render sigue siendo no destructivo. */
+  window.addEventListener('oc-fotos-actualizadas', () => {
+    _historialFotosExactoPromise = null;
+    _historialFotosCheckpointsPromise = null;
+    const vp = document.getElementById('vista-perchas');
+    if (vp && vp.classList.contains('activa')) { try { cargar(); } catch (_) {} }
+  });
+
+  window.addEventListener('oc-lang-change', () => {
+    const b = document.getElementById('vp-btn-agregar');
+    if (b) b.textContent = window.t('shelves.addRackBtn');
+    const carpetaCerrar = document.getElementById('vp-carpeta-cerrar');
+    if (carpetaCerrar) carpetaCerrar.textContent = window.t('common.close');
+    const aCerrar = document.getElementById('vp-a-cerrar');
+    if (aCerrar) aCerrar.textContent = window.t('common.close');
+    const aTitulo = modalAgregar.querySelector('strong');
+    if (aTitulo) aTitulo.textContent = window.t('shelves.newRackTitle');
+    const aLabel = modalAgregar.querySelector('label');
+    if (aLabel) aLabel.firstChild.textContent = window.t('shelves.rackNameLabel') + '\n        ';
+    const aInput = document.getElementById('vp-a-nombre');
+    if (aInput) aInput.placeholder = window.t('shelves.rackNamePlaceholder');
+    const aHint = modalAgregar.querySelector('p');
+    if (aHint) aHint.textContent = window.t('shelves.assignHint');
+    const aCrear = document.getElementById('vp-a-crear');
+    if (aCrear) aCrear.textContent = window.t('shelves.createRackBtn');
+  });
+
+  async function historialFotosExacto() {
+    if (!_historialFotosExactoPromise) {
+      _historialFotosExactoPromise = (async () => {
+        try {
+          if (window.OCYjs && window.OCYjs.historialFotosPorPercha) {
+            return (await window.OCYjs.historialFotosPorPercha()) || {};
+          }
+        } catch (_) {}
+        return {};
+      })();
+    }
+    try { return await _historialFotosExactoPromise; } catch (_) { return {}; }
+  }
+
+  async function historialFotosCheckpointsExacto() {
+    if (!_historialFotosCheckpointsPromise) {
+      _historialFotosCheckpointsPromise = (async () => {
+        const out = {};
+        let lista = [];
+        let origen, legado = [];
+        try {
+          // v597: identidad = [namespace, notebookId(instanceId)]; misma clave que cajaClave() en avanzado-extra.js.
+          const notebookId = window.OCTienda && window.OCTienda.cuadernoId && String(window.OCTienda.cuadernoId() || '').trim();
+          if (!notebookId) return out;
+          origen = { namespace: localStorage.getItem('f123_tienda_activa') || '', notebookId };
+          const clave = 'f123_caja_snapshots::' + encodeURIComponent(JSON.stringify([origen.namespace, origen.notebookId]));
+          lista = JSON.parse(localStorage.getItem(clave) || '[]');
+        } catch (_) { lista = []; }
+        // G08 v597: la clave global antigua puede traer fotos de perchas de puntos viejos. Se leen, pero
+        // cada punto solo entra si su datos.instanceId es EXACTAMENTE este cuaderno (ver abajo).
+        try { legado = JSON.parse(localStorage.getItem('f123_caja_snapshots') || '[]'); } catch (_) { legado = []; }
+        if (!Array.isArray(lista)) lista = [];
+        if (!Array.isArray(legado)) legado = [];
+        if (!origen || (!lista.length && !legado.length)) return out;
+        lista = legado.map((p) => (p && typeof p === 'object') ? Object.assign({}, p, { __legado: true }) : p).concat(lista);
+
+        /* G08: los checkpoints locales son evidencia EXACTA de catalogo.
+           Solo se aceptan snapshots cuyo checksum siga valido; y SOLO se leen
+           ubicaciones[].fotoHash. productos[].fotoHash jamas entra aqui. */
+        for (let i = lista.length - 1; i >= 0; i--) {
+          const p = lista[i];
+          if (!p || typeof p.contenido !== 'string' || !p.checksum) continue;
+          let checksumOk = false;
+          try {
+            if (window.OCSecure && window.OCSecure.hashTexto) {
+              checksumOk = (await window.OCSecure.hashTexto(p.contenido)) === p.checksum;
+            }
+          } catch (_) { checksumOk = false; }
+          if (!checksumOk) continue;
+
+          let paquete = null;
+          try { paquete = JSON.parse(p.contenido); } catch (_) { paquete = null; }
+          const r = paquete && paquete.datos && paquete.datos._recuperacion;
+          // An exact shelf ID can exist in another notebook; checksum is not identity.
+          if (p.__legado) {
+            // Punto legado: solo por instanceId exacto (nunca por nombreNegocio); sin instanceId se ignora.
+            const iid = paquete && paquete.datos && paquete.datos.instanceId;
+            if (typeof iid !== 'string' || !iid || iid !== origen.notebookId) continue;
+          } else if (!r || r.confirmado !== true || r.completo !== true || r.namespace !== origen.namespace || r.notebookId !== origen.notebookId) continue;
+          const ubicaciones = paquete && paquete.datos && Array.isArray(paquete.datos.ubicaciones)
+            ? paquete.datos.ubicaciones : [];
+          ubicaciones.forEach((u) => {
+            if (!u || u.id == null || !u.fotoHash) return;
+            const id = String(u.id), h = String(u.fotoHash);
+            if (!out[id]) out[id] = [];
+            if (out[id].indexOf(h) < 0) out[id].push(h);
+          });
+        }
+        return out;
+      })();
+    }
+    try { return await _historialFotosCheckpointsPromise; } catch (_) { return {}; }
+  }
+
+  function photoVaultDiagnosticoHabilitado() {
+    /* Herramienta forense, NO interfaz de uso diario. G06 la expuso dentro de
+       My Shelves y mezclo fotos de productos con evidencia de perchas. Desde G08
+       solo puede montarse con una bandera tecnica explicita en esta sesion. */
+    try {
+      const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
+      const activado = window.__F123_DIAG_PHOTO_VAULT === true ||
+        sessionStorage.getItem('f123_diag_photo_vault') === '1';
+      return activado &&
+        (rol === 'dueno' || rol === 'dueño' || rol === 'owner' || rol === 'admin');
+    } catch (_) { return false; }
+  }
+
+  async function montarPhotoRecoveryVault(perchasVisibles, estaCarga) {
+    let cont = document.getElementById('vp-photo-vault');
+    const seccion = document.getElementById('vista-perchas');
+    if (!photoVaultDiagnosticoHabilitado()) {
+      if (cont && cont.remove) cont.remove();
+      return;
+    }
+    if (!seccion || !window.OCFotos || !window.OCFotos.leerTodosPorHash) return;
+    if (!cont) {
+      cont = document.createElement('div');
+      cont.id = 'vp-photo-vault';
+      cont.className = 'tag-card';
+      cont.style.cssText = 'margin:18px 0;padding:14px;border:2px dashed var(--azul-medio,#5294AC);';
+      seccion.appendChild(cont);
+    }
+    let blobs = {};
+    try { blobs = await window.OCFotos.leerTodosPorHash() || {}; } catch (_) {}
+    if (estaCarga !== cargaEnCurso) return;
+    const shelfRefsActuales = new Set(), productRefs = new Set();
+    try {
+      const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
+      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) shelfRefsActuales.add(String(u.fotoHash)); });
+      (cat && cat.productos || []).forEach((p) => { if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
+    } catch (_) {}
+    try {
+      const yU = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
+      const yP = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('productos') : {};
+      Object.keys(yU || {}).forEach((id) => { const u = yU[id]; if (u && u.fotoHash) shelfRefsActuales.add(String(u.fotoHash)); });
+      Object.keys(yP || {}).forEach((id) => { const p = yP[id]; if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
+    } catch (_) {}
+
+    /* G08: incluso en modo diagnostico, el Vault deja de ser "todas las fotos".
+       Solo enseña hashes con evidencia POSITIVA de percha (actual, Yjs, historial
+       o checkpoint). Una foto de producto no aparece por el mero hecho de existir. */
+    const hist = await historialFotosExacto();
+    const histCaja = await historialFotosCheckpointsExacto();
+    if (estaCarga !== cargaEnCurso) return;
+    const nombres = {};
+    (perchasVisibles || []).forEach((u) => { if (u && u.id) nombres[String(u.id)] = u.nombre || u.id; });
+    const idsPorHash = {};
+    const shelfRefsHistoricas = new Set();
+    [hist || {}, histCaja || {}].forEach((fuente) => {
+      Object.keys(fuente).forEach((id) => {
+        (fuente[id] || []).forEach((h) => {
+          h = String(h || ''); if (!h) return;
+          shelfRefsHistoricas.add(h);
+          if (!idsPorHash[h]) idsPorHash[h] = [];
+          if (idsPorHash[h].indexOf(String(id)) < 0) idsPorHash[h].push(String(id));
+        });
+      });
+    });
+    const todos = Object.keys(blobs).filter((h) => blobs[h] && (shelfRefsActuales.has(h) || shelfRefsHistoricas.has(h)));
+    if (!todos.length) { cont.style.display = 'none'; return; }
+    const huerfanas = todos.filter((h) => !shelfRefsActuales.has(h) && shelfRefsHistoricas.has(h));
+    const referenciadas = todos.filter((h) => shelfRefsActuales.has(h));
+    cont.style.display = '';
+    const opcionesPara = (hash) => {
+      const candidatos = (idsPorHash[hash] || []).filter((id) => nombres[id]);
+      const preferido = candidatos.length === 1 ? candidatos[0] : '';
+      const opts = (perchasVisibles || []).map((u) =>
+        `<option value="${esc(u.id)}"${String(u.id) === preferido ? ' selected' : ''}>${esc(u.nombre || u.id)}</option>`
+      ).join('');
+      return { preferido, opts };
+    };
+    const orden = huerfanas.concat(referenciadas);
+    cont.innerHTML = `<details ${huerfanas.length ? 'open' : ''}>
+      <summary style="cursor:pointer;font-weight:800;font-size:16px;">Photo Recovery Vault · ${todos.length} preserved</summary>
+      <p style="font-size:13px;margin:8px 0 12px;color:var(--ink-soft);">Diagnostic only: only photo bytes with positive shelf evidence are listed here. Product-photo evidence is excluded. ${huerfanas.length} unlinked · ${referenciadas.length} referenced somewhere. Exact historical matches are preselected when available. Nothing is deleted or moved; Restore makes a copy and sets only the shelf you choose.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
+      ${orden.map((h) => {
+        const op = opcionesPara(h);
+        const pista = op.preferido ? `<div style="font-size:12px;margin-top:6px;color:var(--azul-medio,#2E6278);">Exact local history: ${esc(nombres[op.preferido])}</div>` : '';
+        const estado = shelfRefsActuales.has(h) ? 'PRESERVED · current shelf reference' : 'PRESERVED · exact shelf history';
+        return `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
+          <img src="${blobs[h]}" alt="Preserved photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
+          <div style="font-size:11px;font-weight:800;margin-top:5px;color:var(--ink-soft);">${estado}</div>
+          ${pista}
+          <select data-vault-shelf="${esc(h)}" style="width:100%;margin-top:8px;min-height:38px;"><option value="">Restore to shelf…</option>${op.opts}</select>
+          <button type="button" data-vault-restore="${esc(h)}" class="ir" style="width:100%;margin-top:6px;min-height:40px;">Restore photo</button>
+        </div>`;
+      }).join('')}</div>
+    </details>`;
+  }
+
+  let cargaEnCurso = 0;
+  async function recuperarFotosPerchas(perchasVisibles, estaCarga) {
+      /* v448 GOLDEN G07 — ADAPTADOR HEXAGONAL.
+         La política de recuperación ya NO vive en esta vista. El caso de uso
+         recoverShelfPhoto() recibe puertos y decide con el core puro:
+           Yjs actual -> historial exacto -> bytes por-id.
+         Esta capa solo traduce browser APIs a esos puertos y pinta el resultado.
+         Render no tiene ninguna operación destructiva. */
+      const recuperarFoto = window.F123Application && window.F123Application.recoverShelfPhoto;
+      if (recuperarFoto && window.OCFotos && perchasVisibles.length) {
+        let yUb = {}, hist = {}, histCheckpoints = {};
+        try { yUb = window.OCYjs && window.OCYjs.get ? (window.OCYjs.get('ubicaciones') || {}) : {}; } catch (_) {}
+        try { hist = await historialFotosExacto(); } catch (_) {}
+        try { histCheckpoints = await historialFotosCheckpointsExacto(); } catch (_) {}
+
+        const ports = {
+          currentMappedHash: async (id) => {
+            const r = yUb[String(id)] || null;
+            return r && r.fotoHash ? String(r.fotoHash) : null;
+          },
+          historyHashes: async (id) => {
+            const k = String(id), out = [];
+            /* Prioridad: Yjs actual/historico; despues checkpoints locales
+               validos, todos ligados al MISMO shelf id. Nunca escanear productos. */
+            (hist[k] || []).slice().reverse().concat(histCheckpoints[k] || []).forEach((h) => {
+              h = String(h || ''); if (h && out.indexOf(h) < 0) out.push(h);
+            });
+            return out;
+          },
+          readPerId: async (id) => {
+            const k = String(id);
+            if (fotoCache[k]) return fotoCache[k];
+            /* El cache de render es un ADAPTADOR de conveniencia, no la verdad.
+               Si una migracion IDB quedo parcial pero los bytes legacy siguen
+               preservados, OCFotos.leerFoto(id) sabe caer al almacenamiento real. */
+            if (window.OCFotos.leerFoto) {
+              try {
+                const bytes = await window.OCFotos.leerFoto(k);
+                if (bytes) { if (estaCarga === cargaEnCurso) fotoCache[k] = bytes; return bytes; }
+              } catch (_) {}
+            }
+            return null;
+          },
+          hashBytes: async (bytes) => {
+            /* Adapter compatibility: the modern port is "derive content hash".
+               Older OCFotos implementations exposed only guardarFotoContenido(),
+               which computes the SAME hash and additionally preserves the bytes
+               append-only. That side effect is allowed by Prime Directive 1AAA
+               and stays outside the domain/application layers. */
+            if (window.OCFotos.hashDeDataUrl) return window.OCFotos.hashDeDataUrl(bytes);
+            if (window.OCFotos.guardarFotoContenido) return window.OCFotos.guardarFotoContenido(bytes);
+            return null;
+          },
+          readByHash: async (hash) => {
+            if (!window.OCFotos.leerPorHash) return null;
+            return window.OCFotos.leerPorHash(hash);
+          },
+          readSyncByHash: async (hash) => {
+            try {
+              return window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get
+                ? (window.OCYjs.fotosMap.get(hash) || null) : null;
+            } catch (_) { return null; }
+          },
+          preserveByHash: async (hash, bytes) => {
+            if (window.OCFotos.guardarPorHash) await window.OCFotos.guardarPorHash(hash, bytes);
+          },
+          preserveById: async (id, bytes) => {
+            if (window.OCFotos.guardarFoto) await window.OCFotos.guardarFoto(id, bytes);
+          },
+          setPointer: async (id, hash) => {
+            if (estaCarga !== cargaEnCurso) return false;
+            const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fotoHash: hash })
+            });
+            return estaCarga === cargaEnCurso && (!rr || rr.ok !== false);
+          },
+          warn: (codigo) => {
+            try {
+              if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo('perchas', codigo);
+            } catch (_) {}
+          }
+        };
+
+        await Promise.all(perchasVisibles.map(async (u) => {
+          if (!u || !u.id) return;
+          try {
+            const r = await recuperarFoto(u, ports);
+            if (estaCarga === cargaEnCurso) {
+              if (r && r.displayBytes) fotoCache[u.id] = r.displayBytes;
+              if (r && r.pointerChanged && r.pointerHash) u.fotoHash = r.pointerHash;
+            }
+          } catch (_) {
+            /* Fail-open visual: precargarFotos() ya dejo disponible cualquier
+               copia por-id local. Un fallo del recovery nunca borra ni oculta eso. */
+          }
+        }));
+      }
+
+
+  }
+  async function cargar() {
+    const estaCarga = ++cargaEnCurso;
+    if (_fotoEspera) { clearInterval(_fotoEspera); _fotoEspera = null; }
+    inyectarBotonAgregar(); // el botón general vive fuera del grid, no se borra al re-render
+    const grid = $('vp-grid');
+    if (!grid) return;
+    // No colapsar el grid durante un refresh remoto: Safari reajusta el scroll
+    // al reducir súbitamente la altura de la página y deja la vista arriba.
+    if (!grid.children.length) grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
+    try {
+      const cargaFotos = precargarFotos(estaCarga).catch(() => null);
+      const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
+      const [perchas, liq, promotoras, corte] = await Promise.all([
+        // Vista operativa: solo perchas activas. Las archivadas/inactivas siguen en el store y en historial,
+        // pero no deben reaparecer en "My shelves" por pedir todas=1.
+        fetch(`${API}/ubicaciones`).then((r) => r.json()),
+        fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
+        fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
+        ['dueno','admin','contador','demo'].includes(rol) ? fetch(`${API}/reporting/corte`).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null),
+      ]);
+      // Defensa doble: la API operativa ya devuelve solo activas, pero la vista
+      // tampoco pinta una percha archivada/inactiva aunque un peer viejo la mande.
+      const perchasVisibles = Array.isArray(perchas)
+        ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
+        : [];
+      cargaFotos.then(() => pintarFotosPerchas(perchasVisibles, estaCarga)).catch(() => {});
+      if (estaCarga !== cargaEnCurso) return;
+      if (!perchasVisibles.length) {
+        grid.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noRacksYet'))}</p>`;
+        const transfersOk = await renderTransferencias();
+        return transfersOk === true && estaCarga === cargaEnCurso;
+      }
+      const liqPor = {}; (Array.isArray(liq) ? liq : []).forEach((f) => { liqPor[f.ubicacionId] = f; });
+      const promPor = {}; (Array.isArray(promotoras) ? promotoras : []).forEach((pr) => { promPor[pr.id] = pr.nombre; });
+      nombrePorId = {};
+      let zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+      try { zone=localStorage.getItem('f123_timezone') || zone; } catch (_) {}
+      const month=window.OCBusinessReadModel?window.OCBusinessReadModel.day(new Date().toISOString(),zone).slice(0,7):'';
+      const financials=finanzasPorPercha(perchasVisibles,corte,month,zone);
+
+      const ms = await Promise.all(perchasVisibles.map(async (u) => {
+        const f = liqPor[u.id];
+        const financial=financials.get(String(u.id));
+        const ventasMes=financial?financial.ventasMes:null, comision=financial?financial.comision:null;
+        const meta=f?f.metaMensual:(u.metaMensual || 0);
+        const cumplimiento=ventasMes===null || !meta?null:Math.round(ventasMes/meta*1000)/10;
+        nombrePorId[u.id] = u.nombre;
+        return {
+          id: u.id, nombre: u.nombre, activa: u.activa !== false,
+          semaforo: semaforoMeta(cumplimiento),
+          cumplimiento: cumplimiento,
+          ventasMes: ventasMes,
+          meta: f ? f.metaMensual : (u.metaMensual || 0),
+          comision: comision,
+          promotor: u.promotoraId ? (promPor[u.promotoraId] || null) : null,
+          diasSinVenta: f ? f.diasSinVenta : null,
+        };
+      }));
+      if (estaCarga !== cargaEnCurso) return;
+      // Orden por defecto: semaforo de meta (rojo primero). Si el usuario
+      // eligio otra columna ("Ordenar por"), esa manda en su lugar.
+      if (_ordenPercha.col) {
+        const col = _ordenPercha.col;
+        ms.sort((a, b) => {
+          const va = a[col], vb = b[col];
+          let r;
+          if (typeof va === 'number' && typeof vb === 'number') r = (va || 0) - (vb || 0);
+          else r = String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'en', { sensitivity: 'base', numeric: true });
+          return _ordenPercha.asc ? r : -r;
+        });
+      } else {
+        ms.sort((a, b) => (ORDEN[a.semaforo] ?? 5) - (ORDEN[b.semaforo] ?? 5));
+      }
+      pintarBotonesOrdenPercha();
+      grid.innerHTML = ms.map(_tarjeta).join('');
+
+      // E6: aviso puramente visual; nunca modifica fotos ni espera para pintar perchas.
+      if (!document.getElementById('vp-foto-pulso')) {
+        const st = document.createElement('style'); st.id = 'vp-foto-pulso';
+        st.textContent = '@keyframes vpFotoPulso{50%{background:#fff0c9}}.vp-foto-esperando{animation:vpFotoPulso 1.4s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.vp-foto-esperando{animation:none}}';
+        document.head.appendChild(st);
+      }
+      const comienzoFoto = Date.now();
+      _fotoEspera = setInterval(() => {
+        if (estaCarga !== cargaEnCurso) { clearInterval(_fotoEspera); _fotoEspera = null; return; }
+        const transcurrido = Date.now() - comienzoFoto;
+        const esperando = window.OCYjs?.fotosCanal?.recuperando === true;
+        const mostrar = esperando && transcurrido >= 3000 && transcurrido < 15000;
+        grid.querySelectorAll('[data-vp-foto-visual]').forEach((el) => {
+          if (el.tagName === 'IMG') return;
+          if (mostrar && el.dataset.vpCargando !== '1') {
+            el.dataset.vpCargando = '1';
+            el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-atomic', 'true');
+            el.textContent = String(window.OCI18n?.locale?.() || 'en').startsWith('es') ? 'Cargando foto…' : 'Loading photo…';
+            el.style.fontSize = '14px'; el.classList.add('vp-foto-esperando');
+          } else if (!mostrar && el.dataset.vpCargando === '1') {
+            delete el.dataset.vpCargando; el.removeAttribute('role'); el.removeAttribute('aria-live'); el.removeAttribute('aria-atomic');
+            el.textContent = el.dataset.vpInicial || '?';
+            el.style.fontSize = '56px'; el.classList.remove('vp-foto-esperando');
+          }
+        });
+        if (!esperando || transcurrido >= 15000) { clearInterval(_fotoEspera); _fotoEspera = null; }
+      }, 400);
+      void montarPhotoRecoveryVault(perchasVisibles, estaCarga).catch(() => {});
+      void recuperarFotosPerchas(perchasVisibles, estaCarga).then(() => pintarFotosPerchas(perchasVisibles, estaCarga)).catch(() => {});
+      try { if (window.ocMontarTraslado) window.ocMontarTraslado('oc-traslado-perchas'); } catch (_) {} // mover ítems entre perchas (breezy)
+      const transfersOk = await renderTransferencias(); // wait for the active shelf subpanel too
+      return transfersOk === true && estaCarga === cargaEnCurso;
+    } catch (err) {
+      if (estaCarga !== cargaEnCurso) return;
+      console.error('[VPerchas]', err);
+      grid.innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar: ${esc(err.message)}</p>`;
+    }
+  }
+
+  // ── CARPETA: modal con las tarjetas de producto de una percha ──────────────
+  // Reutiliza abrirFichaDesdeInventario() (global de index.html) para que tocar
+  // un producto abra su ficha (vender/editar/foto). Así se "conecta la info".
+  const modal = document.createElement('div');
+  modal.id = 'vp-carpeta-modal';
+  // JFC 2026-10-08: match the app dialogs, with four corners and space around
+  // the card. Scroll inside the card so even short mobile viewports keep Close.
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9996;background:rgba(15,20,30,.55);display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+  modal.innerHTML = `<div id="vp-carpeta-sheet" class="tag-card" role="dialog" aria-modal="true" aria-labelledby="vp-carpeta-titulo" style="background:var(--blanco-calido,#fbf5e8);color:var(--ink);text-align:left;width:100%;max-width:560px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;border-radius:12px;margin:0;padding:18px 16px 24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <strong id="vp-carpeta-titulo" style="font-family:var(--font-display);font-size:20px;color:var(--ink);flex:1;"></strong>
+        <button id="vp-carpeta-cerrar" style="font-size:14px;padding:8px 14px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${window.t('common.close')}</button>
+      </div>
+      <div id="vp-carpeta-body"></div>
+    </div>`;
+
+  const focoAnterior = new Map();
+  function abrirDialogoPercha(dialogo, focoId, origen) {
+    // Reopening an already visible dialog must not replace its opener with
+    // its Close button. Rack rendering may also replace the opener node.
+    if (!focoAnterior.has(dialogo)) {
+      // Safari may leave body active after a pointer click on a button.
+      const nodo = document.activeElement === document.body && origen ? origen : document.activeElement;
+      const atributo = nodo && ['data-vp-abrir', 'data-vp-rename'].find(a => nodo.hasAttribute(a));
+      focoAnterior.set(dialogo, { nodo, atributo, valor: atributo ? nodo.getAttribute(atributo) : null, id: nodo && nodo.id });
+    }
+    dialogo.style.display = 'flex';
+    const foco = document.getElementById(focoId);
+    if (foco) foco.focus({ preventScroll: true });
+  }
+  function cerrarDialogoPercha(dialogo) {
+    dialogo.style.display = 'none';
+    const anterior = focoAnterior.get(dialogo);
+    focoAnterior.delete(dialogo);
+    if (anterior) {
+      const destino = anterior.nodo && anterior.nodo.isConnected ? anterior.nodo
+        : anterior.atributo ? [...document.querySelectorAll('[' + anterior.atributo + ']')].find(el => el.getAttribute(anterior.atributo) === anterior.valor)
+        : anterior.id ? document.getElementById(anterior.id) : null;
+      if (destino) destino.focus({ preventScroll: true });
+    }
+  }
+  function cerrarCarpeta() { cerrarDialogoPercha(modal); }
+
+  async function abrirCarpeta(perchaId) {
+    const titulo = $('vp-carpeta-titulo');
+    const body = $('vp-carpeta-body');
+    titulo.textContent = nombrePorId[perchaId] || 'Percha';
+    body.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);">Cargando productos…</p>';
+    abrirDialogoPercha(modal, 'vp-carpeta-cerrar', [...document.querySelectorAll('button[data-vp-abrir]')].find(el => el.dataset.vpAbrir === perchaId));
+    try {
+      // Panorama de la percha (reparto + histórico) — friendly ya tiene el
+      // endpoint; faltaba mostrarlo como en AMIGABLE (JFC/Belén 2026-09-04:
+      // "que se parezca a Perchas de amigable, open view"). Se pide en paralelo;
+      // si falla, la carpeta sigue mostrando los productos igual.
+      const [prods, pano] = await Promise.all([
+        fetch(`${API}/productos?ubicacionId=${encodeURIComponent(perchaId)}`).then((r) => r.json()),
+        fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/panorama`).then((r) => r.json()).catch(() => null),
+      ]);
+      let repartoHtml = '', resumenHtml = '';
+      try {
+        const T = (k, f) => (window.t ? window.t(k, f) : f);
+        // Tarjetas de resumen (JFC 2026-09-04: "que luzca expansivo como AMIGABLE,
+        // info a la mano"). Del mismo /panorama. Solo dueño/admin.
+        const esDueno = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
+        if (esDueno && pano && pano.inventario && pano.mes) {
+          const inv = pano.inventario, mes = pano.mes;
+          resumenHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;">
+            <div class="tag-card" style="padding:10px 12px;"><div style="font-size:13px;color:var(--ink-soft);">${T('shelves.pano.inventory', 'Inventory value')}</div><strong style="font-size:18px;color:var(--ink);">${money(inv.valorVenta)}</strong><div style="font-size:12px;color:var(--ink-soft);">${inv.productos} ${T('shelves.pano.items', 'items')} · ${inv.unidades} u.</div></div>
+            <div class="tag-card" style="padding:10px 12px;"><div style="font-size:13px;color:var(--ink-soft);">${T('shelves.pano.monthSales', 'Sales this month')}</div><strong style="font-size:18px;color:var(--ink);">${money(mes.venta)}</strong><div style="font-size:12px;color:var(--ink-soft);">${mes.transacciones} ${T('shelves.pano.sales', 'sales')}</div></div>
+            <div class="tag-card" style="padding:10px 12px;"><div style="font-size:13px;color:var(--ink-soft);">${T('shelves.pano.monthProfit', 'Profit this month')}</div><strong style="font-size:18px;color:var(--sim-verde-dk,#1a6e3c);">${money(mes.ganancia)}</strong><div style="font-size:12px;color:var(--ink-soft);">${T('shelves.pano.afterCost', 'after cost')}</div></div>
+          </div>`;
+        }
+        if (pano && pano.comision) {
+          const cm = pano.comision, aso = pano.asociado, h = pano.historico || {};
+          const pctA = cm.pct != null ? cm.pct : 0;
+          const hist = (h.transacciones ? `${money(h.venta)} · ${window.tf ? window.tf('shelves.split.inN', { n: h.transacciones }) : h.transacciones + ' sale(s)'}` : T('shelves.split.noHistory', 'No sales yet')) +
+            (h.diasSinVender != null ? ` · ${window.tf ? window.tf('shelves.split.lastSaleD', { d: h.diasSinVender }) : 'last sale ' + h.diasSinVender + 'd ago'}` : '');
+          repartoHtml = `
+            <div class="tag-card" style="text-align:left;padding:14px 16px;margin-bottom:14px;border:2px solid var(--sim-verde,#00C87A);">
+              <strong style="font-size:15px;color:var(--ink);">${T('shelves.split.title', 'Split of this shelf')}${aso ? ' — ' + esc(aso.nombre) : ''}</strong>
+              <div style="font-size:14px;color:var(--ink);margin-top:8px;">${T('shelves.split.associateTakes', 'Associate takes')}: <strong>${money(cm.seLlevaElAsociado)}</strong> <span style="color:var(--ink-soft);">(${pctA}%)</span></div>
+              <div style="font-size:14px;color:var(--ink);margin-top:2px;">${T('shelves.split.houseKeeps', 'House keeps')}: <strong>${money(cm.quedaEnCasa)}</strong></div>
+              <div style="font-size:13px;color:var(--ink-soft);margin-top:6px;">${T('shelves.split.history', 'History')}: ${hist}</div>
+              <button data-vp-compradores="${esc(perchaId)}" style="margin-top:10px;font-size:14px;padding:8px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">${T('shelves.split.viewBuyers', 'View buyers of this shelf')}</button>
+            </div>`;
+        }
+      } catch (_) {}
+      if (!Array.isArray(prods) || !prods.length) {
+        body.innerHTML = resumenHtml + repartoHtml + `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
+        _cablearCompradores(body);
+        return;
+      }
+      body.innerHTML = resumenHtml + repartoHtml + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
+        prods.map((p) => {
+          const c = SIMON[p.estado] || SIMON.azul;
+          const estrella = p.estrella ? '★ ' : '';
+          const puedeEd = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
+          return `<button data-vp-prod="${esc(p.id)}" style="text-align:left;border:2px solid ${c.border};border-radius:10px;padding:0;overflow:hidden;background:var(--blanco-calido,#fbf5e8);cursor:pointer;">
+            <div style="height:8px;background:${c.bg};"></div>
+            <div style="padding:10px 12px;">
+              <strong style="font-family:var(--font-display);font-size:15px;color:var(--ink);display:block;line-height:1.2;">${estrella}${esc(p.nombre)}</strong>
+              <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Stock: ${p.stockActual} · ${money(p.precio)}</div>
+              ${puedeEd ? `<span data-vp-edit="${esc(p.id)}" style="display:inline-block;margin-top:8px;padding:4px 12px;border:2px solid var(--azul-medio,#2E6278);border-radius:5px;font-size:13px;font-weight:700;color:var(--azul-medio,#2E6278);">Edit</span>` : ""}
+            </div>
+          </button>`;
+        }).join('')
+      }</div>`;
+      _cablearCompradores(body);
+    } catch (err) {
+      body.innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar: ${esc(err.message)}</p>`;
+    }
+  }
+
+  // "Ver compradores de esta percha": lista los clientes que compraron aquí este
+  // mes (reusa /api/compradores, que friendly ya tiene). Se muestra inline en la
+  // carpeta; respeta REGLA 7 (soporte/lord no ve datos personales — el backend ya
+  // los omite para ese rol). Aditivo, no toca nada más.
+  function _cablearCompradores(body) {
+    if (!body) return;
+    body.querySelectorAll('[data-vp-compradores]').forEach((btn) => {
+      if (btn._listo) return; btn._listo = true;
+      btn.addEventListener('click', async () => {
+        const T = (k, f) => (window.t ? window.t(k, f) : f);
+        const pid = btn.getAttribute('data-vp-compradores');
+        btn.disabled = true;
+        let lista = [];
+        try { lista = await fetch(`${API}/compradores?ubicacionId=${encodeURIComponent(pid)}`).then((r) => r.json()); } catch (_) { lista = []; }
+        let cont = body.querySelector('#vp-compradores-lista');
+        if (!cont) { cont = document.createElement('div'); cont.id = 'vp-compradores-lista'; cont.style.cssText = 'margin:0 0 14px;'; btn.parentElement.appendChild(cont); }
+        cont.innerHTML = (Array.isArray(lista) && lista.length)
+          ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${lista.map((c) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #eef0ec;"><span>${esc(c.nombre || '')}</span><span>${money(c.monto)} · ${c.unidades || 0}u</span></div>`).join('')}</div>`
+          : `<p style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${T('shelves.split.noBuyers', 'No buyers recorded for this shelf yet.')}</p>`;
+        btn.disabled = false;
+      });
+    });
+  }
+
+  // ── MODAL GESTIÓN: renombrar o borrar la percha (✎) ───────────────────────
+  // Reemplaza el prompt() simple. Bottom-sheet de 2 acciones: Renombrar y Borrar.
+  // Borrar pide confirmación de texto para evitar toques accidentales.
+  const modalGestion = document.createElement('div');
+  modalGestion.id = 'vp-gestion-modal';
+  modalGestion.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(15,20,30,.55);display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+  modalGestion.innerHTML = `
+    <div class="tag-card" role="dialog" aria-modal="true" aria-labelledby="vp-g-titulo" style="background:var(--blanco-calido,#fbf5e8);color:var(--ink);text-align:left;width:100%;max-width:560px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;border-radius:12px;margin:0;padding:20px 18px 28px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <strong id="vp-g-titulo" style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;"></strong>
+        <button id="vp-g-cerrar" style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cerrar</button>
+      </div>
+      <!-- Renombrar -->
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;">Nuevo nombre
+        <input id="vp-g-nombre" type="text" maxlength="60"
+          style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);
+                 border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
+      </label>
+      <button id="vp-g-renombrar" style="padding:10px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;
+        background:var(--azul-medio,#2c4a68);color:#fbf5e8;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-bottom:20px;">
+        Guardar nombre
+      </button>
+      <!-- Borrar -->
+      <details id="vp-g-borrar-wrap" style="border:2px solid var(--rojo,#a3392a);border-radius:8px;padding:10px 14px;">
+        <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--rojo,#a3392a);">Borrar esta percha</summary>
+        <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 4px;">
+          Esto elimina la percha permanentemente. Los productos no se borran — quedan sin percha asignada.
+        </p>
+        <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">
+          Escribe <strong id="vp-g-nombre-confirm" style="color:var(--ink);"></strong> para confirmar:
+        </p>
+        <input id="vp-g-confirm" type="text" placeholder="Escribe el nombre exacto"
+          style="display:block;width:100%;padding:8px 10px;border:2px solid var(--rojo,#a3392a);border-radius:6px;
+                 font-size:14px;box-sizing:border-box;margin-bottom:8px;background:#fff;">
+        <button id="vp-g-borrar" style="padding:9px 16px;border:2px solid var(--rojo,#a3392a);border-radius:7px;
+          background:var(--rojo,#a3392a);color:#fff;font-size:14px;font-weight:700;cursor:pointer;width:100%;">
+          Confirmar borrado
+        </button>
+        <p id="vp-g-msg" style="font-size:13px;margin:6px 0 0;font-weight:700;"></p>
+      </details>
+    </div>`;
+
+  function cerrarGestion() {
+    cerrarDialogoPercha(modalGestion);
+    perchaGestionId = null;
+    const dets = document.getElementById('vp-g-borrar-wrap');
+    if (dets) dets.removeAttribute('open');
+    const conf = document.getElementById('vp-g-confirm');
+    if (conf) conf.value = '';
+    const msg = document.getElementById('vp-g-msg');
+    if (msg) msg.textContent = '';
+  }
+
+  function abrirGestion(perchaId) {
+    perchaGestionId = perchaId;
+    const nombre = nombrePorId[perchaId] || '';
+    const tit = document.getElementById('vp-g-titulo');
+    const input = document.getElementById('vp-g-nombre');
+    const nameConfirm = document.getElementById('vp-g-nombre-confirm');
+    if (tit) tit.textContent = 'Editar: ' + nombre;
+    if (input) { input.value = nombre; }
+    if (nameConfirm) nameConfirm.textContent = nombre;
+    abrirDialogoPercha(modalGestion, 'vp-g-nombre', [...document.querySelectorAll('[data-vp-rename]')].find(el => el.dataset.vpRename === perchaId));
+  }
+
+  // ── MODAL AGREGAR: nueva percha ────────────────────────────────────────────
+  const modalAgregar = document.createElement('div');
+  modalAgregar.id = 'vp-agregar-modal';
+  modalAgregar.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(15,20,30,.55);display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+  modalAgregar.innerHTML = `
+    <div class="tag-card" role="dialog" aria-modal="true" aria-labelledby="vp-a-titulo" style="background:var(--blanco-calido,#fbf5e8);color:var(--ink);text-align:left;width:100%;max-width:560px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;border-radius:12px;margin:0;padding:20px 18px 28px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <strong id="vp-a-titulo" style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">${window.t('shelves.newRackTitle')}</strong>
+        <button id="vp-a-cerrar" style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${window.t('common.close')}</button>
+      </div>
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;">${window.t('shelves.rackNameLabel')}
+        <input id="vp-a-nombre" type="text" maxlength="60" placeholder="${esc(window.t('shelves.rackNamePlaceholder'))}"
+          style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);
+                 border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
+      </label>
+      <p style="font-size:13px;color:var(--ink-soft);margin:4px 0 14px;">
+        ${window.t('shelves.assignHint')}
+      </p>
+      <button id="vp-a-crear" style="padding:10px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;
+        background:var(--azul-medio,#2c4a68);color:#fbf5e8;font-size:14px;font-weight:700;cursor:pointer;width:100%;">
+        ${window.t('shelves.createRackBtn')}
+      </button>
+      <p id="vp-a-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
+    </div>`;
+
+  function cerrarAgregar() {
+    cerrarDialogoPercha(modalAgregar);
+    const inp = document.getElementById('vp-a-nombre');
+    if (inp) inp.value = '';
+    const msg = document.getElementById('vp-a-msg');
+    if (msg) msg.textContent = '';
+  }
+
+  function abrirAgregar() {
+    abrirDialogoPercha(modalAgregar, 'vp-a-nombre', document.getElementById('vp-btn-agregar'));
+  }
+
+  // Keep keyboard navigation in the visible rack dialog, but let a higher
+  // confirmation/editor own the keyboard when one is opened above it.
+  document.addEventListener('keydown', (e) => {
+    const dialogo = [modalAgregar, modalGestion, modal].find(d => d.style.display === 'flex');
+    if (!dialogo || e.defaultPrevented) return;
+    if (['oc-modal-overlay', 'oc-comision-overlay', 'oc-ventainfo-overlay'].some(id => {
+      const encima = document.getElementById(id);
+      return encima && encima.style.display === 'flex';
+    })) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (dialogo === modalAgregar) cerrarAgregar();
+      else if (dialogo === modalGestion) cerrarGestion();
+      else cerrarCarpeta();
+    } else if (e.key === 'Tab') {
+      const focos = [...dialogo.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex]')]
+        .filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+      const primero = focos[0], ultimo = focos[focos.length - 1];
+      if (primero && (e.shiftKey ? document.activeElement === primero : document.activeElement === ultimo)) {
+        e.preventDefault();
+        (e.shiftKey ? ultimo : primero).focus();
+      }
+    }
+  });
+
+  // ── tap en la foto: cámara → resize → localStorage → re-render ────────────
+  let perchaFotoPendiente = null;
+  const inputFoto = document.createElement('input');
+  inputFoto.type = 'file';
+  inputFoto.accept = 'image/*';
+  inputFoto.setAttribute('capture', 'environment');
+  inputFoto.style.display = 'none';
+  inputFoto.addEventListener('change', () => {
+    const file = inputFoto.files && inputFoto.files[0];
+    const id = perchaFotoPendiente;
+    inputFoto.value = ''; perchaFotoPendiente = null;
+    if (!file || !id) return;
+    redimensionar(file, async (dataUrl) => {
+      const ok = window.OCFotos ? await window.OCFotos.guardarFoto(id, dataUrl) : false;
+      if (!ok) {
+        alert('No se pudo guardar la foto (espacio lleno). Borra alguna foto vieja.');
+        return;
+      }
+      fotoCache[id] = dataUrl; // optimista: se ve de inmediato, sin esperar otra lectura
+      /* B2 (JFC 2026-09-10): ademas de guardarla por id (para la vista de aca),
+         se guarda por su HASH y se registra el puntero fotoHash en la ubicacion.
+         Asi la asignacion viaja por el sync (solo el hash) y el otro aparato sabe
+         que foto le toca a esta percha; los bytes se traeran cuando haya nube (B3).
+         Falla en silencio: si algo de esto no anda, la foto local ya quedo guardada. */
+      try {
+        if (window.OCFotos && window.OCFotos.guardarFotoContenido) {
+          const hash = await window.OCFotos.guardarFotoContenido(dataUrl);
+          await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fotoHash: hash })
+          });
+        }
+      } catch (_) {}
+      cargar();
+    });
+  });
+
+  // ── un solo listener delegado para todo el panel ───────────────────────────
+  document.addEventListener('click', async (e) => {
+    const vr = e.target.closest && e.target.closest('[data-vault-restore]');
+    if (vr) {
+      e.stopPropagation();
+      const hash = vr.dataset.vaultRestore;
+      const sel = document.querySelector('[data-vault-shelf="' + CSS.escape(hash) + '"]');
+      const id = sel && sel.value;
+      if (!id || !window.OCFotos) return;
+      try {
+        const bytes = await window.OCFotos.leerPorHash(hash);
+        if (!bytes) return;
+        await window.OCFotos.guardarFoto(id, bytes);
+        fotoCache[id] = bytes;
+        const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ fotoHash: hash })
+        });
+        if (rr && rr.ok === false) throw new Error('restore rejected');
+        cargar();
+      } catch (_) { alert('Could not restore this photo yet. Nothing was deleted.'); }
+      return;
+    }
+    // Cerrar carpeta (botón o fondo)
+    if (e.target.id === 'vp-carpeta-cerrar' || e.target === modal) { cerrarCarpeta(); return; }
+    // Cerrar gestión
+    if (e.target.id === 'vp-g-cerrar' || e.target === modalGestion) { cerrarGestion(); return; }
+    // Cerrar agregar
+    if (e.target.id === 'vp-a-cerrar' || e.target === modalAgregar) { cerrarAgregar(); return; }
+
+    // Edicion directa (homologado de AMIGABLE, 2026-07-22) — atendida ANTES
+    // que abrir-ficha porque el chip vive dentro del mismo card clicable.
+    const editBtn = e.target.closest('[data-vp-edit]');
+    if (editBtn) {
+      e.stopPropagation();
+      cerrarCarpeta();
+      if (window.abrirEdicionDesdeInventario) window.abrirEdicionDesdeInventario(editBtn.dataset.vpEdit);
+      return;
+    }
+    // Abrir ficha de un producto desde la carpeta
+    const prodBtn = e.target.closest('[data-vp-prod]');
+    if (prodBtn) {
+      cerrarCarpeta();
+      if (window.abrirFichaDesdeInventario) window.abrirFichaDesdeInventario(prodBtn.dataset.vpProd);
+      return;
+    }
+    // Cambiar foto (📷) — antes que abrir carpeta, y sin propagar
+    const fotoBtn = e.target.closest('[data-vp-foto]');
+    if (fotoBtn) { e.stopPropagation(); perchaFotoPendiente = fotoBtn.dataset.vpFoto; inputFoto.click(); return; }
+    // ✎ Gestión (renombrar / borrar) — abre modal de gestión
+    const renBtn = e.target.closest('[data-vp-rename]');
+    if (renBtn) {
+      e.stopPropagation();
+      abrirGestion(renBtn.dataset.vpRename);
+      return;
+    }
+    // Guardar renombre
+    if (e.target.id === 'vp-g-renombrar') {
+      const nuevo = (document.getElementById('vp-g-nombre').value || '').trim();
+      if (!nuevo) { alert('Escribe un nombre.'); return; }
+      const res = await fetch(`${API}/ubicaciones/${perchaGestionId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: nuevo }),
+      });
+      if (res.ok) {
+        cerrarGestion(); cargar();
+        if (window.cargarUbicaciones) window.cargarUbicaciones();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'No se pudo renombrar.');
+      }
+      return;
+    }
+    // Confirmar borrado
+    if (e.target.id === 'vp-g-borrar') {
+      const nombreEsperado = nombrePorId[perchaGestionId] || '';
+      const confirmado = (document.getElementById('vp-g-confirm').value || '').trim();
+      const msg = document.getElementById('vp-g-msg');
+      if (confirmado !== nombreEsperado) {
+        msg.style.color = 'var(--rojo,#a3392a)';
+        msg.textContent = 'El nombre no coincide. Escribe exactamente: ' + nombreEsperado;
+        return;
+      }
+      const res = await fetch(`${API}/ubicaciones/${perchaGestionId}`, { method: 'DELETE' });
+      if (res.ok) {
+        // PRIME DIRECTIVE 1AAA: borrar/archivar la percha NO destruye su foto.
+        // Queda en el vault local para recovery/auditoria; la UI deja de mostrarla
+        // porque la percha ya no es visible, no porque los bytes desaparezcan.
+        cerrarGestion(); cargar();
+        if (window.cargarUbicaciones) window.cargarUbicaciones();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        msg.style.color = 'var(--rojo,#a3392a)';
+        msg.textContent = d.error || window.t('shelves.couldNotDelete');
+      }
+      return;
+    }
+    // Crear nueva percha
+    if (e.target.id === 'vp-a-crear') {
+      const nombre = (document.getElementById('vp-a-nombre').value || '').trim();
+      const msg = document.getElementById('vp-a-msg');
+      if (!nombre) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = window.t('shelves.nameRequired'); return; }
+      const res = await fetch(`${API}/ubicaciones`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }),
+      });
+      if (res.ok) {
+        cerrarAgregar(); cargar();
+        if (window.cargarUbicaciones) window.cargarUbicaciones();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        msg.style.color = 'var(--rojo,#a3392a)';
+        msg.textContent = d.error || window.t('shelves.couldNotCreate');
+      }
+      return;
+    }
+    // Abrir carpeta (tarjeta entera)
+    const abrir = e.target.closest('[data-vp-abrir]');
+    if (abrir) { abrirCarpeta(abrir.dataset.vpAbrir); }
+  });
+
+  // Accesibilidad: Enter/Espacio sobre una portada abre su carpeta.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const abrir = e.target.closest && e.target.closest('[data-vp-abrir]');
+    if (abrir) { e.preventDefault(); abrirCarpeta(abrir.dataset.vpAbrir); }
+  });
+
+  // ── TRANSFERS ENTRE PERCHAS (JFC 2026-08-28) ──────────────────────────────
+  // Movido de Advanced a Perchas: es una operación de inventario entre
+  // ubicaciones, no configuración técnica. El dueño aprueba/rechaza/confirma
+  // rápido desde donde piensa en perchas. Reusa el mismo endpoint /api/transferencias.
+  async function renderTransferencias() {
+    const cont = $('vp-transfers');
+    if (!cont) return;
+    let lista;
+    try {
+      lista = await (await fetch(`${API}/transferencias`)).json();
+    } catch (err) {
+      console.error('[VPerchas transferencias]', err);
+      cont.innerHTML = `<h3 class="seccion" style="margin-top:0;">${esc(window.t('shelves.transfersHeading') || 'Transfers between locations')}</h3>
+        <p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load. Check your connection and try again.</p>`;
+      return;
+    }
+    const titulo = `<h3 class="seccion" style="margin-top:0;">${esc(window.t('shelves.transfersHeading') || 'Transfers between locations')}</h3>`;
+    if (!Array.isArray(lista) || !lista.length) {
+      cont.innerHTML = titulo + `<p style="font-size:14px;color:var(--ink-soft);">No transfers yet.</p>`;
+      return Array.isArray(lista);
+    }
+    cont.innerHTML = titulo + lista.map((t) => {
+      const colorEstado = t.estado === 'recibida' ? 'verde' : t.estado === 'rechazada' ? 'rojo' : t.estado === 'en_transito' ? 'azul' : 'amarillo';
+      let acciones = '';
+      if (t.estado === 'solicitada') {
+        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Approve</button>
+          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Reject</button>`;
+      } else if (t.estado === 'en_transito') {
+        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirm receipt</button>`;
+      }
+      return `<div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <strong>${esc(t.nombre)}</strong> · ${t.cantidad} un.
+          <div style="font-size:13px;color:var(--ink-soft);">${esc(t.desdeNombre)} → ${esc(t.haciaNombre)}</div>
+        </div>
+        <span class="badge-estado ${colorEstado}">${t.estado.replace('_', ' ')}</span>
+        ${acciones}
+      </div>`;
+    }).join('');
+
+    cont.querySelectorAll('[data-transf-aprobar]').forEach((btn) => btn.addEventListener('click', async () => {
+      let res, r;
+      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfAprobar}/aprobar`, { method: 'POST' }); r = await res.json(); }
+      catch (err) { console.error('[transf-aprobar]', err); alert('Could not reach the server. Try again.'); return; }
+      if (!res.ok) { alert(r.error); return; }
+      renderTransferencias();
+    }));
+    cont.querySelectorAll('[data-transf-rechazar]').forEach((btn) => btn.addEventListener('click', async () => {
+      try { await fetch(`${API}/transferencias/${btn.dataset.transfRechazar}/rechazar`, { method: 'POST' }); }
+      catch (err) { console.error('[transf-rechazar]', err); alert('Could not reach the server. Try again.'); return; }
+      renderTransferencias();
+    }));
+    cont.querySelectorAll('[data-transf-confirmar]').forEach((btn) => btn.addEventListener('click', async () => {
+      let res, r;
+      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfConfirmar}/confirmar-recepcion`, { method: 'POST' }); r = await res.json(); }
+      catch (err) { console.error('[transf-confirmar]', err); alert('Could not reach the server. Try again.'); return; }
+      if (!res.ok) { alert(r.error); return; }
+      renderTransferencias();
+      cargar(); // re-render del grid de perchas (el stock cambió)
+    }));
+    return true;
+  }
+
+  function init() {
+    document.body.appendChild(inputFoto);
+    document.body.appendChild(modal);
+    document.body.appendChild(modalGestion);
+    document.body.appendChild(modalAgregar);
+
+    // El botón "Agregar +" NO se inyecta aquí: init() corre en DOMContentLoaded,
+    // ANTES del login, cuando rolActual() todavía es null y el botón no saldría.
+    // Se inyecta en cargar() (ver inyectarBotonAgregar), que corre cada vez que
+    // se abre la vista, ya con la sesión iniciada. Idempotente (una sola vez).
+
+    // Evento de gestión: guardar renombre al presionar Enter en el input
+    const inputG = document.getElementById('vp-g-nombre');
+    if (inputG) {
+      inputG.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') document.getElementById('vp-g-renombrar').click();
+      });
+    }
+    const inputA = document.getElementById('vp-a-nombre');
+    if (inputA) {
+      inputA.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') document.getElementById('vp-a-crear').click();
+      });
+    }
+  }
+  // Wall defensiva (2026-07-08): un fallo al montar Mis perchas queda aislado,
+  // no rompe el resto de la app.
+  function initSeguro() { try { init(); } catch (e) { console.error('VPerchas init falló (aislado):', e); } }
+  document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', initSeguro)
+    : initSeguro();
+
+  window.VPerchas = { cargar, renderTransferencias };
+})();

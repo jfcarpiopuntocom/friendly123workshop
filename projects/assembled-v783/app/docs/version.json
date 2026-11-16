@@ -1,0 +1,10 @@
+{
+  "version": "v0.7.83",
+  "fecha": "2026-11-15",
+  "changelog": "Candidata local: componentes importados Dinero.js y Workbox bajo flags QA; sin activar clientes.",
+  "requerida": false,
+  "shell": "f123-shell-v783",
+  "apagar": [],
+  "releaseName": "v0.7.83",
+  "cacheGeneration": "golden319"
+}

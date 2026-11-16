@@ -1,0 +1,37 @@
+(node:10183) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/assembled-candidate/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/assembled-candidate/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ full Worker route and real Durable Object enforce JFC PIN override and device/license binding (41.193851ms)
+✔ verified Owner receives a short room-bound credential with no echoed PIN (13.297663ms)
+✔ copied browser verification and arbitrary principal cannot mint credentials (2.213243ms)
+✔ cross-license room and invalid TTL are rejected without an issued nonce (3.264182ms)
+✔ a room ticket is single use even under concurrent consumers and factory restart (4.226238ms)
+✔ wrong key, altered payload, wrong room/instance/scope never consume the nonce (4.919228ms)
+✔ expiry and clock rollback reject issued and already consumed credentials (5.478469ms)
+✔ Owner PIN revision change revokes existing tickets and sessions (5.182844ms)
+✔ registered instance revocation is checked at consume and subsequent delivery checks (3.563512ms)
+✔ real Team credentials preserve admin/employee identity and need explicit trusted QA grants (9.498677ms)
+✔ Team revision and inactive member invalidate consumed sessions without deleting local business data (24.085705ms)
+✔ contador/artista/demo cannot inherit broad commercial rooms even from overbroad grants (4.105997ms)
+✔ separate WS secret is required and storage failure fails closed (0.888294ms)
+✔ a revocation between credential verification and ticket commit prevents issuance (2.026874ms)
+✔ failed nonce persistence rolls back the transaction without a false ticket (1.405551ms)
+✔ authenticated issuance is bounded and expired nonce records are cleaned without weakening replay (23.059284ms)
+✔ even valid HMAC cannot forge epoch, lifetime or an unissued payload (5.162804ms)
+(node:10207) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/assembled-candidate/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/assembled-candidate/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual API issues from real authority and only trusted service consumes/checks (21.350918ms)
+✔ disabled, wrong pilot, missing or reused secrets never call the authority (2.028086ms)
+✔ browser principal and role are not accepted in place of a real Owner PIN (1.547485ms)
+✔ invalid policy and request streams fail closed without forwarding (1.4313ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1330.534056

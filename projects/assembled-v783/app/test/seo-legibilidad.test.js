@@ -1,0 +1,82 @@
+/* Bloque 2 (JFC 2026-09-24): fijacion de SEO basico y de la regla de legibilidad.
+   Test de FIJACION (comportamiento que debe seguir asi), no de un bug:
+   robots + sitemap existen y apuntan bien; las tres paginas publicas llevan
+   canonical y JSON-LD valido; ningun chip con texto blanco usa el verde
+   #00C87A ni el naranja #F97316 (2.2:1 y 2.8:1); la alerta naranja de la app
+   no lleva texto blanco sobre naranja. */
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const DOCS = path.join(__dirname, '../docs');
+// v593 follow-up: index.html now links app-style-02.min.css; read the extracted source so the exact CSS rule assertions stay meaningful.
+const leer = (f) => require('./helpers/page-source.cjs').readFileSync(path.join(DOCS, f), 'utf8');
+
+test('robots.txt y sitemap.xml existen, se apuntan y no exponen el panel', () => {
+  const robots = leer('robots.txt'), sitemap = leer('sitemap.xml');
+  assert.match(robots, /Sitemap: https:\/\/jfcarpiopuntocom\.github\.io\/friendly-123\/sitemap\.xml/);
+  assert.match(robots, /Disallow: \/panel\.html/);
+  assert.match(robots, /Disallow: \/dashboard\.html/);
+  for (const u of ['friendly-123/', 'save.html', 'visualize.html']) assert.ok(sitemap.includes(u), 'sitemap incluye ' + u);
+  assert.ok(!sitemap.includes('panel.html'));
+});
+
+test('index, save y visualize llevan canonical y JSON-LD parseable con el precio real', () => {
+  for (const [f, canon] of [['index.html', 'friendly-123/"'], ['save.html', 'save.html"'], ['visualize.html', 'visualize.html"']]) {
+    const html = leer(f);
+    assert.match(html, new RegExp('<link rel="canonical" href="https://jfcarpiopuntocom\\.github\\.io/friendly-123/' + canon.replace('friendly-123/', '').replace('.', '\\.')), f + ' canonical');
+    const m = html.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
+    assert.ok(m, f + ' tiene JSON-LD');
+    const ld = JSON.parse(m[1]);
+    assert.equal(ld['@context'], 'https://schema.org');
+    const offer = ld.offers || (ld.about && ld.about.offers);
+    assert.equal(offer.price, '399');
+    assert.equal(offer.priceCurrency, 'USD');
+  }
+});
+
+test('legibilidad: ningun chip con texto blanco usa el verde o naranja claros; la alerta naranja va en tinta oscura', () => {
+  for (const f of ['save.html', 'visualize.html']) {
+    const css = leer(f);
+    assert.match(css, /--verde-ink:#0B7A4B/);
+    assert.doesNotMatch(css, /\.tchip-(verde|naranja)\{ background:var\(--(verde|naranja)\); color:#FFFFFF/, f + ': chip blanco sobre color claro');
+    assert.match(css, /\.btn-primary\{\s*background:var\(--verde-ink\)/, f + ': boton principal con verde tinta');
+    // PageSpeed 2026-09-24 (Accessibility 94 por contraste): ninguna regla que pinte
+    // TEXTO blanco puede usar los colores claros de marca; solo sus tintas.
+    for (const c of ['verde', 'naranja', 'rojo', 'azul']) {
+      assert.doesNotMatch(css, new RegExp('\\.(tchip|mini|bcg)-' + c + '\\{ background:var\\(--' + c + '\\)'), f + ': .' + c + ' con fondo claro bajo texto blanco');
+    }
+    assert.doesNotMatch(css, /background:#25D366 !important; color:#FFFFFF/, f + ': WhatsApp blanco sobre #25D366 (2.4:1)');
+    const logo = css.match(/<img\b[^>]*class="logo"[^>]*>/);
+    assert.ok(logo, f + ': logo presente');
+    assert.match(logo[0], /alt="friendly-123"/);
+    const src = logo[0].match(/src="(\.\/[^\"]+\.png)"/);
+    assert.ok(src, f + ': logo PNG local');
+    const png = fs.readFileSync(path.join(DOCS, src[1]));
+    const width = logo[0].match(/\bwidth="(\d+)"/), height = logo[0].match(/\bheight="(\d+)"/);
+    assert.ok(width && height, f + ': logo con medidas (CLS)');
+    assert.deepEqual([Number(width[1]), Number(height[1])], [png.readUInt32BE(16), png.readUInt32BE(20)], f + ': medidas intrinsecas del PNG real');
+  }
+  const app = leer('index.html');
+  assert.doesNotMatch(app, /li\.naranja\{background:var\(--sim-naranja\); color:#FFFFFF/);
+  assert.match(app, /li\.naranja\{background:#FDD9BE; color:#7C2D12/);
+});
+
+test('save.html: FAQ de 5 preguntas con hechos ya publicados (fijacion, Bloque 7)', () => {
+  const html = leer('save.html');
+  const faq = html.slice(html.indexOf('<section class="faq wrap"'), html.indexOf('</section>', html.indexOf('<section class="faq wrap"')));
+  assert.equal((faq.match(/<details>/g) || []).length, 5);
+  assert.match(faq, /\$399 once, for a 5-year license/);
+  assert.match(faq, /read-only/);
+  assert.match(faq, /within 24 hours/);
+  assert.doesNotMatch(faq, /guarantee|refund|money back/i, 'la FAQ no promete nada que JFC no haya decidido');
+});
+
+test('save.html: embudo limpio y prueba social con permiso (fijacion, JFC 2026-09-24)', () => {
+  const html = leer('save.html');
+  assert.ok(!html.includes('href="./checklist.html"'), 'ningun enlace saca al visitante a la encuesta');
+  assert.match(html, /Belén — idiomARTE, Cuenca/);
+  assert.match(html, /José — Olimpo Chess Club, Cuenca, Ecuador/);
+  assert.ok(html.includes('id="btn-comprar-paypal"'), 'el boton de compra sigue');
+  assert.ok(html.includes('id="calc-wa"'), 'enviar el calculo por WhatsApp sigue (decision de JFC)');
+});

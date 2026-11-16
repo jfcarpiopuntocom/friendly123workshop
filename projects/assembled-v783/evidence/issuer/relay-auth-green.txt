@@ -1,0 +1,52 @@
+(node:10530) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/assembled-candidate/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/assembled-candidate/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ copied identifiers without a ticket receive zero Yjs frames (3580.498747ms)
+✖ real Owner ticket opens private YServer, persists facts, and cannot replay (344.603734ms)
+✖ missing authority fails closed before any Yjs state (255.021824ms)
+✔ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (9.441471ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5590.070896
+
+✖ failing tests:
+
+test at qa/p0-real-session-room.test.mjs:19:1
+✖ real Owner ticket opens private YServer, persists facts, and cannot replay (344.603734ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to:
+  
+  'open'
+      at TestContext.<anonymous> (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:19:449)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'open',
+    expected: 'open',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at qa/p0-real-session-room.test.mjs:20:1
+✖ missing authority fails closed before any Yjs state (255.021824ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to:
+  
+  'open'
+      at TestContext.<anonymous> (file:///workspace/work/assembled-candidate/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:20:206)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'open',
+    expected: 'open',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }

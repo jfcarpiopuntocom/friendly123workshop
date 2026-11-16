@@ -1,0 +1,221 @@
+npm warn tarball tarball data for workerd@https://registry.npmjs.org/workerd/-/workerd-1.20260611.1.tgz (sha512-CS/640T7pIJ2HYX6x2DwKFGbcSckAWN3tgcdq+ptB6SaqjWUhlzIgA/YhPuwIU+/NnMnGpqOFX/hC18Oyge63w==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for sharp@https://registry.npmjs.org/sharp/-/sharp-0.34.5.tgz (sha512-Ou9I5Ft9WNcCbXrU9cMgPBcCK8LiwLqcbywW3t4oDV37n1pzpuNLsYiAV8eODnjbtQlSDwZ2cUEeQz4E54Hltg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for ws@https://registry.npmjs.org/ws/-/ws-8.23.0.tgz (sha512-wCkmX8QMOrKjgO8HW2WyDbTSGeqkocxgDzS9iR79rEAexty6/2qzilx3Ag8Tqf9ykop3irLKle0MtVn5qjVnoQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for undici@https://registry.npmjs.org/undici/-/undici-7.24.8.tgz (sha512-6KQ/+QxK49Z/p3HO6E5ZCZWNnCasyZLa5ExaVYyvPxUwKtbCPMKELJOqh7EqOle0t9cH/7d2TaaTRRa6Nhs4YQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for youch@https://registry.npmjs.org/youch/-/youch-4.1.0-beta.10.tgz (sha512-rLfVLB4FgQneDr0dv1oddCVZmKjcJ6yX6mS4pU82Mq/Dt9a3cLZQ62pDBL4AUO+uVrCvtWz3ZFUL2HFAFJ/BXQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for youch-core@https://registry.npmjs.org/youch-core/-/youch-core-0.3.3.tgz (sha512-ho7XuGjLaJ2hWHoK8yFnsUGy2Y5uDpqSTq1FkHLK4/oqKtyUU1AFbOOxY4IpC9f0fTLjwYbslUz0Po5BpD1wrA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for wrangler@https://registry.npmjs.org/wrangler/-/wrangler-4.100.0.tgz (sha512-dSQO7DO+mD6XDzkVWIWBoGLO3yw+lacWSc/KhFvd7pgfpth+kX98qb5SGRHZN8ACCDhhfwzDLXwB6qHsIHhfBg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for yjs@https://registry.npmjs.org/yjs/-/yjs-13.6.33.tgz (sha512-q/UYvr1gOk4XII+Cu1CW2dINjYqJJFifTzogEaIARznrvX7uOlHsdTEXcnOBMuIsrCGEEKdNxi74kyMLZlKVfw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for path-to-regexp@https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-6.3.0.tgz (sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for y-partyserver@https://registry.npmjs.org/y-partyserver/-/y-partyserver-2.2.0.tgz (sha512-AIsTEZ3jPicBe3VHO5c/VdSGSaFr0J9cAGj6+sgRL/RnXLTNSkP3oQXyXf1y8hQNeXv/j9zYDT5NnRv2k1eMGA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for unenv@https://registry.npmjs.org/unenv/-/unenv-2.0.0-rc.24.tgz (sha512-i7qRCmY42zmCwnYlh9H2SvLEypEFGye5iRmEMKjcGi7zk9UquigRjFtTLz0TYqr0ZGLZhaMHl/foy1bZR+Cwlw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for nanoid@https://registry.npmjs.org/nanoid/-/nanoid-5.1.16.tgz (sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for supports-color@https://registry.npmjs.org/supports-color/-/supports-color-10.2.2.tgz (sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for y-protocols@https://registry.npmjs.org/y-protocols/-/y-protocols-1.0.7.tgz (sha512-YSVsLoXxO67J6eE/nV4AtFtT3QEotZf5sK5BHxFBXso7VDUT3Tx07IfA6hsu5Q5OmBdMkQVmFZ9QOA7fikWvnw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for semver@https://registry.npmjs.org/semver/-/semver-7.8.6.tgz (sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for miniflare@https://registry.npmjs.org/miniflare/-/miniflare-4.20260611.0.tgz (sha512-i+JwEo8vN96naz1WL3ntFgFyRluBDYL408zwhHKvR2jefJ464KsZ/gCmJAQ5k+oaWeb5Ug+s7yne5AyiAEswjg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for lodash.debounce@https://registry.npmjs.org/lodash.debounce/-/lodash.debounce-4.0.8.tgz (sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for partyserver@https://registry.npmjs.org/partyserver/-/partyserver-0.5.10.tgz (sha512-t2B3mhTL1IOxCsj8rZgn4TxTuub7oLhypjc1/fGPNsbgnn9OsHms6uR3QEd5bFJ/7xrFo771j3DdUlll8cxgBg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for detect-libc@https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz (sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @speed-highlight/core@https://registry.npmjs.org/@speed-highlight/core/-/core-1.2.24.tgz (sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for lib0@https://registry.npmjs.org/lib0/-/lib0-0.2.120.tgz (sha512-/a2eRImR8sZbmMVKe2we1/KukDQkuPyPf8yol6epvCu2PH6hurjcRI3mdGFFAi0uGoRJGyns99JquZgxwW1tQg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for esbuild@https://registry.npmjs.org/esbuild/-/esbuild-0.27.3.tgz (sha512-8VwMnyGCONIs6cWue2IdpHxHnAjzxnw2Zr7MkVxB2vjmQ2ivqGFb4LEG3SMnv0Gb2F/G/2yA8zUaiL1gywDCCg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for kleur@https://registry.npmjs.org/kleur/-/kleur-4.1.5.tgz (sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for cookie@https://registry.npmjs.org/cookie/-/cookie-1.1.1.tgz (sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for error-stack-parser-es@https://registry.npmjs.org/error-stack-parser-es/-/error-stack-parser-es-1.0.5.tgz (sha512-5qucVt2XcuGMcEGgWI7i+yZpmpByQ8J1lHhcL7PwqCwu9FPP3VUXzT4ltHe5i2z9dePwEHcDVOAfSnHsOlCXRA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for blake3-wasm@https://registry.npmjs.org/blake3-wasm/-/blake3-wasm-2.1.5.tgz (sha512-F1+K8EbfOZE49dtoPtmxUQrpXaBIl3ICvasLh+nJta0xkz+9kF/7uet9fLnwKqhDrmj6g+6K3Tw9yQPUg2ka5g==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @poppinss/exception@https://registry.npmjs.org/@poppinss/exception/-/exception-1.2.3.tgz (sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @sindresorhus/is@https://registry.npmjs.org/@sindresorhus/is/-/is-7.2.0.tgz (sha512-P1Cz1dWaFfR4IR+U13mqqiGsLFf1KbayybWwdd2vfctdV6hDpUkgCY0nKOLLTMSoRd/jJNjtbqzf13K8DCCXQw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for isomorphic.js@https://registry.npmjs.org/isomorphic.js/-/isomorphic.js-0.2.5.tgz (sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @poppinss/colors@https://registry.npmjs.org/@poppinss/colors/-/colors-4.1.6.tgz (sha512-H9xkIdFswbS8n1d6vmRd8+c10t2Qe+rZITbbDHHkQixH5+2x1FDGmi/0K+WgWiqQFKPSlIYB7jlH6Kpfn6Fleg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @jridgewell/sourcemap-codec@https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz (sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @poppinss/dumper@https://registry.npmjs.org/@poppinss/dumper/-/dumper-0.6.5.tgz (sha512-NBdYIb90J7LfOI32dOewKI1r7wnkiH6m920puQ3qHUeZkxNkQiFnXVWoE6YtFSv6QOiPPf7ys6i+HWWecDz7sw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @jridgewell/resolve-uri@https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.3.tgz (sha512-lhTtjtoEArWBjismtfS761S9Hlyn+nIZqOZVYoZ1Xn82PMNMVnk+jj/NhC4fAXGTs7ydONcJiR5vyQBTMDu27g==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @img/colour@https://registry.npmjs.org/@img/colour/-/colour-1.1.0.tgz (sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @img/sharp-libvips-linux-x64@https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.2.4.tgz (sha512-tJxiiLsmHc9Ax1bz3oaOYBURTXGIRDODBqhveVHonrHJ9/+k89qbLl0bcJns+e4t4rvaNBxaEZsFtSfAdquPrw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @jridgewell/trace-mapping@https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.9.tgz (sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @img/sharp-linux-x64@https://registry.npmjs.org/@img/sharp-linux-x64/-/sharp-linux-x64-0.34.5.tgz (sha512-MEzd8HPKxVxVenwAa+JRPwEC7QFjoPWuS5NZnBt6B3pu7EG2Ge0id1oLHZpPJdn3OQK+BQDiw9zStiHBTJQQQQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cspotcode/source-map-support@https://registry.npmjs.org/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz (sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/workerd-linux-64@https://registry.npmjs.org/@cloudflare/workerd-linux-64/-/workerd-linux-64-1.20260611.1.tgz (sha512-PfNjpxOlaIgZFYuhD7+neEEewCN2Ud993wEEN0fmbtSOax1AK53LGqmXUDvFhnbkHxJLFAxYCSNISW8QbzaAIg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for workerd@https://registry.npmjs.org/workerd/-/workerd-1.20260611.1.tgz (sha512-CS/640T7pIJ2HYX6x2DwKFGbcSckAWN3tgcdq+ptB6SaqjWUhlzIgA/YhPuwIU+/NnMnGpqOFX/hC18Oyge63w==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/unenv-preset@https://registry.npmjs.org/@cloudflare/unenv-preset/-/unenv-preset-2.16.1.tgz (sha512-ECxObrMfyTl5bhQf/lZCXwo5G6xX9IAUo+nDMKK4SZ8m4Jvvxp52vilxyySSWh2YTZz8+HQ07qGH/2rEom1vDw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @esbuild/linux-x64@https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.27.3.tgz (sha512-Czi8yzXUWIQYAtL/2y6vogER8pvcsOsk5cpwL4Gk5nJqH5UZiVByIY8Eorm5R13gq+DQKYg0+JyQoytLQas4dA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for pathe@https://registry.npmjs.org/pathe/-/pathe-2.0.3.tgz (sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for sharp@https://registry.npmjs.org/sharp/-/sharp-0.34.5.tgz (sha512-Ou9I5Ft9WNcCbXrU9cMgPBcCK8LiwLqcbywW3t4oDV37n1pzpuNLsYiAV8eODnjbtQlSDwZ2cUEeQz4E54Hltg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/workers-types@https://registry.npmjs.org/@cloudflare/workers-types/-/workers-types-4.20260702.1.tgz (sha512-mOhf5TUEB1m2vPrxtqoIGfz0fUC9xyxRDx5gWHy5s+OCo6dcV+g7wI1R7gYCMFohhqF/2y2xeKVwMwCJjfn/WA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/kv-asset-handler@https://registry.npmjs.org/@cloudflare/kv-asset-handler/-/kv-asset-handler-0.5.0.tgz (sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for ws@https://registry.npmjs.org/ws/-/ws-8.20.1.tgz (sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for youch-core@https://registry.npmjs.org/youch-core/-/youch-core-0.3.3.tgz (sha512-ho7XuGjLaJ2hWHoK8yFnsUGy2Y5uDpqSTq1FkHLK4/oqKtyUU1AFbOOxY4IpC9f0fTLjwYbslUz0Po5BpD1wrA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for youch@https://registry.npmjs.org/youch/-/youch-4.1.0-beta.10.tgz (sha512-rLfVLB4FgQneDr0dv1oddCVZmKjcJ6yX6mS4pU82Mq/Dt9a3cLZQ62pDBL4AUO+uVrCvtWz3ZFUL2HFAFJ/BXQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for undici@https://registry.npmjs.org/undici/-/undici-7.24.8.tgz (sha512-6KQ/+QxK49Z/p3HO6E5ZCZWNnCasyZLa5ExaVYyvPxUwKtbCPMKELJOqh7EqOle0t9cH/7d2TaaTRRa6Nhs4YQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for ws@https://registry.npmjs.org/ws/-/ws-8.23.0.tgz (sha512-wCkmX8QMOrKjgO8HW2WyDbTSGeqkocxgDzS9iR79rEAexty6/2qzilx3Ag8Tqf9ykop3irLKle0MtVn5qjVnoQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for yjs@https://registry.npmjs.org/yjs/-/yjs-13.6.33.tgz (sha512-q/UYvr1gOk4XII+Cu1CW2dINjYqJJFifTzogEaIARznrvX7uOlHsdTEXcnOBMuIsrCGEEKdNxi74kyMLZlKVfw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for wrangler@https://registry.npmjs.org/wrangler/-/wrangler-4.100.0.tgz (sha512-dSQO7DO+mD6XDzkVWIWBoGLO3yw+lacWSc/KhFvd7pgfpth+kX98qb5SGRHZN8ACCDhhfwzDLXwB6qHsIHhfBg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for path-to-regexp@https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-6.3.0.tgz (sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for nanoid@https://registry.npmjs.org/nanoid/-/nanoid-5.1.16.tgz (sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for y-protocols@https://registry.npmjs.org/y-protocols/-/y-protocols-1.0.7.tgz (sha512-YSVsLoXxO67J6eE/nV4AtFtT3QEotZf5sK5BHxFBXso7VDUT3Tx07IfA6hsu5Q5OmBdMkQVmFZ9QOA7fikWvnw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for supports-color@https://registry.npmjs.org/supports-color/-/supports-color-10.2.2.tgz (sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for lodash.debounce@https://registry.npmjs.org/lodash.debounce/-/lodash.debounce-4.0.8.tgz (sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for miniflare@https://registry.npmjs.org/miniflare/-/miniflare-4.20260611.0.tgz (sha512-i+JwEo8vN96naz1WL3ntFgFyRluBDYL408zwhHKvR2jefJ464KsZ/gCmJAQ5k+oaWeb5Ug+s7yne5AyiAEswjg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for unenv@https://registry.npmjs.org/unenv/-/unenv-2.0.0-rc.24.tgz (sha512-i7qRCmY42zmCwnYlh9H2SvLEypEFGye5iRmEMKjcGi7zk9UquigRjFtTLz0TYqr0ZGLZhaMHl/foy1bZR+Cwlw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for partyserver@https://registry.npmjs.org/partyserver/-/partyserver-0.5.10.tgz (sha512-t2B3mhTL1IOxCsj8rZgn4TxTuub7oLhypjc1/fGPNsbgnn9OsHms6uR3QEd5bFJ/7xrFo771j3DdUlll8cxgBg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for y-partyserver@https://registry.npmjs.org/y-partyserver/-/y-partyserver-2.2.0.tgz (sha512-AIsTEZ3jPicBe3VHO5c/VdSGSaFr0J9cAGj6+sgRL/RnXLTNSkP3oQXyXf1y8hQNeXv/j9zYDT5NnRv2k1eMGA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for semver@https://registry.npmjs.org/semver/-/semver-7.8.6.tgz (sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for detect-libc@https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz (sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @speed-highlight/core@https://registry.npmjs.org/@speed-highlight/core/-/core-1.2.24.tgz (sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for esbuild@https://registry.npmjs.org/esbuild/-/esbuild-0.27.3.tgz (sha512-8VwMnyGCONIs6cWue2IdpHxHnAjzxnw2Zr7MkVxB2vjmQ2ivqGFb4LEG3SMnv0Gb2F/G/2yA8zUaiL1gywDCCg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for error-stack-parser-es@https://registry.npmjs.org/error-stack-parser-es/-/error-stack-parser-es-1.0.5.tgz (sha512-5qucVt2XcuGMcEGgWI7i+yZpmpByQ8J1lHhcL7PwqCwu9FPP3VUXzT4ltHe5i2z9dePwEHcDVOAfSnHsOlCXRA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for lib0@https://registry.npmjs.org/lib0/-/lib0-0.2.120.tgz (sha512-/a2eRImR8sZbmMVKe2we1/KukDQkuPyPf8yol6epvCu2PH6hurjcRI3mdGFFAi0uGoRJGyns99JquZgxwW1tQg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for kleur@https://registry.npmjs.org/kleur/-/kleur-4.1.5.tgz (sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for blake3-wasm@https://registry.npmjs.org/blake3-wasm/-/blake3-wasm-2.1.5.tgz (sha512-F1+K8EbfOZE49dtoPtmxUQrpXaBIl3ICvasLh+nJta0xkz+9kF/7uet9fLnwKqhDrmj6g+6K3Tw9yQPUg2ka5g==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for cookie@https://registry.npmjs.org/cookie/-/cookie-1.1.1.tgz (sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @poppinss/exception@https://registry.npmjs.org/@poppinss/exception/-/exception-1.2.3.tgz (sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for isomorphic.js@https://registry.npmjs.org/isomorphic.js/-/isomorphic.js-0.2.5.tgz (sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @poppinss/dumper@https://registry.npmjs.org/@poppinss/dumper/-/dumper-0.6.5.tgz (sha512-NBdYIb90J7LfOI32dOewKI1r7wnkiH6m920puQ3qHUeZkxNkQiFnXVWoE6YtFSv6QOiPPf7ys6i+HWWecDz7sw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @sindresorhus/is@https://registry.npmjs.org/@sindresorhus/is/-/is-7.2.0.tgz (sha512-P1Cz1dWaFfR4IR+U13mqqiGsLFf1KbayybWwdd2vfctdV6hDpUkgCY0nKOLLTMSoRd/jJNjtbqzf13K8DCCXQw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @poppinss/colors@https://registry.npmjs.org/@poppinss/colors/-/colors-4.1.6.tgz (sha512-H9xkIdFswbS8n1d6vmRd8+c10t2Qe+rZITbbDHHkQixH5+2x1FDGmi/0K+WgWiqQFKPSlIYB7jlH6Kpfn6Fleg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @jridgewell/sourcemap-codec@https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz (sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @img/colour@https://registry.npmjs.org/@img/colour/-/colour-1.1.0.tgz (sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @jridgewell/resolve-uri@https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.3.tgz (sha512-lhTtjtoEArWBjismtfS761S9Hlyn+nIZqOZVYoZ1Xn82PMNMVnk+jj/NhC4fAXGTs7ydONcJiR5vyQBTMDu27g==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @img/sharp-libvips-linux-x64@https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.2.4.tgz (sha512-tJxiiLsmHc9Ax1bz3oaOYBURTXGIRDODBqhveVHonrHJ9/+k89qbLl0bcJns+e4t4rvaNBxaEZsFtSfAdquPrw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/workerd-linux-64@https://registry.npmjs.org/@cloudflare/workerd-linux-64/-/workerd-linux-64-1.20260611.1.tgz (sha512-PfNjpxOlaIgZFYuhD7+neEEewCN2Ud993wEEN0fmbtSOax1AK53LGqmXUDvFhnbkHxJLFAxYCSNISW8QbzaAIg==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @jridgewell/trace-mapping@https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.9.tgz (sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/workers-types@https://registry.npmjs.org/@cloudflare/workers-types/-/workers-types-4.20260702.1.tgz (sha512-mOhf5TUEB1m2vPrxtqoIGfz0fUC9xyxRDx5gWHy5s+OCo6dcV+g7wI1R7gYCMFohhqF/2y2xeKVwMwCJjfn/WA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cspotcode/source-map-support@https://registry.npmjs.org/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz (sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @img/sharp-linux-x64@https://registry.npmjs.org/@img/sharp-linux-x64/-/sharp-linux-x64-0.34.5.tgz (sha512-MEzd8HPKxVxVenwAa+JRPwEC7QFjoPWuS5NZnBt6B3pu7EG2Ge0id1oLHZpPJdn3OQK+BQDiw9zStiHBTJQQQQ==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/unenv-preset@https://registry.npmjs.org/@cloudflare/unenv-preset/-/unenv-preset-2.16.1.tgz (sha512-ECxObrMfyTl5bhQf/lZCXwo5G6xX9IAUo+nDMKK4SZ8m4Jvvxp52vilxyySSWh2YTZz8+HQ07qGH/2rEom1vDw==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @esbuild/linux-x64@https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.27.3.tgz (sha512-Czi8yzXUWIQYAtL/2y6vogER8pvcsOsk5cpwL4Gk5nJqH5UZiVByIY8Eorm5R13gq+DQKYg0+JyQoytLQas4dA==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for ws@https://registry.npmjs.org/ws/-/ws-8.20.1.tgz (sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for pathe@https://registry.npmjs.org/pathe/-/pathe-2.0.3.tgz (sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==) seems to be corrupted. Trying again.
+npm warn tarball tarball data for @cloudflare/kv-asset-handler@https://registry.npmjs.org/@cloudflare/kv-asset-handler/-/kv-asset-handler-0.5.0.tgz (sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==) seems to be corrupted. Trying again.
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/blake3-wasm/esm/node'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/blake3-wasm/esm/node-native/hash-fn.d.ts'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/undici/docs/docs/api/ClientStats.md'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/blake3-wasm/esm'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist/types/binary-search.d.ts'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib/permessage-deflate.js'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/workers-types/oldest'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@speed-highlight/core/dist/languages/java.d.ts.map'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/undici/docs/docs'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist/types'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/kv-asset-handler/README.md'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/kv-asset-handler/dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@poppinss/dumper/build/formatters/html/types.d.ts'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/unenv/dist/runtime/node/internal/http/constants.mjs'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/kv-asset-handler/src'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@poppinss/dumper/build'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/kv-asset-handler/src'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib'
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist/types'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist/types'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/pathe',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/pathe/dist'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/pathe/dist'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/lib0',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/lib0/dist'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/lib0/dist'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/lib0/dist'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/lib0/dist'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/yjs',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/yjs/dist/src/structs'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/yjs/dist/src/structs'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/unenv-preset',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/unenv-preset/dist'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/unenv-preset/dist'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/unenv-preset/dist'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@cloudflare/unenv-preset/dist'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@speed-highlight',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@speed-highlight/core/dist/node'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@speed-highlight/core/dist/node'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/undici',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/undici/lib'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/undici/lib'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/unenv',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/unenv/dist/runtime/node'] {
+npm warn cleanup       errno: -39,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/unenv/dist/runtime/node'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/@jridgewell/trace-mapping/dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/workspace/work/assembled-candidate/relay/injertos/yparty-worker/node_modules/miniflare/node_modules/ws/lib'
+npm error code ENOENT
+npm error syscall mkdir
+npm error path /home/agent/.npm/_cacache
+npm error errno -2
+npm error enoent ENOENT: no such file or directory, mkdir '/home/agent/.npm/_cacache'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error Log files were not written due to an error writing to the directory: /home/agent/.npm/_logs
+npm error You can rerun the command with `--loglevel=verbose` to see the logs in your terminal

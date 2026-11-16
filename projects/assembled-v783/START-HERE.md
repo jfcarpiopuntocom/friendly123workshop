@@ -13,3 +13,7 @@ Base del parche: `friendly-123@f6276adac490f0610e130afec0615f98acd4b32b`. No apl
 Qué acredita este checkpoint: 71 pruebas focales y tres Chromium, con dos carreras de ACK Team corregidas y revisión independiente. Los logs son originales sintéticos; extensiones .txt para conservarlos pese al ignore *.log del repo. No contiene licencias, PIN ni claves reales.
 
 Estado: código de laboratorio, sin despliegue ni activación de clientes. NO migración completa. La continuación del emisor WS y relay privado sigue en curso; dos pruebas del relay todavía están rojas y NO forman parte de este checkpoint revisado. El objetivo siguiente es navegador según la orden vigente: PWA/Workbox aplazados.
+
+## Código completo y continuación accesibles
+
+[app/](app/) contiene runtime, fuentes importadas, backend/Worker y tests sin reconstruir el bundle privado. [relay/](relay/) contiene la continuación Workerd. Leer [STATUS.md](STATUS.md) antes de editar: issuer y relay son continuación WIP diferenciada del checkpoint revisado. No hay que pedir archivos de otro contenedor.
