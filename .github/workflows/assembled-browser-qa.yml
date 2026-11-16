@@ -7,6 +7,15 @@ on:
       - projects/assembled-v783/relay/**
       - projects/assembled-v783/qa/browser/**
       - .github/workflows/assembled-browser-qa.yml
+  # Validate the exact proposed assembled app and issuer BEFORE merging.
+  # No secrets, releases, deployments, or activation of any customer.
+  pull_request:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/app/**
+      - projects/assembled-v783/relay/**
+      - projects/assembled-v783/qa/browser/**
+      - .github/workflows/assembled-browser-qa.yml
   workflow_dispatch:
 permissions:
   contents: read
