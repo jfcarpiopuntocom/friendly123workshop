@@ -33,5 +33,8 @@ jobs:
       - name: Read-only source integrity digest for deterministic shell manifest
         run: |
           node -e "const f=require('fs'),c=require('crypto');let b=f.readFileSync('docs/mock-backend.js','utf8').replace(/\\r\\n/g,'\\n');console.log('MOCK_BACKEND_SHA256='+c.createHash('sha256').update(b,'utf8').digest('hex'))"
+      - name: Verify full frozen shell integrity against exact SHA-256 source bytes
+        run: |
+          node --test --test-concurrency=1 --test-name-pattern="current release shell and exact edited assets have matching integrity hashes|v637 manifest matches all shell files" test/dashboard-customer-editor-and-pdf-v518.test.js test/p0-v637-manifest.test.cjs
       - name: Execute real backend expense create/edit, fallback and historical invariants
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-expense-money-imported.test.cjs
