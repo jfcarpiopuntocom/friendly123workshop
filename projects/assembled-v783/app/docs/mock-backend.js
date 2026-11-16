@@ -8387,6 +8387,24 @@
         return J({ directorio: dir });
       }
 
+      // JFC 2026-11-16: new expense amounts use the ALREADY IMPORTED Dinero.js
+      // cents/half-up normalization. No new financial engine, no historical rewrite.
+      // Keep the existing explicitly supported rollback and local-first fallback;
+      // only the durable expense create/edit boundary uses this conversion.
+      function _montoGastoEnCentavos(v) {
+        const legado = +v.toFixed(2);
+        try {
+          if (localStorage.getItem("f123_dinero_qa") !== "0" &&
+              window.F123MoneyImported && typeof window.F123MoneyImported.percentage === "function") {
+            // Reuse the verified imported adapter's baseCents (100% leaves
+            // currency unchanged); prevents binary tails changing half cents.
+            const centavos = window.F123MoneyImported.percentage(v, 100).baseCents;
+            if (Number.isSafeInteger(centavos) && centavos > 0) return centavos / 100;
+          }
+        } catch (_) { /* new expense keeps the proven legacy calculator */ }
+        return legado;
+      }
+
       // GASTOS (2026-08-27): registrar y listar gastos individuales.
       // GET /api/gastos — lista los gastos (más recientes primero) + totales.
       // POST /api/gastos — registra un gasto { concepto, monto, fecha, ubicacionId }.
@@ -8413,7 +8431,7 @@
         if (body.facturaFotoHash !== undefined && (typeof body.facturaFotoHash !== "string" || !/^[a-f0-9]{64}$/.test(body.facturaFotoHash))) return J({ error: "Invalid receipt photo." }, 400);
         if (body.eventKey !== undefined && (typeof body.eventKey !== "string" || body.eventKey.length > 500)) return J({ error: "Invalid expense event." }, 400);
         const g = {
-          id: uuid("g"), concepto, monto: +monto.toFixed(2),
+          id: uuid("g"), concepto, monto: _montoGastoEnCentavos(monto),
           categoria,
           metodoPago: body.metodoPago || null,
           facturaFotoHash: body.facturaFotoHash || null,
@@ -8469,7 +8487,7 @@
         if (body.monto !== undefined) {
           const m = Number(body.monto);
           if (!Number.isFinite(m) || !Number.isSafeInteger(Math.round(m * 100)) || Number(m.toFixed(2)) <= 0) return J({ error: "Enter a valid amount of at least one cent." }, 400);
-          g.monto = +m.toFixed(2);
+          g.monto = _montoGastoEnCentavos(m);
         }
         if (body.fecha !== undefined) g.fecha = body.fecha;
         if (body.categoria !== undefined) {

@@ -1,0 +1,47 @@
+name: QA P0 imported money expense rounding and durability (no deploy)
+on:
+  push:
+    branches: ["sol/v783-expenses-dinero-20261116"]
+    paths:
+      - "projects/assembled-v783/app/docs/mock-backend.js"
+      - "projects/assembled-v783/app/test/p0-expense-money-imported.test.cjs"
+      - ".github/workflows/qa-p0-money-expense.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/app/docs/mock-backend.js"
+      - "projects/assembled-v783/app/test/p0-expense-money-imported.test.cjs"
+      - ".github/workflows/qa-p0-money-expense.yml"
+permissions:
+  contents: read
+jobs:
+  expense-money:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install exact locked test dependencies (no browser binaries required)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Read-only source integrity digest for deterministic shell manifest
+        run: |
+          node -e "const f=require('fs'),c=require('crypto');let b=f.readFileSync('docs/mock-backend.js','utf8').replace(/\\r\\n/g,'\\n');console.log('MOCK_BACKEND_SHA256='+c.createHash('sha256').update(b,'utf8').digest('hex'))"
+      - name: Verify full frozen shell integrity against exact SHA-256 source bytes
+        run: |
+          node --test --test-concurrency=1 --test-name-pattern="current release shell and exact edited assets have matching integrity hashes|v637 manifest matches all shell files" test/dashboard-customer-editor-and-pdf-v518.test.js test/p0-v637-manifest.test.cjs
+      - name: Expense receipt, roles, Yjs photo pointer and calendar regressions
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 \
+            test/expense-failure-integrity.test.js \
+            test/expense-receipt-period.test.js \
+            test/p0-v637-owner-admin-expenses.test.js \
+            test/yjs-expense-receipts.test.js
+      - name: Execute real backend expense create/edit, fallback and historical invariants
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-expense-money-imported.test.cjs
