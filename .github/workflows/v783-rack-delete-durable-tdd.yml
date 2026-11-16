@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 jobs:
-  rack-put-durability:
+  rack-delete-durability:
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
