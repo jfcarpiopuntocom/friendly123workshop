@@ -1,0 +1,56 @@
+name: v783 rack PUT rebased atomicity (native browsers, no deploy)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v783-rack-put-rebased-tdd.yml'
+      - 'projects/assembled-v783/app/docs/mock-backend.js'
+      - 'projects/assembled-v783/app/docs/version-manifest.json'
+      - 'projects/assembled-v783/app/test/tab-session-handoff.test.js'
+permissions:
+  contents: read
+jobs:
+  atomic-rack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    env:
+      F123_REQUIRE_WEBKIT: '1'
+      CI: 'true'
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Locked dependencies and native Chromium/WebKit
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+      - name: Six rack POST/CAS/PUT behavior tests (no customer network)
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/rack-put-rebased
+          git rev-parse HEAD | tee ../evidence/rack-put-rebased/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=65000 \
+            --test-name-pattern='P0 rack POST rejects an unconfirmed local save|P0 concurrent rack CAS preserves both accepted writes|P0 invalid rack edits are atomic' \
+            test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/rack-put-rebased/native-rack.log
+      - name: Runtime integrity and adjacent category boundaries
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs"),crypto=require("node:crypto");const m=JSON.parse(fs.readFileSync("docs/version-manifest.json"));const h="sha256-"+crypto.createHash("sha256").update(fs.readFileSync("docs/mock-backend.js")).digest("hex");if(m.files["./mock-backend.js"]!==h)throw Error("manifest mismatch");console.log("runtime SHA256 VERIFIED",h)'
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 \
+            --test-name-pattern='P0 category batch rejects false ACK|category batch changes|category rename must|category deletion must' \
+            test/ui-integrity-v341.test.js 2>&1 | tee ../evidence/rack-put-rebased/adjacent-category.log
+      - name: Archive actual RED/GREEN with SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-rack-put-rebased-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/rack-put-rebased/
+          retention-days: 14
+          if-no-files-found: warn
