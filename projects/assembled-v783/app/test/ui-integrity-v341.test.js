@@ -255,7 +255,18 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
     const result = await withPage(page => page.evaluate(async () => {
       const name = document.getElementById('oc-negocio-nombre');
       const originalRole = window.OCAuth.rolActual;
-      const trace = { before: name.textContent, updates: [] };
+      const trace = { before: name.textContent, updates: [], writes: [] };
+      const descriptor = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+      if (!descriptor?.get || !descriptor?.set) throw Error('native textContent descriptor unavailable');
+      Object.defineProperty(name, 'textContent', {
+        configurable: true,
+        get() { return descriptor.get.call(this); },
+        set(value) {
+          trace.writes.push({ value: String(value), active: window.OCTienda?.nombreActivo?.(),
+            stack: String(new Error().stack).split('\\n').slice(1, 6) });
+          return descriptor.set.call(this, value);
+        }
+      });
       const observer = new MutationObserver(() => trace.updates.push({name:name.textContent,tag:name.hasAttribute('data-i18n')}));
       observer.observe(name,{childList:true,subtree:true,characterData:true,attributes:true});
       const originalPrompt = window.prompt;
@@ -284,6 +295,7 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
         document.getElementById('oc-negocio-editar').click();
         await new Promise(resolve => setTimeout(resolve, 50));
         observer.disconnect();
+        delete name.textContent;
         return { name: name.textContent, trace,
           active: window.OCTienda.nombreActivo(),
           message: document.getElementById('oc-negocio-estado')?.textContent || '',
