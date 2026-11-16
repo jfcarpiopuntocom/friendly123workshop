@@ -367,6 +367,74 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  });
 }
 for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 rack PUT rejects a false durable ACK (${engineName})`,{timeout:60000},async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const ctx=await context(web),{page,ids}=await seed(ctx);
+   await ownerLogin(page,'rack PUT strict durability '+engineName);
+   const before=(await api(page,'/api/ubicaciones')).find(u=>u.id===ids.rack);
+   assert.ok(before,'seeded rack exists before synthetic persistence fault');
+   const result=await page.evaluate(async id=>{
+    const idb=window.OCEstadoIDB;
+    if(typeof idb?.guardarConRevision!=='function'||typeof window.OCEstadoAB?.crear!=='function')
+      throw Error('synthetic IDB and A/B writers required');
+    const oldSave=idb.guardar,oldCas=idb.guardarConRevision,
+      oldError=idb.ultimoError,oldWrite=Storage.prototype.setItem;
+    let idbDenied=0,abDenied=0,announced=0;
+    const notice=()=>announced++;
+    window.addEventListener('oc-catalogo-cambiado',notice);
+    idb.guardar=async()=>{idbDenied++;return false;};
+    idb.guardarConRevision=async()=>{idbDenied++;return false;};
+    idb.ultimoError=()=>new DOMException('Synthetic IDB quota','QuotaExceededError');
+    Storage.prototype.setItem=function(key,value){
+      const k=String(key);
+      if(k.includes('f123_estado_v4')&&/_(?:journal|A|B|ptr)$/.test(k)){
+        abDenied++;
+        throw new DOMException('Synthetic A/B quota','QuotaExceededError');
+      }
+      return oldWrite.call(this,key,value);
+    };
+    try{
+     const response=await fetch('/api/ubicaciones/'+id,{method:'PUT',
+       body:JSON.stringify({nombre:'Synthetic UNCONFIRMED rename',pctQuedaEnCasa:15,metaMensual:123})});
+     const current=(await (await fetch('/api/ubicaciones')).json()).find(u=>u.id===id);
+     return {status:response.status,body:await response.json(),current,
+       idbDenied,abDenied,announced};
+    }finally{
+     idb.guardar=oldSave;idb.guardarConRevision=oldCas;idb.ultimoError=oldError;
+     Storage.prototype.setItem=oldWrite;
+     window.removeEventListener('oc-catalogo-cambiado',notice);
+    }
+   },ids.rack);
+   assert.equal(result.status,507,'quota-lost rack edit cannot claim HTTP success');
+   assert.equal(result.body.code,'RACK_STORAGE_QUOTA');
+   assert.ok(result.idbDenied>0,'real IndexedDB rejection was exercised');
+   assert.ok(result.abDenied>0,'A/B fallback rejection was exercised');
+   assert.equal(result.announced,0,'rejected edit must never announce a provisional Yjs catalog');
+   assert.equal(result.current.nombre,before.nombre,'rejected rename is rolled back in memory');
+   assert.equal(result.current.comisionSocio,before.comisionSocio,'rejected payout share is rolled back');
+   assert.equal(result.current.metaMensual,before.metaMensual,'rejected target is rolled back');
+   assert.deepEqual(result.current.rev,before.rev,'rejected edit preserves old rack revision');
+   const retry=await api(page,'/api/ubicaciones/'+ids.rack,'PUT',{
+      nombre:'Synthetic accepted durable rename',pctQuedaEnCasa:15,metaMensual:123
+   });
+   assert.equal(retry.nombre,'Synthetic accepted durable rename');
+   assert.equal(retry.comisionSocio,85,'house-share conversion survives strict commit');
+   const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   await cold.waitForFunction(async id=>{
+     const saved=await window.OCEstadoIDB?.leer?.();
+     return saved?.ubicaciones?.filter(u=>u.id===id&&u.nombre==='Synthetic accepted durable rename'&&u.comisionSocio===85).length===1;
+   },ids.rack,{timeout:9000,polling:100});
+   const actual=(await api(cold,'/api/ubicaciones')).filter(u=>u.id===ids.rack);
+   assert.equal(actual.length,1,'accepted edit persists exactly one rack after cold reopen');
+   assert.equal(actual[0].nombre,'Synthetic accepted durable rename');
+   assert.equal(actual[0].comisionSocio,85);
+   assert.equal(actual[0].metaMensual,123);
+  }finally{await web.close();}
+ });
+}
+
+for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test(`P0 invalid rack edits are atomic (${engineName})`,async()=>{
   const web=await engine.launch({headless:true});
   try{
