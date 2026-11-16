@@ -86,6 +86,13 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,clock
             validated.record.license,validated.record.opId))[0];
           if(existing){
             if(existing.payload_hash!==digest)return fail(409,'operation-conflict');
+            // Hash-only legacy rows (or a damaged companion row) cannot be
+            // replayed safely. Never represent them as recoverable inbox ACKs.
+            const saved=Array.from(sql.exec(
+              'SELECT payload_json FROM typed_commercial_payloads WHERE license = ? AND op_id = ?',
+              validated.record.license,validated.record.opId))[0];
+            if(!saved || saved.payload_json!==JSON.stringify(validated.record))
+              return fail(409,'operation-recovery-required');
             const receipt=JSON.parse(existing.receipt_json);
             if(receipt.stage!=='stored-for-application'||receipt.opId!==validated.record.opId||
                receipt.license!==validated.record.license||receipt.kind!==validated.record.kind)
