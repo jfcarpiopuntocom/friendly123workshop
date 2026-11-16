@@ -1,0 +1,46 @@
+name: v783 catalog ACK P0 TDD
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/tab-session-handoff.test.js'
+      - 'projects/assembled-v783/app/docs/mock-backend.js'
+      - '.github/workflows/v783-catalog-ack-tdd.yml'
+permissions:
+  contents: read
+jobs:
+  catalog-durability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install locked dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Install official WebKit
+        working-directory: projects/assembled-v783/app
+        run: npx playwright install --with-deps webkit
+      - name: Test catalog ACK under total synthetic local save failure
+        working-directory: projects/assembled-v783/app
+        env:
+          F123_REQUIRE_WEBKIT: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/catalog-ack
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 \
+            --test-name-pattern='P0 rack POST rejects an unconfirmed local save' \
+            test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/catalog-ack/webkit-red-green.txt
+      - name: Preserve TDD evidence even when RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-ack-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/catalog-ack/
+          if-no-files-found: warn
+          retention-days: 14
