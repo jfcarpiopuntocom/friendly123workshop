@@ -65,6 +65,7 @@ test('revoked recipient gets no awareness frame when another socket closes',{tim
  try{
   sender.p.awareness.setLocalStateField('syntheticMarker','synthetic-presence');
   await until(()=>[...receiver.p.awareness.getStates().values()].some(s=>s.syntheticMarker==='synthetic-presence'),'presence setup');
+  await durableBarrier(receiver.p); // Drain pre-revocation sends before counting forbidden frames.
   let binary=0,closed;
   const observed=new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(Error('no revocation outcome')),5000);receiver.p.ws.on('message',(_,isBinary)=>{if(isBinary){binary++;resolve();}});receiver.p.ws.once('close',code=>{closed=code;resolve();});});
   await db.transaction(tx=>tx.put('inst:'+instance,{licenseCode:license,instanceId:instance,estado:'bloqueada'}));
