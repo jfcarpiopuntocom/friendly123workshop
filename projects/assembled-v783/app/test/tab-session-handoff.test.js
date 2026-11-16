@@ -271,3 +271,29 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   });
  }
 }
+
+
+test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
+ const web=await webkit.launch({headless:true});
+ try{
+  const ctx=await context(web),{page}=await seed(ctx);
+  await ownerLogin(page,'synthetic rack durability');
+  const result=await page.evaluate(async()=>{
+   const idb=window.OCEstadoIDB,ab=window.OCEstadoAB;
+   if(typeof idb?.guardar!=='function'||typeof ab?.guardarAhora!=='function')
+     throw new Error('synthetic persistence adapters missing');
+   const oldIdb=idb.guardar,oldAb=ab.guardarAhora;
+   idb.guardar=async()=>false;
+   ab.guardarAhora=()=>false;
+   try{
+    const r=await fetch('/api/ubicaciones',{
+      method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})
+    });
+    return {status:r.status};
+   }finally{
+    idb.guardar=oldIdb;ab.guardarAhora=oldAb;
+   }
+  });
+  assert.ok(result.status>=400,'HTTP success cannot acknowledge a rack when both independent local stores reject persistence');
+ }finally{await web.close();}
+});
