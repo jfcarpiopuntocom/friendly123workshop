@@ -1,0 +1,53 @@
+{
+  "commit": "e9ff257f0b768adf6a41029994eef03400440578",
+  "files": [
+    {
+      "path": "projects/assembled-v783/app/docs/hechos.js",
+      "sha": "9200a661d5e44fe928cf095cbaac522f830bf943",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/e9ff257f0b768adf6a41029994eef03400440578/projects/assembled-v783/app/docs/hechos.js",
+      "error": false,
+      "localGitBlob": "9200a661d5e44fe928cf095cbaac522f830bf943",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/docs/cartera.js",
+      "sha": "ee5f991e8e699dbd7a0c8236d163a7fc8b34a698",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/e9ff257f0b768adf6a41029994eef03400440578/projects/assembled-v783/app/docs/cartera.js",
+      "error": false,
+      "localGitBlob": "ee5f991e8e699dbd7a0c8236d163a7fc8b34a698",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/docs/version-manifest.json",
+      "sha": "1af3b9e79771c5239a4db4e1fae5c351b75eff09",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/e9ff257f0b768adf6a41029994eef03400440578/projects/assembled-v783/app/docs/version-manifest.json",
+      "error": false,
+      "localGitBlob": "1af3b9e79771c5239a4db4e1fae5c351b75eff09",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/test/p0-payment-atomic-facts.test.cjs",
+      "sha": "c02b1bc7e438fc7d4152fa2cce4968bb2ea92a09",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/e9ff257f0b768adf6a41029994eef03400440578/projects/assembled-v783/app/test/p0-payment-atomic-facts.test.cjs",
+      "error": false,
+      "localGitBlob": "c02b1bc7e438fc7d4152fa2cce4968bb2ea92a09",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/app/test/p0-payment-atomic-browser.test.cjs",
+      "sha": "b421ac8cbcfdcbf8512c9739066be5df14e15ada",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/e9ff257f0b768adf6a41029994eef03400440578/projects/assembled-v783/app/test/p0-payment-atomic-browser.test.cjs",
+      "error": false,
+      "localGitBlob": "b421ac8cbcfdcbf8512c9739066be5df14e15ada",
+      "match": true
+    },
+    {
+      "path": "projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs",
+      "sha": "0e933c039d6a66e8dab94734f43d4704870e69aa",
+      "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/blob/e9ff257f0b768adf6a41029994eef03400440578/projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs",
+      "localGitBlob": "0e933c039d6a66e8dab94734f43d4704870e69aa",
+      "match": true
+    }
+  ],
+  "allMatch": true
+}

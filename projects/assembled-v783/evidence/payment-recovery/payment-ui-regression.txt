@@ -1,0 +1,43 @@
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ customer payment holds submit and recovers lost response after reload (Chromium, en) (6384.452753ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ customer payment holds submit and recovers lost response after reload (Chromium, es) (6385.541047ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ customer payment holds submit and recovers lost response after reload (WebKit, en) (16872.054252ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ customer payment holds submit and recovers lost response after reload (WebKit, es) (17953.541534ms)
+✔ abono retries after lost response use one durable fact, including concurrent requests (200.005095ms)
+✔ invalid or zero-rounded money never writes a payment receipt (12.208633ms)
+✔ settled account keeps the receipt visible instead of erasing the entire zero balance (11.350922ms)
+✔ a real gap still warns while keeping the recorded payment visible (47.637447ms)
+✔ an old balance response cannot repaint debt after a newer payment response (35.439532ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ two tabs retry the same customer payment without a second receipt (Chromium) (1791.159831ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ fact writer preserves identity changes and lost metadata across reload (Chromium) (1237.585619ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ two tabs retry the same customer payment without a second receipt (WebKit) (4891.78543ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ fact writer preserves identity changes and lost metadata across reload (WebKit) (2495.893423ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ remote facts retain IndexedDB abort causes and recover locally without another Yjs update (3949.206228ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ financial facts converge by ID across two real IndexedDB profiles (4211.069868ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice (7827.283658ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ a later successful save resets the retry counter; no visible notice ever (6475.583453ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ real quota error writes plain text in the Avanzado status line (no overlay element) (5293.550717ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ store name uses logo yellow #EFC31A in light and dark scheme (4126.75475ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ real IndexedDB quota error (localStorage unavailable) writes the in-UI status text (3813.291376ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 102269.414895

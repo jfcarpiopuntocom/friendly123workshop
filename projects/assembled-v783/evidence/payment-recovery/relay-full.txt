@@ -1,0 +1,113 @@
+✔ failed credential renewal never reconnects with the previous single-use ticket (175.675143ms)
+✔ pause during credential fetch prevents a late connection and preserves the local document (88.193585ms)
+✔ only the newest overlapping credential request may open a connection (61.546458ms)
+✔ immediate resume after pause waits for closure and obtains a fresh ticket (82.435872ms)
+✔ policy-close bounds repeated unsynced admissions without a ticket issuance loop (255.739979ms)
+✔ upgrade-denial bounds repeated unsynced admissions without a ticket issuance loop (199.012675ms)
+✔ destroying during credential fetch cannot open a late socket or destroy the caller document (97.973105ms)
+✔ Owner ticket parameters keep the PIN in the HTTPS body and return only the room capability (37.552498ms)
+✔ local roles or a mismatching identity cannot request an Owner capability (11.408107ms)
+✔ an issuer denial or expired response never produces reusable socket parameters (4.869925ms)
+✔ switching identity during issuance discards the delayed ticket (1.068035ms)
+(node:30307) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/work/friendly123workshop/projects/assembled-v783/app/cloudflare-worker/worker.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/work/friendly123workshop/projects/assembled-v783/app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ copied identifiers without a ticket receive zero Yjs frames (3436.185032ms)
+✔ real Owner ticket opens private YServer, persists facts, and cannot replay (1389.243651ms)
+✔ missing authority fails closed before any Yjs state (97.135559ms)
+✔ raw operations and broad shared rooms remain closed in secure QA until their boundary exists (121.99351ms)
+✔ a read-only Owner credential cannot persist or broadcast a raw private edit (1577.801415ms)
+✔ expired idle recipient gets no binary update when a valid Owner publishes (1011.951312ms)
+✔ revoked idle recipient gets no next update; valid instance still syncs (114.123885ms)
+✔ private facts survive full Workerd restart in SQL and require a fresh real ticket (6336.490515ms)
+SYNTHETIC-FRAME-AUDIT [{"jti":"YiQz2N59TPM_zMqs1Bovkg","frames":[{"binary":true,"kind":0,"grantSeq":8,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":13,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":18,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":22,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":40,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":45,"revokedSeq":null}]},{"jti":"vmezkE5oJDCDFZvAWdvT8w","frames":[{"binary":true,"kind":0,"grantSeq":24,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":28,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":32,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":39,"revokedSeq":null}]},{"jti":"nTrUMmZRnrr1lpXxnBENww","frames":[{"binary":true,"kind":0,"grantSeq":60,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":65,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":68,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":90,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":97,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":122,"revokedSeq":null}]},{"jti":"zCGL38g4Gmm2aCfW3GJmXQ","frames":[{"binary":true,"kind":0,"grantSeq":73,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":77,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":81,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":85,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":95,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":117,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":126,"revokedSeq":null}]},{"jti":"bPzNIY2aZkEoUleKttTJGQ","frames":[{"binary":true,"kind":0,"grantSeq":102,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":111,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":112,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":123,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":124,"revokedSeq":null}]},{"jti":"z4musF79AcYnXU-Pz38s8A","frames":[{"binary":true,"kind":0,"grantSeq":146,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":151,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":154,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":175,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":177,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":182,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":185,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":188,"revokedSeq":null}]},{"jti":"KufGyx9SRugkhjOl54tIfg","frames":[{"binary":true,"kind":0,"grantSeq":159,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":163,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":167,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":171,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":176,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":181,"revokedSeq":null}]},{"jti":"ZXBHPgmPn3TYXIIgpRsHnQ","frames":[{"binary":true,"kind":0,"grantSeq":206,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":207,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":228,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":233,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":238,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":247,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":250,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":253,"revokedSeq":null}]},{"jti":"DJ9Do8kYl_nOJ6Ve3IeOFw","frames":[{"binary":true,"kind":0,"grantSeq":212,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":219,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":220,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":224,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":229,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":234,"revokedSeq":null},{"binary":false,"kind":"custom","grantSeq":242,"revokedSeq":null}]},{"jti":"dfan7FukWSPb6_Bb0V4suw","frames":[{"binary":true,"kind":0,"grantSeq":260,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":265,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":268,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":274,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":292,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":294,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":299,"revokedSeq":null}]},{"jti":"8pq0iouDG4EpFbqWEezvow","frames":[{"binary":true,"kind":0,"grantSeq":276,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":280,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":284,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":288,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":293,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":298,"revokedSeq":null}]},{"jti":"c6FGcakcItvZ112Dn7pVuQ","frames":[{"binary":true,"kind":0,"grantSeq":311,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":316,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":319,"revokedSeq":null}]},{"jti":"YBd4XBOQ9s0v207HGNP4RA","frames":[{"binary":true,"kind":0,"grantSeq":326,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":331,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":334,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":355,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":360,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":365,"revokedSeq":null}]},{"jti":"MjL8AjtTSqCNJtiOAoiv8g","frames":[{"binary":true,"kind":0,"grantSeq":339,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":343,"revokedSeq":null},{"binary":true,"kind":0,"grantSeq":347,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":351,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":356,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":364,"revokedSeq":null},{"binary":true,"kind":1,"grantSeq":366,"revokedSeq":367}]}]
+✖ revoked recipient gets no awareness frame when another socket closes (260.150831ms)
+✔ secure QA flag 0 never falls back to copied-identifier access (7506.13201ms)
+✔ secure QA flag undefined never falls back to copied-identifier access (6000.797416ms)
+✔ a valid admission waiting for authority is not revoked by another peer activity (298.307144ms)
+✔ authorized client renews through real issuer and resumes the same local document after denial (969.333109ms)
+✔ confirmed client sessions renew twice after real capability expiry without exhausting the admission budget (1017.20345ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ chromium authorized browser preserves IndexedDB across denial, reload and real peer recovery (2771.0297ms)
+Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
+✔ webkit authorized browser preserves IndexedDB across denial, reload and real peer recovery (3552.564322ms)
+✔ projected Y.Doc is distinct from private Y.Doc and uses only two allowlisted map names (10.032722ms)
+✔ public products include display fields only; cost, PN facts and photos never transit (4.443396ms)
+✔ shelf view excludes commissions, PINs, money, contacts and artist links (4.589473ms)
+✔ Yjs binary of projected view contains zero secret strings and survives receiving client (8.170121ms)
+✔ projection never adds metadata or changes private doc bytes (2.331917ms)
+✔ subsequent private data changes do not automatically flow into detached public snapshot (4.531127ms)
+✔ invalid price or stock cannot be silently converted to zero in public view (3.392599ms)
+✔ product IDs and shelf IDs cannot be arbitrary script or path strings (2.511033ms)
+✔ empty catalog has both empty public maps but no inherited private collections (1.036075ms)
+✔ reject >10000 products rather than deliver a partial misleading retail view (141.397319ms)
+✔ shelf data malformed with nested objects is rejected, not serialized into a Yjs document (0.955256ms)
+✔ new command is durable as canonical payload and inbox receipt atomically (16.729348ms)
+✔ same opId with different money cannot overwrite canonical payload (4.629403ms)
+✔ payload write failure rolls back receipt and refuses ACK (2.310875ms)
+✔ hash-only historical receipt must not claim replayable duplicate ACK (1.59853ms)
+✔ corrupt canonical payload must not claim replayable duplicate ACK (2.17176ms)
+✔ denied authority cannot write either row (0.553781ms)
+✔ real Workerd SQLite: one durable inbox row survives reopen and conflicting retries fail closed (10704.119641ms)
+✔ reject unknown operation before reading or writing storage (2.049702ms)
+✔ reject raw extra fields including client role, PIN or private contact (1.503221ms)
+✔ fail closed without trusted server authorization, no false receipt (0.447344ms)
+✔ atomic server receipt is an inbox receipt, NOT a completed business sale (93.672995ms)
+✔ same opId and payload return identical receipt with zero additional writes (13.31844ms)
+✔ same opId and different quantity or amount is conflict, never overwrite (7.749818ms)
+✔ same opId under separate license cannot bypass authoritative tenant match (5.581831ms)
+✔ read-only actor cannot write even with plausible owner role fields (1.151838ms)
+✔ only required receipt metadata is returned; no payload, PIN or credentials (7.262665ms)
+✔ SQL insertion failure must not report stored receipt and must not retain row (0.975006ms)
+✔ explicit sale, expense and partial debt payment have distinct scopes (5.040178ms)
+✔ reject imprecise, negative or excessively large cents without hiding error as zero (2.83072ms)
+✔ required product and ids must be narrow, refuse traversal or XSS values (0.246255ms)
+✔ an authority that returns no principal scope cannot be accepted (1.98147ms)
+✔ authorization is rechecked on every idempotent retry, not cached by opId (8.697563ms)
+✔ valid license alphabet from the existing WS issuer is accepted byte-for-byte (5.16317ms)
+✔ license boundary exactly follows existing issuer limit of 8..34 characters after F123- (1.122676ms)
+✔ RED: a persisted customer payment has its own clienteId contract and unchanged colon opId (41.630263ms)
+✔ RED: a customer payment keeps identity and cents under retries and rejects changed intentions (3.671707ms)
+✔ RED: customer payment forbids receivableId and allocation, roles, PII and zero cents (0.863982ms)
+✔ RED: colon opId is valid ONLY on customer payment kind; legacy receivable stays stable (0.68735ms)
+✔ RED: revoked actor must not retrieve prior customer payment receipt (3.247588ms)
+✔ RED: customer payment requires explicit trusted membership provider, not just issuer scope (1.70583ms)
+✔ RED: false or nonboolean membership and thrown authority never write an inbox receipt (0.610486ms)
+✔ RED: customer owner lookup sees only server-authenticated principal, tenant and customer id (3.719087ms)
+✔ RED: revoking customer membership prevents even reading an earlier duplicate receipt (0.63313ms)
+✔ RED: issuer denial wins before customer membership inquiry or storage access (0.208199ms)
+✔ RED: customer moved to another valid ID in same licence is rejected before storage (0.169322ms)
+✔ legacy receivable requires its own trusted authority before any SQL, even with payment scope (2.007008ms)
+✔ legacy receivable rejects denied or nonboolean ownership and authority errors without SQL (2.144692ms)
+✔ legacy receivable authority receives exact trusted principal and tenant, never clienteId (1.647644ms)
+✔ legacy receivable revocation prevents duplicate receipt disclosure with zero SQL (3.470729ms)
+✔ legacy receivable ownership is scoped to tenant and debt; changed authorized intent still conflicts (2.679486ms)
+✔ issuer denial precedes legacy receivable authority and all SQLite access (0.267597ms)
+ℹ tests 79
+ℹ suites 0
+ℹ pass 78
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 55714.19775
+
+✖ failing tests:
+
+test at qa/p0-real-session-room.test.mjs:63:1
+✖ revoked recipient gets no awareness frame when another socket closes (260.150831ms)
+  AssertionError [ERR_ASSERTION]: revoked recipient must receive no lifecycle frame
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs:72:142)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

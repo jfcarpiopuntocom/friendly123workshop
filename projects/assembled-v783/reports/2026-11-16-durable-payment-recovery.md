@@ -48,4 +48,8 @@ The real LOCAL application consumer is strengthened; a remote executor/ACK is NO
 
 ## Final CI/readback
 
-Pending final runtime SHA and final log readback at this checkpoint. Update this section with exact run IDs, counts, failures and remote SHA; do not substitute an earlier green. All remaining issues must remain in the handoff.
+Runtime SHA e9ff257f0b768adf6a41029994eef03400440578: integrated CI43937264730 completed SUCCESS, 554/554 in 14 groups, 0 fail/cancel/skip; raw log preserved. Local full finance248/248 and UI/recovery20/20 pass. Local relay all79:78 pass,1 historical awareness fail; do not convert that to green because the27-case CI subset passed.
+
+Full CI43937264804 completed FAILURE in both targets: candidate3207 tests/3144pass/59fail/1cancel/3skip; baseline3148/3075/69/1/3. Complete failure names, shared and exclusive sets in full-ci-comparison.json. A single candidate-exclusive name in this run: Fable P1-4 WebKit lease storage-pressure, two racks observed then a later read lost one. No causal link to the payment change is claimed; investigate before classifying. Missing git b8bd538 and loteAnexosPiloto in extracted VM fixtures explain some shared failures, not all.
+
+GitHub connector independently read back six critical code/test/integrity files from e9ff257; all Git blob hashes match local (github-readback.json). Further work explicitly authorized by JFC is recorded as Tasks5–7 in the persisted plan.

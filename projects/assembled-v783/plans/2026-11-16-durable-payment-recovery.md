@@ -55,3 +55,22 @@ Files: existing app/src/credit-payment-command.mjs and adjacent integration modu
 - Task 2 complete: existing test RED 4/5 with 7 timers instead of 5. Instrumented source traces showed all actual storage calls progress 0→1→2→3→4→5 with NO success/reset; extra 3000ms timers originate relay-selector.js:537 (Supabase/Firebase reconnect). Root cause is test contamination, not money runtime. Test now records/accelerates only _falloGuardadoLocal-origin timers and includes deliberate unrelated timer; GREEN 5/5. Runtime mock-backend.js byte unchanged. Evidence retry-baseline.txt, retry-origins-1/2/3.txt, retry-green.txt. No need to compare/modify baseline runtime once exact foreign timers are proven.
 
 - Final review: independent reviewer found no Critical/Important in a5d845bb..3e2d23c. Minor relation mutation across hash await reproduced and fixed (not deferred): snapshot relation; payment-intent-red.txt → payment-intent-green.txt 18/18. Abort regression verifies no receipt/meta/event and same-opId recovery. Both native browser engines pass 2/2 after isolated host library setup; no tests skipped. Expanded UI suite and bare npm test/global CI still running.
+
+## Continued authorized work after full audit (JFC reiterated greenlight)
+
+Exact e9ff257 integrated CI 43937264730: 554/554, zero fail/skip/cancel. Full CI43937264804 candidate3144/3207 pass,59fail,1cancel,3skip; baseline3075/3148 pass,69fail,1cancel,3skip. Every failing name is preserved in evidence/payment-recovery/full-ci-comparison.json. Candidate-only occurrence: WebKit lease storage-pressure cold-load test; do not call it flaky or fixed without reproduction.
+
+### Task 5 — restore historical verification, not runtime workarounds
+- [ ] Classify every full-audit failure by its actual trace: arnés dependency, absent historical git object, obsolete source assertion, environment, or reproducible runtime behavior. Keep unclassified until evidence exists.
+- [ ] For incident-stale-stock-metadata-v558.test.js and e4-owner-name-role.test.cjs extracted seed fixture, include the ACTUAL dependencies used by sync-yjs.js (loteAnexosPiloto etc.); do not stub the domain behavior under assertion. Capture RED before test-fixture fix and GREEN after; runtime unchanged.
+- [ ] For historical reader/bridge tests using git show, enumerate exact refs and repository origins; recover exact public source commits in CI or pin byte-verified existing fixtures. Never replace old code with current code, skip tests, or fabricate a commit.
+- [ ] Rerun affected suites and save test-only changes/checkpoints. Regenerate runtime manifest only if runtime actually changed.
+
+### Task 6 — WebKit cold-load write disappearance
+- [ ] Reproduce test/tab-session-handoff.test.js exact WebKit lease case in isolation; reviewer independently traces initial IDB state, third-page restore, later catalog/stores and API reads.
+- [ ] Add deterministic control at the actual asynchronous boundary before any product fix. Preserve both rack names exactly once; an HTTP2xx or a transient correct read is insufficient.
+- [ ] Fix only demonstrated root cause, then verify two-tab writes, restart, hydration and monetary regressions. If no stable reproduction, retain unresolved result and causal trace rather than change test timing/limits.
+
+### Task 7 — remaining security and delivery gates
+- [ ] Historical awareness 78/79 local vs27/27 integrated subset: independent review finds no bypass path but cannot causally identify late frame. Preserve zero-frame assertion. Next diagnostic must correlate payload SHA, decision/response/send and revoke/receive phase; ordinal grants are insufficient. Do not repeat the old five passes as proof.
+- [ ] Re-run exact final integrated/full checks when changes justify it, preserve all failures and update current STATUS/Notion and next-code plan. No deployment or issuer scope expansion.
