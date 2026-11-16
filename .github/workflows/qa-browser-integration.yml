@@ -70,7 +70,8 @@ jobs:
       - name: Roles, PIN, local A/B, IndexedDB atomicity
         working-directory: apps/friendly-123
         run: |
-          node ../../qa/browser/adjust-legacy-static-assertion.cjs test/p0-sales-atomic-idb-webkit-browser.test.cjs
+          # Imported v781 has the ORIGINAL two-argument CAS source and its native test.
+          # Do not replace it with the v782/v783 test signature before those injertos exist.
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
             test/advanced-device-roles.test.cjs \
             test/linus-roles-matriz.test.js \
