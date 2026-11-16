@@ -1,0 +1,5 @@
+# JFC's shared workshop stores candidate source in GitHub, not a second live app.
+# GitHub Pages repository paths share an origin/localStorage with friendly-123.
+# Keep candidates out of this site's build; their GitHub files remain readable.
+exclude:
+  - projects

@@ -1,0 +1,8 @@
+{
+  "kind": "VULNERABILITY-WITNESS",
+  "reproduced": true,
+  "sameOrigin": true,
+  "sharedNativeKey": "f123::f123_origin_witness",
+  "safeToOpenCandidateInExistingProfile": false,
+  "syntheticDataOnly": true
+}
