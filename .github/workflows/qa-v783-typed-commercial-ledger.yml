@@ -33,4 +33,4 @@ jobs:
       - name: Syntax then 15 security/idempotence tests
         run: |
           node --check projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs
-          node --test projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs
+          node --test projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-command-payload.test.mjs
