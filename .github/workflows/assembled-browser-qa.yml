@@ -1,7 +1,8 @@
 name: Assembled v783 browser and authority QA (no deploy)
 on:
   push:
-    branches: [main]
+    # Validate integration work on agent branches before it reaches main.
+    branches: [main, "sol/**", "codex/**", "claude/**", "fable/**", "ponytail/**"]
     paths:
       - projects/assembled-v783/app/**
       - projects/assembled-v783/relay/**
