@@ -1,0 +1,78 @@
+{
+  "delays": [
+    3000,
+    3000,
+    3000,
+    6000,
+    12000,
+    24000,
+    48000
+  ],
+  "trace": [
+    {
+      "kind": "failure",
+      "t": 750.6999999999534,
+      "rev": 0,
+      "attempt": 0,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 764.5,
+      "rev": 0,
+      "attempt": 1,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at guardarABConfirmado (http://127.0.0.1:38737/mock-backend.js:1794:41)\n    at trasIDB (http://127.0.0.1:38737/mock-backend.js:1819:26)\n    at http://127.0.0.1:38737/mock-backend.js:1842:59"
+    },
+    {
+      "kind": "failure",
+      "t": 767.4000000000233,
+      "rev": 0,
+      "attempt": 1,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 779.8000000000466,
+      "rev": 0,
+      "attempt": 2,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 792,
+      "rev": 0,
+      "attempt": 3,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 804.8000000000466,
+      "rev": 0,
+      "attempt": 4,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 817,
+      "rev": 0,
+      "attempt": 5,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72"
+    }
+  ],
+  "timers": [
+    "Error\n    at window.setTimeout (eval at evaluate (:311:30), <anonymous>:3:149)\n    at armar (http://127.0.0.1:38737/relay-selector.js:537:15)\n    at siguiente (http://127.0.0.1:38737/relay-selector.js:525:62)\n    at n.<anonymous> (http://127.0.0.1:38737/relay-selector.js:510:47)\n    at n.Te (http://127.0.0.1:38737/vendor/supabase-relay.min.js:1:235610)\n    at n.mt (http://127.0.0.1:38737/vendor/supabase-relay.min.js:1:235759)\n    at http://127.0.0.1:38737/vendor/supabase-relay.min.js:1:234800",
+    "Error\n    at window.setTimeout (eval at evaluate (:311:30), <anonymous>:3:149)\n    at armar (http://127.0.0.1:38737/relay-selector.js:537:15)\n    at siguiente (http://127.0.0.1:38737/relay-selector.js:531:83)\n    at http://127.0.0.1:38737/relay-selector.js:510:47\n    at http://127.0.0.1:38737/firebase-relay.js:111:66\n    at Array.forEach (<anonymous>)\n    at Socket._emit (http://127.0.0.1:38737/firebase-relay.js:111:37)\n    at Socket.close (http://127.0.0.1:38737/firebase-relay.js:317:12)\n    at ws.close (http://127.0.0.1:38737/relay-selector.js:284:89)\n    at Socket._open (http://127.0.0.1:38737/firebase-relay.js:124:32)",
+    "Error\n    at window.setTimeout (eval at evaluate (:311:30), <anonymous>:3:149)\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1905:38)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72",
+    "Error\n    at window.setTimeout (eval at evaluate (:311:30), <anonymous>:3:149)\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1905:38)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72",
+    "Error\n    at window.setTimeout (eval at evaluate (:311:30), <anonymous>:3:149)\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1905:38)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72",
+    "Error\n    at window.setTimeout (eval at evaluate (:311:30), <anonymous>:3:149)\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1905:38)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72",
+    "Error\n    at window.setTimeout (eval at evaluate (:311:30), <anonymous>:3:149)\n    at _falloGuardadoLocal (http://127.0.0.1:38737/mock-backend.js:1905:38)\n    at terminar (http://127.0.0.1:38737/mock-backend.js:1761:11)\n    at http://127.0.0.1:38737/mock-backend.js:1851:72"
+  ]
+}

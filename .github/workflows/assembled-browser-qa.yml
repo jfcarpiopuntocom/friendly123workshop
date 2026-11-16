@@ -77,6 +77,11 @@ jobs:
         env:
           F123_QA_IMPORTED_MONEY: '1'
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 test/p0-expense-money-imported.test.cjs
+      - name: Payment opId atomicity across writers, restart and remote-fact recovery
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
+            test/p0-payment-atomic-facts.test.cjs test/p0-payment-atomic-browser.test.cjs \
+            test/hechos-import-recovery.test.cjs test/hechos-sync.test.js
       - name: Existing expense allocation from the real browser UI
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 test/expense-presale-allocation-browser.test.js
       - name: Photo bytes, hash, fallback and backup

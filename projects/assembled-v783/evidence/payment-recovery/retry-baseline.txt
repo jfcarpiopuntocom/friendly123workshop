@@ -1,0 +1,48 @@
+✖ retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice (3580.977118ms)
+✔ a later successful save resets the retry counter; no visible notice ever (2360.112078ms)
+✔ real quota error writes plain text in the Avanzado status line (no overlay element) (1577.872571ms)
+✔ store name uses logo yellow #EFC31A in light and dark scheme (976.708175ms)
+✔ real IndexedDB quota error (localStorage unavailable) writes the in-UI status text (1697.03028ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10822.099325
+
+✖ failing tests:
+
+test at test/v608-guardado-veraz.test.cjs:27:1
+✖ retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice (3580.977118ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      3000,
+  +   3000,
+  +   3000,
+      6000,
+      12000,
+      24000,
+      48000
+    ]
+  
+      at /workspace/work/friendly123workshop/projects/assembled-v783/app/test/v608-guardado-veraz.test.cjs:33:12
+      at async withDevice (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/v608-guardado-veraz.test.cjs:8:5)
+      at async TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/v608-guardado-veraz.test.cjs:28:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [
+       3000,  3000,
+       3000,  6000,
+      12000, 24000,
+      48000
+    ],
+    expected: [ 3000, 6000, 12000, 24000, 48000 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

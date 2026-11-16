@@ -1,0 +1,49 @@
+✖ one payment opId commits once across concurrent ledger writers and survives fresh readback (24.037015ms)
+✖ concurrent conflicting payment intentions cannot both change the customer balance (9.51479ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 173.703628
+
+✖ failing tests:
+
+test at test/p0-payment-atomic-facts.test.cjs:28:1
+✖ one payment opId commits once across concurrent ledger writers and survives fresh readback (24.037015ms)
+  AssertionError [ERR_ASSERTION]: both confirmations must identify the same durable payment
+  + actual - expected
+  
+  + 'synthetic-author-a-1'
+  - 'synthetic-author-b-1'
+                      ^
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-payment-atomic-facts.test.cjs:31:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'synthetic-author-a-1',
+    expected: 'synthetic-author-b-1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/p0-payment-atomic-facts.test.cjs:41:1
+✖ concurrent conflicting payment intentions cannot both change the customer balance (9.51479ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-payment-atomic-facts.test.cjs:44:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

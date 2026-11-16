@@ -1,0 +1,49 @@
+✔ remote facts retain IndexedDB abort causes and recover locally without another Yjs update (3850.92449ms)
+✔ financial facts converge by ID across two real IndexedDB profiles (1126.951478ms)
+✔ new abonos use imported Dinero half-up for both half-cent decimal cases (57.330679ms)
+✔ same payment opId replays after rollback and missing adapter without a second fact (12.737262ms)
+✔ a historical legacy payment retains old cents and remains idempotent after new import (12.507071ms)
+✔ explicit rollback flag preserves existing legacy behavior for new abonos (19.141566ms)
+✔ missing or throwing imported component falls back fully to legacy for a NEW payment (17.771435ms)
+✔ manual debt cargo stays on the original ledger rounding; only abonos migrate (8.872724ms)
+✔ changed customer, motive, or amount with an existing payment opId is 409 (13.746718ms)
+✔ durable Hechos failure returns no confirmed payment; retry writes once (13.108423ms)
+✔ invalid or negative payment never persists a monetary fact (16.457247ms)
+✔ RED: converts actual committed cartera_abono to the exact customer-payment inbox kind (2.718961ms)
+✔ RED: readback is required; missing, duplicate or colliding opId must fail closed (0.879714ms)
+✔ RED: exact saved cents win over any future Dinero flag or original request rounding (0.398391ms)
+✔ RED: unsafe amounts and forged ids never produce a payment command (2.189756ms)
+✔ RED: real browser /abonar records a fact that projects with its original opId (48.969615ms)
+✔ payment duplicate check and durable write share one real IndexedDB transaction (Chromium) (536.667062ms)
+✖ payment duplicate check and durable write share one real IndexedDB transaction (WebKit) (175.351009ms)
+✔ one payment opId commits once across concurrent ledger writers and survives fresh readback (24.731074ms)
+✔ concurrent conflicting payment intentions cannot both change the customer balance (7.399419ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 19
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8600.647311
+
+✖ failing tests:
+
+test at test/p0-payment-atomic-browser.test.cjs:6:2
+✖ payment duplicate check and durable write share one real IndexedDB transaction (WebKit) (175.351009ms)
+  browserType.launch: 
+  ╔══════════════════════════════════════════════════════╗
+  ║ Host system is missing dependencies to run browsers. ║
+  ║ Missing libraries:                                   ║
+  ║     libgtk-4.so.1                                    ║
+  ║     libgraphene-1.0.so.0                             ║
+  ║     libharfbuzz-icu.so.0                             ║
+  ║     libmanette-0.2.so.0                              ║
+  ║     libhyphen.so.0                                   ║
+  ║     libGLESv2.so.2                                   ║
+  ╚══════════════════════════════════════════════════════╝
+      at engine.launch (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/helpers/sin-red-produccion.cjs:25:27)
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-payment-atomic-browser.test.cjs:10:25) {
+    name: 'Error',
+    log: []
+  }

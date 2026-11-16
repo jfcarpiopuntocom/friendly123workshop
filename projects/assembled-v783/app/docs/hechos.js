@@ -236,14 +236,25 @@
     });
   }
 
-  function guardar(hecho) {
+  function guardar(hecho, opciones) {
     return abrirDB().then(function (db) {
       return new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readwrite");
-        var fallo = null;
-        var req = tx.objectStore(STORE).add(hecho); // nunca sobrescribir un hecho existente
-        req.onerror = function () { fallo = req.error; };
-        tx.oncomplete = function () { resolve(hecho); };
+        var fallo = null, confirmado = hecho, st = tx.objectStore(STORE);
+        // 2026-11-16: two writers can pass the pre-hash check; dedup and add
+        // must share this readwrite transaction, including during activation.
+        if (opciones && opciones.repetido) {
+          var leer = st.getAll();
+          leer.onsuccess = function () {
+            try {
+              var repetido = opciones.repetido(leer.result);
+              if (repetido) { confirmado = repetido; return; }
+              st.add(hecho);
+            } catch (e) { fallo = e; tx.abort(); }
+          };
+        } else st.add(hecho); // nunca sobrescribir un hecho existente
+        tx.oncomplete = function () { resolve(confirmado); };
+        tx.onabort = function () { reject(fallo || tx.error || new DOMException('registro de hecho abortado', 'AbortError')); };
         tx.onerror = function () { reject(fallo || tx.error); };
       });
     });
@@ -351,7 +362,8 @@
       return calcularHash(base).then(function (h) {
         hecho.hash = h;
         meta.ultimoHash = h;
-        return guardar(hecho).then(function () {
+        return guardar(hecho, opciones).then(function (confirmado) {
+          if (confirmado !== hecho) return confirmado;
           // La meta se persiste SOLO si el hecho llego a disco. Al reves se
           // perderia un eslabon de la cadena y todo lo siguiente pareceria
           // manipulado sin serlo.

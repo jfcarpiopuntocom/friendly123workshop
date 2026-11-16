@@ -1,0 +1,67 @@
+{
+  "delays": [
+    3000,
+    6000,
+    12000,
+    24000,
+    48000
+  ],
+  "trace": [
+    {
+      "kind": "failure",
+      "t": 1002.1000000000349,
+      "rev": 0,
+      "attempt": 0,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:35803/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:35803/mock-backend.js:1761:11)\n    at http://127.0.0.1:35803/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 1005.7000000000116,
+      "rev": 0,
+      "attempt": 1,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:35803/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:35803/mock-backend.js:1761:11)\n    at guardarABConfirmado (http://127.0.0.1:35803/mock-backend.js:1794:41)\n    at trasIDB (http://127.0.0.1:35803/mock-backend.js:1819:26)\n    at http://127.0.0.1:35803/mock-backend.js:1842:59"
+    },
+    {
+      "kind": "failure",
+      "t": 1016.2000000000116,
+      "rev": 0,
+      "attempt": 1,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:35803/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:35803/mock-backend.js:1761:11)\n    at http://127.0.0.1:35803/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 1028.7999999999884,
+      "rev": 0,
+      "attempt": 2,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:35803/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:35803/mock-backend.js:1761:11)\n    at http://127.0.0.1:35803/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 1043.100000000035,
+      "rev": 0,
+      "attempt": 3,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:35803/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:35803/mock-backend.js:1761:11)\n    at http://127.0.0.1:35803/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 1055.2000000000116,
+      "rev": 0,
+      "attempt": 4,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:35803/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:35803/mock-backend.js:1761:11)\n    at http://127.0.0.1:35803/mock-backend.js:1851:72"
+    },
+    {
+      "kind": "failure",
+      "t": 1067.4000000000233,
+      "rev": 0,
+      "attempt": 5,
+      "error": "AbortError",
+      "stack": "Error\n    at _falloGuardadoLocal (http://127.0.0.1:35803/mock-backend.js:1897:176)\n    at terminar (http://127.0.0.1:35803/mock-backend.js:1761:11)\n    at http://127.0.0.1:35803/mock-backend.js:1851:72"
+    }
+  ]
+}
