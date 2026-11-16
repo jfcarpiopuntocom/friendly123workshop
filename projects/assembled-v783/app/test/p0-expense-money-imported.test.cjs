@@ -10,6 +10,13 @@ function create(importMoney=true,rollback=false){
   const w=browser();
   w.OCAuth={rolActual:()=> 'dueno'};
   if(importMoney) vm.runInContext(imported,w);
+  else {
+    // The wider financial suite intentionally preloads the imported bundle
+    // through F123_QA_IMPORTED_MONEY=1. For the absent-adapter test, remove
+    // it *inside* the VM, not only on the host/fixture setup.
+    vm.runInContext('window.F123MoneyImported = undefined',w);
+    assert.equal(vm.runInContext('typeof window.F123MoneyImported',w),'undefined');
+  }
   if(rollback)w.localStorage.setItem('f123_dinero_qa','0');
   return w;
 }
