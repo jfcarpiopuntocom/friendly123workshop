@@ -85,3 +85,7 @@ Correction/precision for next builder: a real server-side human-member Team auth
 ## Latest exact runtime verification
 
 CI43944394047 /774558ac completed SUCCESS585/585,0fail/skip/cancel; raw log and machine-readable group totals committed. Public connector readback4/4 critical blobs matches local files; root docs tree hash remains c6d1b57cce4d60dc2578ec275f07e647cbac0dfa exactly as session start. The candidate code is not served to real customers by this workshop change. The full audit43944393991 must still be read before its result is assigned; next documentary update supplies that result.
+
+## Precise existing authority call graph (avoid duplicate work)
+
+Further caller inspection confirms Team-to-WS server issuance is ALREADY implemented: ws-worker-api.wsDoRoute constructs teamAuthority and passes it to wsCapabilityAuthority; issue chooses Team.verify/isCurrent for credentials.kind=team, and current(tx,claims) checks the stored member/role/revision both on issue and ticket use. Owner-only ws-authorized-subject is intentional for owner credentials, not a missing Team bridge. The earlier next-step wording was corrected. Remaining integration concerns actual app credential/session flow, role-safe relay/projections, trusted resource binding and business consumer/ACK. Existing CEILING and default empty Team grants remain untouched.

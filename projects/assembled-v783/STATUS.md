@@ -2,7 +2,7 @@
 >
 > **GLOBAL NO-GO:** último full completado `d132bf77` [43942634062](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43942634062): candidata3166/3216 PASS,46 FAIL,1 cancel,3skip; baseline3088/3151 PASS,59 FAIL,1 cancel,3skip. Cero nombres fallidos exclusivos candidato en esa ejecución no convierte la suite en verde. Full exacto774558a [43944393991](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43944393991) todavía pendiente de resultado final. Relay amplio local78/79 por awareness histórico sigue sin cierre causal aunque su subconjunto27/27 pasó en CI. No desplegar/activar clientes o scopes ni afirmar hardware físico.
 >
-> [Plan y próximo tramo detallado](plans/2026-11-16-durable-payment-recovery.md) · [Informe completo](reports/2026-11-16-durable-payment-recovery.md) · [Mapa de regresiones](qa/REGRESSION-MAP.md). Ponytail full + Superpowers + técnicas útiles Claude-BugHunter. La Team authority de servidor YA existe; falta conectarla de forma segura a WS/roles/proyecciones, fuente real cliente/deuda y consumidor/ACK comercial remoto. Inbox no es business-committed. PWA/SW siguen aplazados.
+> [Plan y próximo tramo detallado](plans/2026-11-16-durable-payment-recovery.md) · [Informe completo](reports/2026-11-16-durable-payment-recovery.md) · [Mapa de regresiones](qa/REGRESSION-MAP.md). Ponytail full + Superpowers + técnicas útiles Claude-BugHunter. La Team authority YA está conectada al emisor WS; faltan flujo cliente/relay/proyecciones por rol, fuente real cliente/deuda y consumidor/ACK comercial remoto. Inbox no es business-committed. PWA/SW siguen aplazados.
 
 ---
 
