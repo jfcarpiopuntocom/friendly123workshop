@@ -1,0 +1,56 @@
+name: v783 post39 full audit (no production)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v783-post39-full-audit.yml'
+      - 'projects/assembled-v783/app/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Pin source and test guard
+        run: |
+          test -f test/helpers/sin-red-produccion.cjs
+          test -f package-lock.json
+          git rev-parse HEAD
+          git status --short
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Install native Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+      - name: Full historical suite (no silenced failures)
+        run: |
+          mkdir -p ../evidence/post39-full
+          git rev-parse HEAD | tee ../evidence/post39-full/sha.txt
+          node --version | tee ../evidence/post39-full/node.txt
+          set +e
+          npm test 2>&1 | tee ../evidence/post39-full/npm-test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "npm_test_exit=$status" | tee ../evidence/post39-full/exit.txt
+          exit "$status"
+      - name: Upload exact SHA, full output and failure proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-post39-full-audit-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/post39-full/
+          retention-days: 14
+          if-no-files-found: warn
