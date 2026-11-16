@@ -1,0 +1,30 @@
+name: QA multi-agent no-clobber (TDD, no app writes)
+on:
+  push:
+    branches: [sol/guard-no-clobber-injertos-20261116]
+    paths:
+      - "qa/coordination/**"
+      - "docs/coordination/INJERTOS-OWNERSHIP.json"
+      - ".github/workflows/qa-no-clobber.yml"
+  pull_request:
+    branches: [integrate/browser-injertos-20261116]
+    paths:
+      - "qa/coordination/**"
+      - "docs/coordination/INJERTOS-OWNERSHIP.json"
+      - ".github/workflows/qa-no-clobber.yml"
+permissions:
+  contents: read
+jobs:
+  no-clobber:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Unit tests (red then green)
+        run: node --test qa/coordination/no-clobber.test.mjs
