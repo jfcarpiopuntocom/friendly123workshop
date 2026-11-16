@@ -65,10 +65,10 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   for(const queue of ['_payoutCatalogosPendientes','_ventaCatalogosPendientes','_retencionCatalogosPendientes'])assert.ok(drain.includes(queue),queue+' uses the shared trusted drain');
   assert.ok(drain.indexOf('aplicarCatalogo(')<drain.indexOf('cola.shift()'),'a failed application must retain its queue entry');
   assert.match(drain,/resultado\.ok !== true/,'only an accepted application may leave the queue');
-  // v688 added the durable Add Customer boundary to the eight existing paths.
-  // Keep an exact count so a missing post-ACK drain is not masked by new paths.
-  assert.equal((backend.match(/_drenarCatalogosPendientes\(\);/g)||[]).length,9,
-    'payout, conversion, sale, return, stock adjustment, import, retention, contact and Add Customer all drain through the trusted helper');
+  // Modern strict commits added three more guarded boundaries since v688.
+  // Pin all twelve so losing an ACK-drain path remains a hard regression.
+  assert.equal((backend.match(/_drenarCatalogosPendientes\(\);/g)||[]).length,12,
+    'all 12 payout, conversion, sale, return, stock, import, retention and customer post-ACK paths drain through the trusted helper');
 });
 
 
