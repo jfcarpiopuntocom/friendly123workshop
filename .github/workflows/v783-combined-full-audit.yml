@@ -1,0 +1,56 @@
+name: v783 combined full candidate vs merged baseline audit (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/docs/mock-backend.js'
+      - 'projects/assembled-v783/app/docs/version-manifest.json'
+      - 'projects/assembled-v783/app/test/tab-session-handoff.test.js'
+      - '.github/workflows/v783-combined-full-audit.yml'
+permissions:
+  contents: read
+jobs:
+  full-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        side: [candidate, baseline]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.side == 'baseline' && 'a8b351ad2f97c0bbc3600357b618c1b4ef1d003c' || github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install locked dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Install native browsers for full test suite
+        working-directory: projects/assembled-v783/app
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run complete npm test without hiding failures
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        env:
+          F123_REQUIRE_WEBKIT: '1'
+        run: |
+          set -uo pipefail
+          mkdir -p ../evidence/full-comparison
+          git rev-parse HEAD | tee ../evidence/full-comparison/sha.txt
+          npm test > ../evidence/full-comparison/npm-test.txt 2>&1
+          test_status=$?
+          tail -n 55 ../evidence/full-comparison/npm-test.txt || true
+          grep '^not ok ' ../evidence/full-comparison/npm-test.txt > ../evidence/full-comparison/failures.txt || true
+          printf 'side=%s exit=%s\n' '${{ matrix.side }}' "$test_status" | tee ../evidence/full-comparison/result.txt
+          exit "$test_status"
+      - name: Archive exact full audit including red findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-${{ matrix.side }}-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/full-comparison/
+          if-no-files-found: warn
+          retention-days: 14
