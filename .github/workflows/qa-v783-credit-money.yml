@@ -32,6 +32,8 @@ jobs:
           node-version: '22'
       - name: Install locked packages
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install official Chromium and WebKit binaries with system dependencies
+        run: npx playwright install --with-deps chromium webkit
       - name: Credit payment new engine, historical replay, failback, idempotency
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 test/p0-credit-payment-money-imported.test.cjs
       - name: Existing credit ledger and durable sale regressions
