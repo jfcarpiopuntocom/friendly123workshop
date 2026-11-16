@@ -1,0 +1,40 @@
+name: v783 legacy v601 no premature rack ACK (workshop only)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/enviar-mientras-guarda-v601.test.js'
+      - '.github/workflows/v783-v601-strict-rack-guard.yml'
+permissions:
+  contents: read
+jobs:
+  strict-rack-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install locked app dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Run full original v601 test file with modern strict-ACK expectations
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/v601-strict-rack
+          git rev-parse HEAD | tee ../evidence/v601-strict-rack/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 test/enviar-mientras-guarda-v601.test.js 2>&1 | tee ../evidence/v601-strict-rack/tap.log
+      - name: Preserve all results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v601-strict-rack-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/v601-strict-rack/
+          if-no-files-found: warn
+          retention-days: 14
