@@ -1,0 +1,34 @@
+name: QA · Yjs safe catalog projection, zero private bytes (no deploy)
+on:
+  push:
+    branches: [sol/v783-safe-catalog-projection-20261116]
+    paths:
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/catalog-safe-projection.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-safe-catalog-projection.test.mjs
+      - .github/workflows/qa-v783-catalog-projection.yml
+  pull_request:
+    paths:
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/catalog-safe-projection.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-safe-catalog-projection.test.mjs
+      - .github/workflows/qa-v783-catalog-projection.yml
+permissions:
+  contents: read
+jobs:
+  safe-view:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned existing Yjs package (no new dependencies)
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify projection does not export private Yjs fields or mutate source
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: |
+          node --check src/catalog-safe-projection.mjs
+          node --test --test-timeout=45000 qa/p0-safe-catalog-projection.test.mjs
