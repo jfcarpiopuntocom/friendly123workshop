@@ -250,33 +250,48 @@ test('a rejected location list preserves the selected shelf and shows an error',
   assert.match(result.message, /ubicaciones|locations/i);
 });
 
-test('failed business rename keeps the old identity and informs the owner', async () => {
-  const result = await withPage(page => page.evaluate(async () => {
-    const name = document.getElementById('oc-negocio-nombre');
-    const originalName = window.OCTienda.nombreActivo;
-    window.OCTienda.nombreActivo = () => 'Original fixture business';
-    window.dispatchEvent(new CustomEvent('oc-negocio-actualizado',
-      { detail: { nombre: 'Original fixture business' } }));
-    const originalPrompt = window.prompt;
-    const originalFetch = window.fetch;
-    window.prompt = () => 'New fixture business';
-    window.fetch = (url, options) => String(url).includes('/api/instancia/nombre') && options?.method === 'POST'
-      ? Promise.resolve(new Response(JSON.stringify({ error: 'Fixture reject' }),
-        { status: 503, headers: { 'Content-Type': 'application/json' } }))
-      : originalFetch(url, options);
-    document.getElementById('oc-negocio-editar').click();
-    await new Promise(resolve => setTimeout(resolve, 50));
-    window.prompt = originalPrompt;
-    window.fetch = originalFetch;
-    window.OCTienda.nombreActivo = originalName;
-    return { name: name.textContent,
-      message: document.getElementById('oc-negocio-estado')?.textContent || '',
-      visible: document.getElementById('oc-negocio-estado')?.style.display };
-  }));
-  assert.equal(result.name, 'Original fixture business');
-  assert.match(result.message, /name|nombre/i);
-  assert.notEqual(result.visible, 'none');
-});
+for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
+  test(`failed business rename keeps the old identity and informs the owner (${browserName})`, async () => {
+    const result = await withPage(page => page.evaluate(async () => {
+      const originalRole = window.OCAuth.rolActual;
+      const originalPrompt = window.prompt;
+      const originalFetch = window.fetch;
+      window.OCAuth.rolActual = () => 'dueno';
+      try {
+        const seed = await originalFetch('/api/instancia/nombre', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: 'Original fixture business' })
+        });
+        if (!seed.ok) throw new Error('Synthetic owner setup failed: ' + await seed.text());
+        const saved = await seed.json();
+        if (!saved.ok || saved.nombreNegocio !== 'Original fixture business')
+          throw new Error('Initial name was not durably confirmed: ' + JSON.stringify(saved));
+        window.prompt = () => 'New fixture business';
+        window.fetch = (url, options) =>
+          new URL(String(url), location.href).pathname === '/api/instancia/nombre' && options?.method === 'POST'
+            ? Promise.resolve(new Response(JSON.stringify({ error: 'Fixture rejected rename' }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }))
+            : originalFetch(url, options);
+        document.getElementById('oc-negocio-editar').click();
+        await new Promise(resolve => setTimeout(resolve, 50));
+        return { active: window.OCTienda.nombreActivo(),
+          title: document.getElementById('oc-negocio-nombre')?.textContent,
+          workshop: /friendly123workshop/i.test(location.href),
+          message: document.getElementById('oc-negocio-estado')?.textContent || '',
+          visible: document.getElementById('oc-negocio-estado')?.style.display };
+      } finally {
+        window.prompt = originalPrompt;
+        window.fetch = originalFetch;
+        window.OCAuth.rolActual = originalRole;
+      }
+    }), engine);
+    assert.equal(result.active, 'Original fixture business', 'rejected rename keeps the canonical saved name');
+    // In the workshop the branding guard intentionally masks every store name.
+    assert.equal(result.title, result.workshop ? 'VERSIÓN DE PRUEBAS' : 'Original fixture business');
+    assert.match(result.message, /name|nombre/i);
+    assert.notEqual(result.visible, 'none');
+  });
+}
 
 test('an open sale receives a newly synchronized customer without losing the current selection', async () => {
   const result = await withPage(page => page.evaluate(async () => {
