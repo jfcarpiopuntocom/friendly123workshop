@@ -1,0 +1,29 @@
+{
+  "status": "ABORTED_ENVIRONMENT_RESOURCE_LEAK",
+  "rootTestPid": 25878,
+  "childTests": [
+    {
+      "pid": "38020",
+      "elapsed": "12:30",
+      "test": "test/customer-payment-recovery.test.js"
+    },
+    {
+      "pid": "49927",
+      "elapsed": "10:11",
+      "test": "test/linus-dos-pestanas.test.js"
+    },
+    {
+      "pid": "61083",
+      "elapsed": "07:55",
+      "test": "test/p0-sales-atomic-idb-webkit-browser.test.cjs"
+    },
+    {
+      "pid": "73615",
+      "elapsed": "03:58",
+      "test": "test/shelf-photo-preisolation-g10.test.js"
+    }
+  ],
+  "cause": "Missing WebKit system libraries; fixture launches browser before finally and leaves HTTP servers open after launch failure",
+  "action": "SIGINT only to verified local npm-test Node parent; no source/test assertions changed",
+  "fullSuitePassed": false
+}

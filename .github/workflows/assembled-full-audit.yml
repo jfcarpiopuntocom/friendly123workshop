@@ -1,0 +1,41 @@
+name: Assembled candidate full app audit (synthetic, no deploy)
+on:
+  push:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/app/**
+      - .github/workflows/assembled-full-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: assembled-full-audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  full-app:
+    name: Full app audit - ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [candidate, baseline]
+    defaults:
+      run:
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ matrix.target == 'baseline' && '910affeea00dff41e7e6742242c4bf7d777228ce' || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked packages and official browser system dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+      - name: Run the complete existing app test command with imported money present
+        env:
+          F123_QA_IMPORTED_MONEY: '1'
+        run: npm test

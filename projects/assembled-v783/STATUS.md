@@ -2,6 +2,8 @@
 
 ## Continuación vigente: Dinero en ruta real de ventas — CI nueva pendiente
 
+Resultado posterior: **CI43873497777 sobre93991dc SUCCESS,483 ejecuciones0 fallos/omitidas**, financiero234/234 con Chromium/WebKit reales. npm test completo local quedó detenido por fixtures con HTTP server abierto después de fallar launch WebKit; SIGINT solo al padre verificado, salida parcial y diagnóstico guardados. Se prepara workflow separado para npm test completo con bibliotecas oficiales; no se declara completado el lote global. Los siguientes resultados locales son historia previa a esa CI. [Informe actualizado](reports/2026-11-16-money-default.md).
+
 Sobre base910affee se integra Dinero disponible por defecto solo en nuevas ventas/cierre del día, incluyendo asistente. split.moneyEngine conserva la regla al editar después de rollback; recibos viejos sin marca conservan la anterior. Ausencia de componente no bloquea venta nueva (fallback coherente completo), pero sí rechaza antes de mutar una edición marcada que necesite recálculo. Tres Important de revisor reproducidos y corregidos;16/16 focal pasa. Financiero local234:231 pasan,3 WebKit no arrancan por sistema; Chromium recarga y reintento pasan. npm test completo sigue corriendo a archivo. [Informe](reports/2026-11-16-money-default.md), [ledger](plans/2026-11-16-money-default.md). Los resultados238/238 de abajo acreditan el código anterior, no este cambio todavía pendiente de CI.
 
 ## Resultado vigente: cliente autorizado238/238; NO-GO comercial

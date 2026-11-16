@@ -2,6 +2,8 @@
 
 ## Continuación actual: Dinero por defecto en nuevas ventas de la candidata — WIP
 
+Actualización: **93991dc** pasó [CI43873497777](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43873497777):483 ejecuciones,0 fallos/omitidas; financiero234/234 y ambos motores. [Log completo](evidence/ci-43873497777.txt). El npm test completo local no terminó por servidores de fixtures abiertos tras fallar WebKit; se detuvo solo ese proceso, conservando salida parcial/diagnóstico. Auditoría completa en workflow independiente con bibliotecas oficiales preparada; no hay verde global de npm test todavía. Leer la actualización superior del [informe](reports/2026-11-16-money-default.md).
+
 [Informe de dinero](reports/2026-11-16-money-default.md), [plan/ledger](plans/2026-11-16-money-default.md). Cambio real en backend y adaptador: comisión y asistente con Dinero disponible, regla sellada para editar, rollback0 para nuevas ventas y fallback coherente antes del commit. Focal16/16 pasa; financiero local231/234 con3 WebKit bloqueados por sistema. Chromium completo verifica recarga/opId/stock. npm test completo sigue en ejecución; CI ampliada todavía pendiente. **El238/238 anterior que sigue abajo no certifica este cambio nuevo.** No hay despliegue ni activación de clientes.
 
 ## Estado actual: cliente autorizado verificado238/238; cutover comercial pendiente

@@ -1,5 +1,23 @@
 # Dinero.js en ventas reales de la candidata: default, sello y fallback coherente
 
+## CI financiera y de integración confirmada
+
+[CI43873497777](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43873497777), código **93991dc2cac9fefa51662fb586817345d56d72fb**, terminó SUCCESS: **483 ejecuciones de casos,0 fallos/omitidas**. [Log íntegro](../evidence/ci-43873497777.txt). Son varios contextos de ejecución, con pruebas repetidas deliberadamente con/sin componente en fixtures; no483 escenarios únicos. Desglose por lote:105 autoridad/contratos,8 comerciales browser,5 doble pestaña,22 cancelación/fiado/stock,28 dinero/reportes previos,234 financiero ampliado,33 fotos/backup,21 roles/recuperación y27 cliente/relay.
+
+El financiero ampliado pasó **234/234**, incluidos Chromium y WebKit con la app completa por defecto, recarga y reintento. Resuelve la limitación de bibliotecas del entorno local para ese lote, conservando sus logs fallidos anteriores. No resuelve por sí solo los demás gates de arquitectura/producción.
+
+## Auditoría completa del comando npm test: local detenido, CI separada preparada
+
+El npm test local se ejecutó con la ruta correcta de binarios y el componente presente. Se quedó sin avanzar después de497 pases visibles y varios fallos WebKit. Se inspeccionaron sus procesos: cuatro archivos de tests permanecían activos entre2 y11min aunque los tests ya habían informado error. Sus fixtures abren un HTTP server y hacen await engine.launch ANTES de entrar en try/finally; al fallar WebKit por las bibliotecas ausentes, ese servidor queda abierto y el proceso no sale. No atribuir esa falta de terminación al dinero nuevo ni presentar el lote parcial como PASS.
+
+Se envió SIGINT exclusivamente al proceso Node padre verificado del comando propio, se conservó la salida [parcial](../evidence/issuer/money-default-full-project.txt) y [diagnóstico acotado](../evidence/issuer/money-full-local-blocker.json). La terminación fue exit1; no una ejecución completa ni un verde. No se bajaron aserciones, se añadieron skips ni se usó test-force-exit.
+
+Al interrumpir, el reporter liberó también la salida que tenía en búfer: **2585 casos reportados,2349 pasan,132 fallan,101 cancelados,3 omitidos existentes**. No se atribuyen los132 fallos a entorno sin examinarlos: hay que contrastarlos por nombre en un runner completo. Los101 cancelados y errores de promesa pendiente posteriores pertenecen a la interrupción, no acreditan por sí mismos101 defectos del producto. Los497 pases eran los visibles antes de liberar el búfer, no el total final reportado.
+
+Se añade un workflow separado `.github/workflows/assembled-full-audit.yml`: instala los lockfiles y bibliotecas oficiales Chromium/WebKit, y ejecuta el npm test completo existente en Ubuntu/Node22 con el componente presente. Mantiene intactos los120s por test del package.json; su presupuesto de job45min es para el lote completo nuevo, no modifica un límite de rendimiento ni el workflow previo20min que ya pasó. No hace deploy ni recibe secretos/perfiles reales. Su resultado aún está pendiente. El comando del package no incluye .mjs; autoridad y relay .mjs permanecen cubiertos por la CI de integración separada.
+
+La auditoría tiene dos jobs independientes, sin cancelación entre ellos: candidata y baseline910affee (main antes de dinero). Ambos usan lockfile y browsers oficiales del árbol respectivo. Así se podrán separar fallos comunes y regresiones nuevas sin asumir que un test ya estaba roto. No se modifica el baseline ni se usa un resultado anterior como si fuera la candidata.
+
 ## Cambio concreto
 
 El bundle Dinero2.0.2 ya estaba congelado y cargado por index.html, pero el backend solo lo usaba con f123_dinero_qa=1. Ahora las nuevas ventas de la candidata usan el componente disponible por defecto, tanto para la comisión como para el reparto de asistente. El cierre del día también crea recibos con esa regla. f123_dinero_qa=0 permite iniciar nuevas ventas con el calculador anterior; si falta/falla el componente se conserva ese camino de continuidad.
