@@ -54,3 +54,22 @@ test('existing expense is not rewritten when loading Dinero for subsequent write
  assert.equal(current.monto,1.01);
  assert.equal(all.gastos.find(g=>g.id===original.id).monto,1);
 });
+
+test('throwing imported adapter uses one coherent legacy fallback for create and edit',async()=>{
+ const w=create(false);
+ w.F123MoneyImported={percentage(){throw Error('synthetic adapter unavailable')}};
+ const expense=await w.request('/api/gastos','POST',{concepto:'Synthetic adapter failure',monto:1.005});
+ assert.equal(expense.monto,1);
+ const edited=await w.request('/api/gastos/'+expense.id,'PATCH',{monto:2.675});
+ assert.equal(edited.monto,2.67);
+ const snapshot=await w.request('/api/respaldo/exportar');
+ assert.equal(snapshot.gastos.filter(x=>x.id===expense.id).length,1,'no duplicate durable expense');
+});
+test('invalid negative or non-finite expense amount is rejected before durable mutation',async()=>{
+ const w=create();
+ for(const amount of [-1,0,Infinity,NaN]){
+  await assert.rejects(w.request('/api/gastos','POST',{concepto:'Synthetic rejected expense',monto:amount}),/400/);
+ }
+ const snapshot=await w.request('/api/respaldo/exportar');
+ assert.equal(snapshot.gastos.filter(x=>x.concepto==='Synthetic rejected expense').length,0);
+});
