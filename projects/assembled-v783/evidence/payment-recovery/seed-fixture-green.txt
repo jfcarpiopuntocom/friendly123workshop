@@ -1,0 +1,27 @@
+✔ P0: purged/new licensed phone must not send empty authoritative checkpoint (5.145888ms)
+✔ P0: a legitimate inventory must send encrypted checkpoint when fully ready (2.449937ms)
+✔ P0: incomplete Yjs causal history must not be compacted by older local state (7.590055ms)
+✔ P0: Yjs snapshot is forbidden until pull complete and dependencies resolved (7.646169ms)
+✔ P0: empty first-join catalog cannot seed factory metadata before recovery (6.127365ms)
+✔ P0 stale metadata and zero stock MUST NOT replace current positive stock (3.142044ms)
+✔ P0 stale metadata and old positive stock MUST NOT replace newer valid stock (1.203697ms)
+✔ P0 valid independent newer manual correction must still propagate despite old metadata (1.303135ms)
+✔ P0 new zero from proven PN ledger must still propagate (1.125941ms)
+✔ P0 same stock base with merged PN must not lose counters despite metadata version (1.31412ms)
+✔ P0 future-dated, non-ledger remote stock cannot override current (1.10557ms)
+✔ P0 first proven PN sale may beat a milliseconds-newer legacy snapshot with the SAME stock base (1.359548ms)
+✔ P0 a missing relay-clock (null) cannot reject a real first-ledger sale as future (1.488109ms)
+✔ P0 inconsistent PN arithmetic cannot overwrite current inventory (1.324646ms)
+✔ P0 an ancient PN counter does NOT beat a newly corrected legacy inventory (1.559625ms)
+✔ P0 legacy zero never masks positive stock without a trusted ledger (1.305338ms)
+✔ P0 stale metadata and legacy PN cannot steal an explicitly tagged physical stock epoch (2.975791ms)
+✔ P0 old local shop name cannot overwrite shared owner name during first pull (4.233333ms)
+✔ P0 legitimate owner rename still works after full recovery (2.0958ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1098.499256

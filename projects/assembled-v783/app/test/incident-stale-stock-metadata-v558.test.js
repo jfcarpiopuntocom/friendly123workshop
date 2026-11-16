@@ -122,7 +122,10 @@ function seedWith(name,rev,recovering) {
     log:()=>{},publicarFotosLocales:()=>{},sembrarVentasAlRelay:()=>{},
     sembrarFinanzas:()=>{}};
   vm.createContext(ctx);
-  vm.runInContext("(function(){\n"+src.slice(a,b)+"\nthis.invoke=sembrar;\n}).call(this);",ctx);
+  // Include the real pre-transaction dependency, not a stubbed allow/deny.
+  const helper=src.slice(src.indexOf("  function sembrarAnexos(cat, publicar) {"),src.indexOf("  // OCFotos local -> Yjs(fotos)."));
+  assert.ok(helper.includes("function loteAnexosPiloto"));
+  vm.runInContext(helper+"(function(){\n"+src.slice(a,b)+"\nthis.invoke=sembrar;\n}).call(this);",ctx);
   ctx.invoke();
   return Object.fromEntries(meta);
 }

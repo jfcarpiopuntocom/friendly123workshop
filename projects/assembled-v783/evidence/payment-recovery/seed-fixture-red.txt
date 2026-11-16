@@ -1,0 +1,68 @@
+✔ P0: purged/new licensed phone must not send empty authoritative checkpoint (5.415722ms)
+✔ P0: a legitimate inventory must send encrypted checkpoint when fully ready (2.716083ms)
+✔ P0: incomplete Yjs causal history must not be compacted by older local state (6.953054ms)
+✔ P0: Yjs snapshot is forbidden until pull complete and dependencies resolved (6.258282ms)
+✖ P0: empty first-join catalog cannot seed factory metadata before recovery (6.193056ms)
+✔ P0 stale metadata and zero stock MUST NOT replace current positive stock (3.241273ms)
+✔ P0 stale metadata and old positive stock MUST NOT replace newer valid stock (0.809802ms)
+✔ P0 valid independent newer manual correction must still propagate despite old metadata (0.775712ms)
+✔ P0 new zero from proven PN ledger must still propagate (0.765136ms)
+✔ P0 same stock base with merged PN must not lose counters despite metadata version (1.025322ms)
+✔ P0 future-dated, non-ledger remote stock cannot override current (0.735382ms)
+✔ P0 first proven PN sale may beat a milliseconds-newer legacy snapshot with the SAME stock base (0.837653ms)
+✔ P0 a missing relay-clock (null) cannot reject a real first-ledger sale as future (0.736253ms)
+✔ P0 inconsistent PN arithmetic cannot overwrite current inventory (0.832376ms)
+✔ P0 an ancient PN counter does NOT beat a newly corrected legacy inventory (1.158841ms)
+✔ P0 legacy zero never masks positive stock without a trusted ledger (0.728742ms)
+✔ P0 stale metadata and legacy PN cannot steal an explicitly tagged physical stock epoch (1.62321ms)
+✖ P0 old local shop name cannot overwrite shared owner name during first pull (2.918163ms)
+✖ P0 legitimate owner rename still works after full recovery (0.789041ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 16
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1223.562501
+
+✖ failing tests:
+
+test at test/incident-first-sync-integrity-v558.test.js:86:1
+✖ P0: empty first-join catalog cannot seed factory metadata before recovery (6.193056ms)
+  ReferenceError [Error]: loteAnexosPiloto is not defined
+      at inspectSeed (evalmachine.<anonymous>:26:20)
+      at run (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/incident-first-sync-integrity-v558.test.js:95:49)
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/incident-first-sync-integrity-v558.test.js:98:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/incident-stale-stock-metadata-v558.test.js:129:1
+✖ P0 old local shop name cannot overwrite shared owner name during first pull (2.918163ms)
+  ReferenceError [Error]: loteAnexosPiloto is not defined
+      at Object.sembrar [as invoke] (evalmachine.<anonymous>:26:20)
+      at seedWith (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:126:7)
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:130:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at test/incident-stale-stock-metadata-v558.test.js:134:1
+✖ P0 legitimate owner rename still works after full recovery (0.789041ms)
+  ReferenceError [Error]: loteAnexosPiloto is not defined
+      at Object.sembrar [as invoke] (evalmachine.<anonymous>:26:20)
+      at seedWith (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:126:7)
+      at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:135:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

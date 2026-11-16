@@ -91,7 +91,9 @@ test("P0: empty first-join catalog cannot seed factory metadata before recovery"
   const probe=source.slice(a,b).replace("function sembrar()","function inspectSeed()")+
     "      return 'ALLOWED';\n    }\nreturn inspectSeed;";
   function run(recovering,cat) {
-    return vm.runInNewContext("(function(){\n"+probe+"\n})()",{_aplicando:false,API:{canal:{recuperando:recovering}},
+    const helper=source.slice(source.indexOf("  function sembrarAnexos(cat, publicar) {"),source.indexOf("  // OCFotos local -> Yjs(fotos)."));
+    assert.ok(helper.includes("function loteAnexosPiloto"));
+    return vm.runInNewContext(helper+"(function(){\n"+probe+"\n})()",{_aplicando:false,API:{canal:{recuperando:recovering}},
       window:{OCSync:{catalogoPropio:()=>cat}}})();
   }
   assert.equal(run(true,{productos:[],ubicaciones:[],ventas:[],clientes:[],nombreNegocio:"old local name"}),undefined);

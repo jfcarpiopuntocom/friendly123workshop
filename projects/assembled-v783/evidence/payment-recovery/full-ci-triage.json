@@ -1,0 +1,362 @@
+[
+  {
+    "name": "v459 reader on data from the new mechanic: keeps the old balance, no double discount, no invented cash, no crash",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/customer-debt-follows-sale.test.js:97:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    Command failed: git -C /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app show b8bd538:docs/cartera.js\n    fatal: invalid object name 'b8bd538'.\n    \n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    genericNodeError (node:internal/errors:983:15)"
+  },
+  {
+    "name": "old device + new device on the same data: the new mechanic fixes the debt, the old one keeps working with real payments",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/customer-debt-follows-sale.test.js:142:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    Command failed: git -C /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app show b8bd538:docs/cartera.js\n    fatal: invalid object name 'b8bd538'.\n    \n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    genericNodeError (node:internal/errors:983:15)"
+  },
+  {
+    "name": "E1b-3: three Yjs rooms follow visibility and lease",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/e1b3-one-active-tab.test.cjs:118:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'programarRetorno is not defined'\n  code: 'ERR_TEST_FAILURE'\n  name: 'ReferenceError'\n  stack: |-\n    Object.sincronizarVisibilidad (evalmachine.<anonymous>:6:19)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/e1b3-one-active-tab.test.cjs:132:6)\n    Test.runInAsyncScope (node:async_hooks:214:14)"
+  },
+  {
+    "name": "test/e2-active-user-reload.test.js",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/e2-active-user-reload.test.js:1:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+  },
+  {
+    "name": "hotfix hands off tested SHA after promotion; broad regression cannot duplicate deployment",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/fast-track-pipeline.test.js:33:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"ENOENT: no such file or directory, open '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/.github/workflows/hotfix.yml'\"\n  code: 'ENOENT'\n  stack: |-\n    Object.readFileSync (node:fs:440:20)\n    workflow (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/fast-track-pipeline.test.js:34:28)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/fast-track-pipeline.test.js:35:18)\n    Test.runInAsyncScope (node:async_hooks:214:14)"
+  },
+  {
+    "name": "real language buttons preserve a synchronized name and translate the location selector after redraw",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/i18n-header-nombre.test.js:123:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    Expected values to be strictly equal:\n    + actual - expected\n    \n    + 'VERSI\u00d3N DE PRUEBAS'\n    - 'Fixture synchronized business'\n    "
+  },
+  {
+    "name": "P0: empty first-join catalog cannot seed factory metadata before recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-first-sync-integrity-v558.test.js:86:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: 'loteAnexosPiloto is not defined'\n  code: 'ERR_TEST_FAILURE'\n  name: 'ReferenceError'\n  stack: |-\n    inspectSeed (evalmachine.<anonymous>:26:20)\n    run (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-first-sync-integrity-v558.test.js:95:49)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-first-sync-integrity-v558.test.js:98:16)"
+  },
+  {
+    "name": "P0 old local shop name cannot overwrite shared owner name during first pull",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:129:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: 'loteAnexosPiloto is not defined'\n  code: 'ERR_TEST_FAILURE'\n  name: 'ReferenceError'\n  stack: |-\n    Object.sembrar [as invoke] (evalmachine.<anonymous>:26:20)\n    seedWith (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:126:7)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:130:16)"
+  },
+  {
+    "name": "P0 legitimate owner rename still works after full recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:134:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: 'loteAnexosPiloto is not defined'\n  code: 'ERR_TEST_FAILURE'\n  name: 'ReferenceError'\n  stack: |-\n    Object.sembrar [as invoke] (evalmachine.<anonymous>:26:20)\n    seedWith (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:126:7)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-stale-stock-metadata-v558.test.js:135:16)"
+  },
+  {
+    "name": "src/app/app-inline-03.js \u2014 never auto-reload during Yjs peer recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs:21:2'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'real safety function must exist in src/app/app-inline-03.js'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  actual: false\n  operator: '=='\n  stack: |-"
+  },
+  {
+    "name": "src/app/app-inline-03.js \u2014 never auto-reload during local IndexedDB recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs:24:2'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'real safety function must exist in src/app/app-inline-03.js'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  actual: false\n  operator: '=='\n  stack: |-"
+  },
+  {
+    "name": "src/app/app-inline-03.js \u2014 keep upgrades possible only after completed sync recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs:29:2'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'real safety function must exist in src/app/app-inline-03.js'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  actual: false\n  operator: '=='\n  stack: |-"
+  },
+  {
+    "name": "docs/app-inline-03.min.js \u2014 never auto-reload during Yjs peer recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs:21:2'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'real safety function must exist in docs/app-inline-03.min.js'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  actual: false\n  operator: '=='\n  stack: |-"
+  },
+  {
+    "name": "docs/app-inline-03.min.js \u2014 never auto-reload during local IndexedDB recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs:24:2'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'real safety function must exist in docs/app-inline-03.min.js'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  actual: false\n  operator: '=='\n  stack: |-"
+  },
+  {
+    "name": "docs/app-inline-03.min.js \u2014 keep upgrades possible only after completed sync recovery",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs:29:2'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'real safety function must exist in docs/app-inline-03.min.js'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  actual: false\n  operator: '=='\n  stack: |-"
+  },
+  {
+    "name": "P0 pinned v607 bridge with new bridge: two disconnected sales retain each physical decrement and both receipts",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:425:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'v607 historical sync script must be fetched at exact pinned SHA'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  operator: '=='\n  stack: |-\n    peer (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:30:10)"
+  },
+  {
+    "name": "P0 pinned v606 Yjs bridge versus new bridge: two offline sales remain unique",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:442:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'v607 historical sync script must be fetched at exact pinned SHA'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  operator: '=='\n  stack: |-\n    peer (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:30:10)"
+  },
+  {
+    "name": "P0 v607 stale same-number legacy stock cannot contaminate explicit physical epoch",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:710:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'v607 historical sync script must be fetched at exact pinned SHA'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  operator: '=='\n  stack: |-\n    peer (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:30:10)"
+  },
+  {
+    "name": "P0 a v607 offline sale is not erased by a competing modern physical epoch",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:735:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'v607 historical sync script must be fetched at exact pinned SHA'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  operator: '=='\n  stack: |-\n    peer (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/incident-v608-publication-after-recovery.test.cjs:30:10)"
+  },
+  {
+    "name": "official app keeps bytes and never forwards customer headers or query",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js:3:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "official app follows a new stable source automatically without another deploy",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js:4:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "landing stays on its existing assets and /app keeps correct relative base",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js:5:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "source failures are explicit and cannot silently serve an obsolete local app",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js:6:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "source proof identifies the same promoted commit",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js:7:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "friendly123.com/app/sw.js retires the old worker and never reloads a ?stay=1 tab",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js:10:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-app-source.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "official /app and /app/ redirect directly via 307, without any origin fetch",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:22:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "new /app?entry=1 bypasses an old cached permanent /app \u2192 /app/ mapping",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:32:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "invalid double-slash HTML paths are not externally redirected",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:38:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "a deep HTML entry preserves its relative view, never arbitrary query data or license",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:43:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "JS, SW, version and immutable release proof are still served from the one stable branch",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:51:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "clients who already own a new-origin notebook retain a non-destructive escape",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:66:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "HEAD is not a login redirect, POST is never redirected, landing is untouched",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:74:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "a join invitation survives the redirect; anything else in the query is dropped",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js:100:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"Cannot find module '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/sitio-friendly123/official-app.mjs' imported from /home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/official-entry-redirect.test.js\"\n  code: 'ERR_MODULE_NOT_FOUND'\n  stack: |-\n    finalizeResolution (node:internal/modules/esm/resolve:275:11)\n    moduleResolve (node:internal/modules/esm/resolve:865:10)\n    defaultResolve (node:internal/modules/esm/resolve:989:11)\n    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)"
+  },
+  {
+    "name": "P0 hotfix required check invokes exact selector and executes ALL selected test files",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-business-guards-selection.test.cjs:28:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"ENOENT: no such file or directory, open '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/.github/workflows/p0-hotfix-gate.yml'\"\n  code: 'ENOENT'\n  stack: |-\n    Object.readFileSync (node:fs:440:20)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-business-guards-selection.test.cjs:29:20)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)"
+  },
+  {
+    "name": "test/p0-coldjoin-workflow-secrets.test.cjs",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-coldjoin-workflow-secrets.test.cjs:1:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+  },
+  {
+    "name": "test/p0-hotfix-gate-contract.test.cjs",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-hotfix-gate-contract.test.cjs:1:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+  },
+  {
+    "name": "RED: missing GitHub workflow pull_requests metadata must NOT make a real exact-merge green look unverified",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-hotfix-proof-empty-prs.test.cjs:20:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    Command failed: git show -s --format=%P af918a8b832210d14e1718f44ca4018f82653e9d\n    fatal: bad object af918a8b832210d14e1718f44ca4018f82653e9d\n    \n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    genericNodeError (node:internal/errors:983:15)"
+  },
+  {
+    "name": "fail closed on unmerged, wrong-base, wrong-head or wrong merge SHA associations",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-hotfix-proof-empty-prs.test.cjs:28:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    The input did not match the regular expression /No merged PR/. Input:\n    \n    'Error: Command failed: git show -s --format=%P af918a8b832210d14e1718f44ca4018f82653e9d\\n' +\n      'fatal: bad object af918a8b832210d14e1718f44ca4018f82653e9d\\n'\n    \n  code: 'ERR_ASSERTION'"
+  },
+  {
+    "name": "fail closed on missing or failing exact gate even if merged PR association is valid",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-hotfix-proof-empty-prs.test.cjs:38:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    The input did not match the regular expression /No successful verified P0 gate/. Input:\n    \n    'Error: Command failed: git show -s --format=%P af918a8b832210d14e1718f44ca4018f82653e9d\\n' +\n      'fatal: bad object af918a8b832210d14e1718f44ca4018f82653e9d\\n'\n    \n  code: 'ERR_ASSERTION'"
+  },
+  {
+    "name": "fail closed on permissions error in PR association API",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-hotfix-proof-empty-prs.test.cjs:43:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    The input did not match the regular expression /Cannot verify PR association: HTTP 403/. Input:\n    \n    'Error: Command failed: git show -s --format=%P af918a8b832210d14e1718f44ca4018f82653e9d\\n' +\n      'fatal: bad object af918a8b832210d14e1718f44ca4018f82653e9d\\n'\n    \n  code: 'ERR_ASSERTION'"
+  },
+  {
+    "name": "real strict path measures queue, serialization, IDB and total outcome without touching CAS",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-local-save-performance-opt-in.test.cjs:60:1'",
+    "category": "source-assertion-needs-review",
+    "errorExcerpt": "  error: |-\n    The input did not match the regular expression /idb\\.guardarConRevision\\(completo, _localRev\\)/. Input:\n    \n    '// mock-backend.js \u2014 Backend simulado dentro del navegador, para la demo\\n' +\n      '// p\u00fablica en GitHub Pages (que no puede correr Node). Intercepta fetch a\\n' +\n      '// /api/* y responde con la misma l\u00f3gica que server.js, usando datos de\\n' +\n      '//\\n' +"
+  },
+  {
+    "name": "test/p0-mixed-shell-v636.test.cjs",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-mixed-shell-v636.test.cjs:1:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+  },
+  {
+    "name": "S1 API.opsDoc: IndexedDB hydration never becomes a new durable relay op",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-s1-yjs-idb-replay.test.cjs:48:3'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'canalesPiloto is not defined'\n  code: 'ERR_TEST_FAILURE'\n  name: 'ReferenceError'\n  stack: |-\n    Object.captured (evalmachine.<anonymous>:10:21)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-s1-yjs-idb-replay.test.cjs:57:7)\n    Test.runInAsyncScope (node:async_hooks:214:14)"
+  },
+  {
+    "name": "P0 JFC: strict CAS stays fenced; verified local A/B recovery is the only IDB-failure fallback",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-sales-atomic-idb-webkit-browser.test.cjs:54:1'",
+    "category": "source-assertion-needs-review",
+    "errorExcerpt": "  error: |-\n    The input did not match the regular expression /idb\\.guardarConRevision\\(completo, _localRev\\)/. Input:\n    \n    '  function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos, opIdVenta) {\\n' +\n      '    const ab = _estadoAB();\\n' +\n      '    const ejecutar = () => {\\n' +\n      '      const _tEstricto = exigirCompleto ? _perfLocalInicio() : null;\\n' +"
+  },
+  {
+    "name": "test/p0-v603-update-consent-click.test.cjs",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-v603-update-consent-click.test.cjs:1:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+  },
+  {
+    "name": "joined team login cannot overwrite original device owner PIN",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-v617-recovered-team-gate.test.cjs:45:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    The expression evaluated to a falsy value:\n    \n      assert.ok(at > 0 && stop > at)\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'"
+  },
+  {
+    "name": "unrecovered team metadata shows pending without classifying the PIN as wrong",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-v617-recovered-team-gate.test.cjs:58:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    Expected values to be strictly equal:\n    + actual - expected\n    \n    + undefined\n    - true\n    "
+  },
+  {
+    "name": "a new version shows no strip, never reloads, and tells the waiting service worker to take over",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/p0-v774-version-sin-franja-ni-recarga.test.cjs:20:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    the mismatch is detected and the waiting service worker is told to take over\n    + actual - expected\n    \n    + []\n    - [\n    -   {"
+  },
+  {
+    "name": "estatico: workers.dev queda limitado a licencias y senalizacion, nunca negocio central",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/relay-sin-cloudflare-datos-v557.test.js:80:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    Expected values to be strictly deep-equal:\n    + actual - expected\n    \n      [\n        'auth-ui.js',\n        'crypto-store.js',"
+  },
+  {
+    "name": "estatico: toda llamada fetch/cliente a hosts externos esta clasificada",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/relay-sin-cloudflare-datos-v557.test.js:104:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    Expected values to be strictly deep-equal:\n    + actual - expected\n    \n      [\n        'crypto-store.js',\n    +   'team-authority-client.js'"
+  },
+  {
+    "name": "public proof records exact artifact bytes and recovery retains the already published canary",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/release-control.test.js:55:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"ENOENT: no such file or directory, open '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/.github/workflows/publicar.yml'\"\n  code: 'ENOENT'\n  stack: |-\n    Object.readFileSync (node:fs:440:20)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/release-control.test.js:69:21)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)"
+  },
+  {
+    "name": "Sonar cannot replay an earlier PUSH against a newer master commit",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/sonar-stale-push-guard.test.js:8:1'",
+    "category": "missing-source-or-fixture",
+    "errorExcerpt": "  error: \"ENOENT: no such file or directory, open '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/.github/workflows/sonar.yml'\"\n  code: 'ENOENT'\n  stack: |-\n    Object.readFileSync (node:fs:440:20)\n    workflow (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/sonar-stale-push-guard.test.js:6:29)\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/sonar-stale-push-guard.test.js:9:15)\n    Test.runInAsyncScope (node:async_hooks:214:14)"
+  },
+  {
+    "name": "E4: Yjs authoritative owner name converges on equal revision despite local future clock",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/stable-review-integrity.test.js:33:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    payout, conversion, sale, return, stock adjustment, import, retention, contact and Add Customer all drain through the trusted helper\n    \n    12 !== 9\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'"
+  },
+  {
+    "name": "estable y canario conviven: el canario mas nuevo NO borra la cache de los clientes",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/sw-dos-canales.test.js:42:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'page.waitForFunction: Timeout 30000ms exceeded.'\n  code: 'ERR_TEST_FAILURE'\n  name: 'TimeoutError'\n  stack: |-\n    TestContext.<anonymous> (/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/sw-dos-canales.test.js:60:14)\n  ..."
+  },
+  {
+    "name": "test/sw-dos-canales.test.js",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/sw-dos-canales.test.js:1:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'test timed out after 120000ms'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+  },
+  {
+    "name": "Fable P1-4 storage pressure on the old lease keys (WebKit, lease): nobody is expelled, both screens keep writing, no lease or intent is stranded",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/tab-session-handoff.test.js:199:3'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    Quota contender allowed saved once\n    \n    0 !== 1\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'"
+  },
+  {
+    "name": "failed business rename keeps the old identity and informs the owner",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/ui-integrity-v341.test.js:191:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: |-\n    Expected values to be strictly equal:\n    + actual - expected\n    \n    + 'VERSI\u00d3N DE PRUEBAS'\n    - 'Original fixture business'\n    "
+  },
+  {
+    "name": "test/v579-venta-pn-ack.test.js",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/v579-venta-pn-ack.test.js:1:1'",
+    "category": "unclassified-needs-reproduction",
+    "errorExcerpt": "  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ..."
+  },
+  {
+    "name": "v765: todo shell con el adaptador Firebase ya lee el marco 7 (commit 962ebb3a, shell v639)",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/v763-ckpt-tamano.test.cjs:99:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    Command failed: git show 962ebb3a:docs/sw.js\n    fatal: invalid object name '962ebb3a'.\n    \n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    genericNodeError (node:internal/errors:983:15)"
+  },
+  {
+    "name": "the Lord stable-entry guard no longer redirects, while historical routes remain noindex",
+    "location": "location: '/home/runner/work/friendly123workshop/friendly123workshop/projects/assembled-v783/app/test/yjs-first-join-start.test.js:57:1'",
+    "category": "historical-fixture",
+    "errorExcerpt": "  error: |-\n    Command failed: git show 94877828be4da2541f25a142e26ad181e4b3d332:docs/index.html\n    fatal: path 'docs/index.html' exists on disk, but not in '94877828be4da2541f25a142e26ad181e4b3d332'\n    \n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    genericNodeError (node:internal/errors:983:15)"
+  }
+]
