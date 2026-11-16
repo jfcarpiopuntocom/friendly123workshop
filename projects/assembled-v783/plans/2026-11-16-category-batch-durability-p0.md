@@ -24,3 +24,19 @@ Base: a8b351ad2f97c0bbc3600357b618c1b4ef1d003c
 ## Gates and handoff
 - New RED regression first; apply runtime patch only when RED confirmed. Then browser GREEN and adjacent suite; compare full audit with same SHA. Archive CI exact SHA and failure list.
 - All work stays in friendly123workshop. Existing production, issuer, customers and stored notebooks untouched. NO-GO for client deployment or merging until gates and concurrent PR reconciliation.
+
+## Executed RED→GREEN evidence and checkpoint (16 November, 21:43 UTC)
+- First browser run [43961288263](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43961288263) was invalid **fixture RED**, missing required product barcode; corrected commit `9975b065`. Never count this as product RED.
+- Actual source-grounded RED at [43961709081](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43961709081), exact test-source checkout: **Chromium and WebKit each got HTTP 200 instead of required 507, 0 PASS/2 FAIL/0 SKIP**. Before status assertion both IndexedDB and A/B failure-injection assertions were satisfied. Root cause: batch returns success without strict local ACK.
+- Minimal runtime fix `6676d6cb3c53e153d01eff0a369d692082faa50a`: use `guardarEstadoLocal(true)` before Yjs announcement; on failure restore only the affected products' prior `categoria` and `rev` plus its own movement tail if uncontested; otherwise fail closed rather than erasing peer edits. Distinguish quota 507 from unconfirmed 503.
+- First real-browser GREEN [43962123515](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43962123515): **2/2 PASS/0 FAIL/0 SKIP** on Chromium/WebKit; rack POST quotas and two-tab CAS also **4/4 PASS** [43962123500](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43962123500).
+- Release manifest now matches exact `mock-backend.js` SHA256 **d413ae729512204b8229b722536b5dd6612b4a1c82acf6f7b71ebc3175268e53**; independently computed original main SHA256 **56d4f48ad1a564aa683945a5b2d9fc26bca679dcc52d1e7007d9751057ab15c1** agrees with existing manifest. Commit `cf17d911`.
+- Final workflow commit `417d94a9` also verifies manifest with Node crypto and executes three adjacent category behaviors (batch, rename, delete). Latest run [43962699508](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43962699508) **still in progress** at checkpoint.
+- Imported-money manifest QA [43962699393](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43962699393) **SUCCESS**. Other integrated runs pending.
+- Separate latest integrated authority QA failure [43960371269](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43960371269): revoked recipient observed **1 forbidden awareness frame** after a socket closes, 26 PASS/1 FAIL in relay block. This is a **security NO-GO**, unrelated to category patch; no relaxation, no production.
+- Explicit coordination comment added to in-flight [PR #41](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/41) to preserve both rack PUT prevalidation and this batch strict-ACK change when integrating the large shared `mock-backend.js`.
+
+### Next exact action
+1. Read 43962699508 and same SHA integrated, credit, rack jobs; distinguish skips, failures and source SHA. If new red, diagnose fixture versus product and repair conservatively.
+2. Revalidate full historical audit after category patch; compare to preexisting full RED and baseline, do not require preexisting broken legacy tests to be hidden.
+3. Only merge to **workshop main** after category and adjacent gates are GREEN and reconcile #41; do NOT publish customer production. Next P0 separate PR: real relay revoke awareness frame, deterministic RED, Workerd authority send-boundary fix, repeated native tests, prevent remote data leak.
