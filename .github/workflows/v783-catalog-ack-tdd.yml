@@ -21,9 +21,9 @@ jobs:
       - name: Install locked dependencies
         working-directory: projects/assembled-v783/app
         run: npm ci --ignore-scripts
-      - name: Install official WebKit
+      - name: Install official Chromium and WebKit
         working-directory: projects/assembled-v783/app
-        run: npx playwright install --with-deps webkit
+        run: npx playwright install --with-deps chromium webkit
       - name: Test catalog ACK under total synthetic local save failure
         working-directory: projects/assembled-v783/app
         env:
