@@ -34,7 +34,9 @@ function listenerFor(docName, unavailable=false) {
   };
   vm.runInNewContext(src.slice(start,end+8),{
     API,pedirVolcarFotos(){hydrations.push('photos');},
-    pedirProcesarEventos(){hydrations.push('ops');}
+    pedirProcesarEventos(){hydrations.push('ops');},
+    // In production this var is function-scoped even with no pilot selected.
+    canalesPiloto:undefined
   });
   assert.equal(typeof captured,'function');
   return {idb,captured,sends,broadcasts,hydrations};
