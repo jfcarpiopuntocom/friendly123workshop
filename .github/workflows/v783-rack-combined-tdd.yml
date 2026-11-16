@@ -1,0 +1,45 @@
+name: v783 combined rack CAS and PUT TDD (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/tab-session-handoff.test.js'
+      - 'projects/assembled-v783/app/docs/mock-backend.js'
+      - 'projects/assembled-v783/app/docs/version-manifest.json'
+      - '.github/workflows/v783-rack-combined-tdd.yml'
+permissions:
+  contents: read
+jobs:
+  combined-rack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install locked packages
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Official Chromium and WebKit
+        working-directory: projects/assembled-v783/app
+        run: npx playwright install --with-deps chromium webkit
+      - name: Validate all six rack cases through original app
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/rack-combined
+          F123_REQUIRE_WEBKIT=1 node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=65000 \
+            --test-name-pattern='P0 rack POST rejects an unconfirmed local save|P0 concurrent rack CAS preserves both accepted writes|P0 invalid rack edits are atomic' \
+            test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/rack-combined/chromium-webkit.txt
+      - name: Keep exact red-green evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rack-combined-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/rack-combined/
+          if-no-files-found: warn
+          retention-days: 14
