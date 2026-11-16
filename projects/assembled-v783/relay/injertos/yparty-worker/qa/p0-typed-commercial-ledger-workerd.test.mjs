@@ -17,7 +17,7 @@ const send=async(command,ticket='synthetic-signed-ticket')=>{
    method:'POST',headers:{'content-type':'application/json'},
    body:JSON.stringify({ticket,command})
  });
- return{status:response.status,body:await response.json()};
+ const raw=await response.text();let body;try{body=JSON.parse(raw);}catch(_){throw Error('nonJSON Workerd reply HTTP '+response.status+': '+raw.slice(0,1200));}return{status:response.status,body};
 };
 const count=async()=>{const r=await fetch(new URL('/test-count',base));assert.equal(r.status,200);return (await r.json()).count};
 async function start(){
