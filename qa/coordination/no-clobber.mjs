@@ -142,7 +142,7 @@ if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.
       if(common!==statedBase)throw Error('stale or wrong common ancestor');
       const upstream=execFileSync('git',['diff','--name-only','--diff-filter=ACMR',common,args['target-ref']],{
         cwd:ROOT,encoding:'utf8',maxBuffer:2*1024*1024
-      }).trim().split('\\n').filter(Boolean);
+      }).trim().split('\n').filter(Boolean);
       upstreamChangedCount=upstream.length;
       upstreamVerdict=checkUpstreamOverlap({ours:changed,upstream});
     }
