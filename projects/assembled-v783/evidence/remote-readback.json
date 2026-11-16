@@ -1,0 +1,8 @@
+{
+  "remoteReadbackCommit": "44b93c9a2687f6a9eec222e2037d685e2dbeefd8",
+  "verifiedAppFiles": 1139,
+  "checkpointHashes": "both exact",
+  "missingOrMismatched": [],
+  "retrieval": "fresh HTTPS clone from GitHub, not copied from implementation workspace",
+  "status": "PASS"
+}
