@@ -66,6 +66,27 @@ test('payload write failure rolls back receipt and refuses ACK',async()=>{
   assert.equal(result.ok,false);assert.equal(result.status,503);
   assert.equal(f.receipts().size,0);assert.equal(f.payloads().size,0);
 });
+test('hash-only historical receipt must not claim replayable duplicate ACK',async()=>{
+  const f=fixture();
+  const first=await f.ledger.submit({ticket:'synthetic-ticket',command});
+  assert.equal(first.ok,true);
+  f.payloads().delete(LICENSE+':'+command.opId); // models a legacy receipt without payload
+  const repeated=await f.ledger.submit({ticket:'synthetic-ticket',command});
+  assert.equal(repeated.ok,false);
+  assert.equal(repeated.status,409);
+  assert.equal(repeated.reason,'operation-recovery-required');
+  assert.equal(f.receipts().size,1);
+  assert.equal(f.payloads().size,0);
+});
+test('corrupt canonical payload must not claim replayable duplicate ACK',async()=>{
+  const f=fixture();
+  await f.ledger.submit({ticket:'synthetic-ticket',command});
+  f.payloads().set(LICENSE+':'+command.opId,JSON.stringify({...command,amountCents:9999}));
+  const repeated=await f.ledger.submit({ticket:'synthetic-ticket',command});
+  assert.equal(repeated.ok,false);
+  assert.equal(repeated.status,409);
+  assert.equal(repeated.reason,'operation-recovery-required');
+});
 test('denied authority cannot write either row',async()=>{
   const f=fixture({deny:true});
   const result=await f.ledger.submit({ticket:'synthetic-ticket',command});
