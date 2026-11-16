@@ -263,7 +263,7 @@ for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]
         get() { return descriptor.get.call(this); },
         set(value) {
           trace.writes.push({ value: String(value), active: window.OCTienda?.nombreActivo?.(),
-            stack: String(new Error().stack).split('\\n').slice(1, 6) });
+            stack: String(new Error().stack).split(String.fromCharCode(10)).slice(1, 6) });
           return descriptor.set.call(this, value);
         }
       });
