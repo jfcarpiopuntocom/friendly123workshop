@@ -37,6 +37,16 @@ jobs:
             bash projects/assembled-v783/qa/reproduce-webkit-p0.sh
             echo "::endgroup::"
           done
+      - name: Match full-suite test worker concurrency
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd projects/assembled-v783/app
+          mkdir -p ../evidence/webkit-p0
+          F123_REQUIRE_WEBKIT=1 node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=4 --test-timeout=120000 \
+            --test-name-pattern='direct webkit: durable business/photo recovery without central payload|Fable P1-4 storage pressure on the old lease keys \\(WebKit, lease\\)' \
+            test/peer-sync-browser.test.js test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/webkit-p0/concurrent-workers-4.log
       - name: Archive forensic logs even on failure
         if: always()
         uses: actions/upload-artifact@v4
