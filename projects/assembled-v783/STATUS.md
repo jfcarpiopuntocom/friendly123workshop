@@ -44,3 +44,7 @@ Revisión independiente reprodujo awareness enviado a receptor revocado al cerra
 La revisión independiente aportó el hallazgo anterior pero su ejecución terminó con un error del servicio antes del dictamen final. No afirmar revisión final completa/limpia. Se conserva esa limitación.
 
 WebKit local bloqueado por seis bibliotecas ausentes; install-deps oficial falló en su:Authentication failure. Cuatro casos Sol6 Chromium sí pasaron, cuatro WebKit no arrancaron; no son117PASS. Se corrigió solo cleanup de su arnés para cerrar localhost cuando launch falla. Workflow QA de este taller usa ubuntu24.04 e instalación oficial con dependencias, sin deploy, secretos ni artifacts de cuota agotada. Esperar el resultado del SHA exacto. El arnés de ocho browsers activa explícitamente Dinero BigInt y exige bundle presente.
+
+## Primer CI del taller · SHA9c31714
+
+Run43821169475 confirmó94 autoridad/core,8 Chromium/WebKit con Dinero activado y5 doble pestaña. Falló al comenzar stock porque la exportación omitió lab/stock-journal/engine.cjs y yjs-bridge.cjs. Son dependencias sintéticas originales de los tests, NO un motor nuevo integrado. Se restauraron sin modificaciones desde f6276ad; bloque stock ahora22/22 local. Dinero/reportes28/28 local; foto/backup se ejecutó también. Log completo de CI conservado en evidence/ci-43821169475.txt. No se contabilizan como verdes los pasos skipped de esa CI; repetir la ejecución exacta después del arreglo de entrega.

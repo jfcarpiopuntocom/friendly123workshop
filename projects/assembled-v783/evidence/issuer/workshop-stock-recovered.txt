@@ -1,0 +1,30 @@
+✔ fiado obligation is durable as part of the sale before a separate receipt (80.943117ms)
+✔ an ordinary receipt of the same sale replaces, not adds to, durable debt (27.762349ms)
+✔ editing price and voiding a marked sale updates the debt without new fact (55.33301ms)
+✔ real customer payment offsets the sale obligation without a fabricated receipt (12.990191ms)
+✔ old unmarked sales retain prior behavior, preserving regression contracts (27.54388ms)
+✔ a marker is rejected by backend unless credit sale has a customer (18.970093ms)
+✔ a rejected late cancellation keeps the sale and stock and sends no sync movement (51.328335ms)
+✔ real Yjs: two disconnected peers converge on two preorders without double selling (105.17058ms)
+✔ real Yjs: three peers, offline operations in different orders and duplicate reconnects (76.845752ms)
+✔ Yjs quarantine: two peers preserve a rejected batch without applying physical events (21.646413ms)
+✔ Yjs quarantine: external cross-product collision invalidates BOTH products remotely (13.469361ms)
+✔ Yjs quarantine: verified rejected envelope restores after Y.Map deletion (6.770479ms)
+✔ Yjs quarantine: tampered or forged rejected-batch key never enters journal (5.768584ms)
+✔ Yjs: quarantined inventory NEVER blocks preorders or loses new physical facts (14.058606ms)
+✔ real Yjs: SAME ID with DIFFERENT payload survives on separate witness keys and is quarantined (15.810868ms)
+✔ rejected local collision is still propagated as a quarantined witness to the other peer (26.96456ms)
+✔ Yjs: a sequence-only rejected witness reaches peers and survives rehydration (43.993509ms)
+✔ Yjs: overwrite of a known immutable witness repairs its bytes and preserves peer state (29.594641ms)
+✔ real Yjs: forged or corrupted event witness cannot enter journal (23.154454ms)
+✔ real Yjs: one new product event updates only one Y.Map key, not other 1000 products (320.871738ms)
+✔ P0 Yjs tombstone: accidental deletion of a known immutable witness must self-heal (13.509922ms)
+✔ restored local backup reseeds all witnesses, including multiple divergent payloads (21.432422ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2373.115311

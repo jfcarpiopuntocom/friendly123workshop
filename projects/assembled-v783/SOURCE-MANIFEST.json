@@ -1157,7 +1157,10 @@
     "src/vendor/workbox-imported/core/utils/welcome.ts": "03080088224de98fd04e96a24b1070629994bc348767b25605c819dbeadc8c18",
     "src/vendor/workbox-imported/core/utils/pluginUtils.ts": "fffe4f3ff85e8fb8d9cabd94aa5a799cec9bcad6bc91dabc74221e9772357588",
     "src/vendor/workbox-imported/core/models/messages/messages.ts": "29d6ea2f571c5f7eef7defcdcc6ce1f1c5602214ac4f083c592acc40262c459a",
-    "src/vendor/workbox-imported/core/models/messages/messageGenerator.ts": "9ce2b34d11433046acc59d630d8fed1e224677a1865804a3e746a15f35566a84"
+    "src/vendor/workbox-imported/core/models/messages/messageGenerator.ts": "9ce2b34d11433046acc59d630d8fed1e224677a1865804a3e746a15f35566a84",
+    "lab/stock-journal/engine.cjs": "9467d6474ae1c0a9631ffa84a4bc41fa0dc4a4e258b21eb95cdd462c1deaeda1",
+    "lab/stock-journal/yjs-bridge.cjs": "11bab4a66100be242cf048e536b12cd4e79cf5514e449e535edf924a438004b2"
   },
-  "verificationAfterMove": "npm ci lockfile: app146 packages, relay45; 91 focused tests pass in workshop app"
+  "verificationAfterMove": "npm ci lockfile: app146 packages, relay45; 91 focused tests pass in workshop app",
+  "packagingCorrection": "Restored two original f6276ad stock-journal test dependency modules; no production integration of shadow model"
 }

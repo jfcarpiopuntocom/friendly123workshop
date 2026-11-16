@@ -1,0 +1,66 @@
+✔ the photo store round-trips a photo by id, which is what the backup relies on (2.720416ms)
+✔ a photo survives export into the package and import into a clean device (1.597209ms)
+✔ an old backup without fotosIDB still imports without throwing (0.759621ms)
+[idb-fotos] hashesGuardados: Error: synthetic blocked IDB
+    at ctx.abrirDB (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-h3-photo-legacy-fallback.test.cjs:55:30)
+    at Object.hashesGuardados (evalmachine.<anonymous>:53:24)
+    at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-h3-photo-legacy-fallback.test.cjs:56:34)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[idb-fotos] leerPorHash: Error: synthetic blocked IDB
+    at ctx.abrirDB (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-h3-photo-legacy-fallback.test.cjs:55:30)
+    at leerHashSoloIdb (evalmachine.<anonymous>:21:22)
+    at Object.leerPorHash (evalmachine.<anonymous>:35:21)
+    at TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-h3-photo-legacy-fallback.test.cjs:57:25)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[idb-fotos] hashesGuardados: Error: synthetic transaction abort
+    at Object.transaction (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-h3-photo-legacy-fallback.test.cjs:106:20)
+    at evalmachine.<anonymous>:55:23
+    at new Promise (<anonymous>)
+    at Object.hashesGuardados (evalmachine.<anonymous>:54:20)
+    at async TestContext.<anonymous> (/workspace/work/friendly123workshop/projects/assembled-v783/app/test/p0-h3-photo-legacy-fallback.test.cjs:113:15)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ H3 RED: with IndexedDB available hashesGuardados includes legacy orphan keys too (2.5697ms)
+✔ H3 RED: IDB miss falls back to original localStorage hashed bytes (0.922325ms)
+✔ H3: fallback retains hashes when IDB opening fails (1.580955ms)
+✔ H3 RED: raw legacy rescue must copy photo into IDB even when fallback can read it (1.024569ms)
+✔ H3 RED: a failed raw-legacy IDB copy stays pending and is retryable (0.97258ms)
+✔ CodeRabbit RED: aborted IDB getAllKeys transaction must settle and preserve legacy orphan hashes (0.976416ms)
+✔ P0 RED: rejected content-addressed blob never publishes missing photoHash to other devices (54.147339ms)
+✔ P0: a later successful durable hash-store write retries and only then announces one pointer (24.318867ms)
+✔ P0: thrown quota error must not create a dangling photo pointer (18.158514ms)
+✔ P0 RED: rejected shelf bytes NEVER publish fotoHash or fotoRev in cold-join checkpoint (21.604029ms)
+✔ P0: shelf photo retries after rejected bytes and only publishes after true ACK (22.206364ms)
+✔ P0: thrown quota error keeps shelf photo unannounced and retryable (8.754129ms)
+✔ Fable G3 RED: replacement of shelf photo during async save never publishes old hash (11.625741ms)
+✔ Fable G3 RED: removing shelf photo during async save leaves no stale pointer (12.80969ms)
+✔ CodeRabbit RED: IDB read failure cannot promote an older fallback shelf photo (13.152093ms)
+✔ CodeRabbit: confirmed legacy-only shelf source still publishes without IDB bytes (15.711609ms)
+✔ photo pull has its own down quota even after catalog consumed 20 MiB (3.485705ms)
+✔ photo quota exhaustion never starves inventory and money (0.968525ms)
+✔ sending an encrypted photo is charged only against photo upload band (1.135736ms)
+✔ photo downloads charge the photo band, never the catalog band (0.975866ms)
+✔ photo pause cannot erase already consumed daily bytes (0.864819ms)
+✔ photo hash cannot be announced if bytes were rejected (1.975147ms)
+✔ photo hash is returned after bytes are durable (0.721103ms)
+✔ legacy copy-only migration retains retry after hash write failure (0.291117ms)
+✔ hash quota failure must not block per-ID recovery in either legacy source (2.878313ms)
+✔ rescue G10 and G10b use strict IDB checks, never legacy fallback as ACK (0.164527ms)
+✔ hash-only rescue counts rejected or thrown copies as pending (3.605295ms)
+✔ CodeRabbit RED: shelf confirmation reader rejects IDB errors, preserving only true legacy fallback (2.446655ms)
+✔ photo seed stays byte-identical across reloads and retains orphan evidence (digest delay 0ms) (33.454869ms)
+✔ photo seed stays byte-identical across reloads and retains orphan evidence (digest delay 75ms) (470.180968ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2593.000396

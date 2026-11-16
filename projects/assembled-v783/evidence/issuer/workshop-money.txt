@@ -1,0 +1,36 @@
+✔ fijacion: the rack deal 70/30 applies to every sale of a product without its own percentage (75.382274ms)
+✔ 1. a product with its own percentage (60) overrides the rack deal (70); its sibling keeps 70 (43.666857ms)
+✔ 2. commission + house always add up to the gross, to the cent (33.33 on a 99.99 sale) (18.467087ms)
+✔ 3. editing the product percentage changes NEW sales only; the old sale keeps its sealed percentage (34.057594ms)
+✔ 4. clearing the product percentage goes back to the rack deal (39.166127ms)
+✔ 5. 0 is a real percentage (associate takes nothing), not "empty" (30.022964ms)
+✔ 6. out-of-range and garbage values are clamped or ignored, never stored as money (55.077497ms)
+✔ 7. COUNTER SALE of a product with its own percentage is commissioned at that percentage (34.815353ms)
+✔ 8. day close (cierre) and reclassifying a house sale also use the product percentage (48.196892ms)
+✔ 9. the product sheet carries the percentage and clearing it returns to null (14.828292ms)
+✔ fijacion (UI): both product forms carry the field and it has EN and ES texts (22.086944ms)
+✔ 1. crear producto: precio, costo y precio de casa se guardan en centavos (half-up) (57.529058ms)
+✔ 2. editar producto: mismos redondeos al cambiar precio/costo/precio de casa (10.768174ms)
+✔ 3. venta con precio ajustado: el precio de la venta queda en centavos y el bruto tambien (11.148986ms)
+✔ 4. ningun campo de dinero de producto/venta/gasto queda con fracciones de centavo (19.210835ms)
+✔ 5. FIJACION: montos ya redondos no cambian (el redondeo no toca datos limpios) (9.046117ms)
+✔ no money input steps by cents (4.079868ms)
+✔ Sold: Sales log comes before Day close (0.433892ms)
+✔ Sold: Sales log is real markup, not swallowed by an unclosed comment (10.330897ms)
+✔ marcar pagado con medio: queda sellado en cada venta pagada y en la respuesta (80.69557ms)
+✔ sin medio: igual que antes (null); medio desconocido cae a "otro" (43.982632ms)
+✔ el medio viaja por sync y un pago posterior no pisa el medio de ventas ya pagadas (71.495821ms)
+✔ Commissions reads never scan whole lists per commission line (1.387434ms)
+✔ a big store keeps exact names and amounts in Commissions and Sold (251.878516ms)
+✔ a sale marks the time of the last sale (44.958417ms)
+✔ burst of sync refreshes: the read in flight is painted, then one pass with the new sale (4.528592ms)
+✔ view not active: no read at all (1.464389ms)
+✔ a failed read does not block later refreshes (1.52461ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3657.870208
