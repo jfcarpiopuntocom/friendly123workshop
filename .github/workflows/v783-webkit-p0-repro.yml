@@ -1,0 +1,57 @@
+name: v783 WebKit P0 isolated repro
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/qa/reproduce-webkit-p0.sh'
+      - '.github/workflows/v783-webkit-p0-repro.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  webkit-repro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install pinned dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Install official WebKit
+        working-directory: projects/assembled-v783/app
+        run: npx playwright install --with-deps webkit
+      - name: Run exact isolated WebKit tests, preserve failures
+        run: bash projects/assembled-v783/qa/reproduce-webkit-p0.sh
+      - name: Repeat isolated WebKit pair under bounded sequential load
+        run: |
+          set -euo pipefail
+          for i in 1 2 3; do
+            echo "::group::WebKit repetition $i/3"
+            bash projects/assembled-v783/qa/reproduce-webkit-p0.sh
+            echo "::endgroup::"
+          done
+      - name: Match full-suite test worker concurrency
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd projects/assembled-v783/app
+          mkdir -p ../evidence/webkit-p0
+          F123_REQUIRE_WEBKIT=1 node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=4 --test-timeout=120000 \
+            --test-name-pattern='direct webkit: durable business/photo recovery without central payload|Fable P1-4 storage pressure on the old lease keys \(WebKit, lease\)' \
+            test/peer-sync-browser.test.js test/tab-session-handoff.test.js \
+            2>&1 | tee ../evidence/webkit-p0/concurrent-workers-4.log
+      - name: Archive forensic logs even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-webkit-p0-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/webkit-p0/
+          if-no-files-found: warn
+          retention-days: 14
