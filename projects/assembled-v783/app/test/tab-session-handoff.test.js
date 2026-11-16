@@ -273,8 +273,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
 }
 
 
-test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
- const web=await webkit.launch({headless:true});
+for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 rack POST rejects an unconfirmed local save (${engineName})`,async()=>{
+ const web=await engine.launch({headless:true});
  try{
   const ctx=await context(web),{page}=await seed(ctx);
   await ownerLogin(page,'synthetic rack durability');
@@ -299,7 +300,8 @@ test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
     const r=await fetch('/api/ubicaciones',{
       method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})
     });
-    return {status:r.status,idbDenied,abDenied};
+    const current=await (await fetch('/api/ubicaciones')).json();
+    return {status:r.status,idbDenied,abDenied,stillVisible:current.some(x=>x.nombre==='Synthetic unconfirmed rack')};
    }finally{
     idb.guardar=oldIdb;idb.guardarConRevision=oldCas;idb.ultimoError=oldError;Storage.prototype.setItem=oldWrite;
    }
@@ -307,5 +309,13 @@ test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
   assert.ok(result.idbDenied>0,'IndexedDB rejection injector must be exercised');
   assert.ok(result.abDenied>0,'A/B rejection injector must be exercised');
   assert.ok(result.status>=400,'HTTP success cannot acknowledge a rack when both independent local stores reject persistence');
+  assert.equal(result.stillVisible,false,'failed rack must be rolled back from memory, not quietly saved later');
+  const retry=await page.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})});return r.status;});
+  assert.ok(retry>=200&&retry<300,'retry after storage recovery creates exactly one durable rack');
+  const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+  await cold.waitForFunction(async()=>{const snap=await window.OCEstadoIDB?.leer?.();return snap?.ubicaciones?.filter(u=>u.nombre==='Synthetic unconfirmed rack').length===1;},{},{timeout:7000});
+  const racks=await api(cold,'/api/ubicaciones');
+  assert.equal(racks.filter(u=>u.nombre==='Synthetic unconfirmed rack').length,1,'cold readback contains the rack once');
  }finally{await web.close();}
 });
+}
