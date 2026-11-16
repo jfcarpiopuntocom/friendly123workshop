@@ -2,13 +2,13 @@
    Nunca apuntan a licencias, clientes o inventario reales. */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const { browser: fixtureBrowser } = require('./helpers/browser.cjs');
 
-async function withPage(fn) {
-  const browser = await chromium.launch({ headless: true });
+async function withPage(fn, engine = chromium) {
+  const browser = await engine.launch({ headless: true });
   try {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href,
@@ -65,6 +65,68 @@ test('category batch changes multiple product labels in one validated operation 
   assert.deepEqual(ids.map(id => backup.productos.find(p => p.id === id).stockActual), [3, 4]);
   assert.deepEqual(ids.map(id => backup.productos.find(p => p.id === id).precio), [25, 26]);
 });
+
+for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
+  test(`P0 category batch rejects false ACK when both stores fail (${browserName})`, async () => {
+    await withPage(async page => {
+      const result = await page.evaluate(async () => {
+        const post = async (path, body) => {
+          const r = await fetch(path, {method:'POST',body:JSON.stringify(body)});
+          if (!r.ok) throw Error(await r.text());
+          return r.json();
+        };
+        const rack = await post('/api/ubicaciones',{nombre:'Synthetic category durability rack'});
+        const product = await post('/api/productos',{
+          nombre:'Synthetic category durability item',sku:'CATEGORY-DURABLE-01',
+          categoria:'Category A',precio:25,stockInicial:2,ubicacionId:rack.id
+        });
+        const idb=window.OCEstadoIDB;
+        if (typeof idb?.guardarConRevision!=='function' || typeof window.OCEstadoAB?.crear!=='function')
+          throw Error('synthetic storage adapters unavailable');
+        const save=idb.guardar,cas=idb.guardarConRevision,error=idb.ultimoError,write=Storage.prototype.setItem;
+        let idbDenied=0,abDenied=0;
+        idb.guardar=async()=>{idbDenied++;return false;};
+        idb.guardarConRevision=async()=>{idbDenied++;return false;};
+        idb.ultimoError=()=>new DOMException('Synthetic IDB full','QuotaExceededError');
+        Storage.prototype.setItem=function(key,value) {
+          if (String(key).includes('f123_estado_v4') && /_(?:journal|A|B|ptr)$/.test(String(key))) {
+            abDenied++;throw new DOMException('Synthetic A/B full','QuotaExceededError');
+          }
+          return write.call(this,key,value);
+        };
+        try {
+          const r=await fetch('/api/categorias/cambiar',{
+            method:'POST',body:JSON.stringify({vieja:'Category A',nueva:'Category B'})
+          });
+          const backup=await (await fetch('/api/respaldo/exportar')).json();
+          return {status:r.status,code:(await r.json()).code,idbDenied,abDenied,
+            category:backup.productos.find(p=>p.id===product.id)?.categoria};
+        } finally {
+          idb.guardar=save;idb.guardarConRevision=cas;idb.ultimoError=error;
+          Storage.prototype.setItem=write;
+        }
+      });
+      assert.ok(result.idbDenied>0,'IndexedDB rejection injector must execute');
+      assert.ok(result.abDenied>0,'A/B rejection injector must execute');
+      assert.equal(result.status,507,'no HTTP success without durable local write');
+      assert.equal(result.code,'CATEGORY_STORAGE_QUOTA');
+      assert.equal(result.category,'Category A','failed edit must roll back locally');
+      const retry=await page.evaluate(async()=>{
+        const r=await fetch('/api/categorias/cambiar',{
+          method:'POST',body:JSON.stringify({vieja:'Category A',nueva:'Category B'})
+        });
+        return {status:r.status,body:await r.json()};
+      });
+      assert.equal(retry.status,200,JSON.stringify(retry));
+      assert.equal(retry.body.actualizados,1,'retry must update precisely one product');
+      await page.reload({waitUntil:'load'});
+      await page.waitForFunction(async()=>{
+        const s=await window.OCEstadoIDB?.leer?.();
+        return s?.productos?.some(p=>p.nombre==='Synthetic category durability item'&&p.categoria==='Category B');
+      },{},{timeout:10000});
+    },engine);
+  });
+}
 
 test('category rename must not report success after a rejected product update', async () => {
   const result = await withPage(page => page.evaluate(async () => {
