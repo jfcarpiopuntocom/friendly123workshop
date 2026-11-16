@@ -24,6 +24,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install exact existing relay dependencies for real Workerd SQLite
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real Workerd SQLite restart, idempotency, conflict and denial
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: node --test --test-timeout=45000 qa/p0-typed-commercial-ledger-workerd.test.mjs
       - name: Syntax then 15 security/idempotence tests
         run: |
           node --check projects/assembled-v783/relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs
