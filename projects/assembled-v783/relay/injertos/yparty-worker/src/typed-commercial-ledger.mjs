@@ -5,7 +5,7 @@
 const KINDS=Object.freeze({
   'sale.record':{scope:'ops:sale',detail:'productId',quantity:true},
   'expense.record':{scope:'ops:expense',detail:'categoryId',quantity:false},
-  'credit.payment.record':{scope:'ops:payment',detail:'receivableId',quantity:false},
+  'credit.payment.record':{scope:'ops:payment',detail:'receivableId',quantity:false,receivablePayment:true},
   // A customer payment is not a receivable nor a payment allocation.
   // Existing receivable receipts keep their original canonical bytes.
   'credit.customer.payment.record':{scope:'ops:payment',detail:'clienteId',quantity:false,customerPayment:true}
@@ -52,7 +52,7 @@ function fail(status,reason){return {ok:false,status,reason};}
 function sha256Hex(buffer){
   return Array.from(new Uint8Array(buffer),x=>x.toString(16).padStart(2,'0')).join('');
 }
-export function createTypedCommercialLedger({sql,transactionSync,authorize,authorizeCustomer,clock=Date.now}={}){
+export function createTypedCommercialLedger({sql,transactionSync,authorize,authorizeCustomer,authorizeReceivable,clock=Date.now}={}){
   if(!sql||typeof sql.exec!=='function'||typeof transactionSync!=='function'||
      typeof authorize!=='function'||typeof clock!=='function')
     throw new TypeError('trusted server-only SQL storage and authorization are required');
@@ -73,23 +73,22 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,autho
          typeof principal.subject!=='string'||!principal.subject||
          !Array.isArray(principal.scopes)||!principal.scopes.includes(validated.contract.scope))
         return fail(403,'not-authorized');
-      // A browser's clienteId and locally-stored facts cannot prove tenant
-      // ownership (the old IndexedDB namespace is app-scoped, not license-
-      // scoped). Require an independent server-owned customer registry before
-      // even LOOKING UP a payment inbox receipt, including on duplicate opIds.
-      // No provider => fail closed. Never read a customer role from the command.
-      if(validated.contract.customerPayment){
-        if(typeof authorizeCustomer!=='function')
-          return fail(503,'customer-authority-unavailable');
+      // 2026-11-16: a payment scope cannot prove ownership of a customer OR
+      // legacy receivable. Recheck trusted resource authority before every SQL.
+      if(validated.contract.customerPayment || validated.contract.receivablePayment){
+        const customer=validated.contract.customerPayment;
+        const check=customer?authorizeCustomer:authorizeReceivable;
+        const resource=customer?'customer':'receivable';
+        if(typeof check!=='function')return fail(503,resource+'-authority-unavailable');
         let member;
         try{
-          member=await authorizeCustomer({
+          member=await check({
             license:validated.record.license,
-            clienteId:validated.record.clienteId,
+            [validated.contract.detail]:validated.record[validated.contract.detail],
             principal
           });
-        }catch(_){return fail(503,'customer-authority-unavailable');}
-        if(member!==true)return fail(403,'customer-not-authorized');
+        }catch(_){return fail(503,resource+'-authority-unavailable');}
+        if(member!==true)return fail(403,resource+'-not-authorized');
       }
       let digest,now;
       try{

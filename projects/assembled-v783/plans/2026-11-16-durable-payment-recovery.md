@@ -21,9 +21,9 @@ Revocation on duplicate receipt; authority errors before SQL; intent mutation ac
 ## Task 1 — Legacy receivable guard
 Files: relay/injertos/yparty-worker/src/typed-commercial-ledger.mjs, qa/p0-typed-commercial-ledger.test.mjs, qa/fixtures/typed-ledger-worker.mjs, qa/p0-typed-commercial-ledger-workerd.test.mjs.
 Interface: authorizeReceivable({license,receivableId,principal}) returns strict true server-side. Missing/throws => 503 receivable-authority-unavailable; deny/nonboolean => 403 receivable-not-authorized. Recheck each submit, after issuer before SQL.
-- [ ] Add tests for absent/throwing/denied provider, authenticated principal, cross-license and revocation; capture functional RED.
-- [ ] Add minimal guard and update explicit QA-only allowlists. Preserve historical canonical command/receipt bytes and other kinds.
-- [ ] Run unit, payload rollback and real SQLite restart/conflict tests; save logs, commit and push.
+- [x] Add tests for absent/throwing/denied provider, authenticated principal, cross-license and revocation; capture functional RED.
+- [x] Add minimal guard and update explicit QA-only allowlists. Preserve historical canonical command/receipt bytes and other kinds.
+- [x] Run unit, payload rollback and real SQLite restart/conflict tests; save logs, commit and push.
 
 ## Task 2 — Save retry race
 Files: app/test/v608-guardado-veraz.test.cjs, app/docs/mock-backend.js only if independently reproduced; add focused deterministic test if needed.
@@ -46,3 +46,5 @@ Files: existing app/src/credit-payment-command.mjs and adjacent integration modu
 
 ## Execution ledger
 - Preflight: recovered attachment, AGENTS/CLAUDE, current source, latest Notion handoff and Ponytail skill. Baseline clean. Local pre-change archive under /workspace/work/checkpoints; main already remotely preserved.
+
+- Task 1 complete: functional RED 5 failures (wrongly accepted or missing authority call), GREEN 41/41, 0 skip/cancel, real Workerd SQLite restart included. Logs evidence/payment-recovery/legacy-guard-{red,green}.txt. Existing customer guard unchanged; legacy kinds now require trusted receivable authority. No production provider or scope added.

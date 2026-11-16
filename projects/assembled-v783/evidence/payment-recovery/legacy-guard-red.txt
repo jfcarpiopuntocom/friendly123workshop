@@ -1,0 +1,177 @@
+✔ reject unknown operation before reading or writing storage (2.602326ms)
+✔ reject raw extra fields including client role, PIN or private contact (0.522254ms)
+✔ fail closed without trusted server authorization, no false receipt (0.62062ms)
+✔ atomic server receipt is an inbox receipt, NOT a completed business sale (16.301062ms)
+✔ same opId and payload return identical receipt with zero additional writes (2.882592ms)
+✔ same opId and different quantity or amount is conflict, never overwrite (1.28193ms)
+✔ same opId under separate license cannot bypass authoritative tenant match (1.013763ms)
+✔ read-only actor cannot write even with plausible owner role fields (0.476125ms)
+✔ only required receipt metadata is returned; no payload, PIN or credentials (1.381417ms)
+✔ SQL insertion failure must not report stored receipt and must not retain row (0.936708ms)
+✔ explicit sale, expense and partial debt payment have distinct scopes (2.554536ms)
+✔ reject imprecise, negative or excessively large cents without hiding error as zero (0.396618ms)
+✔ required product and ids must be narrow, refuse traversal or XSS values (0.293345ms)
+✔ an authority that returns no principal scope cannot be accepted (0.28349ms)
+✔ authorization is rechecked on every idempotent retry, not cached by opId (3.652884ms)
+✔ valid license alphabet from the existing WS issuer is accepted byte-for-byte (0.776851ms)
+✔ license boundary exactly follows existing issuer limit of 8..34 characters after F123- (0.746606ms)
+✔ RED: a persisted customer payment has its own clienteId contract and unchanged colon opId (0.956167ms)
+✔ RED: a customer payment keeps identity and cents under retries and rejects changed intentions (1.042725ms)
+✔ RED: customer payment forbids receivableId and allocation, roles, PII and zero cents (0.334135ms)
+✔ RED: colon opId is valid ONLY on customer payment kind; legacy receivable stays stable (0.685977ms)
+✔ RED: revoked actor must not retrieve prior customer payment receipt (0.480543ms)
+✔ RED: customer payment requires explicit trusted membership provider, not just issuer scope (1.236322ms)
+✔ RED: false or nonboolean membership and thrown authority never write an inbox receipt (0.472791ms)
+✔ RED: customer owner lookup sees only server-authenticated principal, tenant and customer id (0.888427ms)
+✔ RED: revoking customer membership prevents even reading an earlier duplicate receipt (0.564847ms)
+✔ RED: issuer denial wins before customer membership inquiry or storage access (0.313765ms)
+✔ RED: customer moved to another valid ID in same licence is rejected before storage (0.176141ms)
+✖ legacy receivable requires its own trusted authority before any SQL, even with payment scope (2.32141ms)
+✖ legacy receivable rejects denied or nonboolean ownership and authority errors without SQL (2.189064ms)
+✖ legacy receivable authority receives exact trusted principal and tenant, never clienteId (2.606433ms)
+✖ legacy receivable revocation prevents duplicate receipt disclosure with zero SQL (2.160963ms)
+✖ legacy receivable ownership is scoped to tenant and debt; changed authorized intent still conflicts (0.803401ms)
+✔ issuer denial precedes legacy receivable authority and all SQLite access (0.264382ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 29
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 171.879606
+
+✖ failing tests:
+
+test at projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:310:1
+✖ legacy receivable requires its own trusted authority before any SQL, even with payment scope (2.32141ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   duplicate: false,
+  +   ok: true,
+  +   receipt: {
+  +     acceptedAt: 1730000000000,
+  +     kind: 'credit.payment.record',
+  +     license: 'F123-SYNTHETIC-LEDGER',
+  +     opId: 'synthetic-payment-003',
+  +     receiptId: '4e492804b7eaaaf950e4352b',
+  +     stage: 'stored-for-application'
+  +   },
+  +   status: 200
+  -   ok: false,
+  -   reason: 'receivable-authority-unavailable',
+  -   status: 503
+    }
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:313:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { ok: true, status: 200, duplicate: false, receipt: { stage: 'stored-for-application', license: 'F123-SYNTHETIC-LEDGER', opId: 'synthetic-payment-003', kind: 'credit.payment.record', receiptId: '4e492804b7eaaaf950e4352b', acceptedAt: 1730000000000 } },
+    expected: { ok: false, status: 503, reason: 'receivable-authority-unavailable' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:318:1
+✖ legacy receivable rejects denied or nonboolean ownership and authority errors without SQL (2.189064ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   duplicate: false,
+  +   ok: true,
+  +   receipt: {
+  +     acceptedAt: 1730000000000,
+  +     kind: 'credit.payment.record',
+  +     license: 'F123-SYNTHETIC-LEDGER',
+  +     opId: 'synthetic-payment-003',
+  +     receiptId: '4e492804b7eaaaf950e4352b',
+  +     stage: 'stored-for-application'
+  +   },
+  +   status: 200
+  -   ok: false,
+  -   reason: 'receivable-not-authorized',
+  -   status: 403
+    }
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:325:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { ok: true, status: 200, duplicate: false, receipt: { stage: 'stored-for-application', license: 'F123-SYNTHETIC-LEDGER', opId: 'synthetic-payment-003', kind: 'credit.payment.record', receiptId: '4e492804b7eaaaf950e4352b', acceptedAt: 1730000000000 } },
+    expected: { ok: false, status: 403, reason: 'receivable-not-authorized' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:329:1
+✖ legacy receivable authority receives exact trusted principal and tenant, never clienteId (2.606433ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:332:36)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:338:1
+✖ legacy receivable revocation prevents duplicate receipt disclosure with zero SQL (2.160963ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   duplicate: true,
+  +   ok: true,
+  +   receipt: {
+  +     acceptedAt: 1730000000000,
+  +     kind: 'credit.payment.record',
+  +     license: 'F123-SYNTHETIC-LEDGER',
+  +     opId: 'synthetic-payment-003',
+  +     receiptId: '4e492804b7eaaaf950e4352b',
+  +     stage: 'stored-for-application'
+  +   },
+  +   status: 200
+  -   ok: false,
+  -   reason: 'receivable-not-authorized',
+  -   status: 403
+    }
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:343:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { ok: true, status: 200, duplicate: true, receipt: { stage: 'stored-for-application', license: 'F123-SYNTHETIC-LEDGER', opId: 'synthetic-payment-003', kind: 'credit.payment.record', receiptId: '4e492804b7eaaaf950e4352b', acceptedAt: 1730000000000 } },
+    expected: { ok: false, status: 403, reason: 'receivable-not-authorized' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:346:1
+✖ legacy receivable ownership is scoped to tenant and debt; changed authorized intent still conflicts (0.803401ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 403
+  
+      at TestContext.<anonymous> (file:///workspace/work/friendly123workshop/projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-typed-commercial-ledger.test.mjs:349:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 403,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

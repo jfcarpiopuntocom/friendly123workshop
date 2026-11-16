@@ -6,9 +6,10 @@ const LICENSE='F123-SYNTHETIC-LEDGER';
 const sale=(over={})=>({opId:'synthetic-op-001',license:LICENSE,kind:'sale.record',productId:'sku-1',quantity:1,amountCents:1999,...over});
 const expense=(over={})=>({opId:'synthetic-expense-002',license:LICENSE,kind:'expense.record',categoryId:'rent',amountCents:235,...over});
 const payment=(over={})=>({opId:'synthetic-payment-003',license:LICENSE,kind:'credit.payment.record',receivableId:'synthetic-debt-1',amountCents:505,...over});
-function fixture({authorize,authorizeCustomer=async ({license,clienteId,principal})=>license===LICENSE&&clienteId==='client_1'&&principal?.subject==='owner-account',insertFails=false,clock=()=>1730000000000}={}) {
- const rows=new Map(),payloads=new Map(),invocations={auth:[],writes:0,reads:0};
+function fixture({authorize,authorizeReceivable=async ({license,receivableId,principal})=>license===LICENSE&&receivableId==='synthetic-debt-1'&&principal?.subject==='owner-account',authorizeCustomer=async ({license,clienteId,principal})=>license===LICENSE&&clienteId==='client_1'&&principal?.subject==='owner-account',insertFails=false,clock=()=>1730000000000}={}) {
+ const rows=new Map(),payloads=new Map(),invocations={auth:[],writes:0,reads:0,sql:0};
  const sql={exec(query,...params){
+  invocations.sql++;
   if(/^\s*CREATE TABLE/i.test(query))return [];
   if(/^\s*SELECT payload_json FROM typed_commercial_payloads/i.test(query)){
    invocations.reads++;
@@ -43,7 +44,7 @@ function fixture({authorize,authorizeCustomer=async ({license,clienteId,principa
   invocations.auth.push({ticket,license,scope});
   return ticket==='synthetic-signed-ticket' ? {ok:true,principal:{license,subject:'owner-account',scopes:[scope]}}:{ok:false};
  });
- return {api:createTypedCommercialLedger({sql,transactionSync,authorize:verify,authorizeCustomer,clock}),rows,payloads,invocations};
+ return {api:createTypedCommercialLedger({sql,transactionSync,authorize:verify,authorizeCustomer,authorizeReceivable,clock}),rows,payloads,invocations};
 }
 const send=(f,command,ticket='synthetic-signed-ticket')=>f.api.submit({ticket,command});
 test('reject unknown operation before reading or writing storage',async()=>{
@@ -303,4 +304,58 @@ test('RED: customer moved to another valid ID in same licence is rejected before
  const f=fixture({authorizeCustomer:async ({clienteId})=>clienteId==='client_1'});
  const result=await send(f,customerPayment({clienteId:'client_2'}));
  assert.equal(result.status,403);assert.equal(f.invocations.reads,0);assert.equal(f.rows.size,0);
+});
+
+
+test('legacy receivable requires its own trusted authority before any SQL, even with payment scope',async()=>{
+ const f=fixture({authorizeReceivable:null});
+ const r=await send(f,payment());
+ assert.deepEqual(r,{ok:false,status:503,reason:'receivable-authority-unavailable'});
+ assert.equal(f.invocations.sql,0);
+ assert.equal(f.rows.size,0);
+ for(const cmd of [sale(),expense(),customerPayment()]) assert.equal((await send(f,cmd)).ok,true);
+});
+test('legacy receivable rejects denied or nonboolean ownership and authority errors without SQL',async()=>{
+ for(const [checker,status,reason] of [
+  [async()=>false,403,'receivable-not-authorized'],
+  [async()=>({ok:true}),403,'receivable-not-authorized'],
+  [async()=>{throw Error('unavailable')},503,'receivable-authority-unavailable']
+ ]){
+  const f=fixture({authorizeReceivable:checker});
+  assert.deepEqual(await send(f,payment()),{ok:false,status,reason});
+  assert.equal(f.invocations.sql,0);assert.equal(f.rows.size,0);
+ }
+});
+test('legacy receivable authority receives exact trusted principal and tenant, never clienteId',async()=>{
+ const calls=[],f=fixture({authorizeReceivable:async args=>{calls.push(args);return true;}});
+ const r=await send(f,payment());
+ assert.equal(r.status,200);assert.equal(calls.length,1);
+ assert.deepEqual(calls[0],{license:LICENSE,receivableId:'synthetic-debt-1',principal:{license:LICENSE,subject:'owner-account',scopes:['ops:payment']}});
+ const payload=JSON.parse(f.payloads.get(LICENSE+'::synthetic-payment-003'));
+ assert.deepEqual(payload,{license:LICENSE,opId:'synthetic-payment-003',kind:'credit.payment.record',receivableId:'synthetic-debt-1',amountCents:505});
+ assert.equal(r.receipt.stage,'stored-for-application');
+});
+test('legacy receivable revocation prevents duplicate receipt disclosure with zero SQL',async()=>{
+ let member=true;
+ const f=fixture({authorizeReceivable:async()=>member});
+ const first=await send(f,payment());assert.equal(first.status,200);
+ const sqlBefore=f.invocations.sql;member=false;
+ assert.deepEqual(await send(f,payment()),{ok:false,status:403,reason:'receivable-not-authorized'});
+ assert.equal(f.invocations.sql,sqlBefore);assert.equal(f.rows.size,1);assert.equal(f.payloads.size,1);
+});
+test('legacy receivable ownership is scoped to tenant and debt; changed authorized intent still conflicts',async()=>{
+ const f=fixture();
+ for(const cmd of [payment({receivableId:'other-debt'}),payment({license:'F123-SYNTHETIC-OTHER'})]){
+  assert.equal((await send(f,cmd)).status,403);assert.equal(f.invocations.sql,0);
+ }
+ const both=fixture({authorizeReceivable:async()=>true});
+ assert.equal((await send(both,payment())).status,200);
+ assert.equal((await send(both,payment({receivableId:'other-debt'}))).status,409);
+ assert.equal(both.rows.size,1);
+});
+test('issuer denial precedes legacy receivable authority and all SQLite access',async()=>{
+ let calls=0;
+ const f=fixture({authorizeReceivable:async()=>{calls++;return true;}});
+ assert.equal((await send(f,payment(),'synthetic-revoked-ticket')).status,403);
+ assert.equal(calls,0);assert.equal(f.invocations.sql,0);
 });

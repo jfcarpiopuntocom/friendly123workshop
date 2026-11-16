@@ -14,6 +14,8 @@ export class SyntheticCommands {
       // QA-only synthetic membership; no real customer roster or external service.
       authorizeCustomer:async({license,clienteId,principal})=>
         license===LICENSE&&clienteId==='client_1'&&principal?.subject==='synthetic-owner',
+      authorizeReceivable:async({license,receivableId,principal})=>
+        license===LICENSE&&receivableId==='debt_1'&&principal?.subject==='synthetic-owner',
       clock:()=>1730000000000
     });
   }
