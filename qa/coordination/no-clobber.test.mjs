@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {checkChangeSet,verifyInjertoLedger} from './no-clobber.mjs';
+import {checkChangeSet,verifyInjertoLedger,checkUpstreamOverlap} from './no-clobber.mjs';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const ledger=JSON.parse(fs.readFileSync(path.join(ROOT,'docs/coordination/INJERTOS-OWNERSHIP.json'),'utf8'));
 const inspect=(actor,paths)=>checkChangeSet({ledger,actor,paths});
@@ -88,4 +88,33 @@ test('Reject strange owner specifications that could let Codex/Claude clobber ea
   bad.owners.push({pattern:'injertos/equipo/**',owner:'sol'});
   const r=verifyInjertoLedger({ledger:bad,exists:()=>true});
   assert.ok(codes(r).includes('OVERLAPPING_OWNERS'));
+});
+
+test('Even a clean same-owner PR fails if Codex changed the same file after branch point',()=>{
+  const r=checkUpstreamOverlap({
+    ours:['apps/friendly-123/docs/mock-backend.js','qa/browser/other.test.cjs'],
+    upstream:['apps/friendly-123/docs/mock-backend.js']
+  });
+  assert.equal(r.ok,false);
+  assert.deepEqual(codes(r),['UPSTREAM_PATH_OVERLAP']);
+});
+test('Disjoint upstream and local paths are safe for independent integration',()=>{
+  const r=checkUpstreamOverlap({
+    ours:['qa/coordination/new-guard.mjs'],
+    upstream:['apps/friendly-123/docs/mock-backend.js','injertos/dinero/adapter.mjs']
+  });
+  assert.equal(r.ok,true);
+});
+test('Shared docs are still protected if two collaborators edited the exact same file',()=>{
+  const r=checkUpstreamOverlap({
+    ours:['docs/coordination/ESTADO-UNIFICACION-2026-11-16.md'],
+    upstream:['docs/coordination/ESTADO-UNIFICACION-2026-11-16.md']
+  });
+  assert.equal(r.ok,false);
+  assert.ok(codes(r).includes('UPSTREAM_PATH_OVERLAP'));
+});
+test('A stale merge cannot be made safe by listing a path twice',()=>{
+  const r=checkUpstreamOverlap({ours:['qa/coordination/no-clobber.mjs','qa/coordination/no-clobber.mjs'],upstream:[]});
+  assert.equal(r.ok,false);
+  assert.ok(codes(r).includes('DUPLICATE_PATH'));
 });
