@@ -20,7 +20,7 @@
   ],
   "files": {
     "package-lock.json": "104219633fcecc34040e27939a502810581146db405bda3fc228ec872a048a9a",
-    "AGENTS.md": "2a94cf09fe3492827f34b0b66cff910c895611b32849e2145982a8599fe6d5f0",
+    "AGENTS.md": "ed5fd93f905a1bc289d1ae7d767497f0a07428bebb9b58e35ef78a80cd292d2e",
     "package.json": "56dec9fb1062f4539d3a86ff43c88b2f13340877cd0495e9c9b06782fbd5940e",
     "check-sw.sh": "7a90ca3381fd2be46d025a7e4939728e29f72a68c89cb10e73e849b3b15ff4a3",
     "barcode.js": "2b1d68c286648dfcc142e670f3dd76185673df44ab13aa518c3bac828d7603df",

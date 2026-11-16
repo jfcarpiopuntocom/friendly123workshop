@@ -30,3 +30,9 @@ Relay real Workerd: arnés instalado con lockfile. Primer npm ci falló por cach
 Instalación limpia de ambos lockfiles correcta (app146 paquetes, relay45). Desde app/ se ejecutaron las 71 regresiones previas más16 issuer y4 API: **91/91 PASS**, 0 FAIL, 0 omitidos. Log compartido evidence/issuer/workshop-core.txt. Estos resultados sí corresponden al código trasladado; no certificar los dos tests pendientes del relay ni los117 de Sol6 aún no corridos sobre este SHA.
 
 Dos recorridos adicionales Chromium desde esta copia también pasan: venta sintética con Dinero y Team 503→recarga→recuperación→recibo durable. Log evidence/issuer/workshop-browser.txt. No se ejecutó Workbox ni se cambió PWA en esta entrega.
+
+## Continuación relay · ocho casos verdes, revisión todavía abierta
+
+Se resolvieron los dos fallos iniciales sin cambiar el timeout/aserciones: el router consume el pase antes del upgrade y onConnect vuelve a comprobar su vigencia antes de llamar a YServer. Logs workshop-relay-green.txt y workshop-relay-edges.txt. Ocho casos pasan con Workerd real local: identificadores sin pase no reciben frames; Owner-private con escritura/lectura; replay; caída de autoridad; shared/ops cerrados; Owner readonly no persiste cambios crudos; receptor caducado sin siguiente frame; instancia revocada sin siguiente frame; reinicio completo Workerd con recuperación SQL. El test de restart confirma también que la edición readonly nunca persistió.
+
+La revisión independiente de la fase está en curso y está intentando una carrera de respuestas de autorización y el broadcast de awareness durante onClose. No llamar a estos ocho casos certificación de revocación inmediata/cross-POP. NO-GO de activación se mantiene.

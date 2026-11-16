@@ -34,7 +34,7 @@ export class Tienda extends YServer {
 
   async onConnect(conexion, contexto) {
     if (secureMode(this.env)) {
-      const access = await askAuthority(this.env,'consume',ticketRequest(contexto.request,this.name));
+      const access = await askAuthority(this.env,'check',ticketRequest(contexto.request,this.name));
       if (!access || conexion.readyState !== 1) { conexion.close(1008,'Acceso no autorizado'); return; }
       conexion.setState(previous => ({...previous,accesoFirmado:access}));
       super.onConnect(conexion,contexto);
@@ -247,6 +247,10 @@ function identidad(req) {
 async function guardia(req, lobby, env) {
   if (secureMode(env)) {
     if (!lobby.name.endsWith('-priv') || !env.WS_AUTHORITY?.fetch || !new URL(req.url).searchParams.get('cap')) return new Response('Acceso no autorizado',{status:403});
+    // The public router consumes the one-use ticket BEFORE it upgrades the socket.
+    // onConnect checks the consumed grant again before YServer can emit any frame.
+    const access = await askAuthority(env,'consume',ticketRequest(req,lobby.name));
+    if (!access) return new Response('Acceso no autorizado',{status:403});
     return;
   }
   const { licencia, instancia } = identidad(req);
