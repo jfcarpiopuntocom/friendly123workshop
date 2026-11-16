@@ -7163,6 +7163,7 @@
           : (Array.isArray(u.escalasComision) && u.escalasComision.length > 0);
         if ("contribFija" in body && cf > 0 && habraEscalas)
           return J({ error: "A fixed contribution can't be combined with goal-based tiers: pick one. The tiered model recalculates the rate sale by sale, so subtracting a fixed amount would change every sale already recorded." }, 400);
+        const _uAntes = clonar(u);
         if (body.nombre && body.nombre.trim()) u.nombre = body.nombre.trim();
         if (body.tipo) u.tipo = body.tipo;
         if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;
@@ -7215,8 +7216,24 @@
           u.fotoRev = revCambio; // v446: solo una edicion explicita de foto puede borrar/reemplazar el puntero.
         }
         u.rev = revCambio;
-        guardarEstadoLocal();
-        avisarCatalogoCambiado(); // cambios de la percha (nombre, trato, foto) viajan al equipo
+        const _uProvisional = clonar(u);
+        debePersistir = false; // Strict local ACK replaces both fire-and-forget saves.
+        const _rackGuardada = await guardarEstadoLocal(true);
+        if (_rackGuardada !== true) {
+          // Never erase a peer edit that arrived while this local commit was pending.
+          if (ubicaciones.includes(u) && u.rev === revCambio &&
+              JSON.stringify(u) === JSON.stringify(_uProvisional)) {
+            Object.keys(u).forEach((key) => { delete u[key]; });
+            Object.assign(u, _uAntes);
+          } else {
+            _estadoLecturaBloqueada = true;
+            _errorBloqueoLectura = new Error("Rack PUT commit failed with concurrent changes");
+          }
+          const cuota = _esErrorDeCuota(_causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB()));
+          return J({ error: "The rack edit was NOT saved. Check its current values before retrying.",
+            code: cuota ? "RACK_UPDATE_STORAGE_QUOTA" : "RACK_UPDATE_DURABILITY_UNCONFIRMED" }, cuota ? 507 : 503);
+        }
+        avisarCatalogoCambiado(); // Publish rack metadata only after verified local commit.
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
