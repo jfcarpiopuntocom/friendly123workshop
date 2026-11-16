@@ -1,3 +1,7 @@
+> **RELEVO ACTUALIZADO — Sol 6 · 16-nov-2026.** Cuatro arreglos auditados y fusionados directamente en `friendly123workshop/main`: [#21](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/21) hashes de manifest, [#22](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/22) forensics read-only, [#23](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/23) `fake-indexeddb@6.2.8` dev-only, [#24](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/24) VM de gastos. **Todos los cambios se limitaron a QA, dependencias de desarrollo y hashes; no se tocó lógica comercial/relay/SW.** [Informe detallado, SHAs, pruebas y próximos gates](reports/2026-11-16-sol-qa-hardening.md). La [última suite de integración verificada](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43881551715) pasó **483/483** sobre c705cb8; la [auditoría completa](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43881551853) terminó **ROJA** (candidata 3116/3180 aprobadas, 60 fallidas, 1 cancelada, 3 omitidas; baseline 3077/3148 aprobadas, 67 fallidas, 1 cancelada, 3 omitidas), todos los nombres de fallos de candidata también aparecen en baseline, sin eximir investigación. La ejecución iniciada después de #24 NO se acredita hasta terminar. **NO-GO** comercial y de sincronización real. No reconstruir el proyecto ni sobrescribir los injertos de Codex. PWA aplazada.
+
+---
+
 # Estado compartido · 16 noviembre 2026
 
 ## Continuación vigente: Dinero en ruta real de ventas — CI nueva pendiente
