@@ -251,45 +251,48 @@ test('a rejected location list preserves the selected shelf and shows an error',
 });
 
 for (const [browserName, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
-test(`failed business rename keeps the old identity and informs the owner (${browserName})`, async () => {
-  const result = await withPage(page => page.evaluate(async () => {
-    const name = document.getElementById('oc-negocio-nombre');
-    const history = [], requests = [];
-    const nameObserver = new MutationObserver(() => history.push(name.textContent));
-    nameObserver.observe(name, { childList: true, subtree: true, characterData: true, attributes: true });
-    const originalName = window.OCTienda.nombreActivo;
-    window.OCTienda.nombreActivo = () => 'Original fixture business';
-    const originalPrompt = window.prompt;
-    const originalFetch = window.fetch;
-    window.prompt = () => 'New fixture business';
-    window.fetch = (url, options) => {
-      const path = new URL(String(url), location.href).pathname;
-      if (path.includes('/api/instancia')) requests.push({ path, method: options?.method || 'GET' });
-      if (path === '/api/instancia' && (!options || !options.method || options.method === 'GET'))
-        return Promise.resolve(new Response(JSON.stringify({ nombreNegocio: 'Original fixture business' }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }));
-      if (path === '/api/instancia/nombre' && options?.method === 'POST')
-        return Promise.resolve(new Response(JSON.stringify({ error: 'Fixture reject' }),
-          { status: 503, headers: { 'Content-Type': 'application/json' } }));
-      return originalFetch(url, options);
-    };
-    // Both the event and the canonical GET must describe the same synthetic notebook.
-    window.dispatchEvent(new CustomEvent('oc-negocio-actualizado',
-      { detail: { nombre: 'Original fixture business' } }));
-    document.getElementById('oc-negocio-editar').click();
-    await new Promise(resolve => setTimeout(resolve, 50));
-    window.prompt = originalPrompt;
-    window.fetch = originalFetch;
-    window.OCTienda.nombreActivo = originalName;
-    nameObserver.disconnect();
-    return { name: name.textContent, history, requests,
-      message: document.getElementById('oc-negocio-estado')?.textContent || '',
-      visible: document.getElementById('oc-negocio-estado')?.style.display };
-  }), engine);
-  assert.equal(result.name, 'Original fixture business', JSON.stringify(result));
-  assert.match(result.message, /name|nombre/i);
-  assert.notEqual(result.visible, 'none');
-});}
+  test(`failed business rename keeps the old identity and informs the owner (${browserName})`, async () => {
+    const result = await withPage(page => page.evaluate(async () => {
+      const name = document.getElementById('oc-negocio-nombre');
+      const originalRole = window.OCAuth.rolActual;
+      const originalPrompt = window.prompt;
+      const originalFetch = window.fetch;
+      window.OCAuth.rolActual = () => 'dueno';
+      try {
+        // Seed one real, durable synthetic notebook identity; no contradictory fake events.
+        const seed = await originalFetch('/api/instancia/nombre', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: 'Original fixture business' })
+        });
+        if (!seed.ok) throw new Error('Could not seed real synthetic identity: ' + await seed.text());
+        const saved = await seed.json();
+        if (!saved.ok || saved.nombreNegocio !== 'Original fixture business')
+          throw new Error('Seed did not return a confirmed durable name: ' + JSON.stringify(saved));
+        window.prompt = () => 'New fixture business';
+        window.fetch = (url, options) =>
+          new URL(String(url), location.href).pathname === '/api/instancia/nombre' && options?.method === 'POST'
+            ? Promise.resolve(new Response(JSON.stringify({ error: 'Fixture reject' }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }))
+            : originalFetch(url, options);
+        document.getElementById('oc-negocio-editar').click();
+        await new Promise(resolve => setTimeout(resolve, 50));
+        return { name: name.textContent,
+          active: window.OCTienda.nombreActivo(),
+          message: document.getElementById('oc-negocio-estado')?.textContent || '',
+          visible: document.getElementById('oc-negocio-estado')?.style.display };
+      } finally {
+        window.prompt = originalPrompt;
+        window.fetch = originalFetch;
+        window.OCAuth.rolActual = originalRole;
+      }
+    }), engine);
+    assert.equal(result.active, 'Original fixture business', 'rejected rename cannot change canonical notebook data');
+    assert.equal(result.name, 'Original fixture business', 'header must retain confirmed prior identity');
+    assert.match(result.message, /name|nombre/i);
+    assert.notEqual(result.visible, 'none');
+  });
+}
+
 test('an open sale receives a newly synchronized customer without losing the current selection', async () => {
   const result = await withPage(page => page.evaluate(async () => {
     const req = async (url, method = 'GET', body) => {
