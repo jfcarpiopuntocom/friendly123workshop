@@ -30,9 +30,13 @@ jobs:
           assert.equal(p.dependencies?.['fake-indexeddb'],undefined);
           assert.equal(l.packages['node_modules/fake-indexeddb'].version,'6.2.8');
           assert.equal(l.packages['node_modules/fake-indexeddb'].dev,true);
-          for(const key of ['node_modules/@esbuild/linux-x64','node_modules/@cloudflare/workerd-linux-64']){
-            if(l.packages[key])assert.equal(l.packages[key].libc?.[0],'glibc');
-          }
+          const orig=JSON.parse(require('node:child_process').execFileSync('git',[
+            'show','96d444df0599c48e10ffc88813eee452a898baf8:projects/assembled-v783/app/package-lock.json'
+          ],{encoding:'utf8',cwd:'../../..'}));
+          const copy=JSON.parse(JSON.stringify(l));
+          delete copy.packages[""].devDependencies['fake-indexeddb'];
+          delete copy.packages['node_modules/fake-indexeddb'];
+          assert.deepEqual(copy,orig,'every original locked dependency including platform metadata must survive intact');
           NODE
           npm ls fake-indexeddb --depth=0
           test -z "$(git status --porcelain)"
