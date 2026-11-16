@@ -7,13 +7,19 @@ const sale=(over={})=>({opId:'synthetic-op-001',license:LICENSE,kind:'sale.recor
 const expense=(over={})=>({opId:'synthetic-expense-002',license:LICENSE,kind:'expense.record',categoryId:'rent',amountCents:235,...over});
 const payment=(over={})=>({opId:'synthetic-payment-003',license:LICENSE,kind:'credit.payment.record',receivableId:'synthetic-debt-1',amountCents:505,...over});
 function fixture({authorize,insertFails=false,clock=()=>1730000000000}={}) {
- const rows=new Map(),invocations={auth:[],writes:0,reads:0};
+ const rows=new Map(),payloads=new Map(),invocations={auth:[],writes:0,reads:0};
  const sql={exec(query,...params){
   if(/^\s*CREATE TABLE/i.test(query))return [];
   if(/^\s*SELECT /i.test(query)){
    invocations.reads++;
    const row=rows.get(params[0]+'::'+params[1]);
    return row?[{payload_hash:row.payload_hash,receipt_json:row.receipt_json}]:[];
+  }
+  if(/^\s*INSERT INTO typed_commercial_payloads/i.test(query)){
+   if(insertFails)throw Error('synthetic payload storage denied');
+   const [license,opId,payload]=params,key=license+'::'+opId;
+   if(payloads.has(key))throw Error('duplicate payload');
+   payloads.set(key,payload);return [];
   }
   if(/^\s*INSERT /i.test(query)){
    if(insertFails)throw Error('synthetic storage denied');
@@ -25,14 +31,14 @@ function fixture({authorize,insertFails=false,clock=()=>1730000000000}={}) {
   throw Error('unexpected SQL '+query);
  }};
  const transactionSync=(cb)=>{
-  const previous=new Map(rows),writes=invocations.writes;
-  try{return cb()}catch(e){rows.clear();for(const [key,val] of previous)rows.set(key,val);invocations.writes=writes;throw e}
+  const previous=new Map(rows),previousPayloads=new Map(payloads),writes=invocations.writes;
+  try{return cb()}catch(e){rows.clear();for(const [key,val] of previous)rows.set(key,val);payloads.clear();for(const [key,val] of previousPayloads)payloads.set(key,val);invocations.writes=writes;throw e}
  };
  const verify=authorize|| (async ({ticket,license,scope})=>{
   invocations.auth.push({ticket,license,scope});
   return ticket==='synthetic-signed-ticket' ? {ok:true,principal:{license,subject:'owner-account',scopes:[scope]}}:{ok:false};
  });
- return {api:createTypedCommercialLedger({sql,transactionSync,authorize:verify,clock}),rows,invocations};
+ return {api:createTypedCommercialLedger({sql,transactionSync,authorize:verify,clock}),rows,payloads,invocations};
 }
 const send=(f,command,ticket='synthetic-signed-ticket')=>f.api.submit({ticket,command});
 test('reject unknown operation before reading or writing storage',async()=>{
