@@ -279,19 +279,24 @@ test('P0 rack POST rejects an unconfirmed local save (WebKit)',async()=>{
   const ctx=await context(web),{page}=await seed(ctx);
   await ownerLogin(page,'synthetic rack durability');
   const result=await page.evaluate(async()=>{
-   const idb=window.OCEstadoIDB,ab=window.OCEstadoAB;
-   if(typeof idb?.guardar!=='function'||typeof ab?.guardarAhora!=='function')
+   const idb=window.OCEstadoIDB;
+   if(typeof idb?.guardar!=='function'||typeof window.OCEstadoAB?.crear!=='function')
      throw new Error('synthetic persistence adapters missing');
-   const oldIdb=idb.guardar,oldAb=ab.guardarAhora;
+   const oldIdb=idb.guardar,oldWrite=Storage.prototype.setItem;
    idb.guardar=async()=>false;
-   ab.guardarAhora=()=>false;
+   Storage.prototype.setItem=function(key,value){
+     const k=String(key);
+     if(k.includes('f123_estado_v4') && /_(?:journal|A|B|ptr)$/.test(k))
+       throw new DOMException('Synthetic A/B store failure','QuotaExceededError');
+     return oldWrite.call(this,key,value);
+   };
    try{
     const r=await fetch('/api/ubicaciones',{
       method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})
     });
     return {status:r.status};
    }finally{
-    idb.guardar=oldIdb;ab.guardarAhora=oldAb;
+    idb.guardar=oldIdb;Storage.prototype.setItem=oldWrite;
    }
   });
   assert.ok(result.status>=400,'HTTP success cannot acknowledge a rack when both independent local stores reject persistence');
