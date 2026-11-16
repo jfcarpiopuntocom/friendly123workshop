@@ -17,27 +17,31 @@ async function setup(){
  return {app,a,r,p,fail:()=>{fail=true},recover:()=>{fail=false}};
 }
 const tick=()=>new Promise(r=>setImmediate(r));
-test('(a) non-money change is announced and broadcast while a normal save is still pending',async()=>{
+test('(a) creating a rack never publishes while strict local save is unconfirmed',async()=>{
  const f=await setup();f.fail();
- let confirm;f.app.OCEstadoIDB={guardar:()=>new Promise(r=>{confirm=r})};
+ let pending;f.app.OCEstadoIDB={guardar:()=>new Promise(r=>{pending=r})};
  let eventos=0;f.app.addEventListener('oc-catalogo-cambiado',()=>eventos++);
- // alta de una percha: cambio de catalogo NO-dinero; el guardado IDB queda colgado a proposito
- await f.app.request('/api/ubicaciones','POST',{nombre:'Synthetic rack 2',tipo:'socio'});
- for(let i=0;i<5;i++)await tick();
- assert.ok(eventos>=1,'oc-catalogo-cambiado must fire before the save confirms');
- let listo=false;const cat=f.app.OCSync.catalogoConfirmado().then(c=>{listo=true;return c});
- for(let i=0;i<5;i++)await tick();
- assert.equal(listo,true,'legacy broadcast must not wait for a normal pending save');
- assert.ok((await cat),'catalogoConfirmado returns the current catalog');
- assert.ok(f.app.OCSync.catalogoPropio(),'seed allowed while normal save pending');
- if(confirm)confirm(true);
+ // The old v601 "publish before save" contract is invalid for rack creation:
+ // since #39 this endpoint requires a durable ACK on this device.
+ await assert.rejects(()=>f.app.request('/api/ubicaciones','POST',
+  {nombre:'Synthetic rack 2',tipo:'socio'}),/RACK_DURABILITY_UNCONFIRMED|RACK_STORAGE_QUOTA/);
+ assert.equal(eventos,0,'no catalog event may announce a rejected rack');
+ const racks=await f.app.request('/api/ubicaciones');
+ assert.equal(racks.some(r=>r.nombre==='Synthetic rack 2'),false,'failed rack is not visible locally');
+ if(pending)pending(true);
 });
-test('(a2) a failed last save with RAM different still blocks sending',async()=>{
+
+test('(a2) a rejected rack after storage failure stays absent from outgoing catalog',async()=>{
  const f=await setup();f.fail();f.app.OCEstadoIDB={guardar:async()=>false};
- await f.app.request('/api/ubicaciones','POST',{nombre:'Synthetic rack 3',tipo:'socio'});
+ let eventos=0;f.app.addEventListener('oc-catalogo-cambiado',()=>eventos++);
+ await assert.rejects(()=>f.app.request('/api/ubicaciones','POST',
+  {nombre:'Synthetic rack 3',tipo:'socio'}),/RACK_DURABILITY_UNCONFIRMED|RACK_STORAGE_QUOTA/);
  for(let i=0;i<10;i++)await tick();
- assert.equal(f.app.OCSync.catalogoPropio(),null);
+ assert.equal(eventos,0,'a failed last save must not broadcast provisional catalog');
+ const racks=await f.app.request('/api/ubicaciones');
+ assert.equal(racks.some(r=>r.nombre==='Synthetic rack 3'),false,'failed rack must roll back');
 });
+
 test('(b) a payout during a strict save does NOT publish provisional state',async()=>{
  const f=await setup();f.fail();
  let confirm;f.app.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(r=>{confirm=r})}};
