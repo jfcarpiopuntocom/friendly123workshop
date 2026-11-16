@@ -1,0 +1,13 @@
+✔ retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice (3987.361065ms)
+✔ a later successful save resets the retry counter; no visible notice ever (2555.38908ms)
+✔ real quota error writes plain text in the Avanzado status line (no overlay element) (1632.015143ms)
+✔ store name uses logo yellow #EFC31A in light and dark scheme (1066.231707ms)
+✔ real IndexedDB quota error (localStorage unavailable) writes the in-UI status text (1780.404528ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11618.354782

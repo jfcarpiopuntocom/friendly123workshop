@@ -27,9 +27,9 @@ Interface: authorizeReceivable({license,receivableId,principal}) returns strict 
 
 ## Task 2 — Save retry race
 Files: app/test/v608-guardado-veraz.test.cjs, app/docs/mock-backend.js only if independently reproduced; add focused deterministic test if needed.
-- [ ] Run existing browser regression and inspect callers of retry scheduler/reset. Compare baseline if reproduced.
-- [ ] Reproduce extra 3000ms retry deterministically before runtime edit. If no reproduction, record unresolved evidence; never loosen assertion or label fixed.
-- [ ] Minimal shared-cause fix if established; test bounded retries and successful-save reset, preserving A/B and IDB durability. Run affected core suite, save logs, push.
+- [x] Run existing browser regression and inspect callers of retry scheduler/reset. Compare baseline if reproduced.
+- [x] Reproduce extra 3000ms retry deterministically before runtime edit. If no reproduction, record unresolved evidence; never loosen assertion or label fixed.
+- [x] Minimal shared-cause fix if established; test bounded retries and successful-save reset, preserving A/B and IDB durability. Run affected core suite, save logs, push.
 
 ## Task 3 — Durable application confirmation
 Files: existing app/src/credit-payment-command.mjs and adjacent integration module/tests as needed; inspect app/docs/cartera.js and hechos.js before choosing write boundary.
@@ -51,3 +51,5 @@ Files: existing app/src/credit-payment-command.mjs and adjacent integration modu
 
 - Task 3 ruling: the real application already has a payment consumer (Cartera → Hechos) and duplicate callback; adding a detached ACK adapter would not complete remote authority. Reuse and fix its atomic boundary instead. Forced concurrent hashes reproduce two facts/effects for one opId across authors sharing IDB (activation overlap). Move existing repetido callback into the same readwrite transaction as add; no new DB, writer, dependency or remote ACK. Initial fake-IDB RED 0/2 → GREEN 2/2; real Chromium also passes, WebKit host libs missing locally. Trusted server ownership/human binding and remote business-committed remain gates, not inferred from browser data.
 - User added Claude-BugHunter URL during work. Source pinned 2f9a226d38d35d28d06f1ed63753799d498a2b3d; applying hunt-race-condition, hunt-business-logic and hunt-idor methodologies to synthetic lab only. Do not run external scans or install all 83 skills indiscriminately. Ponytail pinned 96608e078b2d5ea607c5c3b8b5a54d1c1fba6846.
+
+- Task 2 complete: existing test RED 4/5 with 7 timers instead of 5. Instrumented source traces showed all actual storage calls progress 0→1→2→3→4→5 with NO success/reset; extra 3000ms timers originate relay-selector.js:537 (Supabase/Firebase reconnect). Root cause is test contamination, not money runtime. Test now records/accelerates only _falloGuardadoLocal-origin timers and includes deliberate unrelated timer; GREEN 5/5. Runtime mock-backend.js byte unchanged. Evidence retry-baseline.txt, retry-origins-1/2/3.txt, retry-green.txt. No need to compare/modify baseline runtime once exact foreign timers are proven.

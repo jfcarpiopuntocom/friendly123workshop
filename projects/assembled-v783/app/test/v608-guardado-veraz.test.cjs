@@ -14,7 +14,8 @@ const POST=(page,b)=>page.evaluate(async b=>{const r=await fetch('/api/productos
 // Every save fails with AbortError (lock); backoff timers are logged and run fast.
 const FALLA=()=>{
   window.__delays=[];const st=window.setTimeout;
-  window.setTimeout=function(fn,ms,...a){ if([3000,6000,12000,24000,48000].includes(ms)){window.__delays.push(ms);return st(fn,10,...a);} return st(fn,ms,...a); };
+  // Relay reconnects also use 3000 ms; count/accelerate only storage retries.
+  window.setTimeout=function(fn,ms,...a){ if([3000,6000,12000,24000,48000].includes(ms)&&/\b_falloGuardadoLocal\b/.test(new Error().stack||'')){window.__delays.push(ms);return st(fn,10,...a);} return st(fn,ms,...a); };
   window.__lock=true;
   Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(n,o,cb)=>window.__lock?Promise.reject(new DOMException('lock timeout','AbortError')):Promise.resolve(cb())}});
   // Saves commit through the A/B localStorage buffer and the IndexedDB state store (estado-idb), not only the lock: fail both channels with non-quota errors.
@@ -27,6 +28,7 @@ const FALLA=()=>{
 test('retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice',async()=>{
   await withDevice(async page=>{
     await page.evaluate(FALLA);
+    await page.evaluate(()=>setTimeout(()=>{},3000)); // unrelated timer must not count as a save attempt
     await POST(page,NUEVO('R1'));
     await page.waitForTimeout(1500);
     const r=await page.evaluate(()=>({d:window.__delays.slice(),aviso:!!document.getElementById('f123-aviso-guardado'),quota:!!document.getElementById('oc-quota-aviso')||!!window.__ocMemoriaLlena}));
