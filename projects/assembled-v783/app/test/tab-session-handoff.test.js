@@ -301,14 +301,15 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
       method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})
     });
     const current=await (await fetch('/api/ubicaciones')).json();
-    return {status:r.status,idbDenied,abDenied,stillVisible:current.some(x=>x.nombre==='Synthetic unconfirmed rack')};
+    return {status:r.status,code:(await r.json()).code,idbDenied,abDenied,stillVisible:current.some(x=>x.nombre==='Synthetic unconfirmed rack')};
    }finally{
     idb.guardar=oldIdb;idb.guardarConRevision=oldCas;idb.ultimoError=oldError;Storage.prototype.setItem=oldWrite;
    }
   });
   assert.ok(result.idbDenied>0,'IndexedDB rejection injector must be exercised');
   assert.ok(result.abDenied>0,'A/B rejection injector must be exercised');
-  assert.ok(result.status>=400,'HTTP success cannot acknowledge a rack when both independent local stores reject persistence');
+  assert.equal(result.status,507,'confirmed quota must never be reported as HTTP success or replayed as CAS contention');
+  assert.equal(result.code,'RACK_STORAGE_QUOTA','quota is distinct from a recoverable revision conflict');
   assert.equal(result.stillVisible,false,'failed rack must be rolled back from memory, not quietly saved later');
   const retry=await page.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Synthetic unconfirmed rack',tipo:'propio'})});return r.status;});
   assert.ok(retry>=200&&retry<300,'retry after storage recovery creates exactly one durable rack');
