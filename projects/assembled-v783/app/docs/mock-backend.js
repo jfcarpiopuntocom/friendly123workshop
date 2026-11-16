@@ -7100,6 +7100,18 @@
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "PUT") {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
+        // Validate every rejecting condition before mutating the existing rack.
+        const pctSocio = Number(body.comisionSocio), pctCasa = Number(body.pctQuedaEnCasa);
+        if ("comisionSocio" in body && (!Number.isFinite(pctSocio) || pctSocio < 0 || pctSocio > 100))
+          return J({ error: "The commission must be between 0 and 100." }, 400);
+        if ("pctQuedaEnCasa" in body && (!Number.isFinite(pctCasa) || pctCasa < 0 || pctCasa > 100))
+          return J({ error: "The house share must be between 0 and 100." }, 400);
+        const cf = Math.max(0, Number(body.contribFija) || 0);
+        const habraEscalas = "escalasComision" in body
+          ? (Array.isArray(body.escalasComision) && body.escalasComision.length > 0)
+          : (Array.isArray(u.escalasComision) && u.escalasComision.length > 0);
+        if ("contribFija" in body && cf > 0 && habraEscalas)
+          return J({ error: "A fixed contribution can't be combined with goal-based tiers: pick one. The tiered model recalculates the rate sale by sale, so subtracting a fixed amount would change every sale already recorded." }, 400);
         if (body.nombre && body.nombre.trim()) u.nombre = body.nombre.trim();
         if (body.tipo) u.tipo = body.tipo;
         if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;
@@ -7109,11 +7121,7 @@
            salida era borrarla y rehacerla — perdiendo su historial. Sin esto
            la modalidad de artista (se lleva 85, la casa retiene 15) era
            inalcanzable. (JFC 2026-08-18) */
-        if ("comisionSocio" in body) {
-          const pc = Number(body.comisionSocio);
-          if (!Number.isFinite(pc) || pc < 0 || pc > 100) return J({ error: "The commission must be between 0 and 100." }, 400);
-          u.comisionSocio = pc;
-        }
+        if ("comisionSocio" in body) u.comisionSocio = pctSocio;
         if ("metaMensual" in body) u.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
         if ("esEvento" in body) u.esEvento = !!body.esEvento;
         if ("esFeria" in body) u.esFeria = !!body.esFeria;
@@ -7129,9 +7137,7 @@
            desactivar mandando usarComisionPropia:false en la misma peticion. */
         if (("comisionSocio" in body || "pctQuedaEnCasa" in body) && !("usarComisionPropia" in body)) u.usarComisionPropia = true;
         if ("pctQuedaEnCasa" in body) {
-          const pc = Number(body.pctQuedaEnCasa);
-          if (!Number.isFinite(pc) || pc < 0 || pc > 100) return J({ error: "The house share must be between 0 and 100." }, 400);
-          u.comisionSocio = +(100 - pc).toFixed(2);
+          u.comisionSocio = +(100 - pctCasa).toFixed(2);
           u.lecturaPreferida = "casa";
         }
         if ("lecturaPreferida" in body) u.lecturaPreferida = body.lecturaPreferida === "casa" ? "casa" : "asociado";
@@ -7141,14 +7147,7 @@
            con el acumulado del mes y restar un fijo ahi obligaria a recalcular
            cada venta ya registrada. Decirlo aqui, cuando se configura, evita
            que el duenio descubra el conflicto en la liquidacion de fin de mes. */
-        if ("contribFija" in body) {
-          const cf = Math.max(0, Number(body.contribFija) || 0);
-          const habraEscalas = "escalasComision" in body
-            ? (Array.isArray(body.escalasComision) && body.escalasComision.length > 0)
-            : (Array.isArray(u.escalasComision) && u.escalasComision.length > 0);
-          if (cf > 0 && habraEscalas) return J({ error: "A fixed contribution can't be combined with goal-based tiers: pick one. The tiered model recalculates the rate sale by sale, so subtracting a fixed amount would change every sale already recorded." }, 400);
-          u.contribFija = cf;
-        }
+        if ("contribFija" in body) u.contribFija = cf;
         if ("minimoGarantizado" in body) u.minimoGarantizado = Math.max(0, Number(body.minimoGarantizado) || 0);
         if ("usarComisionPropia" in body) u.usarComisionPropia = !!body.usarComisionPropia;
         if ("baseComision" in body) u.baseComision = _baseComisionValida(body.baseComision) || "bruto";
