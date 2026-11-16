@@ -11,6 +11,9 @@ export class SyntheticCommands {
         ticket==='synthetic-signed-ticket'&&license===LICENSE
           ? {ok:true,principal:{license,subject:'synthetic-owner',scopes:[scope]}}
           : {ok:false},
+      // QA-only synthetic membership; no real customer roster or external service.
+      authorizeCustomer:async({license,clienteId,principal})=>
+        license===LICENSE&&clienteId==='client_1'&&principal?.subject==='synthetic-owner',
       clock:()=>1730000000000
     });
   }
