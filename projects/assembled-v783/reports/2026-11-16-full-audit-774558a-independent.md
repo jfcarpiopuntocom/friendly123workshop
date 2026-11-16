@@ -33,3 +33,6 @@ These are **candidate-only occurrences in this execution**, NOT proven regressio
 5. No production release or issuer scope expansion until verified authority, ACK, physical A→B→A ×2 and full GO gates.
 
 This is a diagnostic/report-only commit; no runtime modification or new test execution.
+
+## Next controlled phase — full-suite concurrency, saved before editing CI
+The first isolated run #43948229037 on PR checkout e8304239 passed both WebKit cases 1/1 each, without skipping. This **does not close** 2 full-suite-only failures. A follow-up PR run #43948588068 repeats the pair serially; preserve its conclusion separately. Since the full npm test uses Node test-concurrency=4, run the two named cases simultaneously as independent test files with the same Node concurrency, while keeping the official native WebKit gate and no-production-network preload. Save independent raw logs. A failure here is a useful RED; if it passes, isolate wider suite interference, not edit production or relax assertions. No unverified green should be attributed to a new SHA.
