@@ -1,0 +1,15 @@
+# P0 · Demostrar límite económico de ops:sale en YParty (solo auditoría RED, no motor nuevo)
+
+**Fecha:** 2026-11-17 UTC. **Motivo:** PR#12 tiene reserva activa sobre integración Workerd del ticket central y PR cliente también reserva su código. NO tocar esos archivos ni duplicar sus trabajos. Próxima unidad separada: verificar una afirmación pendiente del relevo: la guardia de sala YParty permite que un empleado autorizado para venta escriba un movimiento económico arbitrario por Yjs, sin confirmar tipo ni opId. MDD aprobada 31-oct [Notion](https://app.notion.com/p/40a1642b67f381a0a02cf0bfa8b5feac) exige libro inmutable causal e idempotencia, y postergar servidor económico autoritativo para discusión. Por tanto **solo crear contraprueba, NO convertir Worker a backend económico**.
+
+**Base fuente:** [PR#9](https://github.com/jfcarpiopuntocom/friendly-123-injertos/pull/9) exacto `d17e5bc259929b13a466360f5937ac9e52ee950f`; Worker local HMAC, SQL por bloques 512KiB y eventos Yjs. Nueva rama privada `audit/yparty-typed-opid-p0-20261117`, archivos SOLO nuevos `injertos/yparty-worker/qa/p0-typed-ops-deny-gate.test.mjs` y `.github/workflows/qa-yparty-typed-opid-p0.yml`, sin editar Worker ni tests ajenos; PR DRAFT hacia PR#9, no producción.
+
+## Gate RED
+
+1. Workerd local real `unstable_dev`, KV sintética `wsRole*` bajo licencia fake, roles `dueno` y `empleado`, cada uno ticket HMAC correcto `ops:sale` o `ops:read`, un solo uso. Confirmar ventas sintéticas válidas con `opId` inmutable llegan a Owner y sobreviven reboot.
+2. En segunda sala/instancia de prueba, empleado escribe por el MISMO WebSocket `ops:sale` un `Y.Map operaciones` con `{opId:'qa-...', tipo:'ajuste-stock', delta:9000}` y luego un segundo update que reescribe el mismo opId para alterar dinero. **Aceptación de seguridad:** Owner NO debe recibir `ajuste-stock` ni override de un opId vendido. El Worker actual solo aplica `isReadOnly` a la sala y no analiza tipos, por lo que se espera **RED** reproducible. Mantener prueba sin cambios.
+3. Si el RED se confirma, documentar que `estado-durable:SHA256` **no equivale** a validar contenido económico; se puede persistir un movimiento indebido. No añadir filtro heurístico que inspeccione un Y.Update binario arbitrario y arriesgue causalidad, ni corregir silenciosamente libro histórico; diseñar en próxima decisión autorización por tipo/rol/opId en capa transaccional establecida (MDD #1/#3) y proyección Owner/Team.
+4. Re-ejecutar baseline de auth 11/11 en job separado si es viable, no confundir GREEN de durabilidad con GREEN del gate económico. Conservar SHA RED/TAP, subir Notion/STATUS, comentar en PR#12 y PR#5 para impedir GO prematuro.
+5. No tocar original Codex v783, datos reales, PIN, flags, PWA, Workerd desplegado, ni inventar tiempo de corrección. Si faltan estructuras reales del ledger, prueba es contraprueba de canal que **no prueba** contabilidad completa, etiquetarla así.
+
+**Rollback**: abandonar rama QA, sin despliegue. Todos los resultados se guardan en este plan y [STATUS workshop](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/STATUS.md).
