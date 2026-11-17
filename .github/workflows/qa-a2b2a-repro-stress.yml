@@ -5,11 +5,15 @@ on:
     paths:
       - '.github/workflows/qa-a2b2a-repro-stress.yml'
       - 'projects/assembled-v783/app/test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs'
+      - 'projects/assembled-v783/app/test/p0-dual-yjs-room-pump.test.cjs'
+      - 'projects/assembled-v783/app/test/helpers/e2e-app.cjs'
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/qa-a2b2a-repro-stress.yml'
       - 'projects/assembled-v783/app/test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs'
+      - 'projects/assembled-v783/app/test/p0-dual-yjs-room-pump.test.cjs'
+      - 'projects/assembled-v783/app/test/helpers/e2e-app.cjs'
 permissions:
   contents: read
 jobs:
@@ -35,6 +39,10 @@ jobs:
         run: |
           git rev-parse HEAD
           node --check test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs
+      - name: Real native RED for separate catalog + opsDoc Yjs rooms
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 test/p0-dual-yjs-room-pump.test.cjs 2>&1 | tee /tmp/f123-dualroom-redgreen.tap
       - name: Five independent identical native runs, preserve every RED
         shell: bash
         run: |
