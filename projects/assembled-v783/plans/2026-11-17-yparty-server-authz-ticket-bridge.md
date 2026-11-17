@@ -72,3 +72,7 @@ La separación de datos privados sigue siendo una barrera real: un empleado con 
 ## Observación de fixture antes del parche de rutas privadas/fotos
 
 El primer test de foto sintética escrito en commit `27e653ae...` usó por error un HMAC sobre el *data URI* como clave de la imagen, no `sha256(bytes reales)`. Esta diferencia puede ocultar una propiedad de foto content-addressed; **corregir SOLO la prueba antes de modificar el Worker** para calcular SHA-256 de bytes y mantener las aserciones de alcance/rol. No pasar un RED sobre 404 como prueba de contenido íntegro. Los tests de firma y 2.000 operaciones del SHA `f02d56d...` siguen 7/7 PASS y fuente sin cambiar hasta aquí.
+
+## RED real Workerd antes de ampliar rutas `-priv` y `-fotos`
+
+[GitHub Actions 44019215333](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44019215333) en SHA de nuevo TEST `27e653ae881ba4d783f2f3eb7f5d6d4d570a05d1`, fuente servidor NO modificada desde el GREEN 7/7: **9 tests, 7 PASS, 2 FAIL esperados, 0 SKIP/CANCEL**. Fallos exactamente `Timeout signed owner private room` y `Timeout signed owner public photo`; rutas aún no están en allowlist de Worker. No es prueba de integridad de foto ni de privacidad hasta GREEN. Antes de tocar runtime se identificó y corrigió en la prueba de foto un hash HMAC de data URI incorrecto por SHA256 de los bytes JPEG sintéticos (test-only commit `643d798...`). Revalidar CI SHA final de prueba corregida, luego habilitar sólo los sufijos `-priv/-fotos` con permisos, sin modificar el resto de aplicación ni clientes.
