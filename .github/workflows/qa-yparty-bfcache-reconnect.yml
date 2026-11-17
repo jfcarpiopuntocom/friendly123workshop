@@ -1,0 +1,25 @@
+name: "QA P0 Safari BFCache Yjs 3-room reconnect (no production)"
+on:
+  push:
+    branches:
+      - "fix/20261117-safari-bfcache-pageshow-reconnect"
+  pull_request:
+    paths:
+      - "projects/assembled-v783/app/docs/sync-yjs.js"
+      - "projects/assembled-v783/app/test/p0-yparty-bfcache-pageshow.test.cjs"
+      - ".github/workflows/qa-yparty-bfcache-reconnect.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-bfcache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Focused synthetic DOM restoration regression (zero network)
+        working-directory: projects/assembled-v783/app
+        run: node --test test/p0-yparty-bfcache-pageshow.test.cjs
