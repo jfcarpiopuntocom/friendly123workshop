@@ -29,6 +29,11 @@ jobs:
         run: |
           node --check docs/avanzado-extra.js
           node --check test/p0-legacy-manual-replay-http-ack.test.cjs
+      - name: Install test firewall dependency without install scripts or browser binaries
+        working-directory: projects/assembled-v783/app
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: P0 targeted replay test (real source in isolated VM)
         working-directory: projects/assembled-v783/app
         run: |
