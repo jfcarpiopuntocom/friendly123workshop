@@ -1971,9 +1971,20 @@
                   pullEstado.rebaseCipherFrames = 0;
                   _legacyProbeKey = ""; _legacyProbeAttempts = 0; // proven encrypted recovery
                 }
-                return guardarPullCursor(c).then(function () {
+                return guardarPullCursor(c).then(function (pruebaDurable) {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
-                  pullEstado.pullAplicado = true; // verified ciphertext + durable cursor write/readback
+                  // A rejected journal/IDB readback is NOT a committed page.
+                  // Reconnect from the last proven cut, never the speculative RAM cursor.
+                  if (pruebaDurable === false) {
+                    _pullCursor = { rev: _appliedPullCursor.rev, seq: _appliedPullCursor.seq };
+                    pullEstado.pullAplicado = false;
+                    pullEstado.enCurso = false;
+                    try { ws.close(1013, "pull cursor proof failed; replay confirmed cut"); } catch (_) {}
+                    return;
+                  }
+                  // undefined means deferred pending Yjs/fragments or RAM-only: no durable ACK.
+                  // true means the journal barrier, write and exact readback passed.
+                  if (pruebaDurable === true) pullEstado.pullAplicado = true;
                   if (pullEstado.rescateCausalDesde) {
                     // Replaying an older proven interval MUST paginate with an
                     // EPHEMERAL cursor: never roll back the confirmed durable cut.
