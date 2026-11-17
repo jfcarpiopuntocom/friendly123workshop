@@ -18,3 +18,7 @@ Base = PR86 Workerd secure-room source SHA `f01ef2f11fef1e6b83c955ac081db192b9f9
 
 ## Scope
 Only two workshop source files, new QA workflow/test/plan; no F123 production service or real PIN/client data. NOT changing `friendly-123-injertos`, keeping separate ownership. If changes cannot be certified due to build, leave PR draft with exact failures and no claimed port score.
+
+## Real browser ↔ issuer ↔ Workerd extension (reserved in Notion before edits)
+
+Existing `relay/injertos/yparty-worker/qa/p0-real-session-room.test.mjs` already has a Miniflare SQL YServer + authentic synthetic Owner issuer + Chromium/WebKit Playwright setup. Extend it by appending *only* the new test consuming the exact `app/docs/vendor/yparty-piloto.min.js` built from the changed pilot. Enable `WS_SEPARATE_ROOMS_QA=1` only within the test, restore afterwards; local HTTP `/issuer` maps requests to the synthetic authority, denies other external network. Browser Owner PIN remains volatile. Verify real `cat` event reaches second Node client, ops room does NOT accept forged raw economic Yjs, and reconnection mints fresh tokens, with no token/PIN cached. CI runner must compare reproducibly built vendor to committed bytes before any stage credits. This test extends, not changes, existing gates or worker source.
