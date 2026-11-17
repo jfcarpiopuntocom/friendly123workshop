@@ -271,6 +271,26 @@ test('P0 real central TEAM employee cat:read connects read-only, rejects replay 
   assert.notEqual(after.status,'open','revoked Team cannot join catalog');
   const retry=await ticket('cat',['cat:read']);
   assert.notEqual(retry.status,200,'revoked Team cannot issue fresh read cap');
+  writer.doc.getMap('products').set('owner-after-team-revocation',{priceCents:917});
+  await new Promise(resolve=>setTimeout(resolve,450));
+  assert.equal(memberDoc.getMap('products').has('owner-after-team-revocation'),false,
+    'revoked connected Team peer must receive zero new catalog facts');
+  // Even an issuer-authorized admin cat:write must not gain an unrestricted
+  // Yjs writer through the read-only Team admission path.
+  env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read'],admin:['cat:read','cat:write']});
+  const adminSubject='synthetic-team-admin-z';
+  const adminSetup=await team.update({licenseCode:license,instanceId:instance,subject:adminSubject,
+    role:'admin',active:true,pin:'333',ownerPin:'123',
+    expectedRevision:revoked.revision,opId:'synthetic-team-admin-join'});
+  assert.equal(adminSetup.ok,true,JSON.stringify(adminSetup));
+  const adminResponse=await api('/ws/ticket',{credentials:{kind:'team',licenseCode:license,
+    instanceId:instance,subject:adminSubject,pin:'333'},
+    room:room+'-cat',scopes:['cat:read','cat:write'],ttlMs:30000});
+  const adminResult=await adminResponse.json();
+  assert.equal(adminResponse.status,200,JSON.stringify(adminResult));
+  const rawWrite=await attempt('cat',adminResult.token);
+  assert.equal(rawWrite.binary,0,'Team must not receive Yjs frame with unrestricted catalog-write scope');
+  assert.notEqual(rawWrite.status,'open','Team cat:write token denied rather than allowing raw edits');
  }finally{
   member.destroy();memberDoc.destroy();writer.close();
   delete env.WS_QA_ROLE_GRANTS;
