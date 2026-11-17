@@ -1,0 +1,30 @@
+name: "P0 YParty client live Owner tickets cat/ops (no deploy)"
+on:
+  push:
+    branches: ["feat/20261117-yparty-client-rooms"]
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/app/src/yparty-piloto.js"
+      - "projects/assembled-v783/app/src/ws-owner-ticket-params.mjs"
+      - "projects/assembled-v783/app/test/p0-yparty-client-real-tickets.test.cjs"
+      - ".github/workflows/qa-v783-client-rooms.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  client-authority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 'Verify real client uses trusted fresh Owner ticket scopes; no bare credentials'
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 test/p0-yparty-client-real-tickets.test.cjs 2>&1 | tee /tmp/f123-client-live-tickets.tap
