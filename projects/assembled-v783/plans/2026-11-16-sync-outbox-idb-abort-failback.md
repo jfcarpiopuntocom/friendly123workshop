@@ -25,3 +25,9 @@ The IndexedDB transaction lifecycle can fire **abort without an error event** (e
 
 ### Cross-device GO remains blocked
 Synthetic PR #68 (two local isolated Chromium/WebKit engines with direct Yjs pump) is **not** physical PC↔iPhone relay proof; PR #67 full historical 3,240 tests, 3,203 pass, 33 fail, 1 cancelled, 3 skipped still RED. Same-license same-PIN physical A→B→A ×2, real remote app-level ACK, exact sale/stock/money/photos/roles convergence and trusted server authority cannot be inferred from this change. MDD #3/#1/#5 local-first approved; server business-authoritative P2 not authorized.
+
+## Confirmed native RED · 2026-11-17 UTC · before any runtime modification
+
+[GitHub Actions 43998275104](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43998275104), job `133755651728`, tested head `e420af4f528eadfb569938b91be7501048780d72`, **FAILURE** with original unmodified `docs/sync-outbox.js`. Three real-source VM cases: **1/3 PASS, 2/3 FAIL, 0 SKIP**. Both failed assertions are exact expected symptom `aborted IDB tx must settle, even without onerror event` and `dual-store failure must settle so caller can warn owner`, `false !== true` after 150ms timeout. The normal IDB success scenario PASSED, proving the fixture is attached and the primary success path still works. No code changes to source at this stage. RED is causal and specific to missing abort handler; not a browser-independent claim about all real abort reasons.
+
+**Ruling:** Reuse existing IndexedDB error/fallback logic by assigning the **same** rejection handler to both `tx.onerror` and `tx.onabort`, with `tx.error || new Error("Transacción IndexedDB abortada")` so callers receive a proper cause. No new watcher/timer or outbox implementation. Commit only this source diff, run exact suite again and the separately triggered integrated QA, then re-evaluate. Do not claim success until fresh GREEN.
