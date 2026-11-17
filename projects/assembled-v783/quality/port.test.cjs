@@ -18,7 +18,7 @@ test('two distinct numbers: quality 64.5 and evidence-credited port 36.0',()=>{
  assert.equal(p.gatesRequired,6);
  assert.equal(p.ready,false);
  assert.equal(p.target,100);
- assert.equal(p.reviewedSha,'1db297d2387d389b2b2b05e6191133c52b7b4ebd');
+ assert.equal(p.reviewedSha,'641a58070e4915e3da945144e6365cdf1a225764');
  const report=formatDual({port:p,quality:q});
  assert.match(report,/64\.5\/100/);
  assert.match(report,/36\.0\/100/);
