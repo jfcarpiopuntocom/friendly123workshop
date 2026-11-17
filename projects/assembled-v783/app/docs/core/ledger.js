@@ -53,19 +53,38 @@
     return s === 0 && e.lines.length > 0 && e.lines.every((l) => Number.isInteger(l.debitCents) && Number.isInteger(l.creditCents));
   }
 
-  /* Regla de idempotencia (e): un hecho repetido (mismo id, o mismo opId en pagos/cobros) cuenta una vez.
-     Para que (d) se cumpla aunque dos copias difieran, se queda la de menor JSON (eleccion independiente del orden). */
-  function dedupe(list, keyFn) {
+  /* Idempotencia económica: copias equivalentes del mismo ID se cuentan
+     una sola vez. Hechos DIVERGENTES con el mismo ID quedan en cuarentena:
+     nunca elegir un precio por orden lexicográfico de JSON. Este módulo es
+     un proyector PURO; no destruye ni modifica el historial de entrada. */
+  function canonicalFact(x) {
+    if (Array.isArray(x)) return x.map(canonicalFact);
+    if (x && typeof x === "object") {
+      const sorted = {};
+      Object.keys(x).sort().forEach((k) => {
+        if (x[k] !== undefined && typeof x[k] !== "function") sorted[k] = canonicalFact(x[k]);
+      });
+      return sorted;
+    }
+    return x;
+  }
+  function dedupe(list, keyFn, factKind, errors) {
     const best = new Map();
     (Array.isArray(list) ? list : []).forEach((f) => {
       if (!f) return;
       const k = keyFn(f);
-      if (!k) { best.set("\u0000sin-id-" + best.size, { f, js: JSON.stringify(f), noId: true }); return; }
-      const js = JSON.stringify(f);
+      if (!k) {
+        best.set("\u0000sin-id-" + best.size, { f, js: JSON.stringify(canonicalFact(f)), noId: true });
+        return;
+      }
+      const js = JSON.stringify(canonicalFact(f));
       const cur = best.get(k);
-      if (!cur || js < cur.js) best.set(k, { f, js });
+      if (!cur) { best.set(k, { f, js }); return; }
+      if (cur.conflict || js === cur.js) return;
+      best.set(k, { conflict: true });
+      errors.push({ factKind, factId: k, motivo: "conflicto de hechos con igual id; revision del propietario requerida" });
     });
-    return [...best.values()];
+    return [...best.values()].filter((record) => !record.conflict);
   }
 
   /* Partes de cada persona en una venta. Se reusa buildObligations (misma logica de split.reparto que
@@ -239,14 +258,14 @@
     const errors = [];
     const raw = [];
 
-    const ventas = dedupe(inp.ventas, (v) => str(v.id)).map((x) => x.f);
-    const ajustes = dedupe(inp.ajustes, (a) => str(a.id)).map((x) => x.f);
+    const ventas = dedupe(inp.ventas, (v) => str(v.id), "venta", errors).map((x) => x.f);
+    const ajustes = dedupe(inp.ajustes, (a) => str(a.id), "ajuste", errors).map((x) => x.f);
     const paymentEvidence = PL.mergePaymentEvidence(inp.payouts || [], inp.payoutConflicts || []);
     const payouts = PL.verifiedPayouts(inp.payouts || [], inp.payoutConflicts || []);
     const allReceipts = (inp.payouts || []).concat((inp.payoutConflicts || []).flatMap(c=>c.records || []));
     paymentEvidence.conflicts.forEach(c=>errors.push({factKind:'pago',factId:c.key,motivo:'payment conflict: receipts require owner review'}));
-    const gastos = dedupe(inp.gastos, (g) => str(g.id)).map((x) => x.f);
-    const cartera = dedupe(inp.cartera, (c) => str(c.opId || c.id)).map((x) => x.f);
+    const gastos = dedupe(inp.gastos, (g) => str(g.id), "gasto", errors).map((x) => x.f);
+    const cartera = dedupe(inp.cartera, (c) => str(c.opId || c.id), "cobro", errors).map((x) => x.f);
 
     [["venta", inp.ventas], ["ajuste", inp.ajustes], ["pago", inp.payouts], ["gasto", inp.gastos], ["cobro", inp.cartera]].forEach(([k, list]) => {
       (Array.isArray(list) ? list : []).forEach((f) => { if (f && !str(f.id || f.opId)) errors.push({ factKind: k, factId: "", motivo: "hecho sin id" }); });
