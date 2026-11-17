@@ -1,0 +1,71 @@
+name: P0 postPR77 exact legacy VM regression (synthetic no deploy)
+on:
+  push:
+    branches: [qa/20261117-pr77-closure-scope-full-audit]
+    paths:
+      - '.github/workflows/qa-v783-pr77-postmerge-vm-scope.yml'
+      - 'projects/assembled-v783/app/test/incident-relay-quota-budget-v559.test.js'
+      - 'projects/assembled-v783/app/test/incident-yjs-causal-replay-v559.test.js'
+      - 'projects/assembled-v783/app/test/incident-yjs-receive-queue-v558.test.js'
+      - 'projects/assembled-v783/app/test/p0-v762-pin-sin-historia.test.cjs'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-v783-pr77-postmerge-vm-scope.yml'
+      - 'projects/assembled-v783/app/test/incident-relay-quota-budget-v559.test.js'
+      - 'projects/assembled-v783/app/test/incident-yjs-causal-replay-v559.test.js'
+      - 'projects/assembled-v783/app/test/incident-yjs-receive-queue-v558.test.js'
+      - 'projects/assembled-v783/app/test/p0-v762-pin-sin-historia.test.cjs'
+permissions:
+  contents: read
+jobs:
+  vm-closure-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source and fixtures parse
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --check projects/assembled-v783/app/docs/sync-yjs.js
+          for name in incident-relay-quota-budget-v559.test.js incident-yjs-causal-replay-v559.test.js incident-yjs-receive-queue-v558.test.js p0-v762-pin-sin-historia.test.cjs; do
+            node --check "projects/assembled-v783/app/test/$name"
+          done
+      - name: Run exact inherited 4 test files, unmodified assertions
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 \
+            test/incident-relay-quota-budget-v559.test.js \
+            test/incident-yjs-causal-replay-v559.test.js \
+            test/incident-yjs-receive-queue-v558.test.js \
+            test/p0-v762-pin-sin-historia.test.cjs 2>&1 | tee /tmp/f123-legacy-pr77.tap
+
+      - name: Exact PR77 causal rescue and real Yjs/Firebase regression group (70 cases)
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=95000 \
+            test/p0-precut-independent-writers-v783.test.cjs \
+            test/sync3-head-causal-gap.test.cjs \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/pull-cursor-durable-ack.test.cjs \
+            test/firebase-relay-timestamp-boundary.test.cjs 2>&1 | tee /tmp/f123-precut-post-fixture.tap
+      - name: Independent exact Yjs pull durable proof (63 cases)
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 \
+            test/p0-yjs-pull-failed-cursor-proof.test.cjs \
+            test/pull-cursor-durable-ack.test.cjs \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/sync3-head-causal-gap.test.cjs 2>&1 | tee /tmp/f123-pull-post-fixture.tap

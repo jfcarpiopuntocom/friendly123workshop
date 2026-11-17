@@ -78,6 +78,8 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  assert.ok(replayStart>=0&&replayEnd>replayStart,"uses actual E1b2 five-attempt retry");
  assert.ok(start>=0&&end>start,"uses the candidate's receive and replay handler");
  assert.ok(openStart>=0&&openEnd>openStart,"uses the candidate's actual onopen recovery queue");
+ // This VM executes the real crearCanal handler; re-create the one-shot
+ // _antecedentesBuscados binding present in the original lexical closure.
  const clock=fakeClock(),ctx={
   API:{clave:{},_store:null},canal:{ws:null,recuperando:true},pullEstado:{enCurso:false,fallos:0},
   _colaRecepcion:Promise.resolve(),_pullCursor:{rev:0,seq:0},_appliedPullCursor:{rev:0,seq:0},_pullCursorReady:Promise.resolve(),
@@ -86,7 +88,7 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
   doc:{store:{pendingStructs:{missingParent:true}}},manejar:async()=>{ctx.partesEntrantes.fragment={received:1,total:2};return true;},confirmarDurable(){},
   guardarPullCursor:async c=>{ctx._pullCursor={rev:c.rev,seq:c.seq};if(!ctx.doc.store.pendingStructs&&!Object.keys(ctx.partesEntrantes).length)ctx._appliedPullCursor={rev:c.rev,seq:c.seq};},
   pedirPagina:(sock,state)=>{state.enCurso=true;sock.send(JSON.stringify({k:"pull",v:2,rev:ctx._pullCursor.rev,seq:ctx._pullCursor.seq,limit:250}));},
-  nombre:"catalogo",window:{},log(){},clearTimeout:id=>clock.clearTimeout(id),_tEstable:null,
+  nombre:"catalogo",_antecedentesBuscados:false,window:{},log(){},clearTimeout:id=>clock.clearTimeout(id),_tEstable:null,
   _bufferPumpTimer:null,_durableWatchdog:null,_durableInFlight:Object.create(null),_groupAcks:new Set(),_currentPullState:null,
   _pausado:false,permitido:()=>true,
   deudaPendiente:()=>!!ctx.doc.store.pendingStructs || Object.keys(ctx.partesEntrantes).length>0,
