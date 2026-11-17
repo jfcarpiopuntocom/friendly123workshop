@@ -101,7 +101,7 @@ window.F123YPartyPilot = function (sala, licencia) {
             // Only read the transient PIN that already opened the session.
             // No PIN is put in localStorage, module globals, logs or WebSocket URL.
             const pin = window.OCSecure?.leerPinQueAbre?.()?.owner;
-            if (typeof pin !== 'string' || !/^\\d{3}$/.test(pin) ||
+            if (typeof pin !== 'string' || !/^\d{3}$/.test(pin) ||
                 pin === '456' || pin === '789') throw new Error('owner-session-unavailable');
             return {kind:'owner',licenseCode:licencia,instanceId:instancia,pin};
           };
