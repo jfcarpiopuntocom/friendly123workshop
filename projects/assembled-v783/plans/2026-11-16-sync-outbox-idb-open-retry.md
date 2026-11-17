@@ -24,3 +24,13 @@ A first error/blocked/synchronous open exception produces a **rejected memoized 
 
 ## Concurrent activity
 [#68](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/68) merged synthetic native Chromium/WebKit 2-cycle test on preceding main; [#69](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/69) merged `onabort` fallthrough as `59884047b533349aafeb0279b87cd850cbecc133`. No overlap with other open PR paths confirmed at planning time. No Workbox/PWA/SW modification. Ponytail minimal proven reuse over new implementation; Superpowers test RED→minimum→GREEN.
+
+## Exact RED confirmed before source change — 2026-11-17 UTC
+
+[CI 43999198876](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43999198876), job `133758733174`, original unmodified source `docs/sync-outbox.js`, head `f83eb2c5a299d368c37fc548bc8eb692833ac7d5`: **6 tests, 3 PASS / 3 FAIL, 0 SKIP**. All **previous PR #69 abort+success tests PASS**, proving adjacent behavior preserved. Three new tests RED independently on `indexedDB.open` first `onerror`, `onblocked`, and synchronous exception: first ciphertext correctly persisted in localStorage, second call when IDB recovered but LS quota blocked returned `false !== true` at exact assertion `recovered IDB must be retried even when the legacy fallback is full`. Source root cause is the rejected cached `dbPromise`, not failed setup or mock. Preserve this RED as distinct evidence, no claims about physical client recovery.
+
+**Minimal remedy ruling:** keep DB transaction/schema/recovery fallback unchanged, add one line after the existing `new Promise` closure and before `return dbPromise`:
+```js
+dbPromise = dbPromise.catch(function (e) { dbPromise = null; throw e; });
+```
+The error still propagates to existing `guardar`/`leer` try/catch and localStorage fallback, but the next operation can reopen IDB. Do NOT return success before transaction commit or reset state on success. Require fresh full 6/6 + integrated browser QA.
