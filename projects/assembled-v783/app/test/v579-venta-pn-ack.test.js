@@ -4,7 +4,7 @@ const {test}=require('node:test'), assert=require('node:assert/strict');
 const fs=require('node:fs'), path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8').replace(/\r\n/g,'\n');
 function part(start,end){const a=src.indexOf(start), b=src.indexOf(end,a); assert.ok(a>=0&&b>a,'source anchors: '+start); return src.slice(a,b);}
-const sale=part('        const _fotoVenta = { stock: p.stockActual', '      if ((m = path.match(/^\\/api\\/ventas\\/([^/]+)\\/anular$/)))');
+const sale=part('        const _ventasAntes = ventas.length, _deshacerStockVenta = _marchaAtrasStock(p);', '      if ((m = path.match(/^\\/api\\/ventas\\/([^/]+)\\/anular$/)))');
 const prep=part('  function _prepararOpStock(payload, idOperacion) {','  function emitirOpStock(tipo, payload, preparado = false) {');
 function prepare(p) {
   const keys=new Map([['f123_device_id','fixture-device']]);
@@ -22,26 +22,41 @@ test('sale: stock PN must enter first durable snapshot, and only then announce',
   assert.equal(p.stockPN['fixture-device'].sub,2);
 });
 test('sale: rejected ACK restores exactly existing and absent PN metadata',()=>{
-  const start=sale.indexOf('        const _fotoVenta ='), stop=sale.indexOf(';\n',start);
-  assert.ok(start>=0&&stop>start);
-  const capture=sale.slice(start,stop+1);
-  const helperStart=sale.indexOf('        const _revertirVenta = () => {',stop);
-  const helperEnd=sale.indexOf('        let _ventaGuardada = false, terminarVenta;',helperStart);
-  assert.ok(helperStart>stop&&helperEnd>helperStart,'extract the exact production rollback helper');
-  const rollback=sale.slice(helperStart,helperEnd);
-  const fail=sale.slice(sale.indexOf('        if (!_ventaGuardada) {'),sale.indexOf('        emitirOpStock("venta"'));
-  assert.ok(fail.includes('return J(')&&fail.includes('_revertirVenta()'));
+  // The original v579 per-sale _fotoVenta snapshot was replaced by the
+  // shared _marchaAtrasStock helper. Execute THAT source, not a simulated
+  // old rollback, so both an existing PN map and an absent key are protected.
+  const rollbackHelper=part('  function _marchaAtrasStock(p) {','  function _prepararOpStock(payload, idOperacion) {');
+  const start=sale.indexOf('        const _ventasAntes = ventas.length, _deshacerStockVenta = _marchaAtrasStock(p);');
+  const stop=sale.indexOf('        let _ventaGuardada = false, terminarVenta;',start);
+  assert.ok(start>=0&&stop>start,'snapshot and actual production rollback are together in sale');
+  const capture=sale.slice(start,stop);
+  assert.match(capture,/const _revertirVenta = \(\) => \{ _deshacerStockVenta\(\); ventas\.length = _ventasAntes; \};/,
+    'rollback must restore product and sale list, not just hide error');
+  const failStart=sale.indexOf('        if (!_ventaGuardada) {');
+  const failEnd=sale.indexOf('        emitirOpStock("venta"',failStart);
+  assert.ok(failStart>stop&&failEnd>failStart,'strict ACK rejection precedes stock network notification');
+  const fail=sale.slice(failStart,failEnd);
+  assert.match(fail,/_revertirVenta\(\)/);
+  assert.match(fail,/SALE_DURABILITY_UNCONFIRMED/);
   const classifier=part('  function _causaGuardadoEstricto(idb, ab) {','  function _guardadoLocalExitoso() {');
-  const run=new Function('p','prepare',`const cant=2,ventas=[],movimientos=[],clonar=x=>JSON.parse(JSON.stringify(x)),tSeguro=(_k,s)=>s,J=(body,status)=>({body,status}),_estadoAB=()=>null,_causaGuardado=()=>null,_esErrorDeCuota=()=>false,window={OCEstadoIDB:{guardarConRevision:()=>false,ultimoError:()=>null}};let selloUltimo='fixture';${classifier};${capture};${rollback};p.stockActual-=cant;ventas.push({id:'v'});movimientos.push({id:'m'});prepare({productoId:p.id,delta:-cant});let _ventaGuardada=false;${fail}`);
+  const run=new Function('p','prepare',`const cant=2,ventas=[],movimientos=[],clonar=x=>JSON.parse(JSON.stringify(x)),tSeguro=(_k,s)=>s,
+    J=(body,status)=>({body,status}),_estadoAB=()=>null,_causaGuardado=()=>null,_esErrorDeCuota=()=>false,
+    window={OCEstadoIDB:{guardarConRevision:()=>false,ultimoError:()=>null}};
+    let selloUltimo='fixture',debePersistir=true; ${rollbackHelper}; ${classifier}; ${capture};
+    p.stockActual-=cant;ventas.push({id:'v'});movimientos.push({id:'m'});
+    prepare({productoId:p.id,delta:-cant});
+    let _ventaGuardada=false; ${fail}`);
   for(const p of [
     {id:'fixture-beer',stockActual:10},
     {id:'fixture-beer',stockActual:10,stockBase:12,stockPN:{peer:{add:3,sub:5}},stockTs:3000,stockDeficit:1}
   ]) {
     const before=JSON.stringify(p), out=run(p,prepare(p));
     assert.equal(out.status,503,'nonquota CAS failure must not claim device storage exhaustion');
-    assert.equal(JSON.stringify(p),before,'restore existing values AND absent keys');
+    assert.equal(out.body.code,'SALE_DURABILITY_UNCONFIRMED');
+    assert.equal(JSON.stringify(p),before,'restore stock+PN, existing and absent keys without modification');
   }
 });
+
 test('sale: in-flight attempt cannot be seeded, merged or read as committed',()=>{
   const incoming=part('  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {','    const _demoRemoto =');
   const outgoing=part('    catalogoPropio() {','    estadoParaCheckpoint() {');
