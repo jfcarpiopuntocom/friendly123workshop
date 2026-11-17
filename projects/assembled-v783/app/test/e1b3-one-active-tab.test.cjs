@@ -127,13 +127,22 @@ test("E1b-3: three Yjs rooms follow visibility and lease",()=>{
  });
  const doc={get hidden(){return hidden;},addEventListener(){}};
  const win={OCTabSession:{canSync:()=>allowed},addEventListener(){}};
- const ctx={API,document:doc,window:win,OCTabSession:win.OCTabSession};
+ // The production function is nested among return-scheduler helpers; this
+ // slice-only VM must retain their lexical dependencies without mocking
+ // any real catalog/photo/ops channel pause or resume behavior.
+ let scheduledReturns=0;const clearedTimers=[];
+ const ctx={API,document:doc,window:win,OCTabSession:win.OCTabSession,
+  programarRetorno:()=>{scheduledReturns++;},
+  clearTimeout:id=>{clearedTimers.push(id);},
+  timerRetorno:123,retornoEnCurso:false,canalesPiloto:[]};
  vm.createContext(ctx);vm.runInContext(sync.slice(start,end),ctx);
  ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":resume")).length,3);
  hidden=true;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":pause")).length,3);
  // JFC 2026-11-12: a visible screen syncs even when another screen holds the old lease.
  hidden=false;allowed=false;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":pause")).length,3);
  assert.equal(actions.filter(x=>x.endsWith(":resume")).length,6);
+ assert.equal(scheduledReturns,2,"visible entry and visible return schedule return once each");
+ assert.deepEqual(clearedTimers,[123],"hidden transition cancels the pending return timer");
 });
 
 

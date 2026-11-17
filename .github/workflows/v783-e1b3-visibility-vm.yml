@@ -1,0 +1,38 @@
+name: v783 E1b-3 exact Yjs visibility native VM contract (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/e1b3-one-active-tab.test.cjs'
+      - '.github/workflows/v783-e1b3-visibility-vm.yml'
+permissions:
+  contents: read
+jobs:
+  visibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact dependency lock
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Execute entire original E1b-3 test file with no production network
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/e1b3-visibility
+          git rev-parse HEAD | tee ../evidence/e1b3-visibility/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/e1b3-one-active-tab.test.cjs 2>&1 | tee ../evidence/e1b3-visibility/tap.log
+      - name: Archive evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-e1b3-visibility-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/e1b3-visibility/
+          if-no-files-found: warn
+          retention-days: 14
