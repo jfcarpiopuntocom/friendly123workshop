@@ -6,13 +6,15 @@ const client=fs.readFileSync(path.resolve(__dirname,'../app/src/yparty-piloto.js
 const authorized=fs.readFileSync(path.resolve(__dirname,'../app/src/authorized-yprovider.mjs'),'utf8');
 const worker=fs.readFileSync(path.resolve(__dirname,'../relay/injertos/yparty-worker/src/index.js'),'utf8');
 const {inspectClientWire}=require('../quality/port.cjs');
-test('P0 current source proves private WS secure admission and pilot client lack the same contract',()=>{
+test('P0 current source proves secure distinct WS rooms and fresh client ticket callback, not complete commercial GO',()=>{
  const result=inspectClientWire({client,authorized,worker});
- assert.equal(result.compatible,false);
+ assert.equal(result.compatible,true);
  assert.equal(result.secureWorkerRequiresTicket,true);
  assert.equal(result.authorizedProviderAvailable,true);
- assert.equal(result.pilotUsesFreshTicket,false);
+ assert.equal(result.pilotUsesFreshTicket,true);
  assert.equal(result.pilotUsesPrivateRoom,false);
+ assert.equal(result.pilotUsesSeparatedRooms,true);
+ assert.equal(result.channelIsolationPreserved,true);
 });
 test('a fixture having ticket request and private room becomes source-compatible only when both are present',()=>{
  const a=inspectClientWire({
