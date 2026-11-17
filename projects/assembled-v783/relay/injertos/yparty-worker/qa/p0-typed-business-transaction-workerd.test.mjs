@@ -82,3 +82,60 @@ test('P0 Workerd real SQL: business-committed ACK iff money+stock+opId stored in
     fs.rmSync(persist,{recursive:true,force:true});
   }
 });
+
+test('P0 queued opId is promoted to business-committed exactly once after attaching SQL executor, even across restart',
+ {timeout:45000},async()=>{
+ const storagePath=fs.mkdtempSync(path.join(os.tmpdir(),'f123-pending-promotion-'));
+ const output=await build({entryPoints:[path.join(import.meta.dirname,'fixtures/typed-business-worker.mjs')],
+  bundle:true,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],
+  mainFields:['module','main'],external:['cloudflare:*'],write:false});
+ let worker=null;
+ const begin=async()=>{
+  worker=new Miniflare({modules:true,script:output.outputFiles[0].text,compatibilityDate:'2026-06-01',
+   compatibilityFlags:['nodejs_compat'],durableObjects:{BUSINESS:{className:'SyntheticBusiness',useSQLite:true}},
+   durableObjectsPersist:path.join(storagePath,'sql')});
+  return worker.ready;
+ };
+ let base2;
+ const send=async(route,command=sale('synthetic-queued-001',788))=>{
+  const response=await fetch(new URL(route,base2),{method:'POST',headers:{'content-type':'application/json'},
+   body:JSON.stringify({ticket:'synthetic-signed-ticket',command})});
+  return{status:response.status,body:await response.json()};
+ };
+ const stats=async()=>{const r=await fetch(new URL('/inspect',base2));return r.json();};
+ try{
+  base2=await begin();
+  const stored=await send('/queue');
+  assert.equal(stored.status,200);
+  assert.equal(stored.body.receipt.stage,'stored-for-application');
+  assert.deepEqual(await stats(),{stock:null,cash:null,ops:1,payloads:1},
+    'a pending receipt cannot pretend to change money');
+  await worker.dispose();worker=null;
+  base2=await begin();
+  const applied=await send('/submit');
+  assert.equal(applied.status,200);
+  assert.equal(applied.body.duplicate,true);
+  assert.equal(applied.body.receipt.stage,'business-committed',
+   'replayed pending op MUST actually run the SQL business effects');
+  assert.equal(applied.body.receipt.receiptId,stored.body.receipt.receiptId);
+  assert.equal(applied.body.receipt.acceptedAt,stored.body.receipt.acceptedAt);
+  assert.deepEqual(await stats(),{stock:9,cash:788,ops:1,payloads:1});
+  assert.equal((await send('/submit')).body.receipt.stage,'business-committed');
+  assert.equal((await send('/queue')).body.receipt.stage,'business-committed',
+   'a late old inbox must never downgrade a committed receipt');
+  assert.deepEqual(await stats(),{stock:9,cash:788,ops:1,payloads:1});
+  assert.equal((await send('/submit',sale('synthetic-queued-001',799))).status,409);
+  await worker.dispose();worker=null;
+  base2=await begin();
+  assert.equal((await send('/submit')).body.receipt.stage,'business-committed');
+  assert.deepEqual(await stats(),{stock:9,cash:788,ops:1,payloads:1},
+   'cold replay cannot double count formerly queued opId');
+  const pendingFailure=await send('/queue',sale('synthetic-op-fail',77));
+  assert.equal(pendingFailure.body.receipt.stage,'stored-for-application');
+  const retryFailure=await send('/submit',sale('synthetic-op-fail',77));
+  assert.equal(retryFailure.status,503);
+  assert.deepEqual(await stats(),{stock:9,cash:788,ops:2,payloads:2},
+   'failed queued promotion must roll back stock and retain pending op');
+  assert.equal((await send('/queue',sale('synthetic-op-fail',77))).body.receipt.stage,'stored-for-application');
+ }finally{await worker?.dispose();fs.rmSync(storagePath,{recursive:true,force:true});}
+});
