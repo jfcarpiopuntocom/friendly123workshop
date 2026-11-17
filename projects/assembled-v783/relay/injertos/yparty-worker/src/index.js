@@ -62,7 +62,13 @@ export class Tienda extends YServer {
   }
 
   isReadOnly(connection) {
-    return secureMode(this.env) && !connection.state?.accesoFirmado?.principal?.scopes.includes('priv:write');
+    if (!secureMode(this.env)) return false;
+    const scopes=connection.state?.accesoFirmado?.principal?.scopes;
+    // The commercial ops room is exclusively server-authored. An ops:sale
+    // claim permits a future TYPED request, never an arbitrary Yjs update.
+    if (this.name.endsWith('-ops')) return true;
+    if (this.name.endsWith('-cat')) return !scopes?.includes('cat:write');
+    return !scopes?.includes('priv:write');
   }
 
   async onConnect(conexion, contexto) {
@@ -297,7 +303,10 @@ function identidad(req) {
 
 async function guardia(req, lobby, env) {
   if (secureMode(env)) {
-    if (!lobby.name.endsWith('-priv') || !env.WS_AUTHORITY?.fetch || !new URL(req.url).searchParams.get('cap')) return new Response('Acceso no autorizado',{status:403});
+    const separate=env.WS_SEPARATE_ROOMS_QA==='1';
+    const admitted=lobby.name.endsWith('-priv') ||
+      (separate && (lobby.name.endsWith('-cat') || lobby.name.endsWith('-ops')));
+    if (!admitted || !env.WS_AUTHORITY?.fetch || !new URL(req.url).searchParams.get('cap')) return new Response('Acceso no autorizado',{status:403});
     // The public router consumes the one-use ticket BEFORE it upgrades the socket.
     // onConnect checks the consumed grant again before YServer can emit any frame.
     const access = await askAuthority(env,'consume',ticketRequest(req,lobby.name));
@@ -327,7 +336,7 @@ export default {
     // Limit the public endpoint before KV or a Durable Object sees the request.
     const path = new URL(req.url).pathname;
     if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "") ||
-        !(secureMode(env) ? ["-priv"] : ["", "-cat", "-ops"]).some(suffix => path === "/parties/tienda/" + env.SALA_PILOTO + suffix)) {
+        !(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv", "-cat", "-ops"] : ["-priv"]) : ["", "-cat", "-ops"]).some(suffix => path === "/parties/tienda/" + env.SALA_PILOTO + suffix)) {
       return new Response("Not found", { status: 404 });
     }
     if (req.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
