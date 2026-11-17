@@ -21,3 +21,7 @@ El canario real de `friendly-123/master@94a4e047` observó 26 páginas y 4.966 f
 
 ## Continuidad tras límite de 5h
 Rama `qa/20261116-coldjoin-yjs-5k-benchmark`, plan presente antes de workflow; consultar PR, runs y archivos. Trabajo de port en producción pertenece a otro carril: no tocar `friendly-123`. Gates abiertos: historia/ACK aplicación, problema multipestaña, reconciliación snapshots, Owner real y 2 ciclos físicos PC↔iPhone. Sin GO comercial.
+
+## First CI run: infrastructure failure, benchmark not executed
+
+[Actions 44009196029](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44009196029) on `df3350db6f20ab08377dcd71530abfc355e1f215` failed in first benchmark step: **`Cannot find module 'playwright'`** imported by `app/test/helpers/sin-red-produccion.cjs`. This helper is designed to patch Playwright browser launches, unnecessary for this benchmark and requires npm-installed browser package. No Yjs measurement happened, no timing or causal result can be claimed. The script itself remains unchanged. The Yjs bundle runs in a `vm` context exposing only console, WebCrypto, typed arrays, maps, promises and timers, **without** `fetch`, `require`, `WebSocket` or network APIs. Node wrapper only reads local files; the benchmark has no socket/fetch calls. For this pure synthetic Node job, remove browser-specific preload rather than installing Playwright or modifying source; no other files changed. Preserve failed run; repeat with true script and same 360s limit.
