@@ -1,0 +1,7 @@
+# Plan: port del retry IndexedDB y diagnóstico unión fría
+
+Solicitud JFC: contrastar análisis OpenCode, portar el fix del taller y diagnosticar canario. Estado observado friendly-123 master y estable `94a4e047cdb0b2b14cbab004de599d7e43fef79b`; ambos publican, no tocar ramas publicadas sin pruebas y proceso release. Workshop PR #70 no es PR #70 de friendly-123.
+
+1. Leer AGENTS, contrato y fast-track de friendly-123. Reproducir con test sintético original sobre fuente exacta master la promesa rechazada tras open error/blocked/throw; test RED antes del port. Preservar fallback, privacidad y tests #69/#70. No usar datos reales. Aplicar cambio mínimo a candidata aislada y verificar pruebas focales y shell/manifiesto según repo, más diferencias. Respaldo de código y resultados en workshop, sin confundirlo con producción.
+2. En paralelo lógico y sin tocar sync: localizar ejecución de canario del 16 nov, workflow, job, SHA y resultado originales; leer logs, condiciones y fases. Contrastar afirmación 32/40 si hay acceso a corridas, identificar evidencia de si se agota tiempo durante pull o causa concreta; no inventar terminación ni atribuir root cause sin traza.
+3. Riesgos previos comprobados: dos blobs legacy de IDB/localStorage pueden ser ambiguos y el fallback más reciente ocultarse y eliminarse después; cifrados concurrentes pueden sobrescribir snapshot nuevo. Port de #70 no arregla esos defectos. No afirmar GO ni convergencia física. Solo publicar si procedimiento y pruebas de la rama pertinente acreditan seguridad; proceso de revisión transparente.
