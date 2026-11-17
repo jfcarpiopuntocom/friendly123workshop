@@ -47,6 +47,58 @@ export class Tienda extends YServer {
   outboundQueue = Promise.resolve();
   outboundViews = new WeakMap();
   outboundViewSet = new WeakSet();
+  pendingOutboundFrames = [];
+  outboundBatchScheduled = false;
+
+  // Each batch verifies the exact current central grant for every recipient.
+  // Never cache permissions across batches; send synchronously AFTER the one
+  // batch authority response so another event cannot interleave a revocation
+  // between checked frames. The 32-frame cap bounds the revocation window.
+  async enviarLoteAutorizado(batch) {
+    const recipients=[...new Set(batch.map(frame=>frame.connection))]
+      .filter(connection=>connection.readyState===1);
+    const active=recipients.filter(connection=>unexpired(connection.state?.accesoFirmado));
+    const grants=active.length
+      ? await askAuthorityBatch(this.env,active.map(c=>c.state.accesoFirmado))
+      : [];
+    const proven=new Set();
+    for(const connection of recipients){
+      const i=active.indexOf(connection),grant=i>=0?grants?.[i]:null;
+      if(connection.readyState!==1)continue;
+      if(!grant||!unexpired(grant)){
+        connection.setState(p=>({...p,accesoFirmado:null}));
+        connection.close(1008,'Acceso no autorizado');
+        continue;
+      }
+      connection.setState(p=>({...p,accesoFirmado:grant}));
+      proven.add(connection);
+    }
+    for(const {connection,payload} of batch){
+      if(connection.readyState===1&&proven.has(connection)&&
+         unexpired(connection.state?.accesoFirmado))connection.send(payload);
+    }
+  }
+
+  programarLoteSaliente() {
+    if(this.outboundBatchScheduled||!this.pendingOutboundFrames.length)return;
+    this.outboundBatchScheduled=true;
+    queueMicrotask(()=>{
+      this.outboundBatchScheduled=false;
+      // Never serve arbitrary-sized bursts under one authorization check.
+      const batch=this.pendingOutboundFrames.splice(0,32);
+      const next=this.outboundQueue.then(()=>this.enviarLoteAutorizado(batch));
+      this.outboundQueue=next.catch(()=>{
+        for(const {connection} of batch){
+          if(connection.readyState===1){
+            connection.setState(p=>({...p,accesoFirmado:null}));
+            connection.close(1008,'Salida no autorizada');
+          }
+        }
+      });
+      this.ctx.waitUntil(this.outboundQueue);
+      if(this.pendingOutboundFrames.length)this.programarLoteSaliente();
+    });
+  }
 
   salidaSegura(connection) {
     if (!secureMode(this.env) || this.outboundViewSet.has(connection)) return connection;
@@ -54,20 +106,13 @@ export class Tienda extends YServer {
     const view = new Proxy(connection, {
       get: (target,key) => {
         if (key === 'send') return message => {
-          // YServer broadcasts from lifecycle/awareness too. Guard the actual send,
-          // not only inbound edits. Preserve per-room output order across async checks.
-          const payload = typeof message === 'string' ? message : new Uint8Array(message).slice();
-          const next = this.outboundQueue.then(async () => {
-            if (connection.readyState !== 1) return;
-            const access = connection.state?.accesoFirmado;
-            const current = unexpired(access) ? await askAuthority(this.env,'check',access) : null;
-            if (!current || !unexpired(current)) { connection.setState(p=>({...p,accesoFirmado:null})); connection.close(1008,'Acceso no autorizado'); return; }
-            if (connection.readyState !== 1) return;
-            connection.setState(p=>({...p,accesoFirmado:current}));
-            connection.send(payload);
-          });
-          this.outboundQueue = next.catch(() => { if (connection.readyState === 1) connection.close(1008,'Salida no autorizada'); });
-          this.ctx.waitUntil(this.outboundQueue);
+          // Include YServer lifecycle/awareness/sync sends. A per-frame
+          // remote check serializes a cold join with thousands of Yjs frames.
+          // Queue immutable payload copies; every bounded batch still checks
+          // signed roles/revocations centrally before delivering any bytes.
+          const payload=typeof message==='string'?message:new Uint8Array(message).slice();
+          this.pendingOutboundFrames.push({connection,payload});
+          this.programarLoteSaliente();
         };
         const value = Reflect.get(target,key,target);
         return typeof value === 'function' ? value.bind(target) : value;
