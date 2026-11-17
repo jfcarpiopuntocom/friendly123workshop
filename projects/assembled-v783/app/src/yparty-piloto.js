@@ -1,4 +1,5 @@
-import YProvider from 'y-partyserver/provider';
+import AuthorizedYProvider from './authorized-yprovider.mjs';
+import {createOwnerTicketParams} from './ws-owner-ticket-params.mjs';
 
 const host = 'friendly123-yparty-qa-20261114.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
@@ -82,10 +83,38 @@ window.F123YPartyPilot = function (sala, licencia) {
             const owned = JSON.parse(localStorage.getItem('f123_owned') || 'null');
             if (String(owned?.licenseCode || '').trim().toUpperCase() === licencia) instancia = owned.instanceId;
           } catch (_) {}
-          if (!/^[A-Za-z0-9_-]{6,128}$/.test(instancia || '')) return;
-          const proveedor = new YProvider(host, sala + '-' + tipo, doc, {
-            party: 'tienda', params: { licencia, instancia }, disableBc: true, connect: false,
-            maxBackoffTime: plazoReconectar
+          if (!/^[A-Za-z0-9_-]{6,128}$/.test(instancia || '')) {
+            usarRelayHabitual(); return;
+          }
+          // The private owner path deliberately handles only the channels for
+          // which server-side one-use tickets exist. Never pipe photo bytes to
+          // an unauthorized/private Yjs room; keep the encrypted old relay.
+          if (tipo !== 'cat' && tipo !== 'ops') {
+            usarRelayHabitual(); return;
+          }
+          const getCredentials = () => {
+            let owned;
+            try { owned = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
+            if (String(owned?.licenseCode || '').trim().toUpperCase() !== licencia ||
+                owned?.instanceId !== instancia ||
+                window.OCAuth?.rolActual?.() !== 'dueno') throw new Error('owner-session-unavailable');
+            // Only read the transient PIN that already opened the session.
+            // No PIN is put in localStorage, module globals, logs or WebSocket URL.
+            const pin = window.OCSecure?.leerPinQueAbre?.()?.owner;
+            if (typeof pin !== 'string' || !/^\\d{3}$/.test(pin) ||
+                pin === '456' || pin === '789') throw new Error('owner-session-unavailable');
+            return {kind:'owner',licenseCode:licencia,instanceId:instancia,pin};
+          };
+          let params;
+          try {
+            getCredentials();
+            params = createOwnerTicketParams({
+              licenseCode:licencia,instanceId:instancia,room:sala+'-'+tipo,getCredentials
+            });
+          } catch (_) { usarRelayHabitual(); return; }
+          const proveedor = new AuthorizedYProvider(host, sala + '-' + tipo, doc, {
+            party:'tienda',params,disableBc:true,connect:false,
+            maxBackoffTime:plazoReconectar
           });
           canal.proveedor = proveedor;
           esperarConexion(proveedor);
@@ -102,7 +131,16 @@ window.F123YPartyPilot = function (sala, licencia) {
           // turn must still disconnect the provider before it can send data.
           proveedor.connect().then(() => {
             if (document.hidden || canal.proveedor !== proveedor || doc.isDestroyed) proveedor.disconnect();
-          }).catch(() => {});
+          }).catch(() => {
+            if (canal.proveedor !== proveedor) return;
+            // Auth failed before the WS could certify any durable state.
+            // Keep the local Y.Doc and replayable outbox; the old encrypted
+            // relay is the only allowed failback, never bare identifiers.
+            canal.proveedor = null;
+            cancelarPlazo();
+            try { proveedor.destroy(); } catch (_) {}
+            usarRelayHabitual();
+          });
         }
       };
       function cancelarPlazo() {
