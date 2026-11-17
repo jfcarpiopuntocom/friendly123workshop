@@ -1,0 +1,36 @@
+name: "P0 complete YParty snapshot + journal Yjs back-export Workerd (no deploy)"
+on:
+  push:
+    branches: ["feat/20261117-full-yjs-export-workerd"]
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/relay/injertos/yparty-worker/src/durable-full-yjs-export.mjs"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-full-export-workerd.test.mjs"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/qa/fixtures/full-export-workerd.mjs"
+      - "projects/assembled-v783/quality/**"
+      - ".github/workflows/qa-v783-full-export-workerd.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reversible-yjs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed scorecard and six GO gates
+        run: node --test projects/assembled-v783/quality/score.test.cjs
+      - name: Install pinned Workerd/Yjs stack without lifecycle hooks
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'Workerd complete Yjs export snapshot plus journal, cold-start and fail-closed'
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-full-export-workerd.test.mjs 2>&1 | tee /tmp/f123-complete-export-workerd.tap
