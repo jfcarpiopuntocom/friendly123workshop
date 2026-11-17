@@ -37,3 +37,11 @@ Añadir exclusivamente workflow `.github/workflows/qa-workshop-v783-team-yjs-sec
 ## Reanudación si ocurre stop de 5h
 
 Plan dentro de `friendly123workshop` y Notion [reserva del import](https://app.notion.com/p/41b1642b67f381fa96e3e9ad80931af3). Revisar commit privado `c201314895edfa4f4d22aa73aa15fc51cafb9bd2`, historial PR #5 y CI SHA; si faltan checks dejar DRAFT. Confirmar navegador-first, Team y Yjs subtests, manifiesto SHA (full audit 29 FAIL) antes de avanzar. **Prohibido** saltarse tests o declarar protección remota real a partir de fixtures.
+
+## Ejecutado: 135 pruebas Team/WS/PIN/Yjs verdes, no servidor real
+
+- Nueva workflow `.github/workflows/qa-workshop-v783-team-yjs-security.yml` en rama privada `import/workshop-v783-browser-20261117`, 15 archivos de pruebas del ensamblaje real.
+- En el primer commit del workflow `f4bcf6b...` había un pipe TAP mal adjunto a la última línea de bash. Registrado y corregido en `072fba59d30aa7eb4b145bbdd2dc7ea36027b44c` (solo workflow, no tests ni comercial). Posteriormente `3f724ef2293ee9285f9f792268277cc691678c00` fijó `actions/checkout` al **PR HEAD exacto** en lugar del ref de merge generado por GitHub.
+- [Actions 44014268192](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44014268192): **135 tests, 135 PASS, 0 FAIL/SKIP/CANCEL**, fuente privada HEAD `3f724ef2293ee9285f9f792268277cc691678c00` checkout exacto, origen workshop SHA+árbol validado, Node 22. No ejecutó Worker Cloudflare live ni conectó licencias de cliente. Logs verifican `WORKSHOP-SOURCE-PIN`, y la suite de 15 archivos no se debilitó ni filtró.
+- [CI de browser actualizada 44014268256](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44014268256) del MISMO SHA `3f724ef...` estaba **en curso** cuando se redactó esta nota; hasta que esté SUCCESS **no usar** el 117/117 del SHA anterior como garantía del nuevo head. Ningún deploy ni PWA.
+- El PR #5 se mantiene DRAFT y apunta a QA browser. Faltan Team/WS reales, remote ACK de fotos, full coldjoin, prueba 2× física PC↔iPhone, comparación con Codex patch privado.
