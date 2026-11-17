@@ -293,3 +293,41 @@ test('P0 RED: rescue of early causal parent cannot skip 95 independent pre-CKPT 
     'durable ACK revision never rolls back');
   C.channel.pausar();
 });
+
+test('P0 frozen unfinished interval without Yjs debt resumes an encrypted pull BEFORE HEAD, within retry budget',()=>{
+  // Run the REAL programarRelectura closure verbatim with deterministic timers.
+  // This pins the second half of the v698 fix that a fast 95-op fixture may
+  // complete without exercising a scheduled 4-page recovery boundary.
+  const start=yjs.indexOf('    function programarRelectura(sock, estado) {',yjs.indexOf('function crearCanal('));
+  const end=yjs.indexOf('    // Only useful, applied bytes',start);
+  assert.ok(start>0&&end>start,'real frozen-history backoff function extracted');
+  const calls=[],timers=[],ws={readyState:1};
+  const ctx={
+    canal:{ws},partesEntrantes:{},doc:{store:{}},nombre:'catalogo',
+    _tReplay:null,_replayKey:null,_replayUsed:0,
+    clavePendientes:()=> 'synthetic-empty-debt',
+    deudaPendiente:()=>false,
+    pedirPagina:(sock,estado,sinHead)=>calls.push({sock,estado,sinHead}),
+    setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},
+    clearTimeout:()=>{},log(){},Math,Object,JSON
+  };
+  vm.createContext(ctx);vm.runInContext(yjs.slice(start,end),ctx);
+  const state={
+    enCurso:false,rescateCausalDesde:{rev:2,seq:20},
+    rescateCausalHasta:{rev:2,seq:500},rescateCausalAvanzo:true
+  };
+  ctx.programarRelectura(ws,state);
+  assert.equal(timers.length,1,'unfinished frozen history must schedule retry despite zero pending Yjs parents');
+  assert.equal(timers[0].delay,8000,'existing bounded 8s recovery pacing unchanged');
+  timers[0].fn();
+  assert.equal(calls.length,1,'a single paced historical pull is dispatched');
+  assert.equal(calls[0].sinHead,true,'never ask post-cut HEAD before independent history reaches frozen end');
+  assert.equal(state.rescateCausalAvanzo,false,'forward progress token consumed once, not inventing vector progress');
+  state.rescateCausalDesde=null;state.rescateCausalHasta=null;
+  ctx.programarRelectura(ws,state);
+  assert.equal(ctx._replayKey,null,'finished history and no Yjs debt reset retry bookkeeping');
+  ctx._replayUsed=5;ctx._replayKey='synthetic-empty-debt';
+  state.rescateCausalDesde={rev:2,seq:20};state.rescateCausalHasta={rev:2,seq:500};
+  ctx.programarRelectura(ws,state);
+  assert.equal(timers.length,1,'stalled history cannot bypass exhausted bounded retry budget');
+});
