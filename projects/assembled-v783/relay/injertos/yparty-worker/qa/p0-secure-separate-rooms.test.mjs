@@ -21,7 +21,7 @@ function storage(){
  finally{release();}}};
 }
 async function relay(){
- const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_PHOTO_BLOBS_QA:photoFlag?'1':'0',WS_PHOTO_ORIGIN_QA:'https://synthetic-photo.test',WS_SERVICE_KEY:key};
+ const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_PHOTO_BLOBS_QA:photoFlag?'1':'0',WS_TYPED_COMMANDS_QA:'1',WS_PHOTO_ORIGIN_QA:'https://synthetic-photo.test',WS_SERVICE_KEY:key};
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',compatibilityFlags:['nodejs_compat'],
  durableObjects:{Tienda:{className:'Tienda',useSQLite:true}},durableObjectsPersist:path.join(persist,'do'),
  kvNamespaces:['LICENCIAS'],bindings:mfBindings,
@@ -289,4 +289,38 @@ test('P0 Team cannot read private catalog Y.Doc until a sanitized public project
   writer.close();
   delete env.WS_QA_ROLE_GRANTS;
  }
+});
+
+test('P0 real Worker typed sale HTTP: central fresh Owner ticket, 202 inbox only, conflict/replay/cross-room denied',{timeout:24000},async()=>{
+ const command={opId:'synthetic-op-http-001',kind:'sale.record',license,
+   productId:'synthetic-sku',quantity:1,amountCents:2500};
+ const target=new URL('/parties/tienda/'+room+'-ops',url);
+ const send=async(token,cmd=command)=>{
+   const response=await fetch(target,{method:'POST',headers:{
+     'content-type':'application/json','authorization':'Bearer '+token,
+     'x-f123-license':license,'x-f123-instance':instance
+   },body:JSON.stringify(cmd)});
+   let body;try{body=await response.json();}catch(_){body={};}
+   return {status:response.status,body};
+ };
+ const first=await send(await issue('ops',['ops:sale']));
+ assert.equal(first.status,202,'not an economic commit; no browser may mark sale paid yet');
+ assert.equal(first.body.receipt?.stage,'stored-for-application');
+ assert.equal(first.body.ok,true);
+ const reused=await send(first.body.debugToken||'no-valid-token');
+ assert.equal(reused.status,403,'no bearer bypass');
+ const readOnly=await send(await issue('ops',['ops:read']));
+ assert.equal(readOnly.status,403,'ops:read cannot post a sale');
+ const crossed=await send(await issue('cat',['cat:read']));
+ assert.equal(crossed.status,403,'cat cap cannot mutate ops');
+ const fresh=await send(await issue('ops',['ops:sale']));
+ assert.equal(fresh.status,202);
+ assert.equal(fresh.body.duplicate,true);
+ assert.deepEqual(fresh.body.receipt,first.body.receipt,'idempotent inbox receipt');
+ const changed=await send(await issue('ops',['ops:sale']),{...command,amountCents:1});
+ assert.equal(changed.status,409,'same opId, different money is prohibited');
+ const other=await send(await issue('ops',['ops:sale']),{...command,opId:'synthetic-op-http-002'});
+ assert.equal(other.status,202);
+ assert.equal(other.body.receipt.stage,'stored-for-application');
+ assert.equal('saleCommitted' in other.body.receipt,false);
 });
