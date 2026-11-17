@@ -111,7 +111,7 @@ function pull() {
     doc: { store: { pendingStructs: { missing: new Map([[7, 9]]) } } }, partesEntrantes: {},
     canal: { ws, recuperando: true }, _pullCursorReady: Promise.resolve(),
     _pullCursor: { rev: 3, seq: 120 }, _appliedPullCursor: { rev: 3, seq: 120 }, _ultimoCursorLimpio: { rev: 3, seq: 120 },
-    _replayUsed: 0, _replayKey: null, _tReplay: null, _soloMemoria: false, PULL_PAGE_SIZE: 64, nombre: 'catalogo',
+    _replayUsed: 0, _replayKey: null, _tReplay: null, _soloMemoria: false, PULL_PAGE_SIZE: 64, nombre: 'catalogo', _antecedentesBuscados: false,
     API: { _store: { aplicar() {} }, clave: {} }, setTimeout: () => 17, clearTimeout: () => {}, log() {},
     Y: { encodeStateVector: () => new Uint8Array([1]) }, _colaRecepcion: Promise.resolve(),
     pullEstado: { enCurso: true, fallos: 0, usarHead: true } };
