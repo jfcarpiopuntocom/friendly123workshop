@@ -292,6 +292,9 @@ test('P0 Team cannot read private catalog Y.Doc until a sanitized public project
 });
 
 test('P0 real Worker typed sale HTTP: central fresh Owner ticket, 202 inbox only, conflict/replay/cross-room denied',{timeout:24000},async()=>{
+ // Synthetic test isolation only: previous 8 tests issued nearly all 32/min
+ // HMAC tickets. This does NOT change production rate limiting or cap checks.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
  const command={opId:'synthetic-op-http-001',kind:'sale.record',license,
    productId:'synthetic-sku',quantity:1,amountCents:2500};
  const target=new URL('/parties/tienda/'+room+'-ops',url);
