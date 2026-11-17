@@ -19,3 +19,8 @@ Misma `venta.id`, `ajuste.id`, `gasto.id` o `cartera.opId/id` con contenidos can
 - Esta capa es de **lectura/proyección**: no autoriza emisión de ventas ni corrige el P0 YParty `ops:sale`/opId mutable observado por PR13.
 - No tocar `yparty-worker` reservado por PR12, ni `sync-yjs.js`, `sync-outbox.js`, `avanzado-extra.js`, ni datos reales, ni PINs, ni proveedor/flag. Browser-first; PWA diferida.
 - Sin GO hasta firma central Owner/Team, commit inmutable tipado `opId`, coldjoin real y 2 ciclos físicos Opera PC ↔ Safari iPhone ↔ PC de stock/ventas/fotos/dinero/acceso. Reversión sencilla: cerrar PR aislada sin merge.
+
+## RED REAL DEL PORT (antes de tocar runtime)
+- PR [#75](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/75), test original nueve casos sin editar y workflow, HEAD `b5b92bfda93d088d2f25429cead998e930f6e664`.
+- [GitHub Actions 44086305984](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44086305984), job `134049521649`, **29 tests: 24 PASS, 5 FAIL esperados, 0 SKIP/CANCEL**. 20 histórico ledger-v1 continúa verde; errores exactamente en venta con dos precios, venta independiente tras conflicto, gasto duplicado, cobro con mismo opId y ajuste de comisión. Sintaxis OK. Logs completos observados.
+- NO son errores de infraestructura ni de fixture: `buildLedger` no registra `errors` y proyecta un importe arbitrario con ID duplicado. Autoriza ahora el parche mínimo de proyección, no deploy.
