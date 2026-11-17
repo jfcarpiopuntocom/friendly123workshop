@@ -49,8 +49,9 @@ test('real Workerd SQL Durable Object imports a frozen Yjs ops state and survive
  const w=await workspace(),h=history();
  try{
   const first=await w.fetch('room-a','/seed',h);
-  assert.equal(first.status,200,await first.text());
-  const acknowledgment=await first.json();
+  const firstBody=await first.text();
+  assert.equal(first.status,200,firstBody);
+  const acknowledgment=JSON.parse(firstBody);
   assert.equal(acknowledgment.already,false);
   assert.equal(acknowledgment.receipt.sha256,h.expectedStateSha256);
   const warm=await w.fetch('room-a','/read');
@@ -64,8 +65,9 @@ test('real Workerd SQL Durable Object imports a frozen Yjs ops state and survive
   const doc=new Y.Doc();try{Y.applyUpdate(doc,bytes);assert.equal(doc.getMap('eventos').size,3);
    assert.equal(doc.store.pendingStructs,null);assert.equal(doc.store.pendingDs,null);}finally{doc.destroy();}
   const duplicate=await w.fetch('room-a','/seed',h);
-  assert.equal(duplicate.status,200,await duplicate.text());
-  assert.equal((await duplicate.json()).already,true);
+  const duplicateBody=await duplicate.text();
+  assert.equal(duplicate.status,200,duplicateBody);
+  assert.equal(JSON.parse(duplicateBody).already,true);
  }finally{await w.close();}
 });
 
