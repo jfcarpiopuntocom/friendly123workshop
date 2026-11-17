@@ -547,4 +547,14 @@ function progresoRecuperacion(anterior, actual) {
   console.log('CANARIO_NAVEGADOR:', JSON.stringify(navegador));
   await b.close();
   if (fallo) { console.error('FALLA ' + fallo); process.exit(1); }
-})().catch(e => { console.error('FALLA CANARIO: ' + ((e && e.name) || 'Error')); process.exit(1); });
+})().catch(e => {
+  // Cleanup/navigation errors may have a hostile Error.name; never echo arbitrary data.
+  let clase = 'Error';
+  try {
+    const nombre = e && e.name;
+    if (['Error', 'TimeoutError', 'TargetClosedError', 'TypeError',
+        'ReferenceError', 'RangeError'].includes(nombre)) clase = nombre;
+  } catch (_) {}
+  console.error('FALLA CANARIO: ' + clase);
+  process.exit(1);
+});
