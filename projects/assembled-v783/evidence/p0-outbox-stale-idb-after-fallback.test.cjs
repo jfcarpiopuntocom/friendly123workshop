@@ -5,7 +5,7 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../app/docs/sync-outbox.js'),'utf8');
 const key='f123_sync_pending';
 
-test('a successful local fallback remains readable after IndexedDB recovers and module reloads',async()=>{
+async function fixture(){
   const local=new Map(), durable=new Map();
   let abort=false;
   const db={transaction(store,mode){
@@ -31,5 +31,19 @@ test('a successful local fallback remains readable after IndexedDB recovers and 
   assert.equal(local.get(key),'synthetic-B');
   abort=false;
   api=load();
+  return {api,local,durable};
+}
+
+test('a successful local fallback remains readable after IndexedDB recovers and module reloads',async()=>{
+  const {api}=await fixture();
   assert.equal(await api.leer(),'synthetic-B','the successful newer fallback must survive restart even when the older IDB copy is readable');
+});
+
+test('later successful save must not delete an unread newer fallback',async()=>{
+  const {api,local,durable}=await fixture();
+  const restored=await api.leer();
+  assert.equal(restored,'synthetic-A','reproduce current stale restoration before subsequent write');
+  assert.equal(await api.guardar(restored+'-plus-C'),true);
+  assert.equal(local.get(key),'synthetic-B','unread fallback must not be deleted by a later write');
+  assert.equal(durable.get(key).blob,'synthetic-A-plus-C');
 });
