@@ -78,6 +78,8 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  assert.ok(replayStart>=0&&replayEnd>replayStart,"uses actual E1b2 five-attempt retry");
  assert.ok(start>=0&&end>start,"uses the candidate's receive and replay handler");
  assert.ok(openStart>=0&&openEnd>openStart,"uses the candidate's actual onopen recovery queue");
+ // This VM executes the real crearCanal handler; re-create the one-shot
+ // _antecedentesBuscados binding present in the original lexical closure.
  const clock=fakeClock(),ctx={
   API:{clave:{},_store:null},canal:{ws:null,recuperando:true},pullEstado:{enCurso:false,fallos:0},
   _colaRecepcion:Promise.resolve(),_pullCursor:{rev:0,seq:0},_appliedPullCursor:{rev:0,seq:0},_pullCursorReady:Promise.resolve(),
