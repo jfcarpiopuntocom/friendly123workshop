@@ -1,10 +1,23 @@
 diff --git a/docs/sync-outbox.js b/docs/sync-outbox.js
-index 76653372..a74c30b5 100644
+index 76653372..7068c57c 100644
 --- a/docs/sync-outbox.js
 +++ b/docs/sync-outbox.js
-@@ -41,6 +41,7 @@
+@@ -34,13 +34,18 @@
+     if (dbPromise) return dbPromise;
+     dbPromise = new Promise(function (resolve, reject) {
+       var req = indexedDB.open(DB_NAME, 1);
++      var bloqueada = false;
+       req.onupgradeneeded = function () {
+         if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: "id" });
+       };
+-      req.onsuccess = function () { resolve(req.result); };
++      req.onsuccess = function () {
++        if (bloqueada) { try { req.result.close(); } catch (_) {} return; }
++        resolve(req.result);
++      };
        req.onerror = function () { reject(req.error); };
-       req.onblocked = function () { reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)")); };
+-      req.onblocked = function () { reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)")); };
++      req.onblocked = function () { bloqueada = true; reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)")); };
      });
 +    dbPromise = dbPromise.catch(function (e) { dbPromise = null; throw e; });
      return dbPromise;
