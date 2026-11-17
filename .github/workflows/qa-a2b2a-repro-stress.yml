@@ -1,0 +1,60 @@
+name: P0 native Chromium WebKit A2B2A reproducibility five runs (no deploy)
+on:
+  push:
+    branches: [qa/20261117-a2b2a-native-causal-trace]
+    paths:
+      - '.github/workflows/qa-a2b2a-repro-stress.yml'
+      - 'projects/assembled-v783/app/test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-a2b2a-repro-stress.yml'
+      - 'projects/assembled-v783/app/test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs'
+permissions:
+  contents: read
+jobs:
+  five-independent-native-samples:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    defaults:
+      run:
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked app and actual browser engines
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+      - name: SHA and syntax
+        run: |
+          git rev-parse HEAD
+          node --check test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs
+      - name: Five independent identical native runs, preserve every RED
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/a2b2a-runs"
+          errors=0
+          for attempt in 1 2 3 4 5; do
+            echo "A2B2A_NATIVE_ATTEMPT_START $attempt"
+            node --test --test-concurrency=1 test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs 2>&1 | tee "$RUNNER_TEMP/a2b2a-runs/attempt-$attempt.tap"
+            code=${PIPESTATUS[0]}
+            echo "A2B2A_NATIVE_ATTEMPT_RESULT $attempt $code"
+            if [ "$code" -ne 0 ]; then errors=$((errors+1)); fi
+          done
+          echo "A2B2A_NATIVE_TOTAL_FAIL $errors / 5"
+          test "$errors" -eq 0
+      - name: Keep original TAP regardless of failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a2b2a-native-five-${{ github.run_id }}
+          path: ${{ runner.temp }}/a2b2a-runs/
+          if-no-files-found: warn
+          retention-days: 14
