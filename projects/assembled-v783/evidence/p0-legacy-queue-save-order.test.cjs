@@ -33,3 +33,19 @@ test('overlapping encrypted saves retain both completed requests',async()=>{
   }
   assert.equal(JSON.parse(stored.at(-1)).length,2,'last durable snapshot retains both operations');
 });
+
+test('an encryption failure does not permanently block later pending operations',async()=>{
+  const items=new Map(),stored=[];let calls=0;
+  const localStorage={getItem:k=>items.get(k)??null,setItem:(k,v)=>items.set(k,String(v)),removeItem:k=>items.delete(k)};
+  const window={fetch:async()=>({ok:true}),addEventListener(){},dispatchEvent(){},
+    OCSecure:{activarSync:async()=>true,syncActiva:()=>true,
+      cifrarSync:async txt=>{if(++calls===1)throw Error('synthetic encryption failure');return txt;},descifrarSync:async s=>s},
+    OCOutbox:{leer:async()=>null,guardar:async blob=>{stored.push(blob);return true;}}};
+  const context={window,localStorage,API:'/api',setInterval:()=>1,clearInterval(){},console,CustomEvent:function(){},Date,Math,JSON,Set};
+  vm.runInNewContext(closure,context,{filename:'real-avanzado-extra-sync'});
+  await window.__testSync.activar('synthetic');
+  await window.fetch('/api/sale-a',{method:'POST'});
+  await window.fetch('/api/sale-b',{method:'POST'});
+  assert.equal(calls,2);
+  assert.equal(JSON.parse(stored.at(-1)).length,2);
+});
