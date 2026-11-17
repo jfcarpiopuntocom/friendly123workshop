@@ -6,10 +6,16 @@ Fuente ejecutable de la calidad: [score-v1.json](score-v1.json) + [score.cjs](sc
 
 | Métrica | Hace una semana | Corte anterior 17-nov | Actual 17-nov | Meta |
 |---|---:|---:|---:|---:|
-| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 64.5/100 | **64.5/100** (±4 criterio) | ≥95 |
+| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 64.5/100 | **66.0/100** (±4 criterio; candidato QA) | ≥95 |
 | Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **36.0/100** | 100 **y 6/6 gates** |
 
-Calidad +19.5 puntos estimados frente al 10-nov. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+Calidad +21.0 puntos estimados frente al 10-nov (45.0→66.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+
+## Revisión de calidad 66.0/100 verificada en Workerd (17-nov, no port GO)
+
+No cambiaron ejes, pesos ni seis gates. **+0.5** en durabilidad (16.0→16.5/20) por [Workerd SQL 3/3 con reintento queued→applied, reinicio y rollback](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44196026710); el ejecutor final es **sintético y no está conectado a la caja**. **+1.0** seguridad (7.5→8.5/15) por [denegación de Team al catálogo privado](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44193649188), [Team tipado y revocación 10/10](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44195009756) y [CORS exacto HTTPS con ticket intacto 11/11](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44199112764). **No** aumentaron negocio, sync, fotos, migración ni físico.
+
+[TDD marcador RED esperado](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44199685238) calculó 64.5 frente a 66.0 antes de actualizar JSON; [GREEN real calidad/Workerd](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44199783940) pasa con `score-v1.json` anclado al SHA `1fc46eb8ee4b1d54cee0aceb473574cae72ed75b`. **Port 36.0/100; 0/6; NO-GO**, no despliegue. `WS_TYPED_ORIGIN_QA` exige el origen HTTPS de la tienda *configurado explícitamente*; si falta, la petición de navegador falla cerrada. Nada de esto acredita venta aplicada ni una sola unión fría física.
 
 ## Rubros de port (100 puntos exactos, inmutables)
 
