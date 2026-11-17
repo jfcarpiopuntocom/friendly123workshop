@@ -1,0 +1,23 @@
+# Historical v604 update safety VM — design / 5-hour restart checkpoint (test only)
+
+Date: 2026-11-16 Ecuador. Repo: `jfcarpiopuntocom/friendly123workshop`.
+Branch `test/20261116-v604-safe-update-slice`; immutable base `20570efa4db6e7562f0ff215b765e7faeab2a738` (post-#61 main, current production unchanged).
+**Scope solely `projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs` + isolated CI workflow + this plan.** Never touch `app-inline-03.js`, compiled JS, Service Worker, manifest, PWA, Workbox, real customer, license/PIN, remote scopes or deployment. Current `AGENTS.md` says PWA/SW deferred; this task does not activate/alter them.
+
+## Root cause before changes
+[Unfiltered historical CI run 43983149410](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43983149410) (3,228 tests, 48 fails on older SHA) contains **6 related failures** from `test/incident-v604-no-auto-reload-pending-yjs.test.cjs`: both `src/app/app-inline-03.js` and `docs/app-inline-03.min.js` cases `never auto-reload during Yjs peer recovery`, `never auto-reload during local IndexedDB recovery`, `keep upgrades possible only after completed sync recovery`. These **all throw at the test setup guard** `real safety function must exist`, not at a runtime assertion.
+The source is *present and safe-looking*: real `function seguro() { return seguroCon(false); }`, `function seguroCon(sinRecuperacion)` checks `recuperacionPendiente()` and PIN gate, `function recuperacionPendiente()` checks three Yjs channels and IDB recovery plus diagnostic flag. Compiled source has equivalent functions. The **historical test's end delimiter `async function intentar()` was removed** by source evolution, now `function intentar(...)`, so `end=-1` in both source and minified. Source positions: `function seguro()` source at 13665; `function intentar(` source at 19124; minified `function seguro()` 4994, `function intentar(` 7727; `async function intentar()` absent both. The test sliced nothing and threw before its meaningful checks.
+This is a historical VM extraction problem unless new real execution uncovers another error. Source `location.reload` occurrence inspected is an explicit **user-click reload button** in a defensive error UI, not evidence of an automatic reload.
+Most recent full [post61 CI 43989633836](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43989633836) is in progress at planning time; read the final run and by-name inventory first before touching test, so old evidence is not mistaken for current result.
+
+## Exact TDD workflow
+1. Preserve old 6 RED names/error and fresh full new result once ready. No source runtime change.
+2. Change ONLY VM extraction delimiter in original test: from historical literal `async function intentar()` to current `function intentar(` using source lookup, while ensuring `start>0 && end>start`, and retain all 6 original assertions. Do NOT replace tests with static grep; execute actual real source function and recovery checks in VM.
+3. Run entire original file with Node22 and `--require ./test/helpers/sin-red-produccion.cjs`, no filters. If fails due missing `seguroCon` dependencies or other needed harmless lexical context, inspect stack and supply only actual source helpers in VM, preserving original behavior. Do not change production to please stale harness, no skipped cases.
+4. Add GitHub Actions workflow `.github/workflows/v783-v604-safe-update-vm.yml` using existing no-deploy Node22/npm ci and archive exact SHA/TAP/exit. CI must show 6/6 PASS, 0 FAIL/OMIT and original assertions intact before workshop-only merge.
+5. Add extra synthetic guard if necessary: legacy `recuperando:true` Yjs, local IDB `recuperacionLocal: pendiente`, `_diag().recuperacionLocalPendiente` true, ready Yjs allows only if no PIN gate, no Yjs also allows safe update. Keep comparisons in both source and compiled.
+6. Existing full baseline may still be RED for other historical fixture/network integration failures. Never claim global full green from 6/6. Run independent assembled integration if PR triggers. Do not activate PWA/SW.
+7. Compare current main and parallel agents before merge; preserve exact SHA, RED/GREEN logs, Notion handoff, no 5h work loss.
+
+## Product GO blockers unchanged
+Remote commercial `business-committed` ACK requires trusted human/license/customer authority and idempotent executor, not present in production; no scope changes. Physical PC Opera→iPhone Safari/PWA→PC A→B→A×2, original customer sales/stock/money/photos/access/outbox and remote ACK not verified. No production release.
