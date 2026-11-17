@@ -1,0 +1,22 @@
+# Network privacy v557: classify imported QA team authority Worker, preserve deny-by-default — 2026-11-16 Ecuador
+
+Repo: `jfcarpiopuntocom/friendly123workshop`. Isolated branch `test/20261116-team-worker-egress-boundary`, base exact main `d6dbe115c9dfac1d8a76ccde4e546c8e6f12b9af` (after PR #63 and latest status checkpoint). This is the mandatory 5-hour restart plan written **before** modifying any tests/code. Do not touch production clients, root/docs, relay deployment, PINs or actual data. No new dependency, backend, protocol or authorization scope. PWA/SW deferred.
+
+## Root cause observed, not guessed
+The unfiltered 3,231-test native historical [run 43989633836](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/43989633836), PR #62 pre-#63, has two privacy test failures:
+- TAP #2297 `estatico: workers.dev queda limitado a licencias y senalizacion, nunca negocio central`: actual outbound host filename inventory `auth-ui.js, crypto-store.js, panel-pin.js, panel.html, team-authority-client.js`; expected omitted `team-authority-client.js`.
+- TAP #2299 `estatico: toda llamada fetch/cliente a hosts externos esta clasificada`: explicit fetch literal `https://friendly123-licencias...` in `team-authority-client.js` omitted by expected `['crypto-store.js']`.
+Original actual source `app/docs/team-authority-client.js` read in full. It is QA-only and returns null from `context()` unless `localStorage.f123_team_authority_qa==='1'`, current role `dueno`, correctly formed local license+device and license matches active notebook. It builds the endpoint literal `https://friendly123-licencias.jfcarpio.workers.dev` and uses only `post('/team/update', ...)` or `post('/team/status', ...)`, with local Owner PIN proof. No general arbitrary server URL; no sale/customer/stock/expenses/photos sent. **This is sensitive credential metadata** and must stay isolated to Worker AUTHORITY. A source file name alone is not enough to establish safe execution: add explicit negative live/VM guards.
+
+## RED→GREEN scope, one original test file + independent workflow + plan
+1. The two historical failure names and exact actual extra file were observed in real runner; preserve original no-Cloudflare-business assertions and runtime browser no-network suite.
+2. Modify only `projects/assembled-v783/app/test/relay-sin-cloudflare-datos-v557.test.js`:
+   - Include exactly `team-authority-client.js` among allowed FILES for the license Worker, and explicit permitted fixed-host fetch list. Keep `workers.dev` host count still exactly 3 and all other host/routing checks, no broad wildcard or skip.
+   - Add strict static assertions that `team-authority-client.js` uses exactly the pinned licenses Worker URL, only `/team/update` and `/team/status`, has explicit QA flag and owner role, rejects wrong store, never calls endpoints owned by sync-relay, `/sala`, `/signal`, `/api/productos`, `/api/ventas`, `/api/clientes`, `/api/gastos`. Do not allow new arbitrary origin or headers.
+   - Add VM execution test: `window.F123TeamAuthority` actual module can load with stubbed window/listeners and synthetic localStorage without sending network; repeated `flush()` and `refresh()` when QA flag absent or role !== dueno yields 0 external fetch; verify no new PIN copy or ad hoc background activity. If fixture fails, diagnose, don't weaken auth/role logic. Test only synthetic licenses, no tokens.
+3. GitHub Actions Node22/npm ci, native Chromium/WebKit (original full file uses Chromium), no-production-network blocker, run ENTIRE original file unfiltered, archive TAP/SHA and nonzero code. RED proven from original full run, GREEN only upon actual CI.
+4. No updates to compiled/manifest/client source; no allowance of customer/business data to Worker; never treat remote `stored-for-application` as commercial `business-committed`.
+5. Cross-check main and other PRs before merging. Report exact job logs, counts, SHA, result in Notion [living handoff](https://app.notion.com/p/4181642b67f381c0a3eff1ff56e44902) and `STATUS.md`. If 5h cut occurs, resume this plan.
+
+## Hard overall GO blockers unchanged
+Even green privacy-tests are not app release: no physical two PC Opera→iPhone Safari/PWA→PC A→B→A rounds, unverified authority server-side per real customer/license, remote exactly-once commercial executor/readback ACK, money/photos/stock reconciliation. Production and clients unchanged. Historical full red on pre-#63 44 FAIL; do not invent new count for post-#63.
