@@ -34,7 +34,7 @@ async function frame({proof=false,more=true,source='pull-page'}={}) {
       // before the IndexedDB transaction barrier and readback.
       ctx._pullCursor={rev:c.rev,seq:c.seq};
       if(proof===true)ctx._appliedPullCursor={rev:c.rev,seq:c.seq};
-      return proof;
+      return proof==='deferred'?undefined:proof;
     },
     pedirPagina:()=>{pages++;return Promise.resolve();},
     log:(...s)=>logs.push(s),
@@ -58,7 +58,7 @@ test('RED P0: failed durable cursor proof must not paginate, mark pull applied, 
   assert.deepEqual(x.closed.map(v=>v.code),[1013],'reconnect safely without losing encrypted history');
 });
 test('RED P0: deferred pending Yjs or RAM-only cursor can keep reading but must not claim durable proof',async()=>{
-  const x=await frame({proof:undefined});
+  const x=await frame({proof:'deferred'});
   assert.equal(x.pages,1,'a pending proof may keep collecting encrypted pages in memory');
   assert.equal(x.closed.length,0,'do not break valid pending fragment/parent replay');
   assert.equal(x.ctx.pullEstado.pullAplicado,false,'deferred storage is never a durable page ACK');
