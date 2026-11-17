@@ -1,0 +1,38 @@
+name: v783 v607 strict rack IDB and dual quota original test (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/venta-durable-deficit.test.js'
+      - '.github/workflows/v783-v607-rack-storage-quota.yml'
+permissions:
+  contents: read
+jobs:
+  rack-quota:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact dependency lock
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Execute entire durable deficit suite and preserve true failures
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/v607-rack-quota
+          git rev-parse HEAD | tee ../evidence/v607-rack-quota/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/venta-durable-deficit.test.js 2>&1 | tee ../evidence/v607-rack-quota/tap.log
+      - name: Archive evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-v607-rack-quota-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/v607-rack-quota/
+          if-no-files-found: warn
+          retention-days: 14
