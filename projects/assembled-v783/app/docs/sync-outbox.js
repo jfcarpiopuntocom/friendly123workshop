@@ -34,12 +34,24 @@
     if (dbPromise) return dbPromise;
     dbPromise = new Promise(function (resolve, reject) {
       var req = indexedDB.open(DB_NAME, 1);
+      // onblocked puede ser seguido por onsuccess aun despues del rechazo:
+      // cerrar esa conexion tardia evita mantener bloqueados otros upgrades.
+      var aperturaAbandonada = false;
       req.onupgradeneeded = function () {
         if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: "id" });
       };
-      req.onsuccess = function () { resolve(req.result); };
-      req.onerror = function () { reject(req.error); };
-      req.onblocked = function () { reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)")); };
+      req.onsuccess = function () {
+        if (aperturaAbandonada) {
+          try { if (req.result && typeof req.result.close === "function") req.result.close(); } catch (_) {}
+          return;
+        }
+        resolve(req.result);
+      };
+      req.onerror = function () { aperturaAbandonada = true; reject(req.error); };
+      req.onblocked = function () {
+        aperturaAbandonada = true;
+        reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)"));
+      };
     });
     dbPromise = dbPromise.catch(function (e) { dbPromise = null; throw e; });
     return dbPromise;
