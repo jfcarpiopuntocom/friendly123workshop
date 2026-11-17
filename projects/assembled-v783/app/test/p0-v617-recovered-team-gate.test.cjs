@@ -44,7 +44,7 @@ test('recovery and PIN grant access on the same license, whether joined or owned
 });
 test('joined team login cannot overwrite original device owner PIN', () => {
   const at = authSource.indexOf('  async function alinearYEntrar(code, rolEntrada) {');
-  const stop = authSource.indexOf('  async function validar(code)', at);
+  const stop = authSource.indexOf('  async function validar(code, esReintento)', at);
   assert.ok(at > 0 && stop > at);
   const entry = authSource.slice(at, stop);
   assert.match(entry, /recordarPinQueAbre\(code, rolEntrada\)/);
@@ -60,20 +60,39 @@ test('unrecovered team metadata shows pending without classifying the PIN as wro
   const stop = authSource.indexOf('    // A licensed browser with no local verifier', at);
   assert.ok(at > 0 && stop > at);
   const readiness = authSource.slice(at, stop);
-  const check = (ready, owner) => {
-    const messages = [];
-    const fn = new Function('window', 'error', readiness + ';return true;');
+  const helperAt = authSource.indexOf('  function canalAccesoListo(Y) {');
+  const helperEnd = authSource.indexOf('  function soltarPinEnEspera()', helperAt);
+  assert.ok(helperAt > 0 && helperEnd > helperAt, 'reuse actual v769 access-readiness helper');
+  const actualAccessHelper = authSource.slice(helperAt, helperEnd);
+  const check = (ready, owner, { accessReady = ready, retry = false } = {}) => {
+    const messages = [], pending = [];
+    // Only the surrounding browser closure is supplied by this fixture.
+    // The access-readiness decision itself is the unchanged production helper.
+    const fn = new Function('window', 'error', 'guardarPinEnEspera', 'esReintento', 'code',
+      actualAccessHelper + readiness + ';return true;');
     const window = {
       OCTienda: { esUnida: () => true },
-      OCYjs: { roomId: 'synthetic-room', canal: { recuperando: !ready },
+      OCYjs: { roomId: 'synthetic-room',
+        canal: { recuperando: !ready, accesoListo: () => accessReady },
         meta: { get: () => ({ owner }) } }
     };
-    const ok = fn(window, msg => messages.push(msg));
-    return { ok, messages };
+    const ok = fn(window, msg => messages.push(msg),
+      code => pending.push(code), retry, '432');
+    return { ok, messages, pending };
   };
   assert.equal(check(false, '432').ok, undefined);
   assert.equal(check(false, '432').messages.length, 1);
+  assert.deepEqual(check(false, '432').pending, ['432'], 'retry is scheduled only after proof of recovery');
   assert.equal(check(true, '432').ok, true);
   assert.equal(check(true, '432').messages.length, 0);
-  assert.equal(check(true, '456').ok, undefined);
+  assert.deepEqual(check(true, '432').pending, []);
+  assert.equal(check(true, '456').ok, undefined, 'reserved owner PIN must not be accepted');
+  assert.deepEqual(check(true, '456').pending, ['432']);
+  assert.equal(check(true, '').ok, undefined, 'missing owner metadata is never treated as a wrong PIN');
+  assert.deepEqual(check(false, '432', { retry: true }).pending, [],
+    'a retry never queues its own PIN again');
+  assert.equal(check(true, '432', { accessReady: false }).ok, undefined,
+    'an apparently recovered stream is not ready if the authoritative access HEAD is pending');
+  assert.equal(check(false, '432', { accessReady: true }).ok, true,
+    'verified access HEAD is authoritative over the older recuperando hint');
 });
