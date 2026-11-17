@@ -5,12 +5,14 @@ on:
     paths:
       - 'projects/assembled-v783/app/docs/sync-yjs.js'
       - 'projects/assembled-v783/app/test/p0-precut-independent-writers-v783.test.cjs'
+      - 'projects/assembled-v783/app/test/p0-yjs-pending-snapshot.test.js'
       - '.github/workflows/qa-v783-precut-completion.yml'
   pull_request:
     branches: [main]
     paths:
       - 'projects/assembled-v783/app/docs/sync-yjs.js'
       - 'projects/assembled-v783/app/test/p0-precut-independent-writers-v783.test.cjs'
+      - 'projects/assembled-v783/app/test/p0-yjs-pending-snapshot.test.js'
       - '.github/workflows/qa-v783-precut-completion.yml'
 permissions:
   contents: read
@@ -41,5 +43,6 @@ jobs:
           node --test --test-concurrency=1 --test-timeout=95000 \
             test/p0-precut-independent-writers-v783.test.cjs \
             test/sync3-head-causal-gap.test.cjs \
+            test/p0-yjs-pending-snapshot.test.js \
             test/pull-cursor-durable-ack.test.cjs \
             test/firebase-relay-timestamp-boundary.test.cjs 2>&1 | tee /tmp/f123-precut-qa.tap
