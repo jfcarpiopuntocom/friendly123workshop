@@ -1,0 +1,293 @@
+{
+  "version": 1,
+  "metric": "operational-port-completion",
+  "target": 100,
+  "reviewedAt": "2026-11-17T17:53:20Z",
+  "reviewedSha": "d7545ab5100f2239260be2c9392f40c16b35dcd4",
+  "source": "friendly123workshop/projects/assembled-v783",
+  "disclaimer": "Milestone-based operational PORT completion, NOT app quality, probability, elapsed-time estimate or customer activation. Credits for prep do not imply any first-shop gate passed. Six JFC gates are immutable. No real customer data or physical evidence.",
+  "qualityMetricPath": "score-v1.json",
+  "gates": [
+    {
+      "id": "economics",
+      "label": "Negar escritura económica no autorizada y ejecutar venta/ajuste/cobro tipados por opId",
+      "weight": 20,
+      "certified": false,
+      "stages": [
+        {
+          "id": "reject-employee-raw-yjs",
+          "points": 4,
+          "done": true,
+          "label": "Private Worker rejects unauthorized raw Yjs edits via server scope; commercial typed executor not yet present",
+          "evidence": [
+            {
+              "sha": "6c242148e2c1a9523ef9f981461ffa24060387f3",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44141527108",
+              "claim": "Worker Owner-only private admission and raw-Yjs write scope guard passed in real-source synthetic authority suite; economic commands remain not business applied",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
+        },
+        {
+          "id": "typed-sale-commit",
+          "points": 5,
+          "done": false,
+          "label": "Venta tipada aplicada exactamente una vez a dinero e inventario con opId",
+          "evidence": [],
+          "pendingReason": "Venta tipada aplicada exactamente una vez a dinero e inventario con opId"
+        },
+        {
+          "id": "typed-adjust-commit",
+          "points": 4,
+          "done": false,
+          "label": "Ajuste de stock tipado con verificación comercial durable",
+          "evidence": [],
+          "pendingReason": "Ajuste de stock tipado con verificación comercial durable"
+        },
+        {
+          "id": "typed-payment-commit",
+          "points": 4,
+          "done": false,
+          "label": "Cobro y fiado tipados aplicados duramente por principal autorizado",
+          "evidence": [],
+          "pendingReason": "Cobro y fiado tipados aplicados duramente por principal autorizado"
+        },
+        {
+          "id": "business-committed-ack",
+          "points": 3,
+          "done": false,
+          "label": "ACK de hecho comercial aplicado, no solo stored-for-application",
+          "evidence": [],
+          "pendingReason": "ACK de hecho comercial aplicado, no solo stored-for-application"
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "label": "Autoridad Owner/Team real y ticket fresco por canal y reconexión",
+      "weight": 20,
+      "certified": false,
+      "stages": [
+        {
+          "id": "central-issuer-service",
+          "points": 5,
+          "done": true,
+          "label": "Emisor real de acceso validado por Service Binding y deny-by-default en Worker",
+          "evidence": [
+            {
+              "sha": "6c242148e2c1a9523ef9f981461ffa24060387f3",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44141527108",
+              "claim": "Real issuer local service-binding and Owner private admission were tested; client ticket callback is not wired",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
+        },
+        {
+          "id": "server-private-admission",
+          "points": 5,
+          "done": true,
+          "label": "Worker /-priv requiere cap consumido y valida principal Owner sin emisor directo expuesto",
+          "evidence": [
+            {
+              "sha": "6c242148e2c1a9523ef9f981461ffa24060387f3",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44141527108",
+              "claim": "Worker Owner-only private admission and raw-Yjs write scope guard passed in real-source synthetic authority suite; economic commands remain not business applied",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
+        },
+        {
+          "id": "browser-fresh-ticket",
+          "points": 6,
+          "done": false,
+          "label": "El cliente real usa AuthorizedYProvider con ticket central fresco por conexión y sala -priv",
+          "evidence": [],
+          "pendingReason": "El cliente real usa AuthorizedYProvider con ticket central fresco por conexión y sala -priv"
+        },
+        {
+          "id": "owner-team-role-flows",
+          "points": 4,
+          "done": false,
+          "label": "Roles Owner/Team del negocio reales, revocación y reconexión del cliente aplicadas",
+          "evidence": [],
+          "pendingReason": "Roles Owner/Team del negocio reales, revocación y reconexión del cliente aplicadas"
+        }
+      ]
+    },
+    {
+      "id": "photos",
+      "label": "Fotos como blobs externos SHA sin bytes en Yjs",
+      "weight": 10,
+      "certified": false,
+      "stages": [
+        {
+          "id": "photo-sha-sql-blob",
+          "points": 3,
+          "done": false,
+          "label": "Blob real por SHA almacenado y recuperado desde SQL sin bytes en Yjs",
+          "evidence": [],
+          "pendingReason": "Blob real por SHA almacenado y recuperado desde SQL sin bytes en Yjs"
+        },
+        {
+          "id": "yjs-sha-reference-only",
+          "points": 4,
+          "done": false,
+          "label": "Documento Yjs conserva solo sha/bytes/tipo y ningún blob de foto",
+          "evidence": [],
+          "pendingReason": "Documento Yjs conserva solo sha/bytes/tipo y ningún blob de foto"
+        },
+        {
+          "id": "photo-restore-cross-device",
+          "points": 3,
+          "done": false,
+          "label": "Descarga, respaldo y recuperación de foto comprobados PC-iPhone",
+          "evidence": [],
+          "pendingReason": "Descarga, respaldo y recuperación de foto comprobados PC-iPhone"
+        }
+      ]
+    },
+    {
+      "id": "migration",
+      "label": "Importador único Firebase→DO y exportador de regreso con cero padres pendientes",
+      "weight": 25,
+      "certified": false,
+      "stages": [
+        {
+          "id": "frozen-real-head-zero-pending",
+          "points": 5,
+          "done": false,
+          "label": "Historial Firebase real completo congelado hasta HEAD; no pendingStructs/pendingDs",
+          "evidence": [],
+          "pendingReason": "Historial Firebase real completo congelado hasta HEAD; no pendingStructs/pendingDs"
+        },
+        {
+          "id": "verified-once-import-workerd",
+          "points": 4,
+          "done": true,
+          "label": "Módulo singleton certificado Yjs→DO SQL ensayado en Workerd, aún sin cablear",
+          "evidence": [
+            {
+              "sha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136898372",
+              "claim": "Synthetic certified Yjs frozen import persists to real local Durable Object SQLite, retries same opIDs, rejects missing parents; dormant adapter",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
+        },
+        {
+          "id": "do-cold-durable-readback",
+          "points": 3,
+          "done": true,
+          "label": "Snapshot Yjs del DO sobrevive reinicio frío en SQL local real",
+          "evidence": [
+            {
+              "sha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136898372",
+              "claim": "Real Miniflare Workerd process disposed and restarted; same synthetic Yjs state and durable SHA restored",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
+        },
+        {
+          "id": "snapshot-plus-journal-backexport",
+          "points": 3,
+          "done": true,
+          "label": "Exportación completa Yjs del snapshot y ventas del diario después del corte en Workerd",
+          "evidence": [
+            {
+              "sha": "6c242148e2c1a9523ef9f981461ffa24060387f3",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44141527336",
+              "claim": "Full SQL snapshot+journal synthetic fourth-sale Yjs export 4/4 Workerd, >512KiB chunks, restart and missing ancestors refused; no Firebase transport",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
+        },
+        {
+          "id": "firebase-restore-transport",
+          "points": 6,
+          "done": false,
+          "label": "Retorno cifrado real del estado Yjs completo a Firebase y restauración comprobada",
+          "evidence": [],
+          "pendingReason": "Retorno cifrado real del estado Yjs completo a Firebase y restauración comprobada"
+        },
+        {
+          "id": "real-shop-single-cutover",
+          "points": 4,
+          "done": false,
+          "label": "Una tienda real importada/rollback sin duplicaciones, con SHA y autoridad comprobada",
+          "evidence": [],
+          "pendingReason": "Una tienda real importada/rollback sin duplicaciones, con SHA y autoridad comprobada"
+        }
+      ]
+    },
+    {
+      "id": "mobile",
+      "label": "Web Locks outbox y reanudación Safari iPhone",
+      "weight": 10,
+      "certified": false,
+      "stages": [
+        {
+          "id": "idb-outbox-web-locks",
+          "points": 5,
+          "done": false,
+          "label": "Drenado concurrente del outbox bajo Web Locks, reintento durable seguro",
+          "evidence": [],
+          "pendingReason": "Drenado concurrente del outbox bajo Web Locks, reintento durable seguro"
+        },
+        {
+          "id": "safari-bfcache-reconnect",
+          "points": 3,
+          "done": true,
+          "label": "Listener pageshow.persisted simulado reconecta sin perder IDB ni facts",
+          "evidence": [
+            {
+              "sha": "d68842905c9149cc391da787c43ea92365d619fa",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44127960994",
+              "claim": "Safari pageshow.persisted listener reconnects Yjs transports and preserves local DB/outbox in 5/5 synthetic tests; physical iPhone still unproven",
+              "type": "synthetic-ci"
+            }
+          ],
+          "pendingReason": null
+        },
+        {
+          "id": "iphone-physical-resume",
+          "points": 2,
+          "done": false,
+          "label": "Reapertura física Safari iPhone con opId y outbox intactos",
+          "evidence": [],
+          "pendingReason": "Reapertura física Safari iPhone con opId y outbox intactos"
+        }
+      ]
+    },
+    {
+      "id": "physical",
+      "label": "Dos ciclos reales Opera PC↔Safari iPhone A→B→A",
+      "weight": 15,
+      "certified": false,
+      "stages": [
+        {
+          "id": "physical-cycle-one",
+          "points": 7.5,
+          "done": false,
+          "label": "Primer ciclo A→B→A físico PC Opera↔Safari iPhone con stock ventas dinero fotos",
+          "evidence": [],
+          "pendingReason": "Primer ciclo A→B→A físico PC Opera↔Safari iPhone con stock ventas dinero fotos"
+        },
+        {
+          "id": "physical-cycle-two",
+          "points": 7.5,
+          "done": false,
+          "label": "Segundo ciclo A→B→A físico PC Opera↔Safari iPhone con reinicios y reconexión",
+          "evidence": [],
+          "pendingReason": "Segundo ciclo A→B→A físico PC Opera↔Safari iPhone con reinicios y reconexión"
+        }
+      ]
+    }
+  ]
+}
