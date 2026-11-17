@@ -15,14 +15,14 @@ test('fixed weights are exactly 100 and the dated baseline is not changed retroa
 });
 test('current score is recomputed from verifiable entries and anchored to a concrete tested commit',()=>{
  const e=evaluate(ledger);
- assert.equal(e.current,66.0);
- assert.equal(e.delta,21.0);
- assert.equal(e.reviewedSha,'1fc46eb8ee4b1d54cee0aceb473574cae72ed75b');
+ assert.equal(e.current,66.5);
+ assert.equal(e.delta,21.5);
+ assert.equal(e.reviewedSha,'151b3b2b1b0a34c6873c56a090bf0eb461ca667e');
  assert.equal(e.target,95);
  assert.equal(e.gatesPassed,0);
  assert.equal(e.gatesRequired,6);
  assert.equal(e.ready,false);
- assert.match(formatReport(e),/66\.0\/100/);
+ assert.match(formatReport(e),/66\.5\/100/);
  assert.match(formatReport(e),/45\.0\/100/);
 });
 test('all six JFC/Claude gates are mandatory even if points somehow reach 100',()=>{
@@ -47,8 +47,8 @@ test('reassigning 0.5 point after a verified Workerd regression changes the live
  migration.current.points+=0.5;
  migration.current.evidence.push({level:'workerd',url:'https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302',sha:'d20e06a2e5f9737de498bc12e4705f246514c6fd',claim:'synthetic placeholder for score arithmetic, not real proof'});
  const e=evaluate(copy);
- assert.equal(e.current,66.5);
- assert.equal(e.delta,21.5);
+ assert.equal(e.current,67.0);
+ assert.equal(e.delta,22.0);
 });
 test('unsupported point gains, invalid scores, weight drift and false GO are blocked',()=>{
  for(const mutate of [
