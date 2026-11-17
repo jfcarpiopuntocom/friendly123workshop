@@ -39,4 +39,5 @@ jobs:
           node scripts/build-yparty-piloto.cjs
           node --check docs/vendor/yparty-piloto.min.js
           sha256sum docs/vendor/yparty-piloto.min.js
+          git diff --exit-code -- docs/vendor/yparty-piloto.min.js
           node -e 'const fs=require("fs");const x=fs.readFileSync("docs/vendor/yparty-piloto.min.js","utf8");if(x.length<5000)process.exit(4);console.log("F123_BUNDLE_JSON:"+JSON.stringify(x))'
