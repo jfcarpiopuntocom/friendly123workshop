@@ -63,9 +63,9 @@ test('real pilot sources wire SHA photo bridge only when Owner session exists; l
  assert.match(pilot,/fotoSha\(\)/);
  assert.match(pilot,/createPhotoShaBridge/);
  assert.match(sync,/fotos_refs/);
- assert.match(sync,/API\.fotoSha\.put\(hash,\s*dataUrl\)/);
+ assert.match(sync,/bridgeFotoInicial\.put\(hash,\s*dataUrl\)/);
  assert.match(sync,/API\.fotosRefs\.set\(hash/);
- assert.match(sync,/API\.fotoSha\.get\(hash\)/);
+ assert.match(sync,/bridge\.get\(hash\)/);
  assert.match(sync,/guardarPorHash\(hash/);
  assert.match(sync,/new window\.Y\.Doc\(\)/,'legacy encrypted fallback must not be silently removed');
 });
