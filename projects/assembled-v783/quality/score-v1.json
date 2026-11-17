@@ -5,8 +5,8 @@
   "baselineDate": "2026-11-10",
   "baselineProvenance": "retrospective-estimate",
   "baselineUncertainty": 5,
-  "reviewedDate": "2026-11-17T17:04:01Z",
-  "reviewedSha": "932471c77a4e128adffc040e65002901fd8da6ef",
+  "reviewedDate": "2026-11-17T17:26:20Z",
+  "reviewedSha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
   "currentUncertainty": 4,
   "disclaimer": "Editorial engineering confidence score, NOT measured failure probability or verified production availability. Baseline inferred retrospectively, no exact 10-Nov SHA. Re-evaluate after every changed code SHA; gains require linked tests and explicit judgment. Six JFC GO gates override score.",
   "dimensions": [
@@ -155,13 +155,19 @@
         ]
       },
       "current": {
-        "points": 4.5,
+        "points": 5,
         "evidence": [
           {
             "level": "node-sqlite",
             "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131857267",
             "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
             "claim": "PR82 9/9 real Node SQLite/Yjs tests; Workerd import not yet proved; no real frozen Firebase reader nor reverse export"
+          },
+          {
+            "level": "workerd",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136898372",
+            "sha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
+            "claim": "2/2 local Miniflare Workerd DO SQL tests green incl full process restart, exact Yjs SHA, opIds and denied missing parents; no Firebase reader or live Worker wiring"
           }
         ]
       }
