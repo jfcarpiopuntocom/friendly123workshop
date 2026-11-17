@@ -1,0 +1,42 @@
+name: v783 P0 Yjs pull-page cursor durable proof RED GREEN (no deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-v783-yjs-pullcursor-proof.yml'
+      - 'projects/assembled-v783/app/docs/sync-yjs.js'
+      - 'projects/assembled-v783/app/test/p0-yjs-pull-failed-cursor-proof.test.cjs'
+permissions:
+  contents: read
+jobs:
+  causal-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Capture exact SHA then run real-handler and existing cursor safety tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p projects/assembled-v783/evidence/qa-pull-proof
+          git rev-parse HEAD | tee projects/assembled-v783/evidence/qa-pull-proof/head.txt
+          node --check projects/assembled-v783/app/docs/sync-yjs.js
+          node --test --test-concurrency=1 \
+            projects/assembled-v783/app/test/p0-yjs-pull-failed-cursor-proof.test.cjs \
+            projects/assembled-v783/app/test/pull-cursor-durable-ack.test.cjs \
+            projects/assembled-v783/app/test/p0-yjs-pending-snapshot.test.js \
+            projects/assembled-v783/app/test/sync3-head-causal-gap.test.cjs \
+            2>&1 | tee projects/assembled-v783/evidence/qa-pull-proof/tap.log
+      - name: Preserve TAP and SHA on RED or GREEN
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pull-cursor-proof-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/qa-pull-proof/
+          if-no-files-found: warn
+          retention-days: 14
