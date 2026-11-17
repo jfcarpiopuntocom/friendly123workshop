@@ -1,0 +1,12 @@
+# P0: cifrado asíncrono puede sobrescribir cola más nueva — WIP
+
+## Reproducción
+Plan [previo](../plans/2026-11-16-legacy-queue-overlapping-saves.md) commit 195dd883. El test [p0-legacy-queue-save-order.test.cjs](../evidence/p0-legacy-queue-save-order.test.cjs) extrae y ejecuta el cierre real OCSync de avanzado-extra.js; intercepta fetch local sintético, controla resolución del cifrado y captura el blob almacenado. En runtime original dos solicitudes exitosas simultáneas forman snapshots con 1 y 2 ops; si termina cifrado B antes que A, A se almacena al final: RED esperado 1 !== 2. Se prueba una sola pestaña, con cifrado/almacén sintéticos; no es prueba de datos reales ni Sync3.
+
+## Experimento no integrado
+[Parche WIP](../evidence/WIP-legacy-queue-save-serialization.patch) serializa cifrado y guardado en misma pestaña, reiniciando cadena tras rechazo. Aplicado localmente sobre 7d0e183a: focal 2/2 PASS (incluye recuperación tras excepción de cifrado); regresión outbox #69/#70 6/6 PASS; node --check exitoso. No se modificó runtime remoto. No se ha ejecutado CI, QA integrada, navegador, revisión independiente, pruebas de suspensión o bloqueo de una promesa indefinida, ni regenerado manifiesto. Una escritura bloqueada puede retrasar todas las posteriores: investigar antes de integración, sin timeout que libere otra escritura y reintroduzca inversión. Revisar interacción con restauración y push y pruebas de fallo de IDB, doble cuota y localStorage.
+
+## Frontera separada: copias legacy ambiguas
+[Plan](../plans/2026-11-16-outbox-ambiguous-history.md) y [prueba](../evidence/p0-outbox-ambiguous-history.test.cjs): 1/1 PASS con dos historias sintéticas opuestas que terminan con estado observable idéntico A en IDB y B local, timestamp fijado: B posterior por aborto vs A posterior y removeItem fallido. Se demuestra que elegir siempre un store no resuelve ambas. [Pruebas de pérdida](../evidence/p0-outbox-stale-idb-after-fallback.test.cjs) permanecen RED 0/2 en runtime sin parche; el experimento de serialización no pretende arreglarlas. Metadata/orden nuevos y tratamiento de conflicto legacy deben proteger ambos snapshots, contemplar cortes, cuota y multipestaña, e impedir duplicación de operaciones. ACK HTTP no garantiza aplicación comercial.
+
+Siguiente: preservar snapshots, completar pruebas y revisión del parche antes de tocar runtime; no mezclar este cambio con el problema de selección legacy. Luego QA integrada y manifiesto. NO-GO clientes, no despliegue, no datos de clientes.
