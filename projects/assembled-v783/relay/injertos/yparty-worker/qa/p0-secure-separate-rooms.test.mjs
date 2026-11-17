@@ -226,82 +226,67 @@ test('P0 real Workerd photo CORS: exact HTTPS origin only, browser preflight and
 });
 
 
-test('P0 real central TEAM employee cat:read connects read-only, rejects replay and revocation, cannot touch ops',{timeout:45000},async()=>{
+test('P0 Team cannot read private catalog Y.Doc until a sanitized public projection is independently served',{timeout:45000},async()=>{
  const {teamAuthority}=await import('../../../../app/cloudflare-worker/team-authority.mjs');
- // Explicit server policy, never a role selected in the browser.
- env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read']});
+ // Real issuer may authorize an employee to see a future public projection,
+ // but this -cat room includes OWNER-private roots and must deny Team before Yjs.
+ env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read'],admin:['cat:read','cat:write']});
  const owner=pinAuthority(db,env.PIN_PEPPER);
  const team=teamAuthority({storage:db,ownerAuthority:owner,secret:env.TEAM_PIN_PEPPER});
  const identity={licenseCode:license,instanceId:instance,subject:'synthetic-employee-a'};
  const created=await team.update({...identity,role:'empleado',active:true,pin:'222',ownerPin:'123',
   expectedRevision:0,opId:'synthetic-team-register-a'});
  assert.equal(created.ok,true,JSON.stringify(created));
- const ticket=async(channel,scopes)=> {
-  const response=await api('/ws/ticket',{credentials:{kind:'team',...identity,pin:'222'},
-   room:room+'-'+channel,scopes,ttlMs:30000});
+ const ticket=async(channel,scopes,credentials={kind:'team',...identity,pin:'222'})=>{
+  const response=await api('/ws/ticket',{credentials,room:room+'-'+channel,scopes,ttlMs:30000});
   return {status:response.status,data:await response.json()};
  };
- const issued=await ticket('cat',['cat:read']);
- assert.equal(issued.status,200,JSON.stringify(issued.data));
  const writer=await connect('cat',['cat:read','cat:write']);
- writer.doc.getMap('products').set('team-readable-catalog',{priceCents:850});
- // Private roots share this real catalog Y.Doc today: server must not leak them to Team.
- writer.doc.getMap('_meta').set('pinsRol',{owner:'SYNTHETIC_PRIVATE_ROLE_MARKER'});
- writer.doc.getMap('clientes').set('private-synthetic-customer',{email:'nobody@example.invalid'});
- writer.doc.getMap('hechos_financieros').set('private-synthetic-cash',{amountCents:72900});
- const memberDoc=new Y.Doc();
- const member=new YProvider(url.host,room+'-cat',memberDoc,{party:'tienda',disableBc:true,
-  params:{licencia:license,instancia:instance,cap:issued.data.token},WebSocketPolyfill:WebSocket});
  try{
-  await waitFor(()=>member.synced&&memberDoc.getMap('products').has('team-readable-catalog'),'Team read-only initial sync');
-  assert.equal(memberDoc.getMap('products').get('team-readable-catalog').priceCents,850);
-  assert.deepEqual([
-   memberDoc.getMap('_meta').has('pinsRol'),
-   memberDoc.getMap('clientes').has('private-synthetic-customer'),
-   memberDoc.getMap('hechos_financieros').has('private-synthetic-cash')
-  ],[false,false,false], 'Team catalog read must never receive Owner PIN metadata, private customers or private money roots');
-  assert.notEqual((await attempt('cat',issued.data.token)).status,'open','one-use Team cap replay must reject');
-  memberDoc.getMap('products').set('team-unauthorized-raw-edit',{priceCents:1});
-  const witness=await connect('cat',['cat:read']);
+  writer.doc.getMap('products').set('team-readable-catalog',{priceCents:850});
+  writer.doc.getMap('_meta').set('pinsRol',{owner:'SYNTHETIC_PRIVATE_ROLE_MARKER'});
+  writer.doc.getMap('clientes').set('private-synthetic-customer',{email:'nobody@example.invalid'});
+  writer.doc.getMap('hechos_financieros').set('private-synthetic-cash',{amountCents:72900});
+  // Owner access MUST remain functional after denying Team.
+  const anotherOwner=await connect('cat',['cat:read']);
   try{
-   await new Promise(resolve=>setTimeout(resolve,280));
-   assert.equal(witness.doc.getMap('products').has('team-unauthorized-raw-edit'),false,
-     'raw Team catalog mutation cannot reach another Owner Yjs reader');
-  }finally{witness.close();}
-  const forbidden=await ticket('ops',['ops:read']);
-  assert.notEqual(forbidden.status,200,'Team cannot read raw economic ops');
+   await waitFor(()=>anotherOwner.doc.getMap('products').has('team-readable-catalog'),'Owner catalog');
+   await waitFor(()=>anotherOwner.doc.getMap('_meta').has('pinsRol'),'Owner private metadata');
+   assert.equal(anotherOwner.doc.getMap('clientes').has('private-synthetic-customer'),true);
+   assert.equal(anotherOwner.doc.getMap('hechos_financieros').has('private-synthetic-cash'),true);
+  }finally{anotherOwner.close();}
+  const issued=await ticket('cat',['cat:read']);
+  assert.equal(issued.status,200,'central issuer can authorize a future sanitized Team read view');
+  const initial=await attempt('cat',issued.data.token);
+  assert.equal(initial.binary,0,'Team must receive ZERO Yjs bytes from owner-private catalog');
+  assert.notEqual(initial.status,'open','Team private catalog admission must fail closed');
+  assert.equal((await attempt('cat',issued.data.token)).binary,0,'reused Team token must also expose zero bytes');
+  assert.notEqual((await ticket('ops',['ops:read'])).status,200,'Team cannot access raw economic room');
   const standby=await ticket('cat',['cat:read']);
-  assert.equal(standby.status,200,'fresh Team ticket before revocation');
+  assert.equal(standby.status,200);
   const revoked=await team.update({...identity,role:'empleado',active:false,ownerPin:'123',
     expectedRevision:created.revision,opId:'synthetic-team-revoke-a'});
   assert.equal(revoked.ok,true,JSON.stringify(revoked));
   const after=await attempt('cat',standby.data.token);
-  assert.equal(after.binary,0,'revoked Team ticket must receive no Yjs binary frame');
-  assert.notEqual(after.status,'open','revoked Team cannot join catalog');
-  const retry=await ticket('cat',['cat:read']);
-  assert.notEqual(retry.status,200,'revoked Team cannot issue fresh read cap');
-  writer.doc.getMap('products').set('owner-after-team-revocation',{priceCents:917});
-  await new Promise(resolve=>setTimeout(resolve,450));
-  assert.equal(memberDoc.getMap('products').has('owner-after-team-revocation'),false,
-    'revoked connected Team peer must receive zero new catalog facts');
-  // Even an issuer-authorized admin cat:write must not gain an unrestricted
-  // Yjs writer through the read-only Team admission path.
-  env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read'],admin:['cat:read','cat:write']});
+  assert.equal(after.binary,0,'revoked and previously issued Team ticket receives zero Yjs bytes');
+  assert.notEqual(after.status,'open');
+  assert.notEqual((await ticket('cat',['cat:read'])).status,200,'issuer refuses revoked Team');
   const adminSubject='synthetic-team-admin-z';
   const adminSetup=await team.update({licenseCode:license,instanceId:instance,subject:adminSubject,
     role:'admin',active:true,pin:'333',ownerPin:'123',
     expectedRevision:revoked.revision,opId:'synthetic-team-admin-join'});
   assert.equal(adminSetup.ok,true,JSON.stringify(adminSetup));
-  const adminResponse=await api('/ws/ticket',{credentials:{kind:'team',licenseCode:license,
-    instanceId:instance,subject:adminSubject,pin:'333'},
-    room:room+'-cat',scopes:['cat:read','cat:write'],ttlMs:30000});
-  const adminResult=await adminResponse.json();
-  assert.equal(adminResponse.status,200,JSON.stringify(adminResult));
-  const rawWrite=await attempt('cat',adminResult.token);
-  assert.equal(rawWrite.binary,0,'Team must not receive Yjs frame with unrestricted catalog-write scope');
-  assert.notEqual(rawWrite.status,'open','Team cat:write token denied rather than allowing raw edits');
+  const adminCredentials={kind:'team',licenseCode:license,instanceId:instance,subject:adminSubject,pin:'333'};
+  const adminRead=await ticket('cat',['cat:read'],adminCredentials);
+  assert.equal(adminRead.status,200);
+  assert.equal((await attempt('cat',adminRead.data.token)).binary,0,'admin read cannot access private Owner Y.Doc');
+  const adminWrite=await ticket('cat',['cat:read','cat:write'],adminCredentials);
+  assert.equal(adminWrite.status,200);
+  const raw=await attempt('cat',adminWrite.data.token);
+  assert.equal(raw.binary,0,'Team admin raw write must never receive initial private Yjs state');
+  assert.notEqual(raw.status,'open');
  }finally{
-  member.destroy();memberDoc.destroy();writer.close();
+  writer.close();
   delete env.WS_QA_ROLE_GRANTS;
  }
 });
