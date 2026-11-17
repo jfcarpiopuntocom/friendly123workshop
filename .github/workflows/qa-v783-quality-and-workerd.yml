@@ -29,7 +29,7 @@ jobs:
       - name: Install locked Yjs, Wrangler and Miniflare dependencies (no scripts)
         working-directory: projects/assembled-v783/relay/injertos/yparty-worker
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Real Workerd Durable Object SQLite: frozen import, restart and fail-closed
+      - name: 'Real Workerd Durable Object SQLite - frozen import, restart and fail-closed'
         working-directory: projects/assembled-v783/relay/injertos/yparty-worker
         run: |
           set -euo pipefail
