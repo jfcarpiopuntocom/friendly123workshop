@@ -1,0 +1,47 @@
+P0 certified frozen Yjs import into native YParty SQL (workshop ONLY)
+Date: 2026-11-17, source base ba183e5c097e0f00253a154338fae97228713f88, PR #82.
+Main merged SHA: 2cf674778511ebe374125ce6bd8120eeb0daf13d (API branch and PR verified).
+Source module blob main: 0494d9b00ea6d33c74e748f2f343ed3e0415d5cb.
+Scope: NEW src/certified-frozen-import.mjs, NEW qa/p0-certified-frozen-import.test.mjs, NEW workflow, pre-code plan.
+No existing Worker src/index.js, client, vendor bundle, production, stored customer data, PIN, photo, opId or active provider was changed.
+No endpoints, flags, migrations, real Firebase reads or real DO writes activated.
+
+Plan FIRST: projects/assembled-v783/plans/2026-11-17-certified-frozen-import.md commit 19cd65007581d75c1f33460c335b67869bb603b5.
+Notion reservation: https://app.notion.com/p/41b1642b67f3813190bcccd6eae7a9da
+Notion evidence: https://app.notion.com/p/41b1642b67f3819cb44bc85931141bdd
+PR https://github.com/jfcarpiopuntocom/friendly123workshop/pull/82
+
+TDD RED:
+- Run https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131047710
+- Source HEAD 7b963c62b1aec76a3ba322639defc80d3a431206
+- 7/7 failing with ERR_MODULE_NOT_FOUND (expected missing feature), not a simulated bug in existing production code.
+- Job raw TAP inspected, npm ci success. Never claim red active Workerd production.
+
+TDD GREEN final:
+- Run https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131857267
+- HEAD d20e06a2e5f9737de498bc12e4705f246514c6fd
+- 9/9 PASS, 0 FAIL, 0 SKIP, 0 CANCEL, full TAP inspected.
+- Real Yjs 13.6; real node:sqlite 22 SQLite transactional file (NOT Cloudflare DO runtime).
+- Frozen source checksum + vector SHA and event count; 3-operation Yjs payload, out-of-order child pending-struct case; duplicate and divergent import;
+  deny old document, existing journal, orphan blocks; 512KiB multi-row rollback fault; readback corruption; journal-safe fail-closed export;
+  actual SQLite file handle close->reopen cold recovery; certificate tamper/gapped blocks.
+
+PR exact-head broader integrated:
+- Run https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302
+- HEAD d20e06a2e5f9737de498bc12e4705f246514c6fd
+- 15 TAP groups, 585/585 PASS, 0 FAIL, 0 SKIP, 0 CANCEL. Full raw job log inspected.
+- PR feature workflow on same SHA https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873863 SUCCESS.
+- PR #82 made ready, merged squash, expected exact HEAD SHA verified.
+- Main HEAD and module blob readback verified after merge.
+
+Known limits:
+- No client/Worker wiring: this is a server-only pre-activation adapter. It cannot migrate a shop as is.
+- External frozen Firebase HEAD/independent SHA anchor still must be proven: 15 pending parent structs out of 5348 frames in real canary.
+- DO must be empty and offline at import time. This helper cannot overwrite an active room or resolve concurrent business writes.
+- Binary Yjs back-export refuses if a later SQL journal exists, rather than silently drop new sales. Firebase encrypted checkpoint transport and restore path are NOT built.
+- No real Workerd/Miniflare execution of this helper; Node SQLite contract is not proof against Cloudflare runtime differences.
+- Runtime YParty server authorization / Team employee raw Yjs economic rejection / typed sale, payment, adjustment still P0.
+- Photos must leave Yjs; Web Locks and real iPhone reconnect and 2 physical Opera PC <-> Safari iPhone A-B-A cycles pending.
+- The most recent unfiltered historical full suite (postPR81 SHA 80944a6...) is candidate 3287 total / 3254 PASS / 29 FAIL / 1 CANCEL / 3 SKIP; baseline 3151 / 3089 PASS / 58 FAIL / 1 CANCEL / 3 SKIP.
+- No production launch claim; commercial GO remains false.
+Rollback: revert PR82 only (new module/test/workflow/plan); no customer state changed.
