@@ -71,11 +71,20 @@ function inspectClientWire({client,worker,authorized}){
  const pilotUsesFreshTicket=/new\s+AuthorizedYProvider\s*\(/.test(client)&&
    /params\s*:\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.test(client);
  const pilotUsesPrivateRoom=/(?:['"]-priv['"])/.test(client);
- const compatible=secureWorkerRequiresTicket&&authorizedProviderAvailable&&pilotUsesFreshTicket&&pilotUsesPrivateRoom;
+ // The legacy pilot makes one provider for EACH Y.Doc (cat, ops, fotos).
+ // Routing all of those documents to the same -priv YServer would mix unrelated
+ // Yjs state. A single-room path is safe only for one explicitly unified doc.
+ const separateDocs=/\\bcanal\\s*\\(\\s*doc\\s*,\\s*tipo\\b/.test(client);
+ const channelIsolationPreserved=!separateDocs || (
+   /-priv-cat/.test(worker)&&/-priv-ops/.test(worker)&&/-priv-fotos/.test(worker)&&
+   /-priv-['"]\\s*\\+\\s*tipo/.test(client)
+ );
+ const compatible=secureWorkerRequiresTicket&&authorizedProviderAvailable&&pilotUsesFreshTicket&&pilotUsesPrivateRoom&&channelIsolationPreserved;
  return {secureWorkerRequiresTicket,authorizedProviderAvailable,pilotUsesFreshTicket,
-   pilotUsesPrivateRoom,compatible,
+   pilotUsesPrivateRoom,channelIsolationPreserved,compatible,
    reason:compatible?'Source contract compatible; server binding and real coldjoin still need proof':
-      'BLOCKED: real client missing one-use cap ticket callback and/or -priv private room required by secure Worker'};
+     !channelIsolationPreserved?'BLOCKED: separate cat/ops/fotos Y.Docs cannot share one -priv YServer without data mixing':
+     'BLOCKED: real client missing one-use cap ticket callback and/or -priv private room required by secure Worker'};
 }
 function formatDual({port,quality}){
  return [
