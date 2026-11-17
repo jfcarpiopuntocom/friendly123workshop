@@ -330,9 +330,12 @@ function progresoRecuperacion(anterior, actual) {
   p.on('websocket', red.socket);
   p.setDefaultTimeout(30000);
   let fallo = '', ultima = null, checkpointInicial = null;
+  // Only allowlisted constant stages: no URLs, credentials, exception text or Yjs IDs.
+  let etapaExcepcion = 'INICIO';
   const t0 = Date.now();
   try {
     if (PILOTO) {
+      etapaExcepcion = 'CONFIGURACION_PILOTO';
       const sala = require('node:crypto').createHash('sha256').update('f123-yparty-v1:' + LICENCIA.trim().toUpperCase()).digest('hex').slice(0, 32);
       await p.addInitScript(({ origin, sala }) => {
         if (location.origin !== origin) return;
@@ -340,15 +343,18 @@ function progresoRecuperacion(anterior, actual) {
         localStorage.setItem('f123::f123_yparty_qa_sala', sala);
       }, { origin: new URL(BASE).origin, sala });
     }
+    etapaExcepcion = 'NAVEGACION';
     await p.goto(BASE, { waitUntil: 'domcontentloaded' });
     await p.locator('#oc-gate button[data-d]').first().waitFor({ state: 'visible' });
     // Factory 789 is used here only to show "new business or join" on a blank device.
+    etapaExcepcion = 'UNION';
     await teclear(p, '789');
     await p.click('#oc-act-unirme');
     await p.fill('#oc-ue-codigo', LICENCIA);
     await p.click('#oc-ue-confirmar');
     console.log('CANARIO_ETAPA: unión solicitada');
     // A join switches notebook (and often reloads the document): prove identity, not just dialog closure.
+    etapaExcepcion = 'IDENTIDAD';
     const limiteJoin = Date.now() + 20000;
     while (Date.now() < limiteJoin) {
       await p.waitForTimeout(2000);
@@ -361,8 +367,10 @@ function progresoRecuperacion(anterior, actual) {
       fallo = 'UNION: licencia, sala o identidad de dispositivo no se adoptaron';
     } else {
       console.log('CANARIO_ETAPA: licencia y sala correctas');
+      etapaExcepcion = 'CHECKPOINT';
       checkpointInicial = await consultarCheckpoint(p); // one metadata-only checkpoint probe
       console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: 'checkpoint', disponible: checkpointInicial && checkpointInicial.checkpointExiste === true ? true : checkpointInicial && checkpointInicial.checkpointExiste === false ? false : null }));
+      etapaExcepcion = 'RECUPERACION';
       await observarPull(p); // attach to the synthetic catalog socket only
       await p.waitForTimeout(5000);
       ultima = await diagnostico(p, LICENCIA);
@@ -462,6 +470,7 @@ function progresoRecuperacion(anterior, actual) {
       } else {
         console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: 'barreras-verificadas', estado: 'completo' }));
       }
+      etapaExcepcion = 'ACCESO';
       if (!fallo && PIN === '789' && ultima.tienePinOwnerNoFactory) {
         fallo = 'ACCESO: F123_CANARIO_PIN requiere PIN Owner sintético actualizado';
       } else if (!fallo && await rol(p) !== 'dueno') {
@@ -478,6 +487,7 @@ function progresoRecuperacion(anterior, actual) {
         fallo = fallo || 'ACCESO: la tienda sintética no aceptó el PIN configurado';
       } else {
         console.log('CANARIO_ETAPA: Owner autenticado');
+        etapaExcepcion = 'DATOS';
         let v = null;
         const limiteDatos = Date.now() + 60000;
         while (Date.now() < limiteDatos) {
@@ -501,7 +511,8 @@ function progresoRecuperacion(anterior, actual) {
       }
     }
   } catch (e) {
-    // Exception messages sometimes contain URLs and tokens: do not print them.
+    // Only emit the constant stage: exception messages/stacks may contain credentials.
+    console.log('CANARIO_ERROR_ETAPA:', etapaExcepcion);
     fallo = 'EXCEPCION: ' + ((e && e.name) || 'Error') + ' durante la unión';
   }
   ultima = await diagnostico(p, LICENCIA);
