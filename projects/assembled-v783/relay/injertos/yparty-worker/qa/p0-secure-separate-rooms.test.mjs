@@ -224,3 +224,75 @@ test('P0 real Workerd photo CORS: exact HTTPS origin only, browser preflight and
  assert.equal(denied.status,403);
  assert.equal(denied.headers.get('access-control-allow-origin'),null);
 });
+
+
+test('P0 real central TEAM employee cat:read connects read-only, rejects replay and revocation, cannot touch ops',{timeout:45000},async()=>{
+ const {teamAuthority}=await import('../../../../app/cloudflare-worker/team-authority.mjs');
+ // Explicit server policy, never a role selected in the browser.
+ env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read']});
+ const owner=pinAuthority(db,env.PIN_PEPPER);
+ const team=teamAuthority({storage:db,ownerAuthority:owner,secret:env.TEAM_PIN_PEPPER});
+ const identity={licenseCode:license,instanceId:instance,subject:'synthetic-employee-a'};
+ const created=await team.update({...identity,role:'empleado',active:true,pin:'222',ownerPin:'123',
+  expectedRevision:0,opId:'synthetic-team-register-a'});
+ assert.equal(created.ok,true,JSON.stringify(created));
+ const ticket=async(channel,scopes)=> {
+  const response=await api('/ws/ticket',{credentials:{kind:'team',...identity,pin:'222'},
+   room:room+'-'+channel,scopes,ttlMs:30000});
+  return {status:response.status,data:await response.json()};
+ };
+ const issued=await ticket('cat',['cat:read']);
+ assert.equal(issued.status,200,JSON.stringify(issued.data));
+ const writer=await connect('cat',['cat:read','cat:write']);
+ writer.doc.getMap('products').set('team-readable-catalog',{priceCents:850});
+ const memberDoc=new Y.Doc();
+ const member=new YProvider(url.host,room+'-cat',memberDoc,{party:'tienda',disableBc:true,
+  params:{licencia:license,instancia:instance,cap:issued.data.token},WebSocketPolyfill:WebSocket});
+ try{
+  await waitFor(()=>member.synced&&memberDoc.getMap('products').has('team-readable-catalog'),'Team read-only initial sync');
+  assert.equal(memberDoc.getMap('products').get('team-readable-catalog').priceCents,850);
+  assert.notEqual((await attempt('cat',issued.data.token)).status,'open','one-use Team cap replay must reject');
+  memberDoc.getMap('products').set('team-unauthorized-raw-edit',{priceCents:1});
+  const witness=await connect('cat',['cat:read']);
+  try{
+   await new Promise(resolve=>setTimeout(resolve,280));
+   assert.equal(witness.doc.getMap('products').has('team-unauthorized-raw-edit'),false,
+     'raw Team catalog mutation cannot reach another Owner Yjs reader');
+  }finally{witness.close();}
+  const forbidden=await ticket('ops',['ops:read']);
+  assert.notEqual(forbidden.status,200,'Team cannot read raw economic ops');
+  const standby=await ticket('cat',['cat:read']);
+  assert.equal(standby.status,200,'fresh Team ticket before revocation');
+  const revoked=await team.update({...identity,role:'empleado',active:false,ownerPin:'123',
+    expectedRevision:created.revision,opId:'synthetic-team-revoke-a'});
+  assert.equal(revoked.ok,true,JSON.stringify(revoked));
+  const after=await attempt('cat',standby.data.token);
+  assert.equal(after.binary,0,'revoked Team ticket must receive no Yjs binary frame');
+  assert.notEqual(after.status,'open','revoked Team cannot join catalog');
+  const retry=await ticket('cat',['cat:read']);
+  assert.notEqual(retry.status,200,'revoked Team cannot issue fresh read cap');
+  writer.doc.getMap('products').set('owner-after-team-revocation',{priceCents:917});
+  await new Promise(resolve=>setTimeout(resolve,450));
+  assert.equal(memberDoc.getMap('products').has('owner-after-team-revocation'),false,
+    'revoked connected Team peer must receive zero new catalog facts');
+  // Even an issuer-authorized admin cat:write must not gain an unrestricted
+  // Yjs writer through the read-only Team admission path.
+  env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read'],admin:['cat:read','cat:write']});
+  const adminSubject='synthetic-team-admin-z';
+  const adminSetup=await team.update({licenseCode:license,instanceId:instance,subject:adminSubject,
+    role:'admin',active:true,pin:'333',ownerPin:'123',
+    expectedRevision:revoked.revision,opId:'synthetic-team-admin-join'});
+  assert.equal(adminSetup.ok,true,JSON.stringify(adminSetup));
+  const adminResponse=await api('/ws/ticket',{credentials:{kind:'team',licenseCode:license,
+    instanceId:instance,subject:adminSubject,pin:'333'},
+    room:room+'-cat',scopes:['cat:read','cat:write'],ttlMs:30000});
+  const adminResult=await adminResponse.json();
+  assert.equal(adminResponse.status,200,JSON.stringify(adminResult));
+  const rawWrite=await attempt('cat',adminResult.token);
+  assert.equal(rawWrite.binary,0,'Team must not receive Yjs frame with unrestricted catalog-write scope');
+  assert.notEqual(rawWrite.status,'open','Team cat:write token denied rather than allowing raw edits');
+ }finally{
+  member.destroy();memberDoc.destroy();writer.close();
+  delete env.WS_QA_ROLE_GRANTS;
+ }
+});
