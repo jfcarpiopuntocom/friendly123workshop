@@ -1,0 +1,44 @@
+name: v783 native IDB four-arg strict CAS historical contract (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/p0-local-save-performance-opt-in.test.cjs'
+      - 'projects/assembled-v783/app/test/p0-sales-atomic-idb-webkit-browser.test.cjs'
+      - '.github/workflows/v783-strict-cas-four-arg-historical.yml'
+permissions:
+  contents: read
+jobs:
+  strict-cas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install locked dependencies and official Chromium/WebKit
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+      - name: All original real CAS/browser and local performance cases (no prod)
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/strict-cas-4arg
+          git rev-parse HEAD | tee ../evidence/strict-cas-4arg/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
+            test/p0-local-save-performance-opt-in.test.cjs \
+            test/p0-sales-atomic-idb-webkit-browser.test.cjs 2>&1 | tee ../evidence/strict-cas-4arg/tap.log
+      - name: Archive exact full output even if red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-native-cas-four-arg-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/strict-cas-4arg/
+          retention-days: 14
+          if-no-files-found: warn
