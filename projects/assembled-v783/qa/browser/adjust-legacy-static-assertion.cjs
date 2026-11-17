@@ -14,8 +14,13 @@ if(!p||!path.isAbsolute(path.resolve(p))||
 let s=fs.readFileSync(p,'utf8');
 const before=String.raw`assert.match(save,/idb\.guardarConRevision\(completo, _localRev\)/);`;
 const after=String.raw`assert.match(save,/idb\.guardarConRevision\(completo, _localRev, _commitLocal, opIdVenta\)/);`;
-if(s.split(before).length!==2)
-  throw Error('QA contract drift: legacy two-argument assertion not found exactly once');
+const oldCount=s.split(before).length-1, newCount=s.split(after).length-1;
+if(oldCount===0 && newCount===1) {
+  console.log('QA-only: exact four-argument CAS assertion already enforced; no rewrite necessary.');
+  process.exit(0);
+}
+if(oldCount!==1 || newCount!==0)
+  throw Error('QA contract drift: expected exactly one old OR one current four-argument CAS assertion');
 const updated=s.replace(before,after);
 if(updated===s)throw Error('no change');
 if(!updated.includes(after))throw Error('failed to enforce opId contract');
