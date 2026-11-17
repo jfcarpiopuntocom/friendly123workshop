@@ -1,0 +1,46 @@
+name: v783 Yjs 5000 update coldjoin causal-order benchmark (no deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-v783-coldjoin-yjs-order-benchmark.yml'
+      - 'projects/assembled-v783/evidence/coldjoin-yjs-order-benchmark.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-order:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run original 5k Yjs benchmark (no network, fixed synthetic updates)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p projects/assembled-v783/evidence/coldjoin-yjs-order-ci
+          git rev-parse HEAD | tee projects/assembled-v783/evidence/coldjoin-yjs-order-ci/head.txt
+          node --version | tee projects/assembled-v783/evidence/coldjoin-yjs-order-ci/node.txt
+          node --check projects/assembled-v783/evidence/coldjoin-yjs-order-benchmark.cjs
+          # No Playwright or production browser: vendor Yjs runs inside a network-free vm context.
+          timeout --signal=TERM --kill-after=5s 360s node \
+            projects/assembled-v783/evidence/coldjoin-yjs-order-benchmark.cjs \
+            2>&1 | tee projects/assembled-v783/evidence/coldjoin-yjs-order-ci/result.json
+      - name: Check three fully applied synthetic histories, without inventing performance thresholds
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs");const d=JSON.parse(fs.readFileSync("projects/assembled-v783/evidence/coldjoin-yjs-order-ci/result.json","utf8"));if(!Array.isArray(d.samples)||d.samples.length!==3||d.samples.some(x=>x.entries!==5000||!Number.isFinite(x.duration_ms)||x.duration_ms<0))process.exit(1);console.log("VERIFIED 3/3 causal application cases, 5000 entries each; performance is observation, not product GO")'
+      - name: Archive JSON, exact HEAD and Node on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-yjs-order-5000-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/coldjoin-yjs-order-ci/
+          retention-days: 14
+          if-no-files-found: warn
