@@ -37,3 +37,11 @@ La [MDD aprobada](https://app.notion.com/p/40a1642b67f381a0a02cf0bfa8b5feac) con
 1. `wsCapabilityAuthority.checkMany` devuelve `{ok:true, results:[{ok:false},...]}` cuando un destinatario está revocado. El adapter ahora devuelve también `ok:true` (sobre significa «se ejecutó lote»), y un consumidor futuro podría confundirlo con «todos autorizados». **Exigir que el `ok` exterior sea false cuando ALGÚN destinatario es denegado**, conservando `results` para diagnóstico seguro; prueba RED primero sobre Owner rotado.
 2. La revisión `sessionEpoch` es igual a `roleRevision` en el emisor oficial. Adapter validó roleRevision pero no rechazó un resultado engañoso cuyo sessionEpoch difiere; exigir comprobación exacta antes de aceptar comprobante. Fixture de servidor simulado malicioso no debe autorizar.
 3. Mantener todos los 11 tests originales, registrar RED nuevos y GREEN sobre SHA exacto; no tocar guardia Worker, cliente ni código existente de auth central. Sólo adapter y su test bajo rama QA reservada. Seguir DRAFT, NO GO.
+
+## RED #2 reproducido sobre adapter SIN CAMBIOS
+
+[Actions 44026158676](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44026158676), private test-only SHA `61f50f5aafd4f9b4a70cd638513842177fca3c5c`: **12 tests, 10 PASS, 2 FAIL, 0 SKIP/CANCEL**. Los 5 antiguos Owner API y 5 tests del adapter siguen PASS. Los dos RED genuinos prueban exactamente los fallos:
+- `wsCapabilityAuthority.checkMany` central devuelve `ok:true` aunque un resultado particular esté revocado. El wrapper también devuelve `ok:true`, por tanto una futura llamada que confunda `ok` con «todos autorizados» podría enviar bytes a un destinatario revocado.
+- El wrapper aceptaba un JSON artificial `principal.sessionEpoch = roleRevision + 1` con firma/alcance aparente válido. El issuer oficial exige `sessionEpoch === roleRevision`, por lo que el adapter también debe exigirlo y fallar cerrado.
+
+**Ahora**, después del RED y sin alterar aserciones, cambiar solamente el módulo nuevo `src/central-ws-authority.mjs`: `validPrincipal` comprueba epoch, `checkMany` devuelve `ok:false` si alguno denegado (preservando results correlacionados, no tokens), e informar CI. No toca el Worker ni PIN real.
