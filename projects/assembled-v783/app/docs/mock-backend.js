@@ -7238,10 +7238,31 @@
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
+        const uAntes = clonar(u), movAntes = movimientos.length, selloAntes = selloUltimo;
         u.activa = m[2] === "activar";
         u.rev = _revNueva();
         u.estadoRev = u.rev;
-        mov(u.activa ? "ubicacion-reactivada" : "ubicacion-desactivada", { ubicacion: u.nombre });
+        mov(u.activa ? "ubicacion-reactivada" : "ubicacion-desactivada", { ubicacion: u.nombre }, false);
+        const uProvisional = JSON.stringify(u), movimientoNuevo = movimientos[movAntes];
+        debePersistir = false; // No catalog broadcast or HTTP success before durable local ACK.
+        const guardado = await guardarEstadoLocal(true);
+        if (guardado !== true) {
+          if (ubicaciones.includes(u) && JSON.stringify(u) === uProvisional &&
+              movimientos.length === movAntes + 1 && movimientos[movAntes] === movimientoNuevo &&
+              selloUltimo === movimientoNuevo.sello) {
+            Object.keys(u).forEach((key) => { delete u[key]; });
+            Object.assign(u, uAntes);
+            movimientos.pop();
+            selloUltimo = selloAntes;
+          } else {
+            _estadoLecturaBloqueada = true;
+            _errorBloqueoLectura = new Error("Rack status commit failed with concurrent changes");
+          }
+          const cuota = _esErrorDeCuota(_causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB()));
+          return J({ error: "The rack status was NOT saved. Check the current state before retrying.",
+            code: cuota ? "RACK_STATUS_STORAGE_QUOTA" : "RACK_STATUS_DURABILITY_UNCONFIRMED" }, cuota ? 507 : 503);
+        }
+        avisarCatalogoCambiado(); // Publish once, only after durable ACK.
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "DELETE") {
