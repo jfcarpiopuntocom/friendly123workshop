@@ -81,7 +81,7 @@ test('A→B→A twice: separate Chromium/WebKit IDB keeps unique sales and physi
       A=await openDevice(desktop,base,{width:1280,height:800,errors});
       B=await openDevice(phone,base,{width:390,height:844,errors});
       await enterAs(A.page,'dueno');
-      await enterAs(B.page,'admin');
+      await enterAs(B.page,'dueno');
       await Promise.all([
         A.page.waitForFunction(()=>OCYjs.estado==='activo'),
         B.page.waitForFunction(()=>OCYjs.estado==='activo')
@@ -129,7 +129,7 @@ test('A→B→A twice: separate Chromium/WebKit IDB keeps unique sales and physi
         assert.equal(receiptIds.length,before+2);
         await untilPair(A,B,productId,receiptIds,'retry no double stock cycle '+cycle);
 
-        await Promise.all([reload(A,'dueno'),reload(B,'admin')]);
+        await Promise.all([reload(A,'dueno'),reload(B,'dueno')]);
         await installPump([A,B]);
         await untilPair(A,B,productId,receiptIds,'cold IndexedDB readback cycle '+cycle);
       }
