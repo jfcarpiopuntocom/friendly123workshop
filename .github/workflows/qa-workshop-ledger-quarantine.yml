@@ -1,0 +1,37 @@
+name: QA workshop P0 ledger conflicting fact quarantine (no deployment)
+on:
+  push:
+    branches: [port/20261117-ledger-conflict-quarantine]
+    paths:
+      - 'projects/assembled-v783/app/docs/core/ledger.js'
+      - 'projects/assembled-v783/app/test/p0-ledger-conflicting-sale-facts.test.cjs'
+      - '.github/workflows/qa-workshop-ledger-quarantine.yml'
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/docs/core/ledger.js'
+      - 'projects/assembled-v783/app/test/p0-ledger-conflicting-sale-facts.test.cjs'
+      - '.github/workflows/qa-workshop-ledger-quarantine.yml'
+permissions:
+  contents: read
+jobs:
+  actual-pure-ledger:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact SHA and syntax
+        run: |
+          set -euo pipefail
+          echo "SHA $(git rev-parse HEAD)"
+          node --check projects/assembled-v783/app/docs/core/ledger.js
+          node --check projects/assembled-v783/app/test/p0-ledger-conflicting-sale-facts.test.cjs
+      - name: Original ledger-v1 baseline plus nine immutable-ID regression cases
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 test/ledger-v1.test.js test/p0-ledger-conflicting-sale-facts.test.cjs 2>&1 | tee /tmp/ledger-quarantine.tap
