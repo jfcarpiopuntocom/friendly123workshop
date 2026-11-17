@@ -1,0 +1,12 @@
+diff --git a/docs/sync-outbox.js b/docs/sync-outbox.js
+index 76653372..a74c30b5 100644
+--- a/docs/sync-outbox.js
++++ b/docs/sync-outbox.js
+@@ -41,6 +41,7 @@
+       req.onerror = function () { reject(req.error); };
+       req.onblocked = function () { reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)")); };
+     });
++    dbPromise = dbPromise.catch(function (e) { dbPromise = null; throw e; });
+     return dbPromise;
+   }
+ 
