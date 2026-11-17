@@ -1,0 +1,35 @@
+name: "P0 v783 - legacy replay HTTP ACK contract"
+on:
+  push:
+    branches:
+      - fix/20261117-lazy-replay-http-ack-p0
+    paths:
+      - "projects/assembled-v783/app/docs/avanzado-extra.js"
+      - "projects/assembled-v783/app/test/p0-legacy-manual-replay-http-ack.test.cjs"
+      - "projects/assembled-v783/plans/2026-11-17-legacy-replay-http-ack-fail-closed.md"
+      - ".github/workflows/qa-v783-legacy-replay-http-ack.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p0-lazy-replay-http-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  legacy-http-ack:
+    name: Node22 real closure HTTP replay, no production network
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Runtime and test syntax
+        working-directory: projects/assembled-v783/app
+        run: |
+          node --check docs/avanzado-extra.js
+          node --check test/p0-legacy-manual-replay-http-ack.test.cjs
+      - name: P0 targeted replay test (real source in isolated VM)
+        working-directory: projects/assembled-v783/app
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-legacy-manual-replay-http-ack.test.cjs
