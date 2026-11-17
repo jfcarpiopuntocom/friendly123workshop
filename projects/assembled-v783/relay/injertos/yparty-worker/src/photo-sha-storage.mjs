@@ -30,7 +30,7 @@ export async function boundedPhotoBody(request) {
 }
 
 export function photoShaStore(storage) {
- const sql=storage?.sql,transaction=storage?.transactionSync;
+ const sql=storage?.sql,transaction=storage?.transactionSync?.bind(storage);
  if(!sql||typeof sql.exec!=='function'||typeof transaction!=='function')throw new TypeError('Durable Object SQL is required');
  function tables(){
    sql.exec('CREATE TABLE IF NOT EXISTS photo_sha_meta (sha TEXT PRIMARY KEY, bytes INTEGER NOT NULL, tipo TEXT NOT NULL, bloques INTEGER NOT NULL)');
