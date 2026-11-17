@@ -513,7 +513,11 @@ function progresoRecuperacion(anterior, actual) {
   } catch (e) {
     // Only emit the constant stage: exception messages/stacks may contain credentials.
     console.log('CANARIO_ERROR_ETAPA:', etapaExcepcion);
-    fallo = 'EXCEPCION: ' + ((e && e.name) || 'Error') + ' durante la unión';
+    // Error.name is mutable; whitelist known classes instead of echoing a URL/token.
+    const nombreError = e && e.name;
+    const claseError = ['Error', 'TimeoutError', 'TargetClosedError', 'TypeError',
+      'ReferenceError', 'RangeError'].includes(nombreError) ? nombreError : 'Error';
+    fallo = 'EXCEPCION: ' + claseError + ' durante la unión';
   }
   ultima = await diagnostico(p, LICENCIA);
   // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
