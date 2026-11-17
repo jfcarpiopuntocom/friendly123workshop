@@ -1,0 +1,38 @@
+name: v783 v604 actual safe-update VM contract (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/incident-v604-no-auto-reload-pending-yjs.test.cjs'
+      - '.github/workflows/v783-v604-safe-update-vm.yml'
+permissions:
+  contents: read
+jobs:
+  v604:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact locked dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Execute all original v604 source and compiled VM recovery guards
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/v604-safe-update-vm
+          git rev-parse HEAD | tee ../evidence/v604-safe-update-vm/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/incident-v604-no-auto-reload-pending-yjs.test.cjs 2>&1 | tee ../evidence/v604-safe-update-vm/tap.log
+      - name: Archive exact evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-v604-safe-update-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/v604-safe-update-vm/
+          if-no-files-found: warn
+          retention-days: 14
