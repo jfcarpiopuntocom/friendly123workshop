@@ -303,11 +303,12 @@ test('P0 real Worker typed sale HTTP: central fresh Owner ticket, 202 inbox only
    let body;try{body=await response.json();}catch(_){body={};}
    return {status:response.status,body};
  };
- const first=await send(await issue('ops',['ops:sale']));
+ const firstToken=await issue('ops',['ops:sale']);
+ const first=await send(firstToken);
  assert.equal(first.status,202,'not an economic commit; no browser may mark sale paid yet');
  assert.equal(first.body.receipt?.stage,'stored-for-application');
  assert.equal(first.body.ok,true);
- const reused=await send(first.body.debugToken||'no-valid-token');
+ const reused=await send(firstToken);
  assert.equal(reused.status,403,'no bearer bypass');
  const readOnly=await send(await issue('ops',['ops:read']));
  assert.equal(readOnly.status,403,'ops:read cannot post a sale');
