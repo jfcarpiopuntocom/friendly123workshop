@@ -9,6 +9,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { startServer, openDevice, enterAs, go, chromium } = require('./helpers/e2e-app.cjs');
 
 const FIREBASE_ALLOWED_PATH = /^\/f123\/[a-f0-9]{40}(-y|-ops|-fotos)?\/(o|k)(\/[^/]+)?\.json$/;
@@ -88,7 +89,7 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
   assert.match(archivos.find(a => a.rel === 'auth-ui.js').src, /\/\*[^]*?amigable-licencias\.jfcarpio\.workers\.dev[^]*?\*\//);
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
-  assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel-pin.js', 'panel.html']);
+  assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel-pin.js', 'panel.html', 'team-authority-client.js']);
   assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
   const rutas = new Set();
@@ -110,7 +111,7 @@ test('estatico: toda llamada fetch/cliente a hosts externos esta clasificada', (
   // Ningun fetch() apunta a un host de datos de Cloudflare o Supabase escrito a mano.
   assert.deepEqual(donde(/fetch\(\s*["'`]https?:\/\/[^"'`]*(sync-relay[^"'`]*workers\.dev|supabase\.co)/), []);
   // crypto-store.js llama a /maestro/verificar del Worker de LICENCIAS (clave maestra), no es dato de negocio.
-  assert.deepEqual(donde(/fetch\(\s*["'`]https?:\/\/friendly123-licencias/), ['crypto-store.js']);
+  assert.deepEqual(donde(/fetch\(\s*["'`]https?:\/\/friendly123-licencias/), ['crypto-store.js', 'team-authority-client.js']);
 });
 
 test('frontera real del Worker: solo metadatos SDP/ICE/reloj; negocio y binarios no se reenvian', async () => {
@@ -138,6 +139,78 @@ test('frontera real del Worker: solo metadatos SDP/ICE/reloj; negocio y binarios
     assert.equal(closed[0]?.[0], 1008, 'reject invalid/business frame at the actual server boundary');
     assert.deepEqual(forwarded, [], 'no rejected business bytes reach another socket');
   }
+});
+
+// The Team authority import is intentionally a QA-only credential adapter to
+// the LICENSE worker. Never broaden the allowed workers.dev / HTTP host list.
+test('estatico: team authority uses only a pinned license Worker and two team routes', () => {
+  const team = archivos.find(a => a.rel === 'team-authority-client.js')?.src;
+  assert.ok(team, 'current Team authority adapter must exist in the audited docs tree');
+  const endpoints = [...team.matchAll(/post\('(\/[^']+)'/g)].map(x => x[1]).sort();
+  assert.deepEqual(endpoints, ['/team/status', '/team/update']);
+  assert.equal((team.match(/https:\/\/friendly123-licencias\.jfcarpio\.workers\.dev/g) || []).length, 1,
+    'only the fixed license authority endpoint can carry Team credentials');
+  assert.match(team, /localStorage\.getItem\('f123_team_authority_qa'\)!=='1'/,
+    'Team worker transport must remain dormant without an explicit QA flag');
+  assert.match(team, /window\.OCAuth\?\.rolActual\(\)!=='dueno'/,
+    'only current owner may initiate Team authority transport');
+  assert.match(team, /window\.OCTienda\?\.licenciaActual/,
+    'store license must be cross-checked against the currently opened notebook');
+  assert.doesNotMatch(team, /friendly123-sync-relay|supabase\.co|\/api\/(productos|ventas|clientes|gastos)|\/sala\/|\/signal\//,
+    'Team credential sender must not address any commercial relay or business endpoint');
+});
+
+test('VM: QA-disabled, non-owner or wrong-license Team authority sends no credentials or business data', async () => {
+  const actual = archivos.find(a => a.rel === 'team-authority-client.js')?.src;
+  assert.ok(actual);
+  const license = 'F123-SYNTHETIC-QA-ONLY';
+  function device({enabled = false, role = 'dueno', matches = true} = {}) {
+    const requests = [], listeners = new Map();
+    const id = {licenseCode: license, instanceId: 'fixture-device-001'};
+    const win = {
+      OCAuth: {rolActual: () => role},
+      OCTienda: {licenciaActual: () => matches ? license : 'F123-OTHER-SYNTHETIC'},
+      OCSecure: {leerPinQueAbre: () => ({owner:'432'})},
+      OCSync: {leerIntencionesAutoridad: () => [], confirmarAutoridad: async () => false},
+      addEventListener: (key, callback) => {listeners.set(key, callback);}
+    };
+    const ctx = {
+      window: win,
+      localStorage: {getItem: k => k === 'f123_team_authority_qa' ? (enabled ? '1' : null)
+        : (k === 'f123_owned' ? JSON.stringify(id) : null)},
+      fetch: async (url, options) => {
+        requests.push({url, options});
+        return {ok:true,status:200,json:async()=>({ok:true,revision:7})};
+      },
+      AbortController: class { constructor() {this.signal={};} abort() {} },
+      setTimeout: () => 1, clearTimeout: () => {},
+      crypto: {randomUUID: () => 'synthetic-uuid'}
+    };
+    vm.runInNewContext(actual, ctx);
+    return {win,requests,listeners};
+  }
+  for(const flags of [{enabled:false},{enabled:true,role:'empleado'},
+    {enabled:true,role:'dueno',matches:false}]) {
+    const {win,requests} = device(flags);
+    const team = win.F123TeamAuthority;
+    assert.ok(team, 'execute the actual adapter, not a substituted implementation');
+    const users = [{id:'fixture-person',rol:'empleado',pin:'671',rev:1}];
+    team.prepare([], users);
+    assert.equal(Object.prototype.hasOwnProperty.call(users[0], '_teamAuthorityIntent'),false,
+      'denied context does not create an authority intent');
+    await team.refresh(); await team.flush();
+    assert.equal(requests.length, 0,
+      'no Worker request without QA flag + owner + matching business license');
+  }
+  const allowed = device({enabled:true,role:'dueno',matches:true});
+  await allowed.win.F123TeamAuthority.refresh();
+  assert.equal(allowed.requests.length,1,
+    'enabled QA owner may check only the fixed Team authority endpoint');
+  assert.equal(allowed.requests[0].url,
+    'https://friendly123-licencias.jfcarpio.workers.dev/team/status');
+  assert.deepEqual(Object.keys(JSON.parse(allowed.requests[0].options.body)).sort(),
+    ['instanceId','licenseCode','ownerPin'],
+    'no products, sales, customers, photos or prices may leave in Team status requests');
 });
 
 // ---------- Parte 2: navegador real ----------

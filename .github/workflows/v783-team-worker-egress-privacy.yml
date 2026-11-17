@@ -1,0 +1,41 @@
+name: v783 Team license Worker outbound privacy guard (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/relay-sin-cloudflare-datos-v557.test.js'
+      - '.github/workflows/v783-team-worker-egress-privacy.yml'
+permissions:
+  contents: read
+jobs:
+  privacy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install pinned packages and real Chromium browser
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Entire original network boundary suite (real browser, no production network)
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/team-worker-egress
+          git rev-parse HEAD | tee ../evidence/team-worker-egress/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000             test/relay-sin-cloudflare-datos-v557.test.js 2>&1 | tee ../evidence/team-worker-egress/tap.log
+      - name: Preserve evidence even if test fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-team-worker-egress-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/team-worker-egress/
+          if-no-files-found: warn
+          retention-days: 14
