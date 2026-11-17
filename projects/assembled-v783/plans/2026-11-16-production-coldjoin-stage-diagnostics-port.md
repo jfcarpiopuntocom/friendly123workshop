@@ -34,3 +34,9 @@
 ## Riesgo / NO-GO vigente
 
 Canarios reales anteriores 14/14 rojos, falta resolver unión fría y replay durable de negocio, staged timestamp ties, fotos, dinero, roles/PIN y 2× A→B→A físico PC↔iPhone. La QA verde 585 no certifica comercial ni acceso remoto. PWA aplazada por decisión actual del usuario. Este plan prohíbe copia integra del canario workshop porque difiere su entorno PILOTO.
+
+## Primer RED observable antes del runtime — PR producción #740
+
+- [Actions 44012419072](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44012419072) sobre SHA de PR de tests/workflow `4c9de22615a281d152502bc35525518762251120`, **31 tests, 26 PASS / 5 FAIL / 0 SKIP/CANCEL**. Cinco fallos están en las tres etapas sin clasificar, catch interno con `e.name` hostil y catch externo con `e.name` hostil.
+- **Falso GREEN detectado en test nuevo de `pageerror`**: el script original hace `(e.name||'Error').slice(0,32)`, y el test solamente buscaba el marcador secreto COMPLETO, cuyo largo excede 32; un fragmento sí podría filtrarse. Antes de tocar código de producción, corregir exclusivamente el test para negar también prefijo (mínimo 12 caracteres, y exactamente 32). Mantener todos los asserts de status/PIN. Repetir RED con SHA exacto sin cambios en el script y registrar 6/6 fallos causales.
+- No concluir seguridad de `pageerror` con el primer RED: su salida estaba subtesteada. No borrar la corrida RED anterior.
