@@ -34,3 +34,21 @@ test('single -priv room must NOT count as compatible for three separate channel 
  assert.equal(result.channelIsolationPreserved,false);
  assert.equal(result.compatible,false,'all Y.Docs in one YServer would falsely merge catalog/ops/fotos');
 });
+
+// Regression added after PR86+PR87: real client *already ships* signed cat/ops rooms;
+// the old checker falsely insists on one shared -priv room and reports BLOCKED.
+test('actual merged worker + generated client now have isolated authenticated cat/ops contract',()=>{
+ const verdict=inspectClientWire({client,worker,authorized});
+ assert.equal(verdict.secureWorkerRequiresTicket,true);
+ assert.equal(verdict.authorizedProviderAvailable,true);
+ assert.equal(verdict.pilotUsesFreshTicket,true,'actual pilot uses existing createOwnerTicketParams on each connection');
+ assert.equal(verdict.pilotUsesSeparatedRooms,true,'separate Y.Doc rooms cat and ops required');
+ assert.equal(verdict.channelIsolationPreserved,true,'no Yjs doc mixing, photos use legacy relay');
+ assert.equal(verdict.compatible,true,'source-level client/Worker contract now compatible, not commercial GO');
+});
+test('two-channel secure server never blesses fabricated bare tickets or raw economic edits',()=>{
+ assert.match(worker,/WS_SEPARATE_ROOMS_QA/);
+ assert.match(worker,/this\.name\.endsWith\('-ops'\)\) return true/);
+ assert.match(client,/createOwnerTicketParams/);
+ assert.doesNotMatch(client,/new YProvider\(/);
+});
