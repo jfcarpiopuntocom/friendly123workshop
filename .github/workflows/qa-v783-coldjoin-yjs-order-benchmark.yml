@@ -27,8 +27,8 @@ jobs:
           git rev-parse HEAD | tee projects/assembled-v783/evidence/coldjoin-yjs-order-ci/head.txt
           node --version | tee projects/assembled-v783/evidence/coldjoin-yjs-order-ci/node.txt
           node --check projects/assembled-v783/evidence/coldjoin-yjs-order-benchmark.cjs
+          # No Playwright or production browser: vendor Yjs runs inside a network-free vm context.
           timeout --signal=TERM --kill-after=5s 360s node \
-            --require ./projects/assembled-v783/app/test/helpers/sin-red-produccion.cjs \
             projects/assembled-v783/evidence/coldjoin-yjs-order-benchmark.cjs \
             2>&1 | tee projects/assembled-v783/evidence/coldjoin-yjs-order-ci/result.json
       - name: Check three fully applied synthetic histories, without inventing performance thresholds
