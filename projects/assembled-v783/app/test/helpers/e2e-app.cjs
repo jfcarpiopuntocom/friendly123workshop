@@ -45,27 +45,65 @@ module.exports = { startServer, openDevice, enterAs, go, chromium };
 // Two-device sync pump: every Yjs update produced on one device is captured
 // (doc 'update' event, i.e. exactly what the relay would carry) and applied on the other.
 async function installPump(devices) {
-  // Initial full-state exchange (like a fresh peer join), then incremental updates only.
-  const full = [];
-  for (const d of devices) full.push(await d.page.evaluate(() => Array.from(Y.encodeStateAsUpdate(OCYjs.doc))));
-  for (const [i, d] of devices.entries()) for (const [j, u] of full.entries()) if (i !== j)
-    await d.page.evaluate(arr => { Y.applyUpdate(OCYjs.doc, new Uint8Array(arr), 'red'); try { OCYjs._store.aplicar(); } catch (_) {} }, u);
+  // Each browser has independent Y.Docs for catalog and economic opId events.
+  // Install listeners BEFORE full-state snapshot so asynchronous app writes made
+  // during the handshake cannot fall into the old snapshot→listener blind spot.
   for (const d of devices) await d.page.evaluate(() => {
-    window.__out = []; window.__pumpOn = true;
-    const hook = doc => doc && doc.on('update', (u, origin) => { if (origin !== 'red' && window.__pumpOn) window.__out.push(Array.from(u)); });
-    hook(OCYjs.doc);
+    window.__out = window.__out || [];
+    window.__opsOut = window.__opsOut || [];
+    window.__pumpOn = true;
+    const hook = (doc, queue, key) => {
+      if (!doc) throw new Error('synthetic Yjs room missing: ' + key);
+      if (window[key] === doc) return; // repeated join must not double listeners
+      window[key] = doc;
+      doc.on('update', (u, origin) => {
+        if (origin !== 'red' && window.__pumpOn && window[key] === doc)
+          window[queue].push(Array.from(u));
+      });
+    };
+    hook(OCYjs.doc, '__out', '__pumpCatalogDoc');
+    hook(OCYjs.opsDoc, '__opsOut', '__pumpOpsDoc');
   });
+
+  // Two independent initial Yjs state-vector/diff exchanges: a catalog
+  // snapshot cannot replace the append-only operations room's missing bytes.
+  const full = [];
+  for (const d of devices) full.push(await d.page.evaluate(() => ({
+    catalog: Array.from(Y.encodeStateAsUpdate(OCYjs.doc)),
+    ops: Array.from(Y.encodeStateAsUpdate(OCYjs.opsDoc))
+  })));
+  for (const [i, d] of devices.entries()) for (const [j, u] of full.entries()) if (i !== j)
+    await d.page.evaluate(updates => {
+      Y.applyUpdate(OCYjs.doc, new Uint8Array(updates.catalog), 'red');
+      Y.applyUpdate(OCYjs.opsDoc, new Uint8Array(updates.ops), 'red');
+      try { OCYjs._store.aplicar(); } catch (e) { window.__aplicarErr = String(e); }
+      // The real opsDoc 'red' listener already schedules aplicarOpRemota.
+    }, u);
 }
 async function pump(a, b, ms = 400, rounds = 12) {
-  // Several short rounds: the app publishes to Yjs asynchronously (seed, then update).
+  // Several short rounds: app publishes local facts asynchronously to two
+  // separate Yjs rooms. Deliver each room to its matching remote Y.Doc.
   let quiet = 0;
   for (let r = 0; r < rounds && quiet < 3; r++) {
     await a.page.waitForTimeout(ms);
     let moved = 0;
     for (const [from, to] of [[a, b], [b, a]]) {
-      const ups = await from.page.evaluate(() => window.__out.splice(0));
-      moved += ups.length;
-      if (ups.length) await to.page.evaluate(arr => { for (const u of arr) Y.applyUpdate(OCYjs.doc, new Uint8Array(u), 'red'); try { OCYjs._store.aplicar(); } catch (e) { window.__aplicarErr = String(e); } }, ups);
+      const ups = await from.page.evaluate(() => ({
+        catalog: (window.__out || []).splice(0),
+        ops: (window.__opsOut || []).splice(0)
+      }));
+      moved += ups.catalog.length + ups.ops.length;
+      if (ups.catalog.length || ups.ops.length)
+        await to.page.evaluate(updates => {
+          for (const u of updates.catalog)
+            Y.applyUpdate(OCYjs.doc, new Uint8Array(u), 'red');
+          for (const u of updates.ops)
+            Y.applyUpdate(OCYjs.opsDoc, new Uint8Array(u), 'red');
+          if (updates.catalog.length) {
+            try { OCYjs._store.aplicar(); }
+            catch (e) { window.__aplicarErr = String(e); }
+          }
+        }, ups);
     }
     quiet = moved ? 0 : quiet + 1;
   }
