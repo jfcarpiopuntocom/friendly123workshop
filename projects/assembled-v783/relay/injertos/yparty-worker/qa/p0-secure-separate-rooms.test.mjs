@@ -21,7 +21,7 @@ function storage(){
  finally{release();}}};
 }
 async function relay(){
- const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_PHOTO_BLOBS_QA:photoFlag?'1':'0',WS_TYPED_COMMANDS_QA:'1',WS_PHOTO_ORIGIN_QA:'https://synthetic-photo.test',WS_SERVICE_KEY:key};
+ const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_PHOTO_BLOBS_QA:photoFlag?'1':'0',WS_TYPED_COMMANDS_QA:'1',WS_TYPED_ORIGIN_QA:'https://synthetic-shop.test',WS_PHOTO_ORIGIN_QA:'https://synthetic-photo.test',WS_SERVICE_KEY:key};
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',compatibilityFlags:['nodejs_compat'],
  durableObjects:{Tienda:{className:'Tienda',useSQLite:true}},durableObjectsPersist:path.join(persist,'do'),
  kvNamespaces:['LICENCIAS'],bindings:mfBindings,
@@ -375,4 +375,51 @@ test('P0 Team employee may submit TYPED ops:sale HTTP but never open economic Yj
   assert.equal(revoked.ok,true,JSON.stringify(revoked));
   assert.notEqual((await ticket()).status,200,'revoked employee cannot issue more command tickets');
  }finally{delete env.WS_QA_ROLE_GRANTS;}
+});
+
+test('P0 browser HTTPS CORS for typed ops: exact preflight and POST; wrong origin cannot spend an Owner ticket',{timeout:18000},async()=>{
+ const origin='https://synthetic-shop.test';
+ const endpoint=new URL('/parties/tienda/'+room+'-ops',url);
+ const required='authorization,content-type,x-f123-license,x-f123-instance';
+ const preflight=async({from=origin,headers=required,method='POST'}={})=>
+   fetch(endpoint,{method:'OPTIONS',headers:{
+     origin:from,'access-control-request-method':method,
+     'access-control-request-headers':headers
+   }});
+ const good=await preflight();
+ assert.equal(good.status,204,'browser Authorization preflight must succeed');
+ assert.equal(good.headers.get('access-control-allow-origin'),origin,
+   'explicit HTTPS allowlist only; no wildcard');
+ assert.equal(good.headers.get('access-control-allow-methods'),'POST');
+ const accepted=good.headers.get('access-control-allow-headers').toLowerCase();
+ for(const h of required.split(','))assert.ok(accepted.includes(h),h);
+ assert.match(good.headers.get('vary')||'',/origin/i);
+ assert.equal(good.headers.get('access-control-allow-credentials'),null);
+ assert.equal((await preflight({from:'https://not-the-shop.test'})).status,403);
+ assert.equal((await preflight({headers:required+',x-unknown-private'})).status,403);
+ assert.equal((await preflight({method:'PUT'})).status,403);
+
+ // Isolate issuer test quota only; token validation, replay protection, role
+ // checks and all production limits remain intact.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const token=await issue('ops',['ops:sale']);
+ const command={opId:'synthetic-browser-cors-001',kind:'sale.record',license,
+   productId:'synthetic-sku',quantity:1,amountCents:500};
+ const post=async(from,cap=token)=>fetch(endpoint,{method:'POST',headers:{
+   origin:from,'content-type':'application/json','authorization':'Bearer '+cap,
+   'x-f123-license':license,'x-f123-instance':instance
+ },body:JSON.stringify(command)});
+ const wrong=await post('https://not-the-shop.test');
+ assert.equal(wrong.status,403,'cross-origin POST forbidden before DO or issuer');
+ assert.equal(wrong.headers.get('access-control-allow-origin'),null);
+ const valid=await post(origin);
+ assert.equal(valid.status,202,'denied request must NOT consume valid one-use ticket');
+ assert.equal(valid.headers.get('access-control-allow-origin'),origin);
+ assert.match(valid.headers.get('vary')||'',/origin/i);
+ assert.equal(valid.headers.get('access-control-allow-credentials'),null);
+ assert.equal(valid.headers.get('set-cookie'),null);
+ const payload=await valid.json();
+ assert.equal(payload.receipt?.stage,'stored-for-application',
+  'CORS access cannot be an applied economic receipt');
+ assert.equal((await post(origin)).status,403,'replay denied after successful command');
 });
