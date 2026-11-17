@@ -101,7 +101,7 @@
     "./feature-gate.js": "sha256-de09e583e7f0c1e643a54e2e9e86cd3a41e2cdd28d13d511d672267bf8d97164",
     "./audit-store.js": "sha256-0d7a5a623b001684a17f3051e79b97129c9120e18a7679cd91084c17379eab60",
     "./sync-queue.js": "sha256-66a8e102d49297390314cda3e6e2d5e8dec5932ad4de995a412f1daa08da243e",
-    "./sync-outbox.js": "sha256-928457788fa4200067beccf0aff15e2e6588e09cf92a839292024f57c7d84166",
+    "./sync-outbox.js": "sha256-81ccaee12b0badb528b23c1adf4be517ad9ad241d9c6f419ec7d93c1b77a90ab",
     "./ui-actions.js": "sha256-165e3160b83e5b11ed2bc3beeb9e217d5f61a14ce7a1ac3829fc4e4cb7ea7d54",
     "./salud-app.js": "sha256-ef44eacd82f39b9be5401e473983b30c2577f8cfbbb39253b657d1d938102c5a",
     "./canarios.js": "sha256-1956d833f2201ae7ab60ef24d2ef2f8e88b6b54896fd4aaeaca894b25682ce6c",
