@@ -1,8 +1,15 @@
 diff --git a/docs/sync-outbox.js b/docs/sync-outbox.js
-index 76653372..7068c57c 100644
+index 76653372..1586b41e 100644
 --- a/docs/sync-outbox.js
 +++ b/docs/sync-outbox.js
-@@ -34,13 +34,18 @@
+@@ -29,22 +29,30 @@
+   var LS_KEY = "f123_sync_pending";
+   var SOPORTADO = typeof indexedDB !== "undefined";
+   var dbPromise = null;
++  var fallbackActivo = false;
++  var fallbackGeneracion = 0;
+ 
+   function abrirDB() {
      if (dbPromise) return dbPromise;
      dbPromise = new Promise(function (resolve, reject) {
        var req = indexedDB.open(DB_NAME, 1);
@@ -23,3 +30,43 @@ index 76653372..7068c57c 100644
      return dbPromise;
    }
  
+   async function guardar(blobCifrado) {
++    var generacionAlInicio = fallbackGeneracion;
+     if (SOPORTADO) {
+       try {
+         var db = await abrirDB();
+@@ -56,16 +64,22 @@
+         });
+         // Limpieza best-effort del rastro viejo en localStorage: si IndexedDB
+         // ya tiene el dato fresco, no hace falta duplicarlo ahi tambien.
+-        try { localStorage.removeItem(LS_KEY); } catch (_) {}
++        if (fallbackGeneracion === generacionAlInicio) {
++          fallbackActivo = false;
++          try { localStorage.removeItem(LS_KEY); } catch (_) {}
++        }
+         return true;
+       } catch (e) {
+         try { console.warn("[sync-outbox] IndexedDB fallo, cae a localStorage:", e && e.message); } catch (_) {}
+       }
+     }
+-    try { localStorage.setItem(LS_KEY, blobCifrado); return true; } catch (_) { return false; }
++    try { localStorage.setItem(LS_KEY, blobCifrado); fallbackActivo = true; fallbackGeneracion++; return true; } catch (_) { return false; }
+   }
+ 
+   async function leer() {
++    if (fallbackActivo) {
++      try { return localStorage.getItem(LS_KEY); } catch (_) { return null; }
++    }
+     if (SOPORTADO) {
+       try {
+         var db = await abrirDB();
+@@ -75,6 +89,9 @@
+           req.onsuccess = function () { resolve(req.result); };
+           req.onerror = function () { reject(req.error); };
+         });
++        if (fallbackActivo) {
++          try { return localStorage.getItem(LS_KEY); } catch (_) { return null; }
++        }
+         if (fila && fila.blob) return fila.blob;
+       } catch (e) {
+         try { console.warn("[sync-outbox] IndexedDB no disponible para leer, prueba localStorage:", e && e.message); } catch (_) {}
