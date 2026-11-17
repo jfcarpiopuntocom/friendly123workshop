@@ -83,6 +83,10 @@ test('A→B→A twice: separate Chromium/WebKit IDB keeps unique sales and physi
       const productId=product.data.id;
       assert.ok(productId);
       await A.page.evaluate(()=>OCSync.confirmarCatalogoDurable());
+      // A local durable ACK is not the asynchronous Yjs publication barrier.
+      await A.page.waitForFunction(id=>Boolean(
+        window.OCYjs?._store && window.OCYjs?.mapas?.productos?.has(String(id))
+      ),productId,{timeout:12000});
       await installPump([A,B]);
       await untilPair(A,B,productId,[],'initial full-state join');
       const receiptIds=[];
