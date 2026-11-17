@@ -110,6 +110,13 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,autho
           // Separate table preserves compatibility with existing receipt rows;
           // historical hash-only rows remain non-executable until recovered.
           sql.exec('CREATE TABLE IF NOT EXISTS typed_commercial_payloads (license TEXT NOT NULL, op_id TEXT NOT NULL, payload_json TEXT NOT NULL, PRIMARY KEY (license, op_id))');
+          // In the same DO SQL transaction, a queued op may later become
+          // executable. No promise/external effects may escape this boundary.
+          const commitBusiness=()=>{
+            const result=applyBusiness({sql,command:validated.record,principal});
+            if(!result||typeof result.then==='function'||result.applied!==true)
+              throw new Error('business-application-not-confirmed');
+          };
           const existing=Array.from(sql.exec(
             'SELECT payload_hash, receipt_json FROM typed_commercial_ops WHERE license = ? AND op_id = ?',
             validated.record.license,validated.record.opId))[0];
@@ -127,6 +134,17 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,autho
                receipt.opId!==validated.record.opId||
                receipt.license!==validated.record.license||receipt.kind!==validated.record.kind)
               throw new Error('receipt corrupt');
+            // Preserve queued durable intents across activation/restarts.
+            // Only an actual synchronous SQL effect upgrades the old receipt.
+            // Updating its status atomically with the stock/cash effects
+            // guarantees no double application on subsequent opId retries.
+            if(receipt.stage==='stored-for-application'&&applyBusiness!==null){
+              commitBusiness();
+              const upgraded=Object.freeze({...receipt,stage:'business-committed'});
+              sql.exec('UPDATE typed_commercial_ops SET receipt_json = ? WHERE license = ? AND op_id = ?',
+                JSON.stringify(upgraded),validated.record.license,validated.record.opId);
+              return {ok:true,status:200,duplicate:true,receipt:upgraded};
+            }
             return {ok:true,status:200,duplicate:true,receipt};
           }
           // This callback must only mutate SQL on THIS Durable Object.
@@ -135,9 +153,7 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,autho
           // Throwing here rolls back any balance changes inside transactionSync.
           let stage='stored-for-application';
           if(applyBusiness!==null){
-            const result=applyBusiness({sql,command:validated.record,principal});
-            if(!result||typeof result.then==='function'||result.applied!==true)
-              throw new Error('business-application-not-confirmed');
+            commitBusiness();
             stage='business-committed';
           }
           const receipt=Object.freeze({
