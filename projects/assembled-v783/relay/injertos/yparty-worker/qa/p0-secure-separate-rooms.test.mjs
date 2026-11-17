@@ -328,3 +328,51 @@ test('P0 real Worker typed sale HTTP: central fresh Owner ticket, 202 inbox only
  assert.equal(other.body.receipt.stage,'stored-for-application');
  assert.equal('saleCommitted' in other.body.receipt,false);
 });
+
+test('P0 Team employee may submit TYPED ops:sale HTTP but never open economic Yjs or private catalog',{timeout:30000},async()=>{
+ const {teamAuthority}=await import('../../../../app/cloudflare-worker/team-authority.mjs');
+ env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['ops:sale']});
+ // Test-only issuer rate counter isolation: actual Workerd HMAC/role/nonce checks
+ // stay on, no changes to production 32/min quota or permission ceilings.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const owner=pinAuthority(db,env.PIN_PEPPER);
+ const team=teamAuthority({storage:db,ownerAuthority:owner,secret:env.TEAM_PIN_PEPPER});
+ const identity={licenseCode:license,instanceId:instance,subject:'synthetic-team-seller-b'};
+ try{
+  const current=await db.get('team-authority-v1:'+license);
+  const joined=await team.update({...identity,role:'empleado',active:true,pin:'444',ownerPin:'123',
+    expectedRevision:current.revision,opId:'synthetic-team-seller-join'});
+  assert.equal(joined.ok,true,JSON.stringify(joined));
+  const ticket=async()=>{
+    const response=await api('/ws/ticket',{credentials:{kind:'team',...identity,pin:'444'},
+      room:room+'-ops',scopes:['ops:sale'],ttlMs:30000});
+    return{status:response.status,data:await response.json()};
+  };
+  const wsCap=await ticket();
+  assert.equal(wsCap.status,200,JSON.stringify(wsCap.data));
+  const raw=await attempt('ops',wsCap.data.token);
+  assert.equal(raw.binary,0,'employee sale scope MUST NOT reveal any raw economic Yjs');
+  assert.notEqual(raw.status,'open','employee cannot open ops Yjs with sale-only scope');
+  assert.equal((await attempt('cat',wsCap.data.token)).binary,0,'ops ticket cannot read private catalog');
+
+  const issued=await ticket();
+  assert.equal(issued.status,200,JSON.stringify(issued.data));
+  const command={opId:'synthetic-team-sale-001',kind:'sale.record',license,
+    productId:'sku-1',quantity:1,amountCents:400};
+  const response=await fetch(new URL('/parties/tienda/'+room+'-ops',url),{
+    method:'POST',headers:{'content-type':'application/json',
+      'authorization':'Bearer '+issued.data.token,
+      'x-f123-license':license,'x-f123-instance':instance},
+    body:JSON.stringify(command)
+  });
+  const body=await response.json();
+  assert.equal(response.status,202,JSON.stringify(body));
+  assert.equal(body.receipt?.stage,'stored-for-application',
+    'employee can enqueue typed intent, but never claim commercial success without executor');
+  assert.equal(body.ok,true);
+  const revoked=await team.update({...identity,role:'empleado',active:false,ownerPin:'123',
+    expectedRevision:joined.revision,opId:'synthetic-team-seller-revoke'});
+  assert.equal(revoked.ok,true,JSON.stringify(revoked));
+  assert.notEqual((await ticket()).status,200,'revoked employee cannot issue more command tickets');
+ }finally{delete env.WS_QA_ROLE_GRANTS;}
+});
