@@ -1,0 +1,41 @@
+name: v783 legacy encrypted outbox abort failback (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/docs/sync-outbox.js'
+      - 'projects/assembled-v783/app/test/p0-sync-outbox-idb-abort-failback.test.cjs'
+      - '.github/workflows/v783-sync-outbox-abort-failback.yml'
+permissions:
+  contents: read
+jobs:
+  abort-failback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Locked dependencies (never deploy or fetch real client records)
+        run: npm ci --ignore-scripts
+      - name: Unfiltered actual outbox abort, dual-store quota and IDB success
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/sync-outbox-abort
+          git rev-parse HEAD | tee ../evidence/sync-outbox-abort/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
+            test/p0-sync-outbox-idb-abort-failback.test.cjs 2>&1 | tee ../evidence/sync-outbox-abort/tap.log
+      - name: Preserve RED as well as GREEN evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-sync-outbox-abort-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/sync-outbox-abort/
+          retention-days: 14
+          if-no-files-found: warn

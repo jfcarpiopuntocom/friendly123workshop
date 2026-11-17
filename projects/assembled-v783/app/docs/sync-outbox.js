@@ -52,7 +52,7 @@
           var tx = db.transaction(STORE, "readwrite");
           tx.objectStore(STORE).put({ id: LS_KEY, blob: blobCifrado, guardado: Date.now() });
           tx.oncomplete = resolve;
-          tx.onerror = function () { reject(tx.error); };
+          tx.onerror = tx.onabort = function () { reject(tx.error || new Error("Transacción IndexedDB abortada")); };
         });
         // Limpieza best-effort del rastro viejo en localStorage: si IndexedDB
         // ya tiene el dato fresco, no hace falta duplicarlo ahi tambien.
