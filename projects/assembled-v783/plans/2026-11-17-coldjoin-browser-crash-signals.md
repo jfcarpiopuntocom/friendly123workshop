@@ -40,3 +40,8 @@
 
 ## Rollback and NO-GO
 Reject/close isolated PR without merging; no production impact. A green diagnostic test says NOTHING about the missing Yjs parents, 4xx or full customer cold join. Must still solve 15 parents, historical 3K+ failures, immutable economic opId and physical PC↔iPhone A→B→A ×2.
+
+## Exact RED before runtime change
+- Plan SHA commit `5f323e77bf63f961da818a6e13f0ef34fe97da47` first; new test commit `0c6959a1dcecb3eaba5445600f5a07a3a096c2d7`; CI commit `a1a9c842cc974a3903b8418e05fa855cecea3384` with original canary source UNMODIFIED.
+- [CI RED 44093593709](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44093593709), job 134074808851: **34 tests, 29 PASS, 5 expected FAIL, 0 skipped/cancelled**, syntax valid. Fail 26 unsafe pageerror.name log; fail 27–29 no crash/pageclose/disconnect booleans; fail 30 generic recovery stage for repeated 2s wait. Historical PR72 and PIN-guard tests remain PASS. No tooling errors or customer network.
+- Ruling: make no production Sync3/Firebase change; this diagnosis only observes browser events before the planned cleanup, so cannot prove coldjoin itself fixed.
