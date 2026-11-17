@@ -15,3 +15,8 @@ Se consultó cada job `union-fria` y `recorrer` de las **14 corridas programadas
 2. Revisar fuente de la excepción observada sin imprimir URL, capacidades de sala, contenido ni credenciales; distinguir evaluación Playwright, cierre de página, espera y diagnóstico.
 3. Comparar checkpoint e historial con fuentes/efectos de v653/v733/v751, reproduciendo hipótesis una a una; mantener aislamiento y límites de gastos. No escribir en el relay productivo ni probar con aparatos/identidad reales.
 4. Independientemente, un canario de lectura de interfaz en verde no demuestra venta, unión en frío o convergencia de clientes. Faltan ACK verificable y pruebas PC/iPhone según aceptación.
+
+## Alcance: outbox manual vs unión fría Yjs
+En SHA `94a4e047`, `scripts/canario-union-fria.cjs:225–235,370–374` verifica canal `window.OCYjs`, hidratación y-indexeddb, dependencias causales y metadatos PIN. No contiene referencias directas a `OCOutbox`, `f123_outbox` ni `f123_sync_pending`. `docs/sync-yjs.js:965–980` usa la prueba de hidratación y-indexeddb; `:1942–2052` maneja `pull-page`, continuación de páginas y cierre de recuperación bajo las guardas causales y HEAD. Tampoco contiene referencias directas a esas claves del outbox manual.
+
+`docs/avanzado-extra.js:73–79,95–103,116–131,205–211` usa otra cola, opcional `f123_sync_on`, y `OCOutbox` para snapshots de operaciones manuales; el comentario `:259–263` identifica el relay WebSocket como camino principal. Estas son relaciones estáticas, no prueba dinámica de ausencia de todas las interacciones indirectas. El port de retry de `sync-outbox.js` no demuestra reparación del canario ni causalidad en ese resultado.
