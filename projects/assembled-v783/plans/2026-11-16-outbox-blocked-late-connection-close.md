@@ -19,3 +19,7 @@ Fecha Ecuador: 16 noviembre 2026; workshop main observado `02df0b3de3cff9f858fce
 7. Reanudar por defecto los P0 que siguen: (a) preservar ambos snapshots y causalidad multi-tab sin reenvío duplicado; (b) coldjoin Yjs real; (c) business-committed app-level; (d) PC Opera↔iPhone Safari/PWA↔PC A→B→A×2. MDD 31oct vigente.
 
 **No autorizado como resultado:** afirmar que esta unidad arregla unión fría, pérdida de ventas, convergencia, PIN, fotos o desempeño. Sin cliente/servidor en producción; no tocar SW ni manifiesto hasta un release candidato completo.
+
+## RED comprobado antes de tocar runtime
+
+[GitHub Actions 44006325294](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44006325294) en commit `c595c6a120b55797bf98752d15a8d416f196922e`: FAILURE esperado, **0 PASS / 1 FAIL, 0 skipped**. Asersión exacta del test real: `orphanClosed` esperado 1, actual 0 (línea 25); retry activo sigue sin cerrar. Node22, no network ni secretos, TAP+SHA artefacto ID `14294482236`. Se verifica que fuente original no cierra la conexión huérfana. Esta anotación se realiza antes del parche funcional.
