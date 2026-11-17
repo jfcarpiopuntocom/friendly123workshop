@@ -162,3 +162,25 @@ test('corrupt or missing SQLite chunk never gets a successful readback certifica
   await assert.rejects(m.readFrozenImport({storage:w.storage}),/hash|corrupt|mismatch|missing|invalid/i);
  }finally{w.cleanup();}
 });
+
+test('frozen-only export fails closed once a later SQL journal update exists',async()=>{
+ const m=await code(),proof=await prepare(m),w=newStore();
+ try{
+  await m.installFrozenImport({storage:w.storage,proof});
+  w.storage.sql.exec('INSERT INTO diario (cambio) VALUES (?)',new Uint8Array([1,2,3]));
+  await assert.rejects(m.readFrozenImport({storage:w.storage}),/journal/i);
+  assert.equal(w.storage.sql.exec('SELECT COUNT(*) AS n FROM diario').one().n,1,
+    'later unsynchronized operation must never be deleted to make export green');
+ } finally {w.cleanup();}
+});
+
+test('an imported certificate with a missing SQL chunk is never accepted as a duplicate',async()=>{
+ const m=await code(),proof=await prepare(m),w=newStore();
+ try{
+  await m.installFrozenImport({storage:w.storage,proof});
+  w.storage.sql.exec('DELETE FROM documento_bloques WHERE n=0');
+  await assert.rejects(m.installFrozenImport({storage:w.storage,proof}),/missing|corrupt/i);
+  assert.equal(w.storage.sql.exec('SELECT COUNT(*) AS n FROM f123_frozen_imports').one().n,1,
+    'failed duplicate does not erase migration evidence');
+ } finally {w.cleanup();}
+});
