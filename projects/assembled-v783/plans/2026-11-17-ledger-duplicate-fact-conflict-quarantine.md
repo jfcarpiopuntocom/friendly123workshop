@@ -17,3 +17,13 @@ MDD JFC (31 oct) preserva ledger causal, idempotencia y forense; no autoriza mig
 5. Esto **no arregla** el write path ni el outbox o los consumidores contables de `errors`; no GO hasta validación del commit typed append-only por rol/opId, UI de cuarentena y pruebas físicas, reservas PR12 respetadas.
 
 **Ética y seguridad:** sólo pruebas sintéticas; fuentes originales quedan intactas hasta RED. No se modifica el Worker YParty, PIN central, foto, clientes, producción ni PWA. Backlog WCAG próximo release es P2, no interfiere. Documentar todos los SHA CI en workshop STATUS y Notion.
+## RED reproducido, módulo REAL sin modificar
+
+[CI 44071653968](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44071653968) sobre commit QA `8898a9171f2642c2b4b6b1e3922714f83fef2220` y [PR privada #14 DRAFT](https://github.com/jfcarpiopuntocom/friendly-123-injertos/pull/14) (test+workflow nuevos, `docs/core/ledger.js` UNTOUCHED): **26 tests / 22 PASS / 4 FAIL / 0 SKIP/CANCEL**. Las 20 pruebas `ledger-v1.test.js` preexistentes más 2 tests nuevos de duplicado idéntico y venta distinta válida PASS. Cuatro fallos P0:
+- conflicto venta `s1` 25.00 versus 0.01 sin `errors` ni cuarentena;
+- conflicto `s1` arrastra cálculo y debería preservar independiente `s2`;
+- conflicto gasto `g1` monto 10 versus 100;
+- conflicto cobro fiado `opId=one-collection-id` 10 versus 100. 
+No inferir aún incidencia en UI productiva; es fallo de proyección pura.
+
+**Seguridad del arreglo:** el mismo hecho puede existir dos veces con distinto orden de propiedades de JS, lo que no es un conflicto económico. Antes de modificar runtime agregar un test de equivalencia canónica por claves en distinto orden y otro de ajuste: si ambos pasan en código viejo, distinguirlos de conflicto material. Implementación aditiva proyectará cero asientos para hecho conflictivo, un `errors` estable `{factKind,factId,motivo:'conflicto de hechos con igual id'}`, sin payload PII ni eliminar hechos de entrada, y preserva asientos separados. Mantener tests 26+ verde y sin deploy.
