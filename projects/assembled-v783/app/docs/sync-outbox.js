@@ -41,6 +41,7 @@
       req.onerror = function () { reject(req.error); };
       req.onblocked = function () { reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)")); };
     });
+    dbPromise = dbPromise.catch(function (e) { dbPromise = null; throw e; });
     return dbPromise;
   }
 

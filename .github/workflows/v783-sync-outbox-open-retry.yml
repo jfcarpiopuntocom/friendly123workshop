@@ -1,0 +1,42 @@
+name: v783 legacy encrypted outbox IDB open retry after error or blocked (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/docs/sync-outbox.js'
+      - 'projects/assembled-v783/app/test/p0-sync-outbox-idb-open-retry.test.cjs'
+      - '.github/workflows/v783-sync-outbox-open-retry.yml'
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install lockfile dependencies
+        run: npm ci --ignore-scripts
+      - name: Run all actual outbox error blocked and throw recovery cases, guarded
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/sync-outbox-reopen
+          git rev-parse HEAD | tee ../evidence/sync-outbox-reopen/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
+            test/p0-sync-outbox-idb-open-retry.test.cjs \
+            test/p0-sync-outbox-idb-abort-failback.test.cjs 2>&1 | tee ../evidence/sync-outbox-reopen/tap.log
+      - name: Archive complete exact RED or GREEN with SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-sync-outbox-reopen-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/sync-outbox-reopen/
+          retention-days: 14
+          if-no-files-found: warn
