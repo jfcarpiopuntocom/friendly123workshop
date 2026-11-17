@@ -61,7 +61,7 @@ function tab(db,locks){
   _unsaved:unsaved,_groupAcks:groupAcks,avisarDurable(){durableSignals.push(1)},
   log(){},Promise,JSON,Map,Set,Array,Object,Number,Error,
  });
- vm.runInContext(actual+\`
+ vm.runInContext(actual+`
   this.outboxRead=()=>leerOutbox();
   this.outboxQueue=async(entry)=>{_unsaved.push(entry);await mutarOutbox(function(){});};
   this.outboxAck=async(id)=>mutarOutbox(function(){
@@ -69,7 +69,7 @@ function tab(db,locks){
    if(!_outbox.confirmed.includes(id))_outbox.confirmed.push(id);
   });
   this.outboxLockAvailable=()=>typeof navigator!=='undefined' && !!navigator.locks;
-  \`,ctx);
+  `,ctx);
  return{read:()=>ctx.outboxRead(),queue:x=>ctx.outboxQueue(x),ack:id=>ctx.outboxAck(id),signals:durableSignals,lockAvailable:ctx.outboxLockAvailable};
 }
 const item=id=>({k:'op',id,c:'synthetic-ciphertext-'+id,group:id,fingerprint:'hash-'+id});
