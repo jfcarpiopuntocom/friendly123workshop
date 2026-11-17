@@ -19,7 +19,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # The historical workflow-secrets test needs app/.github/workflows/hotfix.yml,\n      # absent from the assembled subset; it remains untouched and separately NO-GO.\n      - name: RED/GREEN on actual canary script, no remote network
+      # The historical workflow-secrets test needs app/.github/workflows/hotfix.yml,
+      # absent from the assembled subset; it remains untouched and separately NO-GO.
+      - name: RED/GREEN on actual canary script, no remote network
         shell: bash
         run: |
           set -euo pipefail
