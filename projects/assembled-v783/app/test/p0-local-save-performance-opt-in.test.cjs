@@ -62,7 +62,7 @@ test('real strict path measures queue, serialization, IDB and total outcome with
   assert.match(source, /_perfLocalFin\('snapshot_serialize'/);
   assert.match(source, /_perfLocalFin\('strict_idb'/);
   assert.match(source, /_perfLocalFin\('strict_commit'/);
-  assert.match(source, /idb\.guardarConRevision\(completo, _localRev\)/);
+  assert.match(source, /idb\.guardarConRevision\(completo, _localRev, _commitLocal, opIdVenta\)/);
   assert.match(source, /if \(!guardado\)\s*\{\s*revertir\(\);/);
 });
 
