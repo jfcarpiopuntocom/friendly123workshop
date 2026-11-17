@@ -1,0 +1,22 @@
+# P0 · Autoridad central Owner/Team: consumo de ticket YParty desde servicio privado (QA)
+
+**17-nov-2026 UTC. Plan ANTES de código.** Base privada de origen jfcarpiopuntocom/friendly-123-injertos PR #9 SHA d17e5bc259929b13a466360f5937ac9e52ee950f. Nueva rama propuesta qa/yparty-central-service-bridge-20261117; sin producción, PIN de clientes, PWA ni deploy.
+
+## Causa y contexto verificables
+
+El Worker firmado de PR #8 consume el nonce en SQLite de la sala, pero la autoridad existente cloudflare-worker/ws-capability-issuer.mjs almacena su propio recibo: la autoridad central NO sabe todavía que el token se usó. La prueba actual del Worker usa registros falsos wsRole/wsSubject/wsRoleRevision en KV, NO una sesión PIN real.
+
+Ya existen **rutas reales** cloudflare-worker/ws-worker-api.mjs: POST /ws/ticket público que autentica Owner/Team, y POST /ws/consume, /ws/check y /ws/check-many privados que requieren WS_SERVICE_KEY del servidor y consultan estado actual de PIN/Team en transacciones centrales. Archivo test/p0-ws-worker-api.test.mjs verifica estas rutas y la revocación. El cliente YParty aún no usa estos tickets; hay OTRA RESERVA Notion para cliente, NO duplicarla. PR #10 ya probó 15/15 casos de SQL rollback + Workerd; no duplicar.
+
+La [MDD aprobada](https://app.notion.com/p/40a1642b67f381a0a02cf0bfa8b5feac) conserva prioridad de autoridad central, libro inmutable causal y forense, y prohíbe declarar el backend comercial migrado sin discusión. [War Room](https://app.notion.com/p/4181642b67f381c0a3eff1ff56e44902) y [workshop STATUS](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/STATUS.md) contienen gates actuales. PWA diferida; WCAG 2.2 AA P2 próxima versión.
+
+## Objetivo limitado y ownership
+
+1. Crear esta ficha en workshop y reservar en Notion antes de escribir. Rama **nueva** qa/yparty-central-service-bridge-20261117 desde SHA d17e5bc259929b13a466360f5937ac9e52ee950f. Paths permitidos SOLAMENTE: nuevo injertos/yparty-worker/src/central-ws-authority.mjs, nuevo injertos/yparty-worker/qa/p0-central-authority-service-bridge.test.mjs, nuevo .github/workflows/qa-yparty-central-service-bridge.yml. No modificar Worker src/index.js, server-capability.mjs, cloudflare-worker/*, src/yparty-piloto.js, docs/, PR5–10, clientes o prod. Separar trabajo del owner de tickets cliente.
+2. Test RED primero: importar el adapter (inexistente) y utilizar módulos reales wsPublicRoute/wsDoRoute, pinAuthority y RegistroLicencias para fabricar un emisor y sesión Owner con registros LOCALES sintéticos. Exigir consumo una sola vez mediante la API existente, check antes de cambiar PIN, DENY tras revocación PIN, checkMany correlacionado, rol/scope/room correctos, sin clave en cliente o query.
+3. GREEN sólo mediante un **módulo server-only** con constructor de Service Binding inyectado (objeto con fetch), endpoint interno fijo https://authority.internal/ws/consume|check|check-many, POST JSON, Header Authorization Bearer WS_SERVICE_KEY del Worker con mínimo 32 bytes y exclusividad server-side. No URLs externas variables, no imprimir token/PIN, no fallback a simple licence+instance, caché prohibida.
+4. Fallar cerrado ante key ausente o débil, binding sin fetch, status no-2xx, malformed JSON, identidad/sala/rol discordante, error red, revocación/expiración o nonce reutilizado. La respuesta debe limitarse a principal autorizado y no incluir el token ni el secreto. Usar límites de tamaño.
+5. CI Node22 con test nuevo real issuer API y test existente test/p0-ws-worker-api.test.mjs. No llamar Workerd real si solamente se crea adapter sin conectar al Worker; no extrapolar resultados. Guardar RED/GREEN TAP SHA en plan+Notion, abrir PR DRAFT sin merge/deploy.
+6. **Próxima fase separada**: integrar service binding y consumo pre-primer-frame en guardia del Worker, DO /ws/check antes de super.onConnect y sender/receiver revalidation en broadcasts, sin permitir recursos sin autoridad. El cliente necesita adquisición y renovación por sala en otra rama, nunca WS_SERVICE_KEY. Corregir privacidad histórica y operaciones typed opId, luego pruebas físicas A→B→A ×2. No GO comercial antes.
+
+**Producción:** friendly-123/master@45757cac5d9268402049c0fba90cccdece150ac6 inalterada. Claves/PIN únicamente sintéticas en QA. Rollback descartar rama.
