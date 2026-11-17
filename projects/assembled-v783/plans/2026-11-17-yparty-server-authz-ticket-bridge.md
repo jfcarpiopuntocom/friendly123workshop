@@ -35,3 +35,8 @@ Reservar antes de escribir: SOLO nueva rama privada `fix/yparty-server-authz-qa-
 ## Stop/continuidad
 
 GitHub `friendly123workshop/projects/assembled-v783/STATUS.md` + este plan son el punto de restauración. No merge con PR#5 ni publicación hasta cerrar identidad clonada, alteración de precios, lectura privada y p0 físico. Próxima versión accesibilidad H1-H4 es **P2** ([Notion](https://app.notion.com/p/41b1642b67f381c381efdf41e372238c)), NO implementar mientras estos P0 estén abiertos.
+
+## Primer RED con fuente intacta — PR #8 y arnés mejorable
+
+- [GitHub Actions 44018199682](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44018199682) / SHA `85de62d0a234c60215e354c18178685d8e7b0217`: **5 tests, 1 PASS, 4 FAIL, 0 omitidos** contra el Worker original de PR#7. Fallos: WS sin cap, firma/rol/sala inválidos, empleado modifica catálogo, nonce reutilizado; la prueba de opId empleado pasó porque el Worker **admite a todos sin validar ticket**, NO porque su seguridad fuese correcta.
+- El simulador `probe` esperó cierre en una conexión que el Worker vulnerable deja abierta; por eso tres fallos aparecen como `auth probe timeout` y no como `assert.notEqual(101)`. Antes de modificar runtime: ajustar solo el test para resolver `status:101` al abrir en pruebas pre-upgrade y para nonce exigir cierre `1008` incluso tras upgrade con cero frames; así RED es más inequívoco y rápido. Guardar segunda corrida RED SHA. **No** cambiar expectativas ni debilitar pruebas.
