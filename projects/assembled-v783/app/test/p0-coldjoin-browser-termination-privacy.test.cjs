@@ -18,7 +18,13 @@ async function runScenario(scenario) {
   const browser={
     on(event,listener){browserHooks.set(event,listener);},
     newPage:async()=>page,
-    close:async()=>{}
+    close:async()=>{
+      if(scenario==='cleanup-hostile'){
+        const error=Error('synthetic cleanup failure');
+        error.name=MARKER;
+        throw error;
+      }
+    }
   };
   const page={
     on(event,listener){pageHooks.set(event,listener);},
@@ -28,6 +34,7 @@ async function runScenario(scenario) {
         pageHooks.get('pageerror')?.({name:MARKER,message:MARKER});
         throw Error('synthetic navigation failure');
       }
+      if(scenario==='cleanup-hostile')throw Error('synthetic navigation failure');
     },
     locator(){return {first:()=>pad};},
     async click(){},
@@ -115,4 +122,16 @@ test('P0: failure during repeated 2-second recovery poll has a specific safe sta
     {pageCrashed:false,pageClosed:false,browserDisconnected:false});
   assert.equal(got.logs.join('\n').includes(MARKER),false);
   assert.equal(got.keypadClicks,3,'no Owner PIN during incomplete recovery');
+});
+
+test('P0: outer canary cleanup catch never echoes a hostile thrown error.name',async()=>{
+  const got=await runScenario('cleanup-hostile');
+  assert.equal(got.exitCode,1);
+  assert.ok(got.logs.includes('FALLA CANARIO: Error'),
+    'untrusted cleanup Error.name must map to safe allowlisted Error');
+  assert.equal(got.logs.join('\\n').includes(MARKER),false,
+    'catch outside the IIFE must never expose secrets via Error.name');
+  assert.deepEqual(recorded(got.logs),
+    {pageCrashed:false,pageClosed:false,browserDisconnected:false});
+  assert.equal(got.keypadClicks,0);
 });
