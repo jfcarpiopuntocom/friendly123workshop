@@ -45,8 +45,11 @@ export class SyntheticBusiness {
     const url=new URL(request.url);
     if(url.pathname==='/inspect'){
       const sql=this.storage.sql;
-      const stock=sql.exec('SELECT quantity FROM synthetic_stock WHERE sku = ?', 'sku-1').toArray()[0]?.quantity ?? null;
-      const cash=sql.exec('SELECT cents FROM synthetic_cash WHERE id = 1').toArray()[0]?.cents ?? null;
+      let stock=null,cash=null;
+      // A queued operation precedes creation of business tables. The
+      // synthetic inspector must not assume money/stock exist yet.
+      try{stock=sql.exec('SELECT quantity FROM synthetic_stock WHERE sku = ?', 'sku-1').toArray()[0]?.quantity ?? null;}catch(_){}
+      try{cash=sql.exec('SELECT cents FROM synthetic_cash WHERE id = 1').toArray()[0]?.cents ?? null;}catch(_){};
       const ops=sql.exec('SELECT COUNT(*) AS n FROM typed_commercial_ops').toArray()[0]?.n ?? 0;
       const payloads=sql.exec('SELECT COUNT(*) AS n FROM typed_commercial_payloads').toArray()[0]?.n ?? 0;
       return Response.json({stock,cash,ops,payloads});
