@@ -1,0 +1,3 @@
+# RED · retry de apertura en fuente friendly master
+
+Master y estable observados `94a4e047cdb0b2b14cbab004de599d7e43fef79b`, blob `docs/sync-outbox.js` `76653372b1a5ee3cee29a6e959a6df2776f836e0`. Test íntegro copiado del taller `p0-sync-outbox-idb-open-retry.test.cjs` y ejecutado local `node --test test/p0-sync-outbox-idb-open-retry.test.cjs` contra dicha fuente, datos sintéticos y VM sin red: 0/3 PASS, tres fallos esperados `false !== true` tras error, blocked y throw. Primer guardado vuelve a localStorage; segundo con localStorage lleno no reabre IDB aunque simulado sano. No demuestra impacto en cliente individual ni unión fría. El fix cambia solo promesa de apertura, mantiene fallback; no resuelve selección legacy ni aborto.
