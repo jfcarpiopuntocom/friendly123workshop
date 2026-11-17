@@ -1,0 +1,38 @@
+name: v783 v617 team PIN recovery original harness (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/p0-v617-recovered-team-gate.test.cjs'
+      - '.github/workflows/v783-v617-pin-recovery-harness.yml'
+permissions:
+  contents: read
+jobs:
+  pin-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install pinned dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts
+      - name: Run all original team PIN recovery tests without production network
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/v617-pin-recovery
+          git rev-parse HEAD | tee ../evidence/v617-pin-recovery/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-v617-recovered-team-gate.test.cjs 2>&1 | tee ../evidence/v617-pin-recovery/tap.log
+      - name: Archive evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-v617-pin-recovery-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/v617-pin-recovery/
+          if-no-files-found: warn
+          retention-days: 14
