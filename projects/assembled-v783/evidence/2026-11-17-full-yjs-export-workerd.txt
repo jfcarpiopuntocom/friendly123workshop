@@ -1,0 +1,19 @@
+2026-11-17 P0 port YParty SQL complete snapshot+journal -> Yjs export (workshop only)
+PR84: https://github.com/jfcarpiopuntocom/friendly123workshop/pull/84
+MERGED squash: d7545ab5100f2239260be2c9392f40c16b35dcd4 (verified main and PR).
+Precode plan commit f3071139278c7be3c9c3457df938f336fc2a7ca6.
+Notion reservation https://app.notion.com/p/41b1642b67f38105a1fdeeecf3f482f1.
+RED: https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140100139 SHA c55dbd40c435087ce9bddc7e242f06cae5a36ffe. No module: esbuild cannot resolve, score 6/6 passes.
+GREEN exact runtime SHA 728f2681d0be6a200b01f4134d7eb533fd9a9167:
+- https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140329503 focal Workerd 4/4 PASS, score 6/6 PASS;
+- https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140528221 15 group integration 585/585 PASS, zero fail/skip/cancel.
+FINAL MERGE HEAD SHA 6c242148e2c1a9523ef9f981461ffa24060387f3:
+- https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44141527108 browser authority 585/585 PASS, 15 TAP groups, zero FAIL/SKIP/CANCEL;
+- https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44141527336 complete export focal SUCCESS, 4/4 Workerd, 6/6 score;
+- https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44141527530 quality and frozen import SUCCESS.
+- Raw full TAP job 134245366137 inspected.
+Logic: new src/durable-full-yjs-export.mjs uses atomic storage.transactionSync read of snapshot (documento_bloques/legacy documento) and all journal (diario/diario_bloques), rejects gaps/corrupt chunks/orphans/parent pending Yjs, hashes normalized Yjs update and statevector; read-only, no endpoint, no production.
+Workerd fixture persisted 3-opid frozen snapshot plus sale #4 in >512KiB journal, full dispose/restart, recovered all, output exact SHA Yjs and no duplicate; corrupt/orphan/missing ancestor refused.
+Quality-v1 migration 5.0->5.5, overall current 64.0->64.5 from 10-Nov retrospective 45.0, +19.5 total. Decimal is subjective engineering tracking, not statistical; 0/6 JFC closed gates. NOT operational port done. NO real frozen Firebase HEAD, 15 missing parents remain in old original canary; no Firebase ciphertext reverse transport, no server/client wired, no physical iPhone↔Opera A-B-A two cycles. 29 historic suite fails previously remain.
+Production jfcarpiopuntocom/friendly-123 untouched.
+Future task JFC explicit: maintain TWO scores, separate QUALITY /100 and PORT OPERATIONAL COMPLETION /100 with *frozen weights and 6 closed gates*, based on actual code integration and physical verification. Do not inflate PORT by dormant helpers; add score to scorecard and CI.
