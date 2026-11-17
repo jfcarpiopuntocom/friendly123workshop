@@ -47,11 +47,24 @@ async function untilPair(a,b,productId,ids,tag) {
     }
     await a.page.waitForTimeout(150);
   }
+  // Synthetic-safe diagnosis: distinguish CRDT delivery from store projection.
+  const diagnostics=await Promise.all([a,b].map(d=>d.page.evaluate(id=>{
+    const y=window.OCYjs,cat=window.OCSync?.catalogoPropio?.();
+    let recovering=null;try{recovering=!!y?._diag?.().recuperacionLocalPendiente;}catch(_){}
+    return {yjsProduct:!!y?.mapas?.productos?.has(String(id)),
+      yjsCount:y?.mapas?.productos?.size??null,
+      commercialProduct:!!cat?.productos?.some(p=>p.id===id),
+      commercialCount:cat?.productos?.length??null,
+      yjsStore:!!y?._store,estado:y?.estado||null,
+      recovering:!!y?.canal?.recuperando,headAccess:!!y?.canal?.headAcceso,
+      localRecoveryPending:recovering,applyError:String(window.__aplicarErr||'').slice(0,160)};
+  },productId)));
   assert.fail(tag+': browsers did not converge through the Yjs test pump; '+
     JSON.stringify({A:{stock:seenA?.productos.find(p=>p.id===productId)?.stockActual,
       receipts:ids.map(id=>seenA?.ventas.filter(v=>v.id===id).length)},
     B:{stock:seenB?.productos.find(p=>p.id===productId)?.stockActual,
-      receipts:ids.map(id=>seenB?.ventas.filter(v=>v.id===id).length)}}));
+      receipts:ids.map(id=>seenB?.ventas.filter(v=>v.id===id).length)},
+    diagnostics}));
 }
 async function reload(device,role) {
   await device.page.reload({waitUntil:'domcontentloaded'});
