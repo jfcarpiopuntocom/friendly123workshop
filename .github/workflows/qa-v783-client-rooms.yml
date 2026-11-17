@@ -28,3 +28,15 @@ jobs:
         run: |
           set -euo pipefail
           node --test --test-concurrency=1 test/p0-yparty-client-real-tickets.test.cjs 2>&1 | tee /tmp/f123-client-live-tickets.tap
+      - name: Install locked Worker build packages (no lifecycle hooks)
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build real browser-loadable vendor YParty pilot from exact source
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          export NODE_PATH="$(realpath ../relay/injertos/yparty-worker/node_modules)"
+          node scripts/build-yparty-piloto.cjs
+          node --check docs/vendor/yparty-piloto.min.js
+          sha256sum docs/vendor/yparty-piloto.min.js
+          node -e 'const fs=require("fs");const x=fs.readFileSync("docs/vendor/yparty-piloto.min.js","utf8");if(x.length<5000)process.exit(4);console.log("F123_BUNDLE_JSON:"+JSON.stringify(x))'
