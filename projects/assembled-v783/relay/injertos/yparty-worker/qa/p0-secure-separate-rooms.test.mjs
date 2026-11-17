@@ -529,3 +529,43 @@ test('P0 combined REAL photo bridge: browser-signed PUT -> Workerd SQL + Yjs sha
   try{writer.close();second.close();}catch(_){}
  }
 });
+
+test('P0 genuine cold join after full Workerd restart: fresh YProvider receives 64 durable Yjs facts with zero pending parents',{timeout:25000},async()=>{
+ // Prior 64-frame benchmark is LIVE propagation. This test is different:
+ // first publish+persist all facts, destroy every client and the DO process,
+ // then establish a new signed client from a blank Y.Doc and no IDB.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const key='synthetic-cold-after-reboot-64';
+ const owner=await connect('cat',['cat:read','cat:write']);
+ const witness=await connect('cat',['cat:read']);
+ const expected=new Map();
+ try{
+  for(let i=0;i<64;i++){
+   const id='cold-'+String(i).padStart(3,'0');
+   const value={movementId:id,delta:i-31,sequence:i};
+   expected.set(id,value);
+   owner.doc.getMap(key).set(id,value);
+  }
+  await waitFor(()=>witness.doc.getMap(key).size===64,
+   'pre-cut writer and independent witness have 64 committed facts',8000);
+  assert.equal(owner.doc.getMap(key).size,64);
+  for(const [id,val] of expected)assert.deepEqual(witness.doc.getMap(key).get(id),val,
+   'pre-restart witness must have precise values');
+ }finally{
+  owner.close();witness.close();
+ }
+ await mf.dispose();mf=null;
+ await relay();
+ const joinedAt=Date.now();
+ const cold=await connect('cat',['cat:read']);
+ try{
+  await waitFor(()=>cold.doc.getMap(key).size===64,'blank cold client after process restart',8000);
+  const elapsed=Date.now()-joinedAt;
+  assert.equal(cold.doc.getMap(key).size,64);
+  assert.equal(cold.doc.store.pendingStructs,null,'no orphaned Yjs ancestors on cold join');
+  assert.equal(cold.doc.store.pendingDs,null,'no pending delete sets on cold join');
+  for(const [id,val] of expected)assert.deepEqual(cold.doc.getMap(key).get(id),val,
+   'cold join reconstructed all movement fields, not only counts');
+  assert.ok(elapsed<10000,'synthetic Workerd coldjoin has a bounded latency');
+ }finally{cold.close();}
+});
