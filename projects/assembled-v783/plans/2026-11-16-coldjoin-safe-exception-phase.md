@@ -31,3 +31,7 @@ Rama `qa/20261116-coldjoin-exception-phase` en `friendly123workshop`. Revisar la
 - All **three new real-module exception stages fail the same expected assertion**: `classify exact safe phase, not generic unknown Error`; none emitted `CANARIO_ERROR_ETAPA`. This is the genuine source RED intended before editing canary.
 - The fourth failure is a **fixture problem unrelated to this change**: the historical test `app/test/p0-coldjoin-workflow-secrets.test.cjs` requires `app/.github/workflows/hotfix.yml` absent from assembled workshop, `ENOENT` on test import. It is not a source regression and must not be counted as canary failure.
 - Next adjustment limited to **new focal workflow**: do not execute that incompatible historical workflow-fixture test; retain it untouched in source and mention its unsupported fixture as an explicit separate gate. Run same 3 new RED + existing canario guard suite before source modification; preserve TAP/HEAD. No tests removed, skipped or weakened in repository.
+
+## RED puro, sin cambios en canario
+
+[Actions 44007933816](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44007933816), exact HEAD `5f66a292ac390b85101a3df1c7e48c81f3979d63`: **28 test, 25 PASS, 3 FAIL, 0 SKIP**. Los tres FAIL corresponden EXCLUSIVAMENTE a NAVEGACION, UNION y RECUPERACION sin `CANARIO_ERROR_ETAPA`. A diferencia de la corrida anterior, el fixture incompatible de `hotfix.yml` no se ejecutó; sigue intacto en el repositorio. Guardadas salida TAP y SHA. **El canario fuente aún no había sido modificado.**
