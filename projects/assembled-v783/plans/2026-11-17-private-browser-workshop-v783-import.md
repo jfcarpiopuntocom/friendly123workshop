@@ -24,3 +24,11 @@ Un árbol API `git/trees/da386fb8bf02c518c576e3354494f9d440ed297c?recursive=1` c
 - **NO production, NO real data, NO release, NO PWA installation**, no changes to `friendly-123` or Team Worker externo. La importación de 1.160 archivos en rama privada no supone funcionar la app. No correr scripts importados en job con token write: job únicamente copia+verifica+commitea. La QA siguiente usa token READ.
 - Prohibido overwrite de `qa/browser`, `upstream`, `injertos` y `.github` salvo crear el workflow explícito.
 - Recuperación de 5h: primero revisar esta página, Notion, `import/workshop-v783-browser-20261117`, runs de `qa-import-workshop-v783.yml`, PR correspondiente, HEAD exactos. Ningún otro agente puede dar por terminada la integración de Codex por esto.
+
+## IMPORTACION PRIVADA EJECUTADA Y CERTIFICADA (NO-GO comercial)
+
+- [GitHub Actions Import 44013567696](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44013567696): SUCCESS, 1.160/1.160 source files SHA256 verificados sin discrepancias; source HEAD `55737c2c6c99b27aa003855445105b5675fd550b`, source subtree `da386fb8bf02c518c576e3354494f9d440ed297c`. No scripts comerciales se ejecutaron con token de escritura. El workflow hizo commit y push fast-forward a la rama privada `import/workshop-v783-browser-20261117`.
+- HEAD privado importado **`c201314895edfa4f4d22aa73aa15fc51cafb9bd2`**, verificado por API. Contiene `QA-WORKSHOP-V783-SOURCE.json` + `QA-WORKSHOP-V783-FILES.sha256` como evidencia duradera.
+- [PR PRIVADA #5](https://github.com/jfcarpiopuntocom/friendly-123-injertos/pull/5) abierta en estado DRAFT, HEAD `c2013148` → base `qa/browser-first-v782-sol6-20261115@ee4460177b5f85ca605717f78bd9fc88b82f3339`. **1163 archivos cambiados**, todos en rama de QA, sin tocar ni fusionar base ni repo público de producción. La suite ya se inició automáticamente: [run 44013657645](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44013657645), en progreso al escribir este checkpoint.
+- La rama porta la versión `workshop-v783`, **NO** la variante Codex de archivos no preservados `candidate.patch` y `imported-sources.tar.gz`; no usar sus 71 tests atribuidos como probados para este HEAD. Si CI falla hay que revisar causas, no copiar verde de v782.
+- Datos reales, PIN, licencias, Worker desplegado, PWA y site de producción NO se modificaron.
