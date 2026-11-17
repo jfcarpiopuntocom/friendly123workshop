@@ -1,0 +1,38 @@
+name: v783 coldjoin browser termination and pageerror privacy (synthetic only)
+on:
+  push:
+    branches: [qa/20261117-coldjoin-browser-crash-signals]
+    paths:
+      - 'projects/assembled-v783/app/scripts/canario-union-fria.cjs'
+      - 'projects/assembled-v783/app/test/p0-coldjoin-browser-termination-privacy.test.cjs'
+      - '.github/workflows/qa-v783-coldjoin-browser-signals.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'projects/assembled-v783/app/scripts/canario-union-fria.cjs'
+      - 'projects/assembled-v783/app/test/p0-coldjoin-browser-termination-privacy.test.cjs'
+      - '.github/workflows/qa-v783-coldjoin-browser-signals.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-no-network:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify SHA and script syntax
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --check projects/assembled-v783/app/scripts/canario-union-fria.cjs
+          node --check projects/assembled-v783/app/test/p0-coldjoin-browser-termination-privacy.test.cjs
+      - name: Test actual canary with fake Playwright; original PR72 and PIN guard preserved
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 test/p0-coldjoin-browser-termination-privacy.test.cjs test/p0-coldjoin-exception-phase.test.cjs test/canario-union-fria-guard.test.cjs 2>&1 | tee /tmp/coldjoin-browser-signals.tap
