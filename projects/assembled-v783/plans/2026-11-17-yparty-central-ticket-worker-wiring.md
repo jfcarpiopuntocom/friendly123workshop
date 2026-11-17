@@ -82,3 +82,7 @@ Plan de fase antes de editar de nuevo: añadir test-only preflight a `qa/p0-mult
 4. solo después abrir WebSocket Yjs y probar que central protege el acceso.
 
 No imprimir credenciales, solo booleans/status. Si el binding está ausente, ajustar SOLO `bindingOverrides`/test harness, nunca agregar fallback a KV. Si direct & binding pasan, revisar el parser `ticketQuery` y mensajes de HTTP sin exponer token. El Worker permanece fail-closed, PR #12 DRAFT.
+
+## Preflight multiworker, tercer intento: diferencia getWorker.fetch(input) vs binding.fetch(input)
+
+[CI 44028869783](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44028869783) en SHA de QA `36061b9145e23fddb3359aaa44ebc35458920073`: job multiworker **0/1 FAIL antes de llamar a la autoridad**, `TypeError Failed to parse URL from [object Request]` en `wrangler createTestHarness().getWorker('qa-synthetic-authority').fetch`. El handle del arnés usa API `fetch(url: string,init)`, mientras el Web Worker Service Binding runtime sí acepta Request. El test pasaba un objeto Request al handle, por lo que se rompe el PRE-FLIGHT de llamada directa, sin ejercitar ningún token. Cambiar SOLO `centralConsume` en test para llamar `fetch('https://authority.internal/ws/consume', {method,headers,body})`, forma compatible con handle y binding; no tocar adapter ni Worker ni aserciones. Job sin binding anterior permanece **5/5 PASS**; NO atribuir fallo a security code.
