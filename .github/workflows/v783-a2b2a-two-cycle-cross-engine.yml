@@ -1,0 +1,42 @@
+name: v783 native two-cycle Chromium WebKit A2B2A stock and sales (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs'
+      - '.github/workflows/v783-a2b2a-two-cycle-cross-engine.yml'
+permissions:
+  contents: read
+jobs:
+  a2b2a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact locked packages and native Chromium WebKit
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+      - name: Entire real-engine synthetic A→B→A twice, no external network
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/a2b2a-cross-engine
+          git rev-parse HEAD | tee ../evidence/a2b2a-cross-engine/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=180000 \
+            test/p0-a2b2a-chromium-webkit-stock-sales.test.cjs 2>&1 | tee ../evidence/a2b2a-cross-engine/tap.log
+      - name: Archive exact input SHA and red or green TAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-a2b2a-cross-engine-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/a2b2a-cross-engine/
+          retention-days: 14
+          if-no-files-found: warn
