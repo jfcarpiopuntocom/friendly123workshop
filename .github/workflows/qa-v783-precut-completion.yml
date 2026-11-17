@@ -1,0 +1,45 @@
+name: v783 P0 Yjs frozen pre-cut completeness (no network, no deploy)
+on:
+  push:
+    branches: [port/20261117-yjs-frozen-precut-completion]
+    paths:
+      - 'projects/assembled-v783/app/docs/sync-yjs.js'
+      - 'projects/assembled-v783/app/test/p0-precut-independent-writers-v783.test.cjs'
+      - '.github/workflows/qa-v783-precut-completion.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'projects/assembled-v783/app/docs/sync-yjs.js'
+      - 'projects/assembled-v783/app/test/p0-precut-independent-writers-v783.test.cjs'
+      - '.github/workflows/qa-v783-precut-completion.yml'
+permissions:
+  contents: read
+jobs:
+  frozen-precut-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: SHA and JS syntax exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --check projects/assembled-v783/app/docs/sync-yjs.js
+          node --check projects/assembled-v783/app/test/p0-precut-independent-writers-v783.test.cjs
+      - name: Historical independent Yjs writer, Firebase REST in-memory, cursor ACK regressions
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=95000 \
+            test/p0-precut-independent-writers-v783.test.cjs \
+            test/sync3-head-causal-gap.test.cjs \
+            test/pull-cursor-durable-ack.test.cjs \
+            test/firebase-relay-timestamp-boundary.test.cjs 2>&1 | tee /tmp/f123-precut-qa.tap
