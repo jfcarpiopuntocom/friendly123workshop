@@ -65,3 +65,18 @@ This is real regression *evidence*, not proof of a product root cause; full audi
 - [ ] Handoff via Notion and workshop STATUS, including observed sample histogram, test fixture sha, workflow links, and future next action.
 
 **Rollback:** Delete only new workflow and plan/test diagnostic if needed. No product mutation or client data.
+
+## Evidence-backed root-cause refinement — BEFORE code, 17 Nov
+
+Original source comparisons (no app changes):
+- `app/docs/sync-yjs.js` around lines 2645–2673 creates a separate `API.opsDoc = new Y.Doc()`, `API.opsMap = API.opsDoc.getMap('eventos')`, `API.opsCanal`. App publishes business events on `oc-op-local` into this separate doc; remote event consumer `OCSync.aplicarOpRemota` is idempotent.
+- `app/test/helpers/e2e-app.cjs` lines 45–72 implements `installPump` and `pump`. It reads `Y.encodeStateAsUpdate(OCYjs.doc)` and hooks `OCYjs.doc.on('update')` ONLY, never `OCYjs.opsDoc`. Thus the two-browser test helper omits the REAL independent operations room. Whether this omission explains the intermittent sale mismatch requires a native behavioral RED→GREEN, not a claim from code reading alone.
+- Business save is durable local-first, stock op emitted after saving. Genuine ops relay should transmit Yjs updates from opsDoc; old manual test pump never does.
+
+**Scoped addition BEFORE code:** reserve test-only shared helper `projects/assembled-v783/app/test/helpers/e2e-app.cjs` blob `94de10bcf4ea4648420962c274a5b6a37da746c8` and NEW native browser test `app/test/p0-dual-yjs-room-pump.test.cjs`. The helper will be changed ONLY after RED proves missing opsDoc transfer. This is test infrastructure, NOT product runtime. Do not change original A→B→A assertions or timeouts.
+
+**Expected minimal fix:** snapshot and observe both `OCYjs.doc` (catalog) and `OCYjs.opsDoc` (commercial ops) separately. Pump each encrypted/Yjs update into matching remote Y.Doc using origin 'red'; apply catalog projection via original `_store.aplicar()`; opsDoc original 'red' listener already calls `pedirProcesarEventos`. Preserve two-way initial full-state and incremental updates, no network. Do not change fotosDoc or other subsystems.
+
+**Native RED contract:** two real Chromium/WebKit browsers, separate IDB, same synthetic license and Owner arnes. After `installPump([A,B])`, WebKit writes a non-commercial marker into `OCYjs.opsDoc.getMap('__qa_probe')`; Chromium should receive it after `pump(A,B)`, and vice versa. Catalog marker via `OCYjs.doc.getMap('__qa_probe')` must cross as a positive control. No writes to `opsMap/eventos` or business stock or access. On pre-fix helper opsDoc receipt must fail semantically, while catalog succeeds. Then patch helper only, GREEN dual-room, run original 2-cycle A→B→A five samples, browser integrated 585, full 3K with all remaining failures enumerated.
+
+**No permissions** granted to real clients, YParty, photos, PIN, Worker, SW, provider, business source or production. New branch PR79 and Notion reservation are ownership source of truth. Historical 15 missing remote causal parents still unknown.
