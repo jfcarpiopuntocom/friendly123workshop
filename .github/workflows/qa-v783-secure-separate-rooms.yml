@@ -1,0 +1,36 @@
+name: "P0 YParty secure independent cat/ops rooms — real Workerd (no deploy)"
+on:
+  push:
+    branches: ["feat/20261117-yparty-secure-rooms"]
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/relay/injertos/yparty-worker/src/index.js"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/src/ws-authority-client.js"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-secure-separate-rooms.test.mjs"
+      - ".github/workflows/qa-v783-secure-separate-rooms.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  secure-rooms:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install real Workerd/Yjs and app issuer dependencies
+        run: |
+          cd projects/assembled-v783/app
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd ../relay/injertos/yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'Real Worker and central issuer cat/ops isolation, no raw economics'
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-secure-separate-rooms.test.mjs 2>&1 | tee /tmp/f123-secure-rooms-workerd.tap
