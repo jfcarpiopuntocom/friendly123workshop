@@ -2,7 +2,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const source=fs.readFileSync(path.join(__dirname,'../../app/docs/sync-outbox.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'../app/docs/sync-outbox.js'),'utf8');
 const key='f123_sync_pending';
 
 test('a successful local fallback remains readable after IndexedDB recovers and module reloads',async()=>{
