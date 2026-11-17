@@ -190,31 +190,76 @@ test('P0 #607: stale A/B quota does not mislabel a revision-fenced sale as out o
 });
 
 
-test('P0 #607: background A/B quota still reports quota with a strict IDB CAS present', async () => {
+test('P0 #607: strict rack IDB ACK survives A/B quota without a false memory-full warning', async () => {
   const w = browser();
   w.OCAuth = { rolActual: () => 'dueno' };
-  let quotaSignals = 0;
+  const before = await w.request('/api/respaldo/exportar');
+  let quotaSignals = 0, strictCommits = 0, catalogEvents = 0;
   w.addEventListener('oc-memoria-llena', event => {
     if (event.detail && event.detail.llena === true) quotaSignals++;
   });
-  // On a non-financial background save the A/B backup, not strict CAS, is
-  // the failing writer. A null last strict-CAS error MUST NOT mask its quota.
+  w.addEventListener('oc-catalogo-cambiado', () => catalogEvents++);
+  // Rack POST is strict since #39. The IDB CAS is the durable commitment;
+  // an optional A/B mirror quota cannot make an ACKed rack disappear.
   w.OCEstadoIDB = {
     soportado: true,
-    guardarConRevision: async () => true,
+    guardarConRevision: async () => { strictCommits++; return true; },
     guardar: async () => false,
     ultimoError: () => null
   };
   const originalSet = w.localStorage.setItem.bind(w.localStorage);
   w.localStorage.setItem = () => {
-    throw new DOMException('synthetic background quota', 'QuotaExceededError');
+    throw new DOMException('synthetic backup quota', 'QuotaExceededError');
   };
-  await w.fetch('/api/ubicaciones', {
-    method: 'POST', body: JSON.stringify({ nombre: 'Synthetic background quota rack', tipo: 'propio' })
+  let response;
+  try {
+    response = await w.fetch('/api/ubicaciones', {
+      method: 'POST', body: JSON.stringify({ nombre: 'Synthetic strict IDB rack', tipo: 'propio' })
+    });
+  } finally { w.localStorage.setItem = originalSet; }
+  assert.equal(response.status, 200, 'confirmed strict IDB commit must not be rejected');
+  assert.equal(strictCommits, 1, 'rack is committed only once');
+  assert.equal(quotaSignals, 0, 'no out-of-storage warning after a durable IDB commit');
+  assert.equal(catalogEvents, 1, 'rack is published only once after durable commit');
+  const after = await w.request('/api/respaldo/exportar');
+  assert.equal(after.ubicaciones.length, before.ubicaciones.length + 1, 'accepted rack remains in local state');
+  assert.equal(after.movimientos.length, before.movimientos.length + 1, 'one rack movement, no duplicate');
+});
+
+test('P0 #607: failed strict IDB quota plus failed A/B quota rejects rack with visible storage warning', async () => {
+  const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
+  const before = await w.request('/api/respaldo/exportar');
+  let quotaSignals = 0, catalogEvents = 0;
+  w.addEventListener('oc-memoria-llena', event => {
+    if (event.detail && event.detail.llena === true) quotaSignals++;
   });
-  for (let i = 0; i < 30; i++) await Promise.resolve();
-  w.localStorage.setItem = originalSet;
-  assert.ok(quotaSignals > 0, 'a real background A/B quota failure must remain visible');
+  w.addEventListener('oc-catalogo-cambiado', () => catalogEvents++);
+  const quota = new DOMException('synthetic strict IDB quota', 'QuotaExceededError');
+  w.OCEstadoIDB = {
+    soportado: true,
+    guardarConRevision: async () => false,
+    guardar: async () => false,
+    ultimoError: () => quota
+  };
+  const originalSet = w.localStorage.setItem.bind(w.localStorage);
+  w.localStorage.setItem = () => {
+    throw new DOMException('synthetic fallback A/B quota', 'QuotaExceededError');
+  };
+  let response;
+  try {
+    response = await w.fetch('/api/ubicaciones', {
+      method: 'POST', body: JSON.stringify({ nombre: 'Uncommitted rack', tipo: 'propio' })
+    });
+  } finally { w.localStorage.setItem = originalSet; }
+  assert.equal(response.status, 507, 'both full stores cannot acknowledge a new rack');
+  const payload = await response.json();
+  assert.equal(payload.code, 'RACK_STORAGE_QUOTA');
+  assert.ok(quotaSignals > 0, 'real failure of both stores must remain visibly diagnosed');
+  assert.equal(catalogEvents, 0, 'uncommitted rack may not publish to Yjs');
+  const after = await w.request('/api/respaldo/exportar');
+  assert.deepEqual(after.ubicaciones, before.ubicaciones, 'failed rack is rolled back');
+  assert.equal(after.movimientos.length, before.movimientos.length, 'no uncommitted movement');
 });
 
 
