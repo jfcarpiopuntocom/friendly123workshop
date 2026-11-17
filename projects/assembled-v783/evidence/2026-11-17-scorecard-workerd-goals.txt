@@ -1,0 +1,40 @@
+friendly-123 assembled v783 /100 Quality Scorecard + native Workerd cold-import QA
+2026-11-17. NO PRODUCTION DEPLOY OR CUSTOMER DATA. Workshop-only PR #83.
+Main PR83 merged SHA 3ed214dfb6560820f0fefd74ff0a4716dcefa1c0.
+Exact PR test head SHA 51306212f18c82f19afa8fdad10441283b4d58a7.
+Reviewed Workerd implementation SHA cedff564b8842db0345159bf4e7a42dbf27398e8.
+Source quality/score-v1.json includes date, SHA, categories, evidence URLs and explicit 6 mandatory JFC release gates.
+
+Plan before source: projects/assembled-v783/plans/2026-11-17-score-and-workerd.md at commit d8d229c121fa507f5a7c99f8bb6ffb0aa092918e.
+Notion reservation & relevo: https://app.notion.com/p/41b1642b67f38114af99e1f19810f94b
+PR: https://github.com/jfcarpiopuntocom/friendly123workshop/pull/83
+
+TEST-FIRST:
+- Workflow YAML parser rejected initial step label; fixed without treating as TDD RED.
+- Genuine missing-score-data RED: https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136136073; expected ENOENT score-v1.json.
+- Genuine absent-Workerd-fixture RED: https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136509630; score tests 6/6 PASS; Workerd esbuild could not resolve QA-only fixture. This is RED for missing component, not active production code bug.
+- Intermediate Workerd 1/2 FAIL due ONLY to duplicate parsing of HTTP response in test (Body is unusable); corrected test, no runtime changes.
+- Native Miniflare Workerd GREEN: https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136898372 on cedff564b8842db0345159bf4e7a42dbf27398e8; 6/6 score + 2/2 Workerd DO PASS, 0 FAIL/SKIP/CANCEL, read raw TAP.
+- Final branch GREEN: https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44137260973 on 51306212f18c82f19afa8fdad10441283b4d58a7; score 6/6 and Workerd 2/2 PASS, 0 FAIL/SKIP/CANCEL. Raw job 134230078586 inspected.
+- Full integrated PR HEAD: https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44137429514 on same SHA 51306212f18c82f19afa8fdad10441283b4d58a7: 15 groups, 585/585 PASS, 0 FAIL/SKIP/CANCEL, no 'not ok'. Raw job 134230699117 inspected.
+- PR 83 set ready and squash merged via expected-head SHA, PR API and main branch confirmed after merge.
+
+MATERIAL QUALITY CHANGE TRACKED:
+2026-11-10 retrospective editorial baseline, no single historical SHA: 45.0 /100 +/-5 points.
+2026-11-17 prior to Workerd test: 63.5 /100 +/-4 points on source main@932471c77a4e128adffc040e65002901fd8da6ef.
+2026-11-17 Workerd actual local SQL restart accepted: +0.5 migration axis, 64.0 /100 +/-4 points.
+Net change from 7 days ago +19.0 judged points. Decimals allow tracking; not statistical.
+Fixed weights: business20, durability20, sync20, security15, photos10, migration10, physical5 =100.
+Latest score individual axes: 17.5,16,12,7.5,6,5,0 =64.0.
+CLI node projects/assembled-v783/quality/score.cjs or --json; '--require-go' exits 2.
+Six independent JFC/Claude commercial gates: 0 of 6 verified; >=95 score by itself is NEVER GO.
+
+IMPORTANT LIMITATIONS:
+- Synthetic 3-opId Yjs history, isolated fixture DO / real Workerd SQL with full Miniflare process dispose/restart. Not the real production YServer class or Firefox/mobile physical device.
+- No real frozen Firebase HEAD anchor; 15 unresolved Yjs parents in historical 5348 frames still block migration.
+- Auth/roles on current worker and employee typed economic operation veto not fully wired; typed inbox not business-committed.
+- SHA blob photos outside Yjs not implemented; Web Locks iPhone physical acceptance and A-B-A twice missing.
+- Historical unfiltered full candidate #44129049146: 3287 / 3254 PASS /29 FAIL /1 CANCEL /3 SKIP; previous baseline 3151 /3089 PASS /58 FAIL/1 CANCEL/3 SKIP.
+- Production jfcarpiopuntocom/friendly-123/master@45757cac5d9268402049c0fba90cccdece150ac6 unchanged (verified current turn).
+No production rollout, no customer GO, no manual adjustment to stock or any PIN.
+Next engineering goal: authorized single Firebase frozen-source reader, independently anchored zero pending and reverse exporter in the actual DO, Workerd client real proof, security gates, then 2 physical cycles. Every PR/handoff must update scores only with exact SHA-linked evidence, and record changed or unchanged in score-v1.json/STATUS.md + Notion.
