@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: RED/GREEN on actual canary script, no remote network
+      # The historical workflow-secrets test needs app/.github/workflows/hotfix.yml,\n      # absent from the assembled subset; it remains untouched and separately NO-GO.\n      - name: RED/GREEN on actual canary script, no remote network
         shell: bash
         run: |
           set -euo pipefail
@@ -28,8 +28,7 @@ jobs:
           node --check projects/assembled-v783/app/scripts/canario-union-fria.cjs
           node --test --test-concurrency=1 \
             projects/assembled-v783/app/test/p0-coldjoin-exception-phase.test.cjs \
-            projects/assembled-v783/app/test/canario-union-fria-guard.test.cjs \
-            projects/assembled-v783/app/test/p0-coldjoin-workflow-secrets.test.cjs 2>&1 | tee projects/assembled-v783/evidence/coldjoin-phase-ci/tap.log
+            projects/assembled-v783/app/test/canario-union-fria-guard.test.cjs 2>&1 | tee projects/assembled-v783/evidence/coldjoin-phase-ci/tap.log
       - name: Preserve TAP and HEAD on both RED and GREEN
         if: always()
         uses: actions/upload-artifact@v4
