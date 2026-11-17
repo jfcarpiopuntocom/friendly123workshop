@@ -191,7 +191,10 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             try { JSON.parse(body); } catch (_) { break; } // body no-JSON corrupto: no reproducir
           }
           try {
-            await fetchOriginal(op.url, { method: op.method, headers: { "Content-Type": "application/json" }, body });
+            const respuesta = await fetchOriginal(op.url, { method: op.method, headers: { "Content-Type": "application/json" }, body });
+            // fetch() resolves even on HTTP 403/500. Rejection is NOT a replay ACK:
+            // preserve both applied-ID ledgers and the sender's ordering for retry.
+            if (!respuesta || respuesta.ok !== true) break;
             aplicados.add(op.id);
             /* A1: registrar en el ledger del relay para que no re-aplique. */
             if (op.opId) relayAplicados.add(op.opId);
