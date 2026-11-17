@@ -26,3 +26,9 @@
 - No borrar respaldos IDB/localStorage legacy.
 - Nada de claves, PIN, ciphertext, URLs de relay ni identificadores comerciales en logs.
 - **No equivale a reparar el frío de producción**, pendiente de evidencia física; historia histórica cifrada faltante puede seguir sin recuperarse.
+
+## RED real comprobado antes de modificar el runtime
+
+[Actions 44010690891](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44010690891), SHA `87d8c37b89f5d6f4d36e405a8728c358cb57891b`, ejecutó 63 tests contra el módulo original: **61 PASS, 2 FAIL esperados, 0 SKIP/CANCEL**. Primer FAIL: nuevo test exige `pages=0` tras resultado de readback `false`, código original solicita 1 página desde _pullCursor no validado. Segundo FAIL: resultado `undefined` sin prueba durable se etiqueta `pullAplicado=true` (debería permanecer false), aun cuando puede seguir paginando en RAM. Regresiones existentes `pull-cursor-durable-ack`, `p0-yjs-pending-snapshot`, `sync3-head-causal-gap` permanecieron GREEN. La fuente `app/docs/sync-yjs.js` no se había editado al observar RED. Artefacto TAP+SHA retenido por Actions.
+
+**Parche autorizado para probar**: en el `then` del mensaje `pull-page`, comprobar explícitamente el valor real devuelto por `guardarPullCursor`; si `false`, revertir *solo* cursor RAM a `_appliedPullCursor`, marcar no completo, detener paginación, cerrar WS activo con 1013 para reconectar y releer desde punto certificado; si `true`, marcar `pullAplicado`; si `undefined`, continuar acumulando historia sin falsificar ACK durable. No tocar ledger ni pruebas.
