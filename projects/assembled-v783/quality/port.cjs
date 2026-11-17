@@ -74,10 +74,10 @@ function inspectClientWire({client,worker,authorized}){
  // The legacy pilot makes one provider for EACH Y.Doc (cat, ops, fotos).
  // Routing all of those documents to the same -priv YServer would mix unrelated
  // Yjs state. A single-room path is safe only for one explicitly unified doc.
- const separateDocs=/\\bcanal\\s*\\(\\s*doc\\s*,\\s*tipo\\b/.test(client);
+ const separateDocs=/\bcanal\s*\(\s*doc\s*,\s*tipo\b/.test(client);
  const channelIsolationPreserved=!separateDocs || (
    /-priv-cat/.test(worker)&&/-priv-ops/.test(worker)&&/-priv-fotos/.test(worker)&&
-   /-priv-['"]\\s*\\+\\s*tipo/.test(client)
+   /-priv-['"]\s*\+\s*tipo/.test(client)
  );
  const compatible=secureWorkerRequiresTicket&&authorizedProviderAvailable&&pilotUsesFreshTicket&&pilotUsesPrivateRoom&&channelIsolationPreserved;
  return {secureWorkerRequiresTicket,authorizedProviderAvailable,pilotUsesFreshTicket,
