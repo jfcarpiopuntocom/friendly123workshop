@@ -40,3 +40,14 @@ GitHub `friendly123workshop/projects/assembled-v783/STATUS.md` + este plan son e
 
 - [GitHub Actions 44018199682](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44018199682) / SHA `85de62d0a234c60215e354c18178685d8e7b0217`: **5 tests, 1 PASS, 4 FAIL, 0 omitidos** contra el Worker original de PR#7. Fallos: WS sin cap, firma/rol/sala inválidos, empleado modifica catálogo, nonce reutilizado; la prueba de opId empleado pasó porque el Worker **admite a todos sin validar ticket**, NO porque su seguridad fuese correcta.
 - El simulador `probe` esperó cierre en una conexión que el Worker vulnerable deja abierta; por eso tres fallos aparecen como `auth probe timeout` y no como `assert.notEqual(101)`. Antes de modificar runtime: ajustar solo el test para resolver `status:101` al abrir en pruebas pre-upgrade y para nonce exigir cierre `1008` incluso tras upgrade con cero frames; así RED es más inequívoco y rápido. Guardar segunda corrida RED SHA. **No** cambiar expectativas ni debilitar pruebas.
+
+## RED limpio de seguridad ANTES de editar Worker
+
+[GitHub Actions 44018414122](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44018414122), SHA privado `bdb38ee8f7a066ecef871b1c1d893d29cb8f58ce`, PR [#8](https://github.com/jfcarpiopuntocom/friendly-123-injertos/pull/8). **5 tests / 1 PASS / 4 FAIL esperados / 0 SKIP/CANCEL**. Sólo se había creado el archivo de pruebas y su workflow; la versión del Worker es aún la **fuente idéntica de PR #7**. Prueba corregida para informar `101` inmediatamente en upgrade inseguro y distinguir `1008` de rechazo de nonce:
+- Missing cap = **upgrade 101**: no hay admisión firmada.
+- Firma alterada = **upgrade 101**: no se verifica HMAC/room/role.
+- Empleado cambia precio vía Yjs = **FAIL**: el control se delega al cliente.
+- Mismo nonce usado en segundo WS = **timeout de prueba**: el servidor vulnerable mantiene abierta conexión sin verificar nonce. En el caso GREEN, el servidor debe enviar `1008` y cero frames al replay.
+- Una venta con opId de empleado = único test PASS pero **sin seguridad** porque no exige token; solo prueba que el camino de datos funciona. Su PASS no valida autorización.
+
+Primer RED [44018199682](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44018199682) también fue 1 PASS/4 FAIL; se conservó y se corrigió **solo el simulador probe** para que los errores 101 no quedaran ocultos por timeouts. **Ahora** procede código de verificación HMAC, nonce durable SQL, scopes y estado de rol desde KV sintética; no tocar expectativas. Riesgos no cerrados: conexión real a Owner/Team central, privacidad de shared cat y tipos económicos arbitrarios en ops.
