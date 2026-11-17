@@ -31,3 +31,7 @@ Source app/src/yparty-piloto.js uses new YProvider(host,sala+'-'+tipo,doc) with 
 3. Contract probe only reads real workshop client/Worker source. It must report pilot=blocked until ticket/cap/priv room genuinely wired; do not let synthetic Workerd fixture pass this production client integration check.
 4. CI on exact SHA; preserve Notion progress, PR and merge into workshop only, no false production claim.
 5. Next engineer action: merge Workerd client ticket integration and server role policy from reserved branches, then certify migration real Firebase and physical cycles. Work with owners; no new gates.
+
+## Contract-level critical correction (source for three separate documents)
+
+The pilot exposes `canal(doc,tipo,...)` for distinct Y.Doc channels, whereas secure YParty Worker currently permits only one `<room>-priv` YServer. Simply changing all three channels to one room silently merges unrelated Yjs document state. The metric MUST NOT declare the secure pilot source-compatible unless (a) it uses one explicitly unified Y.Doc OR (b) both Worker and client support distinct authenticated private rooms per channel. New RED TDD covers one private room reused for three docs; no edits to reserved client/Worker are permitted. This is already part of the previously approved correct Owner/Team channel admission gate, NOT an additional gate.
