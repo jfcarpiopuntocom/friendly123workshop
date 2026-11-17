@@ -17,7 +17,7 @@ function harness(){
   if(o.method==='PUT'){
    const data=new Uint8Array(o.body);
    photos.set(hash,{data,tipo:o.headers['content-type']});
-   return Response.json({sha,bytes:data.length,tipo:o.headers['content-type']},{status:201});
+   return Response.json({sha:hash,bytes:data.length,tipo:o.headers['content-type']},{status:201});
   }
   const item=photos.get(hash);
   return item?new Response(item.data,{status:200,headers:{'content-type':item.tipo}}):new Response('',{status:404});
