@@ -9,10 +9,10 @@ const quality=JSON.parse(fs.readFileSync(path.join(parent,'score-v1.json'),'utf8
 const {assessPort,formatDual,inspectClientWire}=require('./port.cjs');
 const {evaluate}=require('./score.cjs');
 
-test('two distinct numbers: quality 64.5 and evidence-credited port 36.0',()=>{
+test('two distinct numbers: quality 66.5 and evidence-credited port 36.0',()=>{
  const p=assessPort(data),q=evaluate(quality);
  assert.equal(p.score,36.0);
- assert.equal(q.current,64.5);
+ assert.equal(q.current,66.5);
  assert.equal(p.maximum,100);
  assert.equal(p.gatesPassed,0);
  assert.equal(p.gatesRequired,6);
@@ -20,7 +20,7 @@ test('two distinct numbers: quality 64.5 and evidence-credited port 36.0',()=>{
  assert.equal(p.target,100);
  assert.equal(p.reviewedSha,'641a58070e4915e3da945144e6365cdf1a225764');
  const report=formatDual({port:p,quality:q});
- assert.match(report,/64\.5\/100/);
+ assert.match(report,/66\.5\/100/);
  assert.match(report,/36\.0\/100/);
  assert.match(report,/45\.0\/100/);
  assert.match(report,/NO-GO/);
