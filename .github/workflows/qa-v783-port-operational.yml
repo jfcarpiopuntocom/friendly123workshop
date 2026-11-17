@@ -1,0 +1,37 @@
+name: "P0 actual-port completion /100 + live client-ticket contract (no deploy)"
+on:
+  push:
+    branches: ["feat/20261117-dual-port-operational-score"]
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/quality/port*"
+      - "projects/assembled-v783/quality/PORT-STATUS.md"
+      - "projects/assembled-v783/qa/p0-port-client-worker-contract.test.cjs"
+      - "projects/assembled-v783/app/src/yparty-piloto.js"
+      - "projects/assembled-v783/app/src/authorized-yprovider.mjs"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/src/index.js"
+      - ".github/workflows/qa-v783-port-operational.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-port-completion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dual metrics are separate and six GO gates cannot be bypassed
+        run: |
+          set -euo pipefail
+          node --test projects/assembled-v783/quality/port.test.cjs
+          node --test projects/assembled-v783/quality/score.test.cjs
+      - name: 'Real client/worker source contract: fail closed on incompatible secure room'
+        run: node --test projects/assembled-v783/qa/p0-port-client-worker-contract.test.cjs
+      - name: Show actual port completion, NOT a green commercial GO
+        run: node projects/assembled-v783/quality/port.cjs
