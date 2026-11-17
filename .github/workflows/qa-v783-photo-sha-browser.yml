@@ -1,0 +1,33 @@
+name: "P0 YParty photos SHA browser bridge (no deploy)"
+on:
+  push:
+    branches: ["feat/20261117-photo-sha-browser"]
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/app/src/photo-sha-bridge.mjs"
+      - "projects/assembled-v783/app/src/ws-owner-ticket-params.mjs"
+      - "projects/assembled-v783/app/src/yparty-piloto.js"
+      - "projects/assembled-v783/app/docs/sync-yjs.js"
+      - "projects/assembled-v783/app/docs/vendor/yparty-piloto.min.js"
+      - "projects/assembled-v783/app/test/p0-yparty-photo-sha-browser.test.cjs"
+      - ".github/workflows/qa-v783-photo-sha-browser.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  photo-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run test-first browser SHA photo bridge proof
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 test/p0-yparty-photo-sha-browser.test.cjs 2>&1 | tee /tmp/f123-photo-browser.tap
