@@ -19,3 +19,7 @@
 ## Límite y próximos pendientes
 
 Es una prueba **unitaria fiel al código fuente, no Workerd transaccional real**: la atomicidad de `transactionSync` proviene de Cloudflare, no del simulador. Para aceptación comercial faltan inyección real por storage API o pruebas de caída en Workerd, autoridad central PIN/Team y nonce central, privacidad histórica, cliente firmado, venta typed opId, fotos de gastos, recuento de filas SQL, full audit y físicos Opera↔Safari A→B→A ×2. No activar YParty ni cambiar proveedor. WCAG P2 siguiente versión aparte.
+
+## Primer run QA: error del arnés antes de ejecutar tests, NO problema probado de SQL
+
+[Run 44021655076](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44021655076), PR #10, HEAD `5fa02173bb2bf334dccc8f58752af29c234e98c2`: el job rollback unitario tuvo **SyntaxError: Unexpected token 'async'** cuando se intentó evaluar DOS métodos de clase `async onLoad` y `async onSave` en un literal de objeto sin separarlos por coma. **0 de los tres tests se ejecutaron**: es un fallo de arnés propio; NO evidencia de corrupción del Worker. El job separado de Workerd real reejecuta los 12 contratos de foto+autenticación del source intacto. **Corrección antes de resultados:** evaluar el segmento literal de los dos métodos como `class YPartyMethods { ... }` y usar `.prototype`, porque la sintaxis de una clase admite múltiples métodos adyacentes sin coma. No modificar método, DB mock ni expectativas. Conservar el run como test fixture failure en registro.
