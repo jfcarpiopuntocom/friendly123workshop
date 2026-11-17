@@ -6,6 +6,7 @@ import { YServer } from "y-partyserver";
 import * as Y from "yjs";
 import { salaDeLicencia } from "./sala.js";
 import {secureMode,ticketRequest,askAuthority,askAuthorityBatch,unexpired} from "./ws-authority-client.js";
+import {photoShaStore,boundedPhotoBody} from "./photo-sha-storage.mjs";
 
 export { salaDeLicencia };
 
@@ -140,6 +141,50 @@ export class Tienda extends YServer {
     // YServer removes awareness on close and can broadcast from that lifecycle hook.
     if (secureMode(this.env)) await this.comprobarConexiones();
     return super.onClose(connection,code,reason,wasClean);
+  }
+
+  // The photo room is HTTP-only. Only SHA/bytes/MIME references may later
+  // appear in Yjs; raw blobs stay in this same YParty Durable Object's SQL.
+  async onRequest(req) {
+    if (!secureMode(this.env) || this.env.WS_PHOTO_BLOBS_QA !== '1' ||
+        this.name !== this.env.SALA_PILOTO + '-fotos') {
+      return new Response('Not found',{status:404});
+    }
+    if (req.method !== 'GET' && req.method !== 'PUT') {
+      return new Response('Method not allowed',{status:405});
+    }
+    const auth=req.headers.get('authorization')||'';
+    const access={
+      token:auth.startsWith('Bearer ')?auth.slice(7):'',
+      licenseCode:String(req.headers.get('x-f123-license')||'').trim().toUpperCase(),
+      instanceId:req.headers.get('x-f123-instance')||'',
+      room:this.name,requiredScope:req.method==='PUT'?'fotos:write':'fotos:read'
+    };
+    // Consume a new central Owner capability BEFORE reading any photo bytes.
+    // Bare license+instance never grant access, and WS_SERVICE_KEY stays inside
+    // the Worker's private Service Binding, never in browser headers/response.
+    const signed=await askAuthority(this.env,'consume',access);
+    if(!signed)return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
+    try {
+      const sha=new URL(req.url).searchParams.get('sha');
+      const photos=photoShaStore(this.ctx.storage);
+      if(req.method==='GET'){
+        const item=await photos.get(sha);
+        if(!item)return new Response('Not found',{status:404});
+        return new Response(item.bytes,{status:200,headers:{
+          'content-type':item.tipo,'content-length':String(item.bytes.length),
+          'cache-control':'no-store','x-content-type-options':'nosniff'
+        }});
+      }
+      const bytes=await boundedPhotoBody(req);
+      const result=await photos.put({sha,tipo:req.headers.get('content-type'),bytes});
+      return new Response(JSON.stringify({sha:result.sha,bytes:result.bytes,tipo:result.tipo}),{
+        status:result.created?201:200,headers:{'content-type':'application/json','cache-control':'no-store'}
+      });
+    }catch(error){
+      return new Response('Photo unavailable',{status:Number.isInteger(error?.status)?error.status:503,
+        headers:{'cache-control':'no-store'}});
+    }
   }
 
   async onCustomMessage(conexion, mensaje) {
@@ -335,10 +380,15 @@ export default {
     if (env.WS_AUTHORITY_QA !== '1') return new Response('Autoridad no configurada',{status:503});
     // Limit the public endpoint before KV or a Durable Object sees the request.
     const path = new URL(req.url).pathname;
-    if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "") ||
-        !(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv", "-cat", "-ops"] : ["-priv"]) : ["", "-cat", "-ops"]).some(suffix => path === "/parties/tienda/" + env.SALA_PILOTO + suffix)) {
-      return new Response("Not found", { status: 404 });
-    }
+    if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "")) return new Response("Not found", { status: 404 });
+    const photoHttp=env.WS_PHOTO_BLOBS_QA==='1' &&
+      path==='/parties/tienda/'+env.SALA_PILOTO+'-fotos' &&
+      (req.method==='GET'||req.method==='PUT');
+    // No raw Yjs WebSocket room for photo bytes, and no generic anonymous HTTP.
+    const allowedWs=(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv","-cat","-ops"] : ["-priv"]) : ["","-cat","-ops"])
+      .some(suffix=>path==='/parties/tienda/'+env.SALA_PILOTO+suffix);
+    if (!photoHttp && !allowedWs) return new Response("Not found", { status: 404 });
+    if (photoHttp) return (await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
     if (req.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("WebSocket required", { status: 426 });
     }
