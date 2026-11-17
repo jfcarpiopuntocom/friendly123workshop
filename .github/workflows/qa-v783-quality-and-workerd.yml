@@ -1,0 +1,36 @@
+name: "QA v783 quality /100 + frozen-import real Workerd (no deploy)"
+on:
+  push:
+    branches:
+      - "feat/20261117-scorecard-workerd-yjs-import"
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/quality/**"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-frozen-import-workerd.test.mjs"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/qa/fixtures/frozen-import-workerd.mjs"
+      - ".github/workflows/qa-v783-quality-and-workerd.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  score-and-workerd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run exact historical and current quality score assertions
+        run: node --test projects/assembled-v783/quality/score.test.cjs
+      - name: Install locked Yjs, Wrangler and Miniflare dependencies (no scripts)
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'Real Workerd Durable Object SQLite - frozen import, restart and fail-closed'
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-frozen-import-workerd.test.mjs 2>&1 | tee /tmp/f123-frozen-import-workerd.tap

@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "goal": ">=95 with 6 independent GO gates",
+  "target": 95,
+  "baselineDate": "2026-11-10",
+  "baselineProvenance": "retrospective-estimate",
+  "baselineUncertainty": 5,
+  "reviewedDate": "2026-11-17T17:26:20Z",
+  "reviewedSha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
+  "currentUncertainty": 4,
+  "disclaimer": "Editorial engineering confidence score, NOT measured failure probability or verified production availability. Baseline inferred retrospectively, no exact 10-Nov SHA. Re-evaluate after every changed code SHA; gains require linked tests and explicit judgment. Six JFC GO gates override score.",
+  "dimensions": [
+    {
+      "id": "business",
+      "label": "Ventas, stock y dinero",
+      "weight": 20,
+      "baseline": {
+        "points": 14,
+        "evidence": [
+          {
+            "level": "retrospective",
+            "url": "https://app.notion.com/p/4141642b67f38113929cfce25da97535",
+            "claim": "Legacy pilot with sales workflows but discrepancies and cold join bugs"
+          }
+        ]
+      },
+      "current": {
+        "points": 17.5,
+        "evidence": [
+          {
+            "level": "integrated-ci",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302",
+            "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
+            "claim": "585/585 integrated commercial + authority tests green; historical global 29 FAIL, no physical certification"
+          }
+        ]
+      }
+    },
+    {
+      "id": "durability",
+      "label": "Durabilidad local, opId y ACK",
+      "weight": 20,
+      "baseline": {
+        "points": 12,
+        "evidence": [
+          {
+            "level": "retrospective",
+            "url": "https://app.notion.com/p/4141642b67f38113929cfce25da97535",
+            "claim": "Durability recovery partial and 403 session incidence"
+          }
+        ]
+      },
+      "current": {
+        "points": 16,
+        "evidence": [
+          {
+            "level": "integrated-ci",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302",
+            "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
+            "claim": "Typed inbox/store recovery and local IDB regressions passed; production ACK not proven"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sync",
+      "label": "Convergencia y unión fría",
+      "weight": 20,
+      "baseline": {
+        "points": 6,
+        "evidence": [
+          {
+            "level": "retrospective",
+            "url": "https://app.notion.com/p/4141642b67f38113929cfce25da97535",
+            "claim": "Real Firebase cold join failed with missing Yjs parents"
+          }
+        ]
+      },
+      "current": {
+        "points": 12,
+        "evidence": [
+          {
+            "level": "synthetic-ci",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44128118555",
+            "sha": "d68842905c9149cc391da787c43ea92365d619fa",
+            "claim": "Yjs frozen pre-cut causal completeness green only in controlled tests; 15 parents still in real canary"
+          }
+        ]
+      }
+    },
+    {
+      "id": "security",
+      "label": "Autoridad central y seguridad económica",
+      "weight": 15,
+      "baseline": {
+        "points": 6,
+        "evidence": [
+          {
+            "level": "retrospective",
+            "url": "https://app.notion.com/p/4141642b67f38113929cfce25da97535",
+            "claim": "Owner/Team local and remote security incomplete"
+          }
+        ]
+      },
+      "current": {
+        "points": 7.5,
+        "evidence": [
+          {
+            "level": "integrated-ci",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302",
+            "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
+            "claim": "Workerd local read/issuer proof, but no complete typed business executor and employee write path certification"
+          }
+        ]
+      }
+    },
+    {
+      "id": "photos",
+      "label": "Fotos y PWA",
+      "weight": 10,
+      "baseline": {
+        "points": 6,
+        "evidence": [
+          {
+            "level": "retrospective",
+            "url": "https://app.notion.com/p/4141642b67f38113929cfce25da97535",
+            "claim": "Photo transfer and local persistence exist but PWA duplicates and large Yjs bytes unresolved"
+          }
+        ]
+      },
+      "current": {
+        "points": 6,
+        "evidence": [
+          {
+            "level": "integrated-ci",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302",
+            "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
+            "claim": "Photo regressions pass; not credited yet for approved SHA blob separation"
+          }
+        ]
+      }
+    },
+    {
+      "id": "migration",
+      "label": "Migración y rollback históricos",
+      "weight": 10,
+      "baseline": {
+        "points": 1,
+        "evidence": [
+          {
+            "level": "retrospective",
+            "url": "https://app.notion.com/p/4141642b67f38113929cfce25da97535",
+            "claim": "No certified frozen Firebase-to-DO migration or reverse exporter"
+          }
+        ]
+      },
+      "current": {
+        "points": 5,
+        "evidence": [
+          {
+            "level": "node-sqlite",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131857267",
+            "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
+            "claim": "PR82 9/9 real Node SQLite/Yjs tests; Workerd import not yet proved; no real frozen Firebase reader nor reverse export"
+          },
+          {
+            "level": "workerd",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136898372",
+            "sha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
+            "claim": "2/2 local Miniflare Workerd DO SQL tests green incl full process restart, exact Yjs SHA, opIds and denied missing parents; no Firebase reader or live Worker wiring"
+          }
+        ]
+      }
+    },
+    {
+      "id": "physical",
+      "label": "Aceptación física Opera↔Safari A→B→A×2",
+      "weight": 5,
+      "baseline": {
+        "points": 0,
+        "evidence": []
+      },
+      "current": {
+        "points": 0,
+        "evidence": []
+      }
+    }
+  ],
+  "gates": [
+    {
+      "id": "economics",
+      "label": "Empleado sin escritura Yjs y venta/ajuste/cobro tipados por opId",
+      "passed": false,
+      "evidence": [],
+      "reason": "Worker server-side typed authority/immutable sale not accepted end-to-end"
+    },
+    {
+      "id": "identity",
+      "label": "Owner/Team central y tickets por canal",
+      "passed": false,
+      "evidence": [],
+      "reason": "End-to-end issuer↔client↔relay permission proof still missing"
+    },
+    {
+      "id": "photo",
+      "label": "Foto fuera de Yjs, blob por SHA",
+      "passed": false,
+      "evidence": [],
+      "reason": "Approved but not migrated and verified across devices"
+    },
+    {
+      "id": "migration",
+      "label": "Firebase→DO single importer zero pending + SHA y reverse exporter",
+      "passed": false,
+      "evidence": [],
+      "reason": "Node-only preactivation adapter does not read Firebase or restore back"
+    },
+    {
+      "id": "mobile",
+      "label": "Web Locks outbox + reanudación iPhone",
+      "passed": false,
+      "evidence": [],
+      "reason": "BFCache synthetic regression green, physical iPhone Web Locks pending"
+    },
+    {
+      "id": "physical",
+      "label": "Dos ciclos reales Opera PC↔Safari iPhone A→B→A",
+      "passed": false,
+      "evidence": [],
+      "reason": "Native Chromium/WebKit lab is not physical acceptance"
+    }
+  ]
+}
