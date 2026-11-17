@@ -2,8 +2,8 @@
   "version": 1,
   "metric": "operational-port-completion",
   "target": 100,
-  "reviewedAt": "2026-11-17T19:00:00Z",
-  "reviewedSha": "1db297d2387d389b2b2b05e6191133c52b7b4ebd",
+  "reviewedAt": "2026-11-17T21:06:40Z",
+  "reviewedSha": "641a58070e4915e3da945144e6365cdf1a225764",
   "source": "friendly123workshop/projects/assembled-v783",
   "disclaimer": "Milestone-based operational PORT completion, NOT app quality, probability, elapsed-time estimate or customer activation. Credits for prep do not imply any first-shop gate passed. Six JFC gates are immutable. No real customer data or physical evidence.",
   "qualityMetricPath": "score-v1.json",
@@ -145,10 +145,17 @@
         {
           "id": "photo-sha-sql-blob",
           "points": 3,
-          "done": false,
+          "done": true,
           "label": "Blob real por SHA almacenado y recuperado desde SQL sin bytes en Yjs",
-          "evidence": [],
-          "pendingReason": "Blob real por SHA almacenado y recuperado desde SQL sin bytes en Yjs"
+          "evidence": [
+            {
+              "sha": "f76deabc271b73702619992155b4a33d114119b4",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44160604233",
+              "type": "workerd-photo-sha-ci",
+              "claim": "PR89 exact SHA: real local Workerd SQL 512KiB photo blocks accepted one-use Owner photo HTTP ticket, stored >2MiB synthetic immutable SHA bytes, cold process restart readback, denied Yjs photo WebSocket room, bad hash and replay; browser photo bridge and device restoration remain pending"
+            }
+          ],
+          "pendingReason": null
         },
         {
           "id": "yjs-sha-reference-only",
