@@ -463,13 +463,54 @@ export default {
       }});
     }
     const photoHttp=photoEndpoint && (req.method==='GET'||req.method==='PUT');
-    const typedHttp=env.WS_TYPED_COMMANDS_QA==='1'&&env.WS_SEPARATE_ROOMS_QA==='1'&&
-      req.method==='POST'&&path==='/parties/tienda/'+env.SALA_PILOTO+'-ops';
+    const typedEndpoint=env.WS_TYPED_COMMANDS_QA==='1'&&env.WS_SEPARATE_ROOMS_QA==='1'&&
+      path==='/parties/tienda/'+env.SALA_PILOTO+'-ops';
+    // Unlike WebSockets, a browser's signed HTTP POST needs CORS preflight.
+    // No wildcard origin, credentials or bearer tokens in a URL. A denied
+    // origin is rejected BEFORE routing into the Durable Object or consuming
+    // a one-use capability.
+    const typedOrigin=req.headers.get('origin');
+    const expectedTyped=env.WS_TYPED_ORIGIN_QA;
+    let validTypedOrigin=false;
+    try{
+      const parsed=new URL(expectedTyped);
+      validTypedOrigin=parsed.protocol==='https:'&&parsed.origin===expectedTyped;
+    }catch(_){}
+    const typedOriginAllowed=validTypedOrigin&&typedOrigin===expectedTyped;
+    if(typedEndpoint&&req.method==='OPTIONS'){
+      const requestedMethod=req.headers.get('access-control-request-method');
+      const requestedHeaders=(req.headers.get('access-control-request-headers')||'')
+        .split(',').map(v=>v.trim().toLowerCase()).filter(Boolean);
+      const allowed=new Set(['authorization','content-type','x-f123-license','x-f123-instance']);
+      if(!typedOriginAllowed||requestedMethod!=='POST'||!requestedHeaders.length||
+         requestedHeaders.some(h=>!allowed.has(h)))
+        return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
+      return new Response(null,{status:204,headers:{
+        'access-control-allow-origin':expectedTyped,
+        'access-control-allow-methods':'POST',
+        'access-control-allow-headers':'Authorization, Content-Type, X-F123-License, X-F123-Instance',
+        'access-control-max-age':'60','vary':'Origin','cache-control':'no-store'
+      }});
+    }
+    const typedHttp=typedEndpoint&&req.method==='POST';
+    if(typedHttp&&typedOrigin!==null&&!typedOriginAllowed)
+      return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
     // No raw Yjs WebSocket room for photo bytes, and no generic anonymous HTTP.
     const allowedWs=(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv","-cat","-ops"] : ["-priv"]) : ["","-cat","-ops"])
       .some(suffix=>path==='/parties/tienda/'+env.SALA_PILOTO+suffix);
     if (!photoHttp && !typedHttp && !allowedWs) return new Response("Not found", { status: 404 });
-    if (photoHttp || typedHttp) return (await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
+    if(photoHttp||typedHttp){
+      const response=(await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
+      if(typedHttp&&typedOrigin!==null){
+        // Only a previously approved HTTPS origin may receive this CORS
+        // response. The backend still requires a fresh signed scoped ticket.
+        const headers=new Headers(response.headers);
+        headers.set('access-control-allow-origin',expectedTyped);
+        headers.set('vary','Origin');
+        return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+      }
+      return response;
+    }
     if (req.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("WebSocket required", { status: 426 });
     }
