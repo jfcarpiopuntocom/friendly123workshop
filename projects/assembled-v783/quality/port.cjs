@@ -64,27 +64,37 @@ function assessPort(data){
 function inspectClientWire({client,worker,authorized}){
  valid(typeof client==='string'&&typeof worker==='string'&&typeof authorized==='string','source text');
  const secureWorkerRequiresTicket=worker.includes('WS_AUTHORITY_QA')&&
-   worker.includes("lobby.name.endsWith('-priv')")&&
    worker.includes("get('cap')")&&worker.includes('askAuthority(');
  const authorizedProviderAvailable=/class\s+AuthorizedYProvider\s+extends\s+YProvider/.test(authorized)&&
    authorized.includes("session.request()")&&authorized.includes('cap');
- const pilotUsesFreshTicket=/new\s+AuthorizedYProvider\s*\(/.test(client)&&
-   /params\s*:\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.test(client);
+ const importedProvider=/new\s+AuthorizedYProvider\s*\(/.test(client);
+ const dynamicProvider=/params\s*:\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.test(client);
+ const importedTicketSource=/params\s*=\s*createOwnerTicketParams\s*\(/.test(client)&&
+   /(?:party\s*:\s*['"]tienda['"]\s*,\s*params\s*,|params\s*,\s*disableBc)/.test(client);
+ const pilotUsesFreshTicket=importedProvider&&(dynamicProvider||importedTicketSource);
  const pilotUsesPrivateRoom=/(?:['"]-priv['"])/.test(client);
- // The legacy pilot makes one provider for EACH Y.Doc (cat, ops, fotos).
- // Routing all of those documents to the same -priv YServer would mix unrelated
- // Yjs state. A single-room path is safe only for one explicitly unified doc.
+ // Distinct Y.Doc types are NOT safely multiplexed into a single -priv room.
+ // The current secured Worker and browser ship two independent cat/ops
+ // channels, while fotos explicitly stays on the encrypted legacy relay.
  const separateDocs=/\bcanal\s*\(\s*doc\s*,\s*tipo\b/.test(client);
+ const pilotUsesSeparatedRooms=/sala\s*\+\s*['"]-['"]\s*\+\s*tipo/.test(client)&&
+   /tipo\s*!==\s*['"]cat['"]\s*&&\s*tipo\s*!==\s*['"]ops['"]/.test(client);
+ const serverSeparatesRooms=worker.includes('WS_SEPARATE_ROOMS_QA')&&
+   /['"]-cat['"]/.test(worker)&&/['"]-ops['"]/.test(worker)&&
+   /if\s*\(this\.name\.endsWith\(['"]-ops['"]\)\)\s*return true/.test(worker);
  const channelIsolationPreserved=!separateDocs || (
-   /-priv-cat/.test(worker)&&/-priv-ops/.test(worker)&&/-priv-fotos/.test(worker)&&
-   /-priv-['"]\s*\+\s*tipo/.test(client)
+   (pilotUsesSeparatedRooms&&serverSeparatesRooms) ||
+   (/-priv-cat/.test(worker)&&/-priv-ops/.test(worker)&&/-priv-fotos/.test(worker)&&
+    /-priv-['"]\s*\+\s*tipo/.test(client))
  );
- const compatible=secureWorkerRequiresTicket&&authorizedProviderAvailable&&pilotUsesFreshTicket&&pilotUsesPrivateRoom&&channelIsolationPreserved;
+ const compatible=secureWorkerRequiresTicket&&authorizedProviderAvailable&&pilotUsesFreshTicket&&
+   (pilotUsesPrivateRoom||pilotUsesSeparatedRooms)&&channelIsolationPreserved;
  return {secureWorkerRequiresTicket,authorizedProviderAvailable,pilotUsesFreshTicket,
-   pilotUsesPrivateRoom,channelIsolationPreserved,compatible,
-   reason:compatible?'Source contract compatible; server binding and real coldjoin still need proof':
-     !channelIsolationPreserved?'BLOCKED: separate cat/ops/fotos Y.Docs cannot share one -priv YServer without data mixing':
-     'BLOCKED: real client missing one-use cap ticket callback and/or -priv private room required by secure Worker'};
+   pilotUsesPrivateRoom,pilotUsesSeparatedRooms,channelIsolationPreserved,compatible,
+   reason:compatible?
+     'Client/Worker source signed room contract aligned; real store GO and physical coldjoin still pending':
+     !channelIsolationPreserved?'BLOCKED: separate cat/ops/fotos Y.Docs cannot share one YServer or bypass signed scopes':
+     'BLOCKED: real client missing one-use cap callback or secure room contract'};
 }
 function formatDual({port,quality}){
  return [
@@ -94,7 +104,7 @@ function formatDual({port,quality}){
   'Estado: '+(port.ready&&quality.ready?'APTO PARA REVISIÓN DE GO':'NO-GO para primera tienda real'),
   'Port revisado: '+port.reviewedSha,
   ...port.gates.map(g=>g.id+': '+g.earned.toFixed(1)+'/'+g.weight.toFixed(1)+(g.certified?' · GATE CERTIFICADO':' · PENDIENTE')),
-  'Próximo P0: unir el cliente con ticket fresco y sala -priv al Worker central; sin nuevas condiciones'
+  'Próximo P0: comando económico aplicado en servidor, fotos SHA fuera Yjs y migración real reversible; sin nuevas condiciones'
  ].join('\n');
 }
 module.exports={assessPort,formatDual,inspectClientWire};
