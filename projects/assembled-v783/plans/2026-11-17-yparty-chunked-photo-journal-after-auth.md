@@ -27,3 +27,10 @@
 ## Stop/rollback
 
 Branch reproducible con SHAs y links en `projects/assembled-v783/STATUS.md` y este plan. No secretos reales, no publicaciones, no actualizar manifest de release. Si red de CI falla por cuota artifacts, eliminar sólo subida sin cambiar tests (ya aprendido PR7). Si se reproduce dato inválido de source, no silenciar. No fusionar la rama sin seguridad+durabilidad completas.
+## RED reproducido con archivo original sin modificaciones
+
+[GitHub Actions 44020392859](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44020392859), PR privada #9 HEAD `4b2a499674f61fba3116c9b80f99a603f1330d59` con **SOLO test y workflow**, todavía sin cambiar el Worker:
+- Job `large-photo-coldjoin` **1 test / 0 PASS / 1 FAIL / 0 SKIP**. Log real Workerd `Uncaught Error: YParty could not durably journal a Yjs update` al insertar 2MiB+ y luego test falla `Timeout: server delivery of >2MiB public photo`. Esto confirma fallo del diario SQLite (en esta configuración), no solamente una demora de red; no imprime dato cliente.
+- Job `signed-auth-regression` **11/11 PASS, 0 FAIL/SKIP/CANCEL** en el mismo HEAD, lo que demuestra baseline intacta antes del injerto.
+- La fotografía es enteramente ficticia: `Buffer.alloc(2*1024*1024+32768,0x5A)` con cabeceras JPEG de ejemplo, serializada en base64; SHA256 de bytes reales. Ninguna imagen real ni clave comercial.
+- **Solo ahora** portar esquema SQL `documento_bloques` y `diario_bloques` desde b93; preservar `ws_consumed_nonce`, `onConnect`, `isReadOnly`, `currentConnection`, `onMessage`, `onCustomMessage`, `revisionEstado` de PR8/7; usar SQL transacciones atómicas y rollback. Repetir Workerd large photo + 11 auth en mismo SHA. Si el worker sigue fallando, registrar causa en vez de relajar la prueba.
