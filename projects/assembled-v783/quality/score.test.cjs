@@ -28,6 +28,14 @@ test('current score is recomputed from verifiable entries and anchored to a conc
 test('all six JFC/Claude gates are mandatory even if points somehow reach 100',()=>{
  const copy=structuredClone(ledger);
  for(const axis of copy.dimensions)axis.current.points=axis.weight;
+ // Hypothetical unit-test-only evidence for physical points: score can be 100
+ // without making any real-world claim, and gate still must be independently true.
+ copy.dimensions.find(x=>x.id==='physical').current.evidence.push({
+   level:'synthetic-test-only',
+   url:'https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302',
+   sha:'d20e06a2e5f9737de498bc12e4705f246514c6fd',
+   claim:'Fictitious unit-test evidence solely to test the mandatory six-gate safety property'
+ });
  const e=evaluate(copy);
  assert.equal(e.current,100);
  assert.equal(e.ready,false);
