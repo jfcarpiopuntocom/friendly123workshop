@@ -1,0 +1,33 @@
+name: "QA outbox real browser multi-tab"
+on:
+  push:
+    paths:
+      - ".github/workflows/qa-f123-native-outbox-multitab.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-reproduction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout exact public source
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 94a4e047cdb0b2b14cbab004de599d7e43fef79b
+          path: upstream
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install browser harness
+        run: |
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Reproduce on real IndexedDB and isolated synthetic data
+        run: |
+          cp upstream/docs/sync-outbox.js "$RUNNER_TEMP/f123-baseline.js"
+          git -C upstream apply --check ../projects/assembled-v783/evidence/friendly-master-open-retry/candidate.patch
+          git -C upstream apply ../projects/assembled-v783/evidence/friendly-master-open-retry/candidate.patch
+          BASELINE_SOURCE="$RUNNER_TEMP/f123-baseline.js" CANDIDATE_SOURCE="$GITHUB_WORKSPACE/upstream/docs/sync-outbox.js" python projects/assembled-v783/evidence/friendly-master-open-retry/multitab-native-browser.py
