@@ -15,9 +15,9 @@ test('fixed weights are exactly 100 and the dated baseline is not changed retroa
 });
 test('current score is recomputed from verifiable entries and anchored to a concrete main commit',()=>{
  const e=evaluate(ledger);
- assert.equal(e.current,63.5);
- assert.equal(e.delta,18.5);
- assert.equal(e.reviewedSha,'932471c77a4e128adffc040e65002901fd8da6ef');
+ assert.equal(e.current,64.0);
+ assert.equal(e.delta,19.0);
+ assert.equal(e.reviewedSha,'cedff564b8842db0345159bf4e7a42dbf27398e8');
  assert.equal(e.target,95);
  assert.equal(e.gatesPassed,0);
  assert.equal(e.gatesRequired,6);
