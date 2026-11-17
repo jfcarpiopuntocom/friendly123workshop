@@ -40,3 +40,9 @@ Cerrar interferencia de PR90 con reserva de fotos: informar al titular de `sync-
 
 ## Semáforo al escribir este archivo
 **NO-GO, calidad 64.5, port 33.0, 0/6**. Este checkpoint es plan, no implementación ni resultado de QA. Esta rama inicialmente no cambia runtime, Worker, PIN, datos, flags ni producción.
+
+## Hallazgo P0 en gate B: Team cat:read podría recibir datos privados (17-nov, antes de cambiar código)
+
+**Prueba de fuente exacta:** `app/docs/sync-yjs.js` asigna a un MISMO `API.doc` los mapas `usuarios`, `clientes`, `ventas`, `gastos`, `hechos_financieros` y `_meta` con PIN/roles; ese doc se envía por `piloto.canal(API.doc,'cat',...)`. En `relay/injertos/yparty-worker/src/index.js`, `super.onConnect` pasa el mismo Y.Doc al Team, y el Worker NO usa `src/catalog-safe-projection.mjs`. PR91 acepta Team con scope `cat:read`, que impide escritura, NO limita lectura. Esto es un problema del gate B ya existente (no un séptimo requisito).
+
+**TDD en este PR: UNA extensión de prueba Workerd real ya existente**, `relay/injertos/yparty-worker/qa/p0-secure-separate-rooms.test.mjs`, sin editar Worker ni clientes reservados: dentro del test Team existente, Owner escribe fixtures sintéticos en `_meta`, `clientes`, `hechos_financieros` y verifica que el Team NO los reciba al unirse. Este cambio debe correr RED sobre fuente exacta. No tocar otras aserciones; registrar runner ID/sha. En caso RED, pasar al dueño del Worker el fix más corto compatible con Yjs: doc público de catálogo separado, proyección allowlisted, o fail-closed Team hasta que exista proyección; **no** aflojar roles para que la prueba pase. Fijar SHA y registrar evidencia; GO permanece 0/6. Tras implementación real, correr 8/8 tests anteriores más nuevo, suite 585 y reinicio Workerd/Team reconexión.
