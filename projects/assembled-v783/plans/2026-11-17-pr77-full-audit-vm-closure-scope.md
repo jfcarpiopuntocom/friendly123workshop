@@ -67,3 +67,10 @@ All four fixtures extract current Yjs handlers into isolated VM, but the runtime
 ## Rollback / fail closed
 
 Fixture-only commit reversible; real code remains unchanged. If any test shows actual runtime violation or output mismatch after binding lexical scope, leave branch DRAFT and don't modify the assertion to force green. Any commercial release blocked by actual full audit failures, 15 parents unknown in remote history, YParty economic PR13 RED, PIN central and 2x physical A↔B↔A.
+
+## Empirical CI RED checkpoint, before any test/source modification
+
+- Workshop plan FIRST commit `626cef8bb9aa4d76f4c83843f5939725089de58d`; unchanged original 4 test files and new focal workflow commit `d43d2b74f74b5ad3b3667d96d986243f1a4886d8`, draft [PR #78](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/78).
+- [RED GitHub Actions 44108936742](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44108936742), job `134128906265`: **18 tests, 12 PASS, 6 FAIL, 0 SKIP/CANCEL**; runtime JS syntax valid; no external network/dependency setup errors. Exact failures match all six names in unfiltered full 44106406835: one quota reconnect, two orphan replay, one valid receive cursor, two PIN access HEAD. Source original Git blob `b77e9cde745a5deaaeed8989b88887cdb9bccd5f` unchanged.
+- Code trace: each of four fixtures executes `src.slice(ws.onmessage)` in an isolated `vm`, but unlike real `crearCanal` it never declares the new one-shot variable `_antecedentesBuscados`. Its first read in the replay handler throws a `ReferenceError`, swallowed by async receive handling; the test sees no retry/head/final ACK. This is a specific, falsifiable VM contract mismatch; do NOT weaken behavioral assertions.
+- Next source/test edit is solely one `_antecedentesBuscados:false` binding per affected fixture and its fresh-process clone where applicable. No Yjs runtime, IDB cursor proof, PIN or main changes. Then same 18 tests must PASS before broader 70/63/585 and full audit.
