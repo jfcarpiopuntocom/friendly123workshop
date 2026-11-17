@@ -56,7 +56,7 @@ test('P0 JFC: strict CAS stays fenced; verified local A/B recovery is the only I
  const save=backend.slice(backend.indexOf('  function _guardarEstadoLocalAhora('),backend.indexOf('  /* v608',backend.indexOf('  function _guardarEstadoLocalAhora(')));
  assert.doesNotMatch(write,/navigator\.locks\.request|10000|Promise\.race\(\[locked/);
  assert.doesNotMatch(ab,/f123-estado-ab:|navigator\.locks\.request/);
- assert.match(save,/idb\.guardarConRevision\(completo, _localRev\)/);
+ assert.match(save,/idb\.guardarConRevision\(completo, _localRev, _commitLocal, opIdVenta\)/);
  // JFC 2026-11-11 explicitly superseded rejecting every failed IDB commit.
  // A revision fence (no storage error) still fails; a real IDB error gets
  // one complete A/B journal commit with exact read-back. This is additionally
