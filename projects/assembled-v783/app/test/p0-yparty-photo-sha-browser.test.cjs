@@ -55,3 +55,17 @@ test('reject corrupt and unsupported photo payload before asking issuer',async()
  await assert.rejects(bridge.get('not-a-sha'));
  assert.equal(f.issues.length,0);
 });
+
+test('real pilot sources wire SHA photo bridge only when Owner session exists; legacy foto relay retained',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const pilot=fs.readFileSync(path.join(__dirname,'../src/yparty-piloto.js'),'utf8');
+ const sync=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
+ assert.match(pilot,/fotoSha\(\)/);
+ assert.match(pilot,/createPhotoShaBridge/);
+ assert.match(sync,/fotos_refs/);
+ assert.match(sync,/API\.fotoSha\.put\(hash,\s*dataUrl\)/);
+ assert.match(sync,/API\.fotosRefs\.set\(hash/);
+ assert.match(sync,/API\.fotoSha\.get\(hash\)/);
+ assert.match(sync,/guardarPorHash\(hash/);
+ assert.match(sync,/new window\.Y\.Doc\(\)/,'legacy encrypted fallback must not be silently removed');
+});
