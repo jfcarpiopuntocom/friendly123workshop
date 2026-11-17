@@ -42,36 +42,5 @@ jobs:
           node scripts/build-yparty-piloto.cjs
           node --check docs/vendor/yparty-piloto.min.js
           sha256sum docs/vendor/yparty-piloto.min.js
+          git diff --exit-code -- docs/vendor/yparty-piloto.min.js
           node -e 'const fs=require("fs");const x=fs.readFileSync("docs/vendor/yparty-piloto.min.js","utf8");if(x.length<16000)process.exit(4);console.log("F123_PHOTO_BUNDLE_JSON:"+JSON.stringify(x))'
-
-  build-vendor-once:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/20261117-photo-sha-browser'
-    needs: photo-browser
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Build exact vendor from existing locked dependencies
-        run: |
-          set -euo pipefail
-          cd projects/assembled-v783/relay/injertos/yparty-worker
-          npm ci --ignore-scripts --no-audit --no-fund
-          cd ../../../app
-          export NODE_PATH="$(realpath ../relay/injertos/yparty-worker/node_modules)"
-          node scripts/build-yparty-piloto.cjs
-          node --check docs/vendor/yparty-piloto.min.js
-      - name: Commit browser asset exactly once to the isolated workshop feature branch
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add projects/assembled-v783/app/docs/vendor/yparty-piloto.min.js
-          if ! git diff --cached --quiet; then
-            git commit -m 'build(vendor): reproducible SHA photo bridge browser pilot [skip ci]'
-            git push origin HEAD:refs/heads/feat/20261117-photo-sha-browser
-          fi
