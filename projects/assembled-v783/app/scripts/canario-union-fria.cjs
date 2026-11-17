@@ -323,7 +323,21 @@ function progresoRecuperacion(anterior, actual) {
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage(), errores = [];
-  p.on('pageerror', e => errores.push((e.name || 'Error').slice(0, 32)));
+  // Passive browser life-cycle evidence, captured BEFORE intentional cleanup.
+  // No URL, token, PIN, room or exception text can enter this allowlisted record.
+  const navegador = { pageCrashed: false, pageClosed: false, browserDisconnected: false };
+  p.on('crash', () => { navegador.pageCrashed = true; });
+  p.on('close', () => { navegador.pageClosed = true; });
+  if (typeof b.on === 'function') b.on('disconnected', () => { navegador.browserDisconnected = true; });
+  p.on('pageerror', e => {
+    let clase = 'Error';
+    try {
+      const nombre = e && e.name;
+      if (['Error', 'TimeoutError', 'TargetClosedError', 'TypeError',
+          'ReferenceError', 'RangeError'].includes(nombre)) clase = nombre;
+    } catch (_) {}
+    errores.push(clase);
+  });
   const red = crearObservadorRed();
   p.on('response', red.respuesta);
   p.on('requestfailed', red.fallida);
@@ -399,7 +413,9 @@ function progresoRecuperacion(anterior, actual) {
       // Si head.rev es 0 en una tienda llena queda probado que el aparato completo nunca sembro Firebase (falta la siembra).
       let checkpointTempranoHecho = false;
       while (!recuperacionVerificada(ultima)) {
+        etapaExcepcion = 'RECUPERACION_SONDEO';
         await p.waitForTimeout(RECUPERACION_SONDEO_MS);
+        etapaExcepcion = 'RECUPERACION';
         if (!checkpointTempranoHecho && Date.now() - inicioRecuperacion >= 8000) {
           checkpointTempranoHecho = true;
           console.log('CANARIO_CHECKPOINT_TEMPRANO:', JSON.stringify(await consultarCheckpoint(p)));
@@ -527,6 +543,18 @@ function progresoRecuperacion(anterior, actual) {
   console.log('CANARIO_CAPAS:', JSON.stringify(await diagnosticoPresupuesto(p)));
   console.log('CANARIO_RED:', JSON.stringify(red.resumen()));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
+  // Record signals before b.close() itself would trigger close/disconnect.
+  console.log('CANARIO_NAVEGADOR:', JSON.stringify(navegador));
   await b.close();
   if (fallo) { console.error('FALLA ' + fallo); process.exit(1); }
-})().catch(e => { console.error('FALLA CANARIO: ' + ((e && e.name) || 'Error')); process.exit(1); });
+})().catch(e => {
+  // Cleanup/navigation errors may have a hostile Error.name; never echo arbitrary data.
+  let clase = 'Error';
+  try {
+    const nombre = e && e.name;
+    if (['Error', 'TimeoutError', 'TargetClosedError', 'TypeError',
+        'ReferenceError', 'RangeError'].includes(nombre)) clase = nombre;
+  } catch (_) {}
+  console.error('FALLA CANARIO: ' + clase);
+  process.exit(1);
+});
