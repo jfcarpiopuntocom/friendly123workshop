@@ -1,0 +1,35 @@
+name: v783 outbox close late blocked IndexedDB open (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/docs/sync-outbox.js'
+      - 'projects/assembled-v783/evidence/p0-outbox-blocked-late-open.test.cjs'
+      - '.github/workflows/v783-outbox-blocked-late-close.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  close-orphan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: RED/GREEN actual browser module, no network
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p projects/assembled-v783/evidence/blocked-late-open-ci
+          git rev-parse HEAD | tee projects/assembled-v783/evidence/blocked-late-open-ci/sha.txt
+          node --check projects/assembled-v783/app/docs/sync-outbox.js
+          node --test projects/assembled-v783/evidence/p0-outbox-blocked-late-open.test.cjs 2>&1 | tee projects/assembled-v783/evidence/blocked-late-open-ci/tap.log
+      - name: Preserve full TAP and SHA even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-outbox-blocked-late-close-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/blocked-late-open-ci/
+          retention-days: 14
+          if-no-files-found: warn
