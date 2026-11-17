@@ -6,10 +6,16 @@ Fuente ejecutable de la calidad: [score-v1.json](score-v1.json) + [score.cjs](sc
 
 | Métrica | Hace una semana | Corte anterior 17-nov | Actual 17-nov | Meta |
 |---|---:|---:|---:|---:|
-| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 64.5/100 | **66.0/100** (±4 criterio; candidato QA) | ≥95 |
+| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 66.0/100 | **66.5/100** (±4 criterio; candidato QA) | ≥95 |
 | Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **36.0/100** | 100 **y 6/6 gates** |
 
-Calidad +21.0 puntos estimados frente al 10-nov (45.0→66.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+Calidad +21.5 puntos estimados frente al 10-nov (45.0→66.5); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+
+## Revisión calidad 66.5/100 · unión fría en ráfaga, NO físico
+
+El eje **sync** existente avanza 12.0→12.5/20 (+0.5) únicamente por [TDD Workerd RED 11/12](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44200433269) (timeout tras 7,5 s debido a 250 ms por comprobación de cada frame) y [GREEN 12/12 sobre fuente real](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44200699627) SHA `151b3b2b1b0a34c6873c56a090bf0eb461ca667e`: 64 cambios Yjs firmados y completos en segundo YProvider con lotes de máximo 32 frames, verificando centralmente permisos/revocación por lote. La prueba duró ~334 ms, **solo se retrasó artificialmente el endpoint check individual**, no check-many; no equivale a tiempo de Firebase ni al iPhone físico.
+
+[RED del marcador](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44200921547) calculó 66.0 cuando esperaba 66.5 antes de editar JSON. [GREEN del marcador](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44201003228) recalculó 66.5/100 sin tocar los pesos ni seis gates. Calidad 45.0±5 retrospectivo hace una semana, actual **66.5±4**, +21.5. **Port sigue 36.0/100 y GO 0/6**: todavía faltan negocio real, unión física y Firebase sin 15 padres pendientes. Producción intacta.
 
 ## Revisión de calidad 66.0/100 verificada en Workerd (17-nov, no port GO)
 
