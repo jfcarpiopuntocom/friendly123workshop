@@ -7,12 +7,33 @@ import * as Y from "yjs";
 import { salaDeLicencia } from "./sala.js";
 import {secureMode,ticketRequest,askAuthority,askAuthorityBatch,unexpired} from "./ws-authority-client.js";
 import {photoShaStore,boundedPhotoBody} from "./photo-sha-storage.mjs";
+import {createTypedCommercialLedger} from "./typed-commercial-ledger.mjs";
 
 export { salaDeLicencia };
 
 const BLOQUE_BYTES = 512 * 1024;
 const COMPACTAR_CAMBIOS = 128;
 const COMPACTAR_BYTES = 1024 * 1024;
+
+// Bounded commands must never accept arbitrarily large JSON before the
+// authenticated inbox checks the exact typed schema.
+async function leerComandoTipado(req) {
+  const max=8192,reader=req.body?.getReader();
+  if(!reader)throw new TypeError('missing-body');
+  const chunks=[];let size=0;
+  try {
+    for(;;){
+      const {done,value}=await reader.read();
+      if(done)break;
+      size+=value.byteLength;
+      if(size>max)throw new RangeError('command-too-large');
+      chunks.push(value);
+    }
+  }catch(error){try{await reader.cancel();}catch(_){}throw error;}
+  const bytes=new Uint8Array(size);let offset=0;
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+  return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
+}
 
 export class Tienda extends YServer {
   // La sala duerme sin clientes activos; el estado vive en el almacenamiento del DO.
@@ -146,6 +167,40 @@ export class Tienda extends YServer {
   // The photo room is HTTP-only. Only SHA/bytes/MIME references may later
   // appear in Yjs; raw blobs stay in this same YParty Durable Object's SQL.
   async onRequest(req) {
+    // A separate, opt-in HTTP typed-command INBOX. No raw Yjs economic writes;
+    // 202 means queued, NEVER that stock/cash were applied by the real app.
+    if(secureMode(this.env)&&this.env.WS_TYPED_COMMANDS_QA==='1'&&
+       this.env.WS_SEPARATE_ROOMS_QA==='1'&&
+       this.name===this.env.SALA_PILOTO+'-ops'){
+      if(req.method!=='POST')return new Response('Method not allowed',{status:405});
+      if(req.headers.get('content-type')?.split(';')[0].trim()!=='application/json')
+        return new Response('Expected JSON',{status:415});
+      let command;
+      try{command=await leerComandoTipado(req);}
+      catch(error){
+        return Response.json({ok:false,reason:error instanceof RangeError?'command-too-large':'invalid-json'},
+          {status:error instanceof RangeError?413:400,headers:{'cache-control':'no-store'}});
+      }
+      const auth=req.headers.get('authorization')||'';
+      const ticket=auth.startsWith('Bearer ')?auth.slice(7):'';
+      const licenseCode=String(req.headers.get('x-f123-license')||'').trim().toUpperCase();
+      const instanceId=req.headers.get('x-f123-instance')||'';
+      const ledger=createTypedCommercialLedger({
+        sql:this.ctx.storage.sql,transactionSync:this.ctx.storage.transactionSync.bind(this.ctx.storage),
+        authorize:async({ticket:submitted,license,scope})=>{
+          if(ticket!==submitted||license!==licenseCode)return{ok:false};
+          const signed=await askAuthority(this.env,'consume',{
+            token:submitted,licenseCode,instanceId,room:this.name,requiredScope:scope
+          });
+          return signed?{ok:true,principal:signed.principal}:{ok:false};
+        }
+        // NO business executor injected: customer/receivable writes remain
+        // fail-closed, and even a stored sale never gets an applied ACK.
+      });
+      const answer=await ledger.submit({ticket,command});
+      const status=answer.ok&&answer.receipt?.stage==='stored-for-application'?202:answer.status;
+      return Response.json(answer,{status,headers:{'cache-control':'no-store'}});
+    }
     if (!secureMode(this.env) || this.env.WS_PHOTO_BLOBS_QA !== '1' ||
         this.name !== this.env.SALA_PILOTO + '-fotos') {
       return new Response('Not found',{status:404});
@@ -408,11 +463,13 @@ export default {
       }});
     }
     const photoHttp=photoEndpoint && (req.method==='GET'||req.method==='PUT');
+    const typedHttp=env.WS_TYPED_COMMANDS_QA==='1'&&env.WS_SEPARATE_ROOMS_QA==='1'&&
+      req.method==='POST'&&path==='/parties/tienda/'+env.SALA_PILOTO+'-ops';
     // No raw Yjs WebSocket room for photo bytes, and no generic anonymous HTTP.
     const allowedWs=(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv","-cat","-ops"] : ["-priv"]) : ["","-cat","-ops"])
       .some(suffix=>path==='/parties/tienda/'+env.SALA_PILOTO+suffix);
-    if (!photoHttp && !allowedWs) return new Response("Not found", { status: 404 });
-    if (photoHttp) return (await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
+    if (!photoHttp && !typedHttp && !allowedWs) return new Response("Not found", { status: 404 });
+    if (photoHttp || typedHttp) return (await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
     if (req.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("WebSocket required", { status: 426 });
     }
