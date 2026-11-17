@@ -1,0 +1,3 @@
+# Plan: reconciliar manifiesto de candidata con outbox #69/#70
+
+Base inicial ee09919e; solo taller, no publicación ni activación de PWA. El full 43999793625 y prueba local `node --test test/p0-v637-manifest.test.cjs` fallan por hash viejo de sync-outbox. Se probó generador oficial en copia descartable: cambia exclusivamente el hash de sync-outbox en version-manifest.json; no cambia sw.js. Ejecutar generador real en candidata, inspeccionar diff completo, correr test de manifiesto y bash check-sw.sh, registrar salidas y SHA. Si cambia SW, abortar esa modificación; no tocar versión/shell ni desplegar. Esto repara integridad de la candidata en el taller pero no resuelve la cola ni autoriza release. Verificar remoto y conservar evidencia.
