@@ -1,0 +1,59 @@
+name: Sync3 v694 pinned A-to-B cold join (synthetic)
+on:
+  pull_request:
+    paths:
+      - 'qa/sync3-v694-a-ack-b.test.cjs'
+      - 'qa/sync3-v694-firebase-rest-contract.test.cjs'
+      - 'qa/sync3-v694-yjs-firebase-rest-e2e.test.cjs'
+      - '.github/workflows/sync3-v694-a-ack-b.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-a-ack-b:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout workshop, no actual business data
+        uses: actions/checkout@v4
+        with:
+          path: workshop
+          persist-credentials: false
+      - name: Checkout exact publicly released v694 source
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: dbc361a01bc0b97b90ccfe9bd86379c20639cc29
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable source and no production credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "dbc361a01bc0b97b90ccfe9bd86379c20639cc29"
+          test -f candidate/docs/sync-yjs.js
+          echo "PINNED_SOURCE=dbc361a01bc0b97b90ccfe9bd86379c20639cc29"
+          echo 'No network relay, no real license, no PIN, no customer data.'
+      - name: Actual Yjs A hydrated -> checkpoint ACK -> B cold join
+        env:
+          F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
+        run: node --test workshop/qa/sync3-v694-a-ack-b.test.cjs
+      - name: Real production Firebase REST adapter, synthetic in-memory service
+        env:
+          F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
+        run: node --test workshop/qa/sync3-v694-firebase-rest-contract.test.cjs
+      - name: Actual v694 Yjs through actual Firebase adapter to B via isolated synthetic REST
+        env:
+          F123_SOURCE_ROOT: ${{ github.workspace }}/candidate
+        run: node --test workshop/qa/sync3-v694-yjs-firebase-rest-e2e.test.cjs
+      - name: Existing pinned production causal regression controls
+        run: |
+          node --test \
+            candidate/test/v670-post-pull-checkpoint.test.cjs \
+            candidate/test/pull-cursor-durable-ack.test.cjs \
+            candidate/test/sync3-head-causal-gap.test.cjs \
+            candidate/test/yjs-unresolved-checkpoint.test.js \
+            candidate/test/p0-s3-compressed-checkpoint.test.cjs
