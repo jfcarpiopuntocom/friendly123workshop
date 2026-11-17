@@ -5,8 +5,8 @@
   "baselineDate": "2026-11-10",
   "baselineProvenance": "retrospective-estimate",
   "baselineUncertainty": 5,
-  "reviewedDate": "2026-11-17T17:26:20Z",
-  "reviewedSha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
+  "reviewedDate": "2026-11-17T17:49:53Z",
+  "reviewedSha": "728f2681d0be6a200b01f4134d7eb533fd9a9167",
   "currentUncertainty": 4,
   "disclaimer": "Editorial engineering confidence score, NOT measured failure probability or verified production availability. Baseline inferred retrospectively, no exact 10-Nov SHA. Re-evaluate after every changed code SHA; gains require linked tests and explicit judgment. Six JFC GO gates override score.",
   "dimensions": [
@@ -155,7 +155,7 @@
         ]
       },
       "current": {
-        "points": 5,
+        "points": 5.5,
         "evidence": [
           {
             "level": "node-sqlite",
@@ -168,6 +168,18 @@
             "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136898372",
             "sha": "cedff564b8842db0345159bf4e7a42dbf27398e8",
             "claim": "2/2 local Miniflare Workerd DO SQL tests green incl full process restart, exact Yjs SHA, opIds and denied missing parents; no Firebase reader or live Worker wiring"
+          },
+          {
+            "level": "workerd",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140329503",
+            "sha": "728f2681d0be6a200b01f4134d7eb533fd9a9167",
+            "claim": "4/4 real local Workerd SQL tests verified snapshot+post-cut journal full Yjs export with fourth sale, multi-chunk >512KiB, process restart and deny orphan/missing Yjs parents; this is not a Firebase ciphertext restore"
+          },
+          {
+            "level": "integrated-ci",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140528221",
+            "sha": "728f2681d0be6a200b01f4134d7eb533fd9a9167",
+            "claim": "15 groups and 585/585 browser/authority/commercial regressions pass on same exact Workerd exporter SHA; not real physical iPhone acceptance"
           }
         ]
       }

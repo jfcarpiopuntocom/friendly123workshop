@@ -14,20 +14,22 @@ node projects/assembled-v783/quality/score.cjs --require-go
 
 Los valores y enlaces verificables están en [score-v1.json](score-v1.json); no se escriben cifras manualmente en chats como estado permanente. El CLI compara el **histórico estimado del 10-nov** y el **código revisado en el último SHA probado**. Si el HEAD GitHub o la fuente cambian, se debe **revalidar**: un JSON versionado no consulta red ni certifica automáticamente que el último commit sea seguro.
 
-## Rúbrica congelada antes del test Workerd del 17 nov
+## Rúbrica versionada (pesos fijos, puntos por evidencia)
 
-| Dominio | Máximo | 10-nov (retrospectivo) | 17-nov antes Workerd | Workerd Green | Último revisado |
-|---|---:|---:|---:|---:|---:|
-| Ventas, inventario y dinero | 20 | 14.0 | 17.5 | 0 | 17.5 |
-| Durabilidad local, opId, ACK | 20 | 12.0 | 16.0 | 0 | 16.0 |
-| Convergencia y unión fría | 20 | 6.0 | 12.0 | 0 | 12.0 |
-| Autoridad y operaciones económicas | 15 | 6.0 | 7.5 | 0 | 7.5 |
-| Fotos / PWA | 10 | 6.0 | 6.0 | 0 | 6.0 |
-| Migración histórica y rollback | 10 | 1.0 | 4.5 | **+0.5** | **5.0** |
-| Aceptación física dos ciclos | 5 | 0.0 | 0.0 | 0 | 0.0 |
-| **Total** | **100** | **45.0** | **63.5** | **+0.5** | **64.0** |
+| Dominio | Máximo | 10-nov estimado | Antes de PR83 | PR83 | PR84 | Actual |
+|---|---:|---:|---:|---:|---:|---:|
+| Ventas, inventario y dinero | 20 | 14.0 | 17.5 | 0.0 | 0.0 | 17.5 |
+| Durabilidad local, opId, ACK | 20 | 12.0 | 16.0 | 0.0 | 0.0 | 16.0 |
+| Convergencia y unión fría | 20 | 6.0 | 12.0 | 0.0 | 0.0 | 12.0 |
+| Autoridad y operaciones económicas | 15 | 6.0 | 7.5 | 0.0 | 0.0 | 7.5 |
+| Fotos / PWA | 10 | 6.0 | 6.0 | 0.0 | 0.0 | 6.0 |
+| Migración histórica y rollback | 10 | 1.0 | 4.5 | +0.5 | **+0.5** | **5.5** |
+| Aceptación física dos ciclos | 5 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| **Total** | **100** | **45.0** | **63.5** | **+0.5** | **+0.5** | **64.5** |
 
-**Intervalos de incertidumbre de criterio**: 10-nov ±5 puntos, actualidad ±4 puntos; no intervalos de confianza estadísticos. El baseline del 10-nov se reconstruyó retrospectivamente de los síntomas, registros y CI disponibles; **no posee SHA único del 10-nov**. La cifra 45.0 NO se vuelve a recalibrar para que el delta quede más bonito. El valor 64.0 NO equivale a robustez física demostrada.
+**PR84** incrementa solo la dimensión migración: tras PR82+PR83 ya se podía importar un snapshot Yjs congelado y recuperar Workerd SQL; ahora se comprobó la **exportación completa snapshot + diario** con una venta nueva, un bloque >512KiB y reinicio. Todavía NO hay transporte cifrado Firebase, ni importación real; por eso el gate comercial de migración sigue pendiente.
+
+**Intervalos de incertidumbre de criterio**: 10-nov ±5 puntos, actualidad ±4 puntos; no intervalos de confianza estadísticos. El baseline del 10-nov se reconstruyó retrospectivamente de los síntomas, registros y CI disponibles; **no posee SHA único del 10-nov**. La cifra 45.0 NO se vuelve a recalibrar para que el delta quede más bonito. El valor 64.5 NO equivale a robustez física demostrada.
 
 ### Cómo se gana un siguiente decimal
 
@@ -53,5 +55,12 @@ Los valores y enlaces verificables están en [score-v1.json](score-v1.json); no 
 - [PR #82](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/82) preparó el adaptador congelado Yjs→DO SQL: [Node/Yjs SQLite 9/9](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131857267), sin Workerd.
 - [Nueva prueba Workerd 2/2](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44136898372) sobre código QA `cedff564b8842db0345159bf4e7a42dbf27398e8`: Miniflare Durable Object SQL nativo; importar estado sintético, cierre completo, reinicio, mismo SHA y 3 opIds, rechazo de update hijo incompleto y conflicto; 0 fallos. No se modifica `src/index.js` ni se importa Firebase real.
 - [Regresión integrada anterior 585/585](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302), todavía no prueba dos aparatos reales; [auditoría completa post PR81](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44129049146): 3.287 total, 3.254 PASS, 29 FAIL, 1 CANCEL, 3 SKIP.
+
+### Evidencia adicional de PR84 · segundo incremento predeclarado +0.5
+
+- [Plan-first PR84](../plans/2026-11-17-full-yjs-export.md) · [RED 44140100139](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140100139): score 6/6 verde, exportador nuevo ausente como se esperaba.
+- [GREEN Workerd 4/4](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140329503), SHA `728f2681d0be6a200b01f4134d7eb533fd9a9167`: lectura transaccional, snapshot 3 opIds + cuarto movimiento en journal, multi-chunk, reinicio Workerd y Yjs completo con SHA/state vector verificados, fallos de bloques/origen rechazados.
+- [Integración exacta 585/585](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44140528221), mismo SHA, 15 grupos, cero fallos/omisiones; conserva flujo dinero, stock, crédito y autoridad.
+- Incremento: **64.0→64.5 /100**, delta frente a 10-nov **+19.5 puntos de criterio**. Sin nuevos gates acreditados (0/6).
 
 **Próxima frontera**: obtener Firebase HEAD realmente congelado con 0 padres Yjs pendientes y hash comprobado de origen, y cablear importador único al Worker autorizado con exportación de regreso segura; resolver roles/ventas del servidor en paralelo, fotos fuera Yjs y A→B→A físico antes del primer canario.
