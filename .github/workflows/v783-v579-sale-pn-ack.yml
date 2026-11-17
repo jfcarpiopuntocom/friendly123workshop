@@ -1,0 +1,39 @@
+name: v783 v579 real sale PN durable ACK legacy contract (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'projects/assembled-v783/app/test/v579-venta-pn-ack.test.js'
+      - '.github/workflows/v783-v579-sale-pn-ack.yml'
+permissions:
+  contents: read
+jobs:
+  sale-pn:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install pinned deps
+        run: npm ci --ignore-scripts
+      - name: Execute entire original v579 sale+PN source and dynamic tests without production network
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/v579-sale-pn
+          git rev-parse HEAD | tee ../evidence/v579-sale-pn/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1             test/v579-venta-pn-ack.test.js 2>&1 | tee ../evidence/v579-sale-pn/tap.log
+      - name: Archive all evidence and errors
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-v579-sale-pn-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/v579-sale-pn/
+          if-no-files-found: warn
+          retention-days: 14
