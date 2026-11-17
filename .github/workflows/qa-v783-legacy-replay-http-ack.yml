@@ -37,4 +37,7 @@ jobs:
       - name: P0 targeted replay test (real source in isolated VM)
         working-directory: projects/assembled-v783/app
         run: |
-          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-legacy-manual-replay-http-ack.test.cjs
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
+            test/p0-legacy-manual-replay-http-ack.test.cjs \
+            test/p0-sync-outbox-idb-abort-failback.test.cjs \
+            test/p0-sync-outbox-idb-open-retry.test.cjs
