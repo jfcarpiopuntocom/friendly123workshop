@@ -9,12 +9,12 @@ const vm=require('node:vm');
 const script=fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
 const SECRET='SENSITIVE-PIN-LICENSE-URL-NEVER-ECHO';
 
-async function fakeCanary(throwAt) {
+async function fakeCanary(throwAt, {hostileName=false}={}) {
   const logs=[]; let exitCode=null, keypadClicks=0, now=0;
   const pad={waitFor:async()=>{},click:async()=>{keypadClicks++;},isVisible:async()=>true};
   const page={
     on(){},setDefaultTimeout(){},
-    async goto(){if(throwAt==='NAVEGACION')throw Error(SECRET);},
+    async goto(){if(throwAt==='NAVEGACION'){const e=Error(SECRET);if(hostileName)e.name=SECRET;throw e;}},
     locator(){return {first:()=>pad};},
     async click(selector){if(throwAt==='UNION'&&selector==='#oc-ue-confirmar')throw Error(SECRET);},
     async fill(){},
@@ -64,3 +64,13 @@ for(const phase of ['NAVEGACION','UNION','RECUPERACION']){
       'exception must not trigger Owner PIN attempt');
   });
 }
+
+test('P0 privacy: hostile exception name must never echo credentials, while phase and failure remain visible',async()=>{
+  const got=await fakeCanary('NAVEGACION',{hostileName:true});
+  assert.equal(got.exitCode,1,'exception must remain RED');
+  assert.ok(got.logs.includes('CANARIO_ERROR_ETAPA: NAVEGACION'),'retain safe diagnostic phase');
+  assert.ok(got.logs.includes('FALLA EXCEPCION: Error durante la unión'),
+    'untrusted error.name must be mapped to a safe class');
+  assert.ok(!got.logs.join('\n').includes(SECRET),'must not log synthetic secret as error name');
+  assert.equal(got.keypadClicks,0,'no PIN input on navigation exception');
+});
