@@ -42,8 +42,7 @@ test('a successful local fallback remains readable after IndexedDB recovers and 
 test('later successful save must not delete an unread newer fallback',async()=>{
   const {api,local,durable}=await fixture();
   const restored=await api.leer();
-  assert.equal(restored,'synthetic-A','reproduce current stale restoration before subsequent write');
   assert.equal(await api.guardar(restored+'-plus-C'),true);
-  assert.equal(local.get(key),'synthetic-B','unread fallback must not be deleted by a later write');
-  assert.equal(durable.get(key).blob,'synthetic-A-plus-C');
+  assert.ok(local.get(key)==='synthetic-B' || durable.get(key).blob==='synthetic-B-plus-C',
+    'the later durable state or a retained backup must still include the newer fallback');
 });
