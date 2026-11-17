@@ -1,0 +1,33 @@
+name: "P0 certified frozen Firebase Yjs import into YParty SQL (no deploy)"
+on:
+  push:
+    branches:
+      - "fix/20261117-certified-yjs-frozen-import"
+  pull_request:
+    paths:
+      - "projects/assembled-v783/relay/injertos/yparty-worker/src/certified-frozen-import.mjs"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-certified-frozen-import.test.mjs"
+      - ".github/workflows/qa-v783-certified-frozen-import.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frozen-certificate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned provider, Yjs and QA only (no scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Prove complete frozen import, single writer, 512KiB blocks, SQL atomicity
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-certified-frozen-import.test.mjs 2>&1 | tee /tmp/f123-import-cert.tap
