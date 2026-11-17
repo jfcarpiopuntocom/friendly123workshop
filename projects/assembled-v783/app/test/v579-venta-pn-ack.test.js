@@ -11,7 +11,7 @@ function prepare(p) {
   return new Function('p','keys',`const productos=[p],window={OCLatencia:{ahoraRelay:()=>null}},localStorage={getItem:k=>keys.get(k)||null,setItem:(k,v)=>keys.set(k,v)},uuid=()=> 'fixture';${prep};return _prepararOpStock;`)(p,keys);
 }
 test('sale: stock PN must enter first durable snapshot, and only then announce',()=>{
-  const a=sale.indexOf('_prepararOpStock('), b=sale.indexOf('await guardarEstadoLocal(true, true)');
+  const a=sale.indexOf('_prepararOpStock('), b=sale.indexOf('await guardarEstadoLocal(true, true, false, opIdVenta)');
   const emit=sale.indexOf('emitirOpStock("venta"');
   assert.ok(a>=0&&a<b, 'prepare PN before durable ACK');
   assert.ok(emit>b && /emitirOpStock\("venta",\s*[^,]+,\s*true\)/.test(sale), 'emit once after commit without reapplying PN');
