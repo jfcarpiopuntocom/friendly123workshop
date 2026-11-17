@@ -1,6 +1,7 @@
-// Durable-object-only typed commercial command INBOX, not a sale executor.
-// JFC 2026-11-16: data is not a business commit until the real application
-// consumes the operation exactly once and acknowledges its own stock/money write.
+// Durable-object-only typed commercial INBOX with OPTIONAL synchronous SQL executor.
+// Without a trusted adapter it remains an inbox, NOT a sale executor.
+// With applyBusiness, the same DO transaction contains opId, payload,
+// business effects and receipt; external/Yjs effects are NOT SQL-atomic.
 // No WebSocket bridge, public endpoint or PWA is changed by this module.
 const KINDS=Object.freeze({
   'sale.record':{scope:'ops:sale',detail:'productId',quantity:true},
@@ -52,9 +53,10 @@ function fail(status,reason){return {ok:false,status,reason};}
 function sha256Hex(buffer){
   return Array.from(new Uint8Array(buffer),x=>x.toString(16).padStart(2,'0')).join('');
 }
-export function createTypedCommercialLedger({sql,transactionSync,authorize,authorizeCustomer,authorizeReceivable,clock=Date.now}={}){
+export function createTypedCommercialLedger({sql,transactionSync,authorize,authorizeCustomer,authorizeReceivable,applyBusiness=null,clock=Date.now}={}){
   if(!sql||typeof sql.exec!=='function'||typeof transactionSync!=='function'||
-     typeof authorize!=='function'||typeof clock!=='function')
+     typeof authorize!=='function'||typeof clock!=='function'||
+     (applyBusiness!==null&&typeof applyBusiness!=='function'))
     throw new TypeError('trusted server-only SQL storage and authorization are required');
   return Object.freeze({
     async submit({ticket,command}={}){
@@ -121,13 +123,25 @@ export function createTypedCommercialLedger({sql,transactionSync,authorize,autho
             if(!saved || saved.payload_json!==JSON.stringify(validated.record))
               return fail(409,'operation-recovery-required');
             const receipt=JSON.parse(existing.receipt_json);
-            if(receipt.stage!=='stored-for-application'||receipt.opId!==validated.record.opId||
+            if(!['stored-for-application','business-committed'].includes(receipt.stage)||
+               receipt.opId!==validated.record.opId||
                receipt.license!==validated.record.license||receipt.kind!==validated.record.kind)
               throw new Error('receipt corrupt');
             return {ok:true,status:200,duplicate:true,receipt};
           }
+          // This callback must only mutate SQL on THIS Durable Object.
+          // An asynchronous adapter, a failed effect or an external write
+          // cannot provide the atomic proof required for a commercial ACK.
+          // Throwing here rolls back any balance changes inside transactionSync.
+          let stage='stored-for-application';
+          if(applyBusiness!==null){
+            const result=applyBusiness({sql,command:validated.record,principal});
+            if(!result||typeof result.then==='function'||result.applied!==true)
+              throw new Error('business-application-not-confirmed');
+            stage='business-committed';
+          }
           const receipt=Object.freeze({
-            stage:'stored-for-application',
+            stage,
             license:validated.record.license,opId:validated.record.opId,
             kind:validated.record.kind,
             receiptId:digest.slice(0,24),acceptedAt:now
