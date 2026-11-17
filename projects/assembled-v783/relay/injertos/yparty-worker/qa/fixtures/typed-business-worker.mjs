@@ -32,6 +32,14 @@ export class SyntheticBusiness {
         return {applied:true};
       }
     });
+    // A deterministic QA-only switch: accept an op while the executor is not
+    // attached, then replay it via the normal attached executor after restart.
+    this.inboxQueue=createTypedCommercialLedger({
+      sql,transactionSync:ctx.storage.transactionSync.bind(ctx.storage),
+      clock:()=>1730000000000,
+      authorize:async({ticket,license,scope})=>ticket==='synthetic-signed-ticket'&&license===LICENSE&&scope==='ops:sale'
+        ? {ok:true,principal:{license,subject:'owner-account',scopes:[scope]}} : {ok:false}
+    });
   }
   async fetch(request){
     const url=new URL(request.url);
@@ -43,8 +51,8 @@ export class SyntheticBusiness {
       const payloads=sql.exec('SELECT COUNT(*) AS n FROM typed_commercial_payloads').toArray()[0]?.n ?? 0;
       return Response.json({stock,cash,ops,payloads});
     }
-    if(url.pathname!=='/submit'||request.method!=='POST')return new Response('not found',{status:404});
-    const result=await this.inbox.submit(await request.json());
+    if(!['/submit','/queue'].includes(url.pathname)||request.method!=='POST')return new Response('not found',{status:404});
+    const result=await (url.pathname==='/queue'?this.inboxQueue:this.inbox).submit(await request.json());
     return Response.json(result,{status:result.status});
   }
 }
