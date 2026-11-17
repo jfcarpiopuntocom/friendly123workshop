@@ -25,3 +25,12 @@ test('a fixture having ticket request and private room becomes source-compatible
  const noRoom=inspectClientWire({client:"new AuthorizedYProvider(host,sala+'-ops',doc,{params:async()=>({cap})});",authorized,worker});
  assert.equal(noRoom.compatible,false);
 });
+
+test('single -priv room must NOT count as compatible for three separate channel Y.Docs',()=>{
+ const unsafe="import AuthorizedYProvider from './authorized-yprovider.mjs'; window.F123YPartyPilot=function(sala){return {canal(doc,tipo){ return new AuthorizedYProvider(host,sala+'-priv',doc,{params:async()=>({cap,licencia,instancia})});}}};";
+ const result=inspectClientWire({client:unsafe,authorized,worker});
+ assert.equal(result.pilotUsesFreshTicket,true);
+ assert.equal(result.pilotUsesPrivateRoom,true);
+ assert.equal(result.channelIsolationPreserved,false);
+ assert.equal(result.compatible,false,'all Y.Docs in one YServer would falsely merge catalog/ops/fotos');
+});
