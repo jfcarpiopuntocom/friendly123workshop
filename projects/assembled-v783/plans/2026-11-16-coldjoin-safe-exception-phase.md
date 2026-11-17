@@ -35,3 +35,7 @@ Rama `qa/20261116-coldjoin-exception-phase` en `friendly123workshop`. Revisar la
 ## RED puro, sin cambios en canario
 
 [Actions 44007933816](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44007933816), exact HEAD `5f66a292ac390b85101a3df1c7e48c81f3979d63`: **28 test, 25 PASS, 3 FAIL, 0 SKIP**. Los tres FAIL corresponden EXCLUSIVAMENTE a NAVEGACION, UNION y RECUPERACION sin `CANARIO_ERROR_ETAPA`. A diferencia de la corrida anterior, el fixture incompatible de `hotfix.yml` no se ejecutó; sigue intacto en el repositorio. Guardadas salida TAP y SHA. **El canario fuente aún no había sido modificado.**
+
+## Revisión de seguridad (antes de ampliar pruebas)
+
+Aunque las fases nuevas son allowlist, el `catch` original conserva `e.name` sin validar. Un Error cuya propiedad `name` haya sido sobrescrita con URL, token o string arbitrario todavía podría exponerse en `FALLA EXCEPCION:`. No afirmar aislamiento completo sin una regresión de nombre hostil. Nuevo test *antes* de corregirlo: inyectar `error.name = SENSITIVE-PIN-LICENSE-URL-NEVER-ECHO` durante navegación, exigir `CANARIO_ERROR_ETAPA: NAVEGACION`, `FALLA EXCEPCION: Error durante la unión` y que no aparezca secreto ni se introduzca PIN Owner. La prueba debe FALLAR ante el canario con fase verde pero nombre heredado. Corregir únicamente clase de error mediante allowlist de nombres conocidos; cualquier otro pasa a Error, sin imprimir mensajes ni stacks. Repetir todos los gates en SHA final.
