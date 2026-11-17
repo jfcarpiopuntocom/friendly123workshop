@@ -559,3 +559,84 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   }finally{await web.close();}
  });
 }
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test(`P0 rack status toggle rejects false ACK and survives cold reopen (${name})`,{timeout:75000},async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const ctx=await context(web),{page}=await seed(ctx);
+   await ownerLogin(page,'synthetic rack status durable '+name);
+   const rack=await api(page,'/api/ubicaciones','POST',{
+     nombre:'Synthetic toggle rack '+name,tipo:'propio'
+   });
+   const before=await api(page,'/api/respaldo/exportar');
+   const old=before.ubicaciones.find(u=>u.id===rack.id);
+   assert.ok(old?.activa,'toggle target starts active');
+   const expectedMovements=before.movimientos.length;
+   for(const [verb,expectedPrior,expectedAfter] of [
+     ['desactivar',true,false],['activar',false,true]
+   ]){
+    const current=(await api(page,'/api/respaldo/exportar')).ubicaciones.find(u=>u.id===rack.id);
+    assert.equal(current.activa,expectedPrior,'status before '+verb);
+    const failed=await page.evaluate(async({id,verb})=>{
+      const idb=window.OCEstadoIDB;
+      if(typeof idb?.guardarConRevision!=='function'||
+         typeof window.OCEstadoAB?.crear!=='function')
+        throw Error('synthetic IDB and A/B persistence adapters unavailable');
+      const save=idb.guardar,cas=idb.guardarConRevision,err=idb.ultimoError,
+        write=Storage.prototype.setItem;
+      let idbDenied=0,abDenied=0,announced=0;
+      const notice=()=>announced++;
+      window.addEventListener('oc-catalogo-cambiado',notice);
+      idb.guardar=async()=>{idbDenied++;return false;};
+      idb.guardarConRevision=async()=>{idbDenied++;return false;};
+      idb.ultimoError=()=>new DOMException('Synthetic IDB quota','QuotaExceededError');
+      Storage.prototype.setItem=function(key,value){
+        const k=String(key);
+        if(k.includes('f123_estado_v4')&&/_(?:journal|A|B|ptr)$/.test(k)){
+          abDenied++;
+          throw new DOMException('Synthetic A/B quota','QuotaExceededError');
+        }
+        return write.call(this,key,value);
+      };
+      try{
+        const response=await fetch('/api/ubicaciones/'+id+'/'+verb,{method:'POST'});
+        const backup=await(await fetch('/api/respaldo/exportar')).json();
+        return {status:response.status,body:await response.json(),idbDenied,abDenied,announced,
+          rack:backup.ubicaciones.find(u=>u.id===id),movements:backup.movimientos.length};
+      }finally{
+        idb.guardar=save;idb.guardarConRevision=cas;idb.ultimoError=err;
+        Storage.prototype.setItem=write;
+        window.removeEventListener('oc-catalogo-cambiado',notice);
+      }
+    },{id:rack.id,verb});
+    assert.ok(failed.idbDenied>0,'IDB failure injector must execute for '+verb);
+    assert.ok(failed.abDenied>0,'A/B failure injector must execute for '+verb);
+    assert.equal(failed.status,507,'unconfirmed '+verb+' cannot report HTTP success');
+    assert.equal(failed.body.code,'RACK_STATUS_STORAGE_QUOTA');
+    assert.equal(failed.announced,0,'failed '+verb+' cannot emit Yjs catalog notice');
+    assert.equal(failed.rack.activa,current.activa,'failed '+verb+' leaves active status unchanged');
+    assert.deepEqual(failed.rack.rev,current.rev,'failed '+verb+' keeps rack rev');
+    assert.deepEqual(failed.rack.estadoRev,current.estadoRev,'failed '+verb+' keeps status revision');
+    assert.equal(failed.movements,expectedMovements+
+      (verb==='activar'?1:0),'failed toggle cannot add a movement');
+    const accepted=await api(page,'/api/ubicaciones/'+rack.id+'/'+verb,'POST');
+    assert.equal(accepted.activa,expectedAfter,'confirmed '+verb+' applies status');
+   }
+   const cold=await ctx.newPage();await cold.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   await cold.waitForFunction(async id=>{
+     const state=await window.OCEstadoIDB?.leer?.();
+     return state?.ubicaciones?.filter(u=>u.id===id&&u.activa).length===1 &&
+       state.movimientos.filter(m=>m.tipo==='ubicacion-desactivada').length>=1 &&
+       state.movimientos.filter(m=>m.tipo==='ubicacion-reactivada').length>=1;
+   },rack.id,{timeout:10000,polling:100});
+   const saved=await cold.evaluate(async()=>window.OCEstadoIDB?.leer?.());
+   assert.equal(saved.ubicaciones.filter(u=>u.id===rack.id&&u.activa).length,1);
+   assert.equal(saved.movimientos.filter(m=>m.tipo==='ubicacion-desactivada'&&m.detalle?.ubicacion===rack.nombre).length,1,
+     'one confirmed deactivation, not a failed-write duplicate');
+   assert.equal(saved.movimientos.filter(m=>m.tipo==='ubicacion-reactivada'&&m.detalle?.ubicacion===rack.nombre).length,1,
+     'one confirmed reactivation, not a failed-write duplicate');
+   assert.equal(saved.ventas.length,before.ventas.length,'unrelated sales unchanged');
+  }finally{await web.close();}
+ });
+}
