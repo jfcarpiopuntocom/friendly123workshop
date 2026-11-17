@@ -1,0 +1,23 @@
+# P0 · Port selectivo del certificado de persistencia YParty: estado-durable
+
+**Fecha:** 2026-11-17 UTC. **Fuente privada exacta:** `jfcarpiopuntocom/friendly-123-injertos@3f724ef2293ee9285f9f792268277cc691678c00`, PR #5 DRAFT. **Destino:** rama aislada `fix/yparty-durable-cert-20261117`, **NO** `friendly-123/master` ni la rama importadora. Antes de escribir en Worker, obtener RED sobre Workerd local y registrar en Notion.
+
+## Defecto de integración inspeccionado
+
+1. Cliente real `src/yparty-piloto.js` (SHA blob `e457e58b2157f617fdc8012c51824a71d762e050`) ofrece `canal.certificar()`: SHA-256 de `Y.encodeStateAsUpdate(doc)`, envía `proveedor.sendMessage("estado-durable")`, espera `proveedor.on("custom-message")` con respuesta exacta `estado-durable:<hex>`; timeout 8s; retorna una función `vigente` que se invalida con cualquier actualización o socket cambiado.
+2. En `docs/sync-yjs.js`, retorno del fallback al piloto requiere verificar **ambos** canales `cat` y `ops` antes de abandonar el respaldo. Un socket conectado o estado de memoria no constituye acuse durable.
+3. Worker actual `injertos/yparty-worker/src/index.js` (blob `017bc9b579f40e503c4178eec66893b8ccd1a747`) **no** implementa `onCustomMessage`, por lo que el mensaje no recibe certificado y el fallback no puede verificar el piloto.
+4. Variante histórica b93 de `injertos/yparty-worker/src/index.js` incluye un `onCustomMessage` con `ctx.storage.sync()`, digest SHA-256 del estado, cooldown 8 s y chequeo pending Yjs; **no copiar el archivo completo**: su journal chunking, identidad y acceso difieren. **No interpretar** un SHA de estado como ACK económico por opId o prueba de permisos.
+5. [Prueba real Workerd local 44015740350](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44015740350) deja **durabilidad 4/4 PASS** y **seguridad 2/4 FAIL** (identidad de dispositivo clonada, empleado modifica precio). **Ningún despliegue ni activación `f123_yparty_qa`** hasta reparar autorización real.
+
+## Propiedad y plan RED → GREEN
+
+- Reservar en Notion **solo rama aislada** `fix/yparty-durable-cert-20261117`, `injertos/yparty-worker/src/index.js`, nuevo test `injertos/yparty-worker/test/estado-durable-cert.test.js` y nuevo workflow `.github/workflows/qa-yparty-durable-cert-local.yml`. No editar `docs/sync-yjs.js`, `src/yparty-piloto.js`, source de otros agentes, PR #5, producción ni clientes.
+- **RED real antes de runtime:** test Workerd local `unstable_dev` (Cloudflare simulado) y KV sintética; dos YDocs/instancias y dos salas `-cat` y `-ops`; al publicar catálogo/opId en emisor y recibir ambos en observador, exigir exactamente `estado-durable:SHA256(Y.encodeStateAsUpdate(doc))` desde el Worker. El código intacto debe fallar por timeout sin mensaje; no cambiar aserciones.
+- **GREEN mínimo:** implementar `onCustomMessage(connection,msg)` aceptando solamente `estado-durable`, con cooldown por conexión, ausencia de `doc.store.pendingStructs/pendingDs`, comprobación de `ctx.storage.sync()`, digest SHA-256 de estado documental y respuesta por `sendCustomMessage` únicamente cuando sea válido. Agregar flag fail-closed si SQL journal no puede registrar un cambio: cerrar/abortar sala; evitar responder éxito sobre estado RAM no registrado. No incluir texto de licencia, PIN, usuario, URL, payload o excepción en logs ni reply.
+- Repetir test con acuse de ambos canales; reiniciar worker y exigir acuse exacto en B nuevo; mantener `test/frio.test.js` (2000 updates) y `test/contrato-dos-salas.test.js` verdes. **No** alterar tests de seguridad clon-device ni precio-empleado; deben seguir siendo blockers hasta su arreglo independiente.
+- Guardar SHA exacto, Actions RED/GREEN, conteos, límites y pasos en este plan y Notion. PR DRAFT desde `fix/yparty-durable-cert-20261117` hacia rama importadora y dejar sin fusionar mientras falte autenticación server-side. No tocar Worker desplegado ni hacer release.
+
+## Contrato de seguridad y rollback
+
+El mensaje `estado-durable:<hash>` prueba como máximo que el Worker persistió *su estado Yjs en una sala* y que coincide con ese momento del cliente. NO confirma permiso de acceso, venta aceptada, idempotencia económica, persistencia fotográfica ni convergencia física. El issuer existente `cloudflare-worker/ws-capability-issuer.mjs` aún no está cableado a YParty, por lo que el Worker no es seguro para activar aunque estas pruebas salgan verdes. Rollback: descartar la rama/PR, sin ningún cambio en clientes ni licencias. **Prioridad P0 por encima del backlog WCAG P2** guardado como decisión de próxima versión [en Notion](https://app.notion.com/p/41b1642b67f381c381efdf41e372238c).
