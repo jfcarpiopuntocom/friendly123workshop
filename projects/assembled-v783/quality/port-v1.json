@@ -2,8 +2,8 @@
   "version": 1,
   "metric": "operational-port-completion",
   "target": 100,
-  "reviewedAt": "2026-11-17T17:53:20Z",
-  "reviewedSha": "d7545ab5100f2239260be2c9392f40c16b35dcd4",
+  "reviewedAt": "2026-11-17T19:00:00Z",
+  "reviewedSha": "1db297d2387d389b2b2b05e6191133c52b7b4ebd",
   "source": "friendly123workshop/projects/assembled-v783",
   "disclaimer": "Milestone-based operational PORT completion, NOT app quality, probability, elapsed-time estimate or customer activation. Credits for prep do not imply any first-shop gate passed. Six JFC gates are immutable. No real customer data or physical evidence.",
   "qualityMetricPath": "score-v1.json",
@@ -102,10 +102,29 @@
         {
           "id": "browser-fresh-ticket",
           "points": 6,
-          "done": false,
-          "label": "El cliente real usa AuthorizedYProvider con ticket central fresco por conexión y sala -priv",
-          "evidence": [],
-          "pendingReason": "El cliente real usa AuthorizedYProvider con ticket central fresco por conexión y sala -priv"
+          "done": true,
+          "label": "Cliente browser real usa AuthorizedYProvider y capacidades centrales frescas para salas aisladas cat/ops, con bundle reproducible",
+          "evidence": [
+            {
+              "sha": "1db297d2387d389b2b2b05e6191133c52b7b4ebd",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44153648394",
+              "type": "real-client-bundle-ci",
+              "claim": "Actual client source uses AuthorizedYProvider and createOwnerTicketParams with current Owner PIN, fresh cat/ops scopes, deny missing/changed session; generated shipped JS SHA-256 19c19f… is reproducible; 9/9 tests green"
+            },
+            {
+              "sha": "f01ef2f11fef1e6b83c955ac081db192b9f944cc",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44150775169",
+              "type": "workerd-issuer-ci",
+              "claim": "Real local Workerd with central issuer and separate cat/ops Y.Docs, durable restart and reject raw ops write; 4/4 passed"
+            },
+            {
+              "sha": "1db297d2387d389b2b2b05e6191133c52b7b4ebd",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44153648286",
+              "type": "integrated-browser-ci",
+              "claim": "Exact signed-client PR87 head passed 15 integrated browser/authority groups 585/585 without fail; actual Opera/Safari hardware remains untested"
+            }
+          ],
+          "pendingReason": null
         },
         {
           "id": "owner-team-role-flows",

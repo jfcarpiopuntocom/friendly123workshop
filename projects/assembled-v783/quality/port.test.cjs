@@ -9,26 +9,26 @@ const quality=JSON.parse(fs.readFileSync(path.join(parent,'score-v1.json'),'utf8
 const {assessPort,formatDual,inspectClientWire}=require('./port.cjs');
 const {evaluate}=require('./score.cjs');
 
-test('two distinct numbers: versioned architecture quality 64.5 and actual port completion 27.0',()=>{
+test('two distinct numbers: versioned architecture quality 64.5 and actual port completion 33.0',()=>{
  const p=assessPort(data),q=evaluate(quality);
- assert.equal(p.score,27.0);
+ assert.equal(p.score,33.0);
  assert.equal(q.current,64.5);
  assert.equal(p.maximum,100);
  assert.equal(p.gatesPassed,0);
  assert.equal(p.gatesRequired,6);
  assert.equal(p.ready,false);
  assert.equal(p.target,100);
- assert.equal(p.reviewedSha,'d7545ab5100f2239260be2c9392f40c16b35dcd4');
+ assert.equal(p.reviewedSha,'1db297d2387d389b2b2b05e6191133c52b7b4ebd');
  const report=formatDual({port:p,quality:q});
  assert.match(report,/64\.5\/100/);
- assert.match(report,/27\.0\/100/);
+ assert.match(report,/33\.0\/100/);
  assert.match(report,/45\.0\/100/);
  assert.match(report,/NO-GO/);
 });
 test('six JFC gates are immutable and sum to exactly 100 with fixed stages',()=>{
  const result=assessPort(data);
  assert.deepEqual(result.gates.map(g=>[g.id,g.weight,g.earned]),[
-  ['economics',20,4],['identity',20,10],['photos',10,0],
+  ['economics',20,4],['identity',20,16],['photos',10,0],
   ['migration',25,10],['mobile',10,3],['physical',15,0]
  ]);
  assert.ok(result.gates.every(g=>g.certified===false));
@@ -59,17 +59,19 @@ test('reject weight manipulation, fabricated evidence, hidden gates and invalid 
   d=>{d.reviewedSha='latest';}
  ]){const copy=structuredClone(data);mutate(copy);assert.throws(()=>assessPort(copy));}
 });
-test('client↔Worker actual pilot source mismatch is surfaced as BLOCKED, never treated as Workerd green',()=>{
+test('client↔Worker actual pilot source is signed and separated, but no complete commercial GO',()=>{
  const client=fs.readFileSync(path.join(root,'app/src/yparty-piloto.js'),'utf8');
  const worker=fs.readFileSync(path.join(root,'relay/injertos/yparty-worker/src/index.js'),'utf8');
  const authorized=fs.readFileSync(path.join(root,'app/src/authorized-yprovider.mjs'),'utf8');
  const e=inspectClientWire({client,worker,authorized});
  assert.equal(e.secureWorkerRequiresTicket,true);
  assert.equal(e.authorizedProviderAvailable,true);
- assert.equal(e.pilotUsesFreshTicket,false);
+ assert.equal(e.pilotUsesFreshTicket,true);
  assert.equal(e.pilotUsesPrivateRoom,false);
- assert.equal(e.compatible,false);
- assert.match(e.reason,/cap|ticket|priv/i);
+ assert.equal(e.pilotUsesSeparatedRooms,true);
+ assert.equal(e.channelIsolationPreserved,true);
+ assert.equal(e.compatible,true);
+ assert.match(e.reason,/still pending|GO/i);
 });
 test('port gate cannot be certified before every declared stage has evidence and completion',()=>{
  const copy=structuredClone(data);
