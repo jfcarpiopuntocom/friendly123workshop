@@ -47,3 +47,25 @@ jobs:
             test/incident-yjs-causal-replay-v559.test.js \
             test/incident-yjs-receive-queue-v558.test.js \
             test/p0-v762-pin-sin-historia.test.cjs 2>&1 | tee /tmp/f123-legacy-pr77.tap
+
+      - name: Exact PR77 causal rescue and real Yjs/Firebase regression group (70 cases)
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=95000 \
+            test/p0-precut-independent-writers-v783.test.cjs \
+            test/sync3-head-causal-gap.test.cjs \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/pull-cursor-durable-ack.test.cjs \
+            test/firebase-relay-timestamp-boundary.test.cjs 2>&1 | tee /tmp/f123-precut-post-fixture.tap
+      - name: Independent exact Yjs pull durable proof (63 cases)
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 \
+            test/p0-yjs-pull-failed-cursor-proof.test.cjs \
+            test/pull-cursor-durable-ack.test.cjs \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/sync3-head-causal-gap.test.cjs 2>&1 | tee /tmp/f123-pull-post-fixture.tap
