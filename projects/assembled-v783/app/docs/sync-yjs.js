@@ -2518,6 +2518,10 @@
     try { piloto = await cargarPiloto(codigo); }
     catch (e) { log("piloto indisponible, relay habitual", e && e.message); }
     API.doc = new Y.Doc();
+    // QA pilot: photo BYTES belong in the authenticated SQL blob store, not in Yjs.
+    // The catalog carries ONLY immutable {sha,bytes,tipo} references.
+    API.fotosRefs = API.doc.getMap("fotos_refs");
+    API.fotoSha = piloto && typeof piloto.fotoSha === "function" ? piloto.fotoSha() : null;
     COLECCIONES.forEach(function (c) { API.mapas[c] = API.doc.getMap(c); });
     API.hechosMap = API.doc.getMap("hechos_financieros");
     // FASE 2 (JFC 2026-09-09): mapa aparte para el nombre del negocio y los PINs
@@ -2625,6 +2629,40 @@
     // sin nube; la nube durable del dueño (Google Drive) es una fase posterior.
     API.fotosDoc = new Y.Doc();
     API.fotosMap = API.fotosDoc.getMap("blobs");
+    // On-demand cold-device recovery: keep OCFotos' existing IDB lookup first.
+    // Only a verified signed catalog reference may trigger HTTP photo download.
+    if (API.fotoSha && window.OCFotos?.leerPorHash && !window.OCFotos.__f123PhotoReadOriginal) {
+      var fotosShaStore = window.OCFotos;
+      var leerFotoLocal = fotosShaStore.leerPorHash.bind(fotosShaStore);
+      fotosShaStore.__f123PhotoReadOriginal = leerFotoLocal;
+      var lecturasRemotas = 0;
+      fotosShaStore.leerPorHash = async function (hash) {
+        var local = await leerFotoLocal(hash);
+        if (local) return local;
+        var docOrigen = API.doc, refs = API.fotosRefs, bridge = API.fotoSha;
+        var metadata = refs?.get(hash);
+        if (!bridge || !metadata || metadata.sha !== hash ||
+            !/^[a-f0-9]{64}$/.test(hash || "") ||
+            !Number.isSafeInteger(metadata.bytes) || metadata.bytes < 1 ||
+            metadata.bytes > 6*1024*1024 ||
+            !["image/jpeg","image/png","image/webp","image/gif"].includes(metadata.tipo) ||
+            lecturasRemotas >= 16) return null;
+        lecturasRemotas++;
+        try {
+          var dataUrl = await bridge.get(hash);
+          if (API.doc !== docOrigen || API.fotosRefs !== refs ||
+              API.fotoSha !== bridge || refs.get(hash) !== metadata) return null;
+          if (await fotosShaStore.hashDeDataUrl(dataUrl) !== hash) return null;
+          // Preserve the original IndexedDB transaction API and the old bytes.
+          if (!await fotosShaStore.guardarPorHash(hash, dataUrl)) return dataUrl;
+          try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
+          return dataUrl;
+        } catch (_) { return null; } // no remote ACK; old relay remains authoritative fallback
+      };
+    }
+    if (API.fotosRefs?.observe) API.fotosRefs.observe(function () {
+      try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
+    });
     try { API.fotosIdb = new window.IndexeddbPersistence("f123-yjs-fotos-" + API.roomId, API.fotosDoc); } catch (_) {}
     try {
       API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
@@ -2973,6 +3011,7 @@
     if (_fotosSembrando || _fotosReintentoTimer) { _fotosSembrarDeNuevo = true; return; }
     // A photo room has its own seeded flags; never reuse an old shop's ACKs.
     var docFotoInicial = API.fotosDoc, mapaFotoInicial = API.fotosMap, canalFotoInicial = API.fotosCanal;
+    var docCatInicial = API.doc, bridgeFotoInicial = API.fotoSha;
     if (_fotosSembradasDoc !== docFotoInicial) { _fotosSembradas = {}; _fotosSembradasDoc = docFotoInicial; _fotosReintentosLectura = 0; }
     var fotoSinLeer = false; // one retry budget per photo-room, never per orphan blob
     _fotosSembrando = true;
@@ -3042,6 +3081,27 @@
               !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl) ||
               await _esperarFoto(fotos && typeof fotos.hashDeDataUrl === "function"
                 ? fotos.hashDeDataUrl(dataUrl) : _hashFotoSinStore(dataUrl)) !== hash) continue;
+          if (bridgeFotoInicial && API.fotosRefs && docCatInicial === API.doc) {
+            var refPrevia = API.fotosRefs.get(hash);
+            if (refPrevia?.sha === hash && Number.isSafeInteger(refPrevia.bytes) &&
+                refPrevia.bytes > 0 && typeof refPrevia.tipo === "string") {
+              if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
+              _fotosSembradas[hash][capaFoto] = 1;
+              continue;
+            }
+            try {
+              // The DO ACK is durable: only then publish a tiny Yjs reference.
+              var refFoto = await _esperarFoto(bridgeFotoInicial.put(hash, dataUrl));
+              if (API.doc !== docCatInicial || API.fotoSha !== bridgeFotoInicial ||
+                  API.fotosDoc !== docFotoInicial || API.fotosCanal !== canalFotoInicial) break;
+              if (!refFoto || refFoto.sha !== hash || !Number.isSafeInteger(refFoto.bytes) ||
+                  refFoto.bytes <= 0 || typeof refFoto.tipo !== "string") throw new Error("photo-ack-invalid");
+              API.fotosRefs.set(hash, {sha:refFoto.sha, bytes:refFoto.bytes, tipo:refFoto.tipo});
+              if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
+              _fotosSembradas[hash][capaFoto] = 1;
+              continue; // IMPORTANT: no raw dataURL goes into the Yjs fotos doc.
+            } catch (_) { /* signed HTTP unavailable: retain old encrypted photo relay */ }
+          }
           var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
             "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));
           var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {
