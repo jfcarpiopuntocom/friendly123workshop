@@ -1,0 +1,51 @@
+diff --git a/projects/assembled-v783/app/docs/avanzado-extra.js b/projects/assembled-v783/app/docs/avanzado-extra.js
+index 7d0e183a..543533fb 100644
+--- a/projects/assembled-v783/app/docs/avanzado-extra.js
++++ b/projects/assembled-v783/app/docs/avanzado-extra.js
+@@ -108,23 +108,30 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
+       };
+     }
+ 
+-    async function guardarColaCifrada() {
+-      if (!window.OCSecure.syncActiva()) return;
+-      const blob = await window.OCSecure.cifrarSync(JSON.stringify(cola));
+-      if (blob) {
+-        /* M4 (2026-08-27, auditoría): verificar que la cola se persistió. Antes
+-           se ignoraba el retorno de OCOutbox.guardar()/localStorage.setItem: si
+-           el storage estaba lleno, la cola de cambios offline se perdía en
+-           silencio. Ahora, si no se pudo persistir, se avisa (evento + console)
+-           para que una venta offline no desaparezca sin que nadie lo note. */
+-        let ok = false;
+-        if (window.OCOutbox) ok = await window.OCOutbox.guardar(blob);
+-        else { try { localStorage.setItem("f123_sync_pending", blob); ok = true; } catch (_) { ok = false; } }
+-        if (!ok) {
+-          try { console.warn("[sync] no se pudo persistir la cola de cambios (" + cola.length + " pendientes) — storage lleno?"); } catch (_) {}
+-          try { window.dispatchEvent(new CustomEvent("oc-sync-cola-perdida", { detail: { n: cola.length } })); } catch (_) {}
++    let guardadoColaAnterior = Promise.resolve();
++    function guardarColaCifrada() {
++      // Serializar el cifrado y la escritura evita que un snapshot anterior
++      // termine después de otro más reciente en esta pestaña (2026-11-16).
++      const tarea = guardadoColaAnterior.catch(() => {}).then(async () => {
++        if (!window.OCSecure.syncActiva()) return;
++        const blob = await window.OCSecure.cifrarSync(JSON.stringify(cola));
++        if (blob) {
++          /* M4 (2026-08-27, auditoría): verificar que la cola se persistió. Antes
++             se ignoraba el retorno de OCOutbox.guardar()/localStorage.setItem: si
++             el storage estaba lleno, la cola de cambios offline se perdía en
++             silencio. Ahora, si no se pudo persistir, se avisa (evento + console)
++             para que una venta offline no desaparezca sin que nadie lo note. */
++          let ok = false;
++          if (window.OCOutbox) ok = await window.OCOutbox.guardar(blob);
++          else { try { localStorage.setItem("f123_sync_pending", blob); ok = true; } catch (_) { ok = false; } }
++          if (!ok) {
++            try { console.warn("[sync] no se pudo persistir la cola de cambios (" + cola.length + " pendientes) — storage lleno?"); } catch (_) {}
++            try { window.dispatchEvent(new CustomEvent("oc-sync-cola-perdida", { detail: { n: cola.length } })); } catch (_) {}
++          }
+         }
+-      }
++      });
++      guardadoColaAnterior = tarea;
++      return tarea;
+     }
+     async function restaurarCola() {
+       if (!window.OCSecure.syncActiva()) return;
