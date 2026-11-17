@@ -1,10 +1,10 @@
 // Server-to-server admission: native service binding only, never an endpoint supplied by a browser.
 export function secureMode(env){return env.WS_AUTHORITY_QA==='1';}
-export function ticketRequest(request,room){const p=new URL(request.url).searchParams;return{token:p.get('cap'),licenseCode:String(p.get('licencia')||'').trim().toUpperCase(),instanceId:p.get('instancia')||'',room,requiredScope:'priv:read'};}
+export function ticketRequest(request,room){const p=new URL(request.url).searchParams;return{token:p.get('cap'),licenseCode:String(p.get('licencia')||'').trim().toUpperCase(),instanceId:p.get('instancia')||'',room,requiredScope:room.endsWith('-cat')?'cat:read':room.endsWith('-ops')?'ops:read':'priv:read'};}
 function validatedAccess(data,access){
   const p=data?.principal,now=Date.now();
   // Only the Owner-private projection is enabled in this first secure integration.
-  if(data?.ok!==true||p?.role!=='dueno'||p.subject!=='owner-account'||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes('priv:read'))return null;
+  if(data?.ok!==true||p?.role!=='dueno'||p.subject!=='owner-account'||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes(access.requiredScope))return null;
   return{...access,principal:p};
 }
 async function query(env,action,body){
