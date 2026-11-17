@@ -1,0 +1,7 @@
+# Unión fría: investigación sintética del cuello de recuperación
+
+Base friendly-123 master 94a4e047cdb0b2b14cbab004de599d7e43fef79b; candidate del taller separada. Evidencia previa reports/2026-11-16-production-coldjoin-forensics.md: 26 páginas/4966 frames, Firebase more=true y pendientes Yjs al segundo 130; luego excepción genérica. No demuestra causa. Mantener proveedor, seguridad e integridad; no tocar datos ni endpoints reales.
+
+1. Trazar Firebase pull de origen, tamaño/orden de cada página, descifrado y Yjs, persistencia de prueba causal, y diferenciar checkpoint de historial; localizar tests/arneses existentes, no extrapolar la ruta manual OCOutbox.
+2. Hipótesis de trabajo, no hallazgo: descifrado/aplicación secuencial de miles de frames y operación de persistencia por lote/estructura generan latencia creciente. Medir con datos exclusivamente sintéticos y fixtures offline, coste por fase y resguardo de orden, dependencias, abortos y cursor. No modificar comportamiento ni límites basándose en tiempos del canario sin reproducción causal.
+3. Reproducir botella con test focal rojo si existe límite verificable; aplicar solo reparación mínima conservando cifrado, ACK, dependencias, ordering y cursor; volver a medir y ejecutar regresiones y revisión. No ampliar timeout ni debilitar gates. Guardar código/evidencia en taller; no desplegar ni usar cuentas reales. No reclamar un fallo distinto a la excepción del canario como causa probada sin conectar evidencia.
