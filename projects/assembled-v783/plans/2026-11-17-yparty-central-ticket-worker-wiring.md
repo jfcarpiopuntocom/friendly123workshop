@@ -70,3 +70,15 @@ La documentación de Cloudflare Wrangler Oct-2026 confirma `createTestHarness({w
 ## Multi-Worker real: segunda corrida inicia, pero el cliente no sincroniza — diagnóstico por fase
 
 [CI 44028396847](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44028396847), SHA de QA `8d3ff46631c83a1bf9b042574fea7deb29bf8228`: `workerd-missing-central` **5/5 PASS**, el job nuevo `actual-multiworker-binding` inicia ambos Workers en Workerd local pero **0/1 FAIL** por `Timeout owner central-bound Yjs` después de 20 segundos. No se registró aún si socket 401/101, role guard 1008, servicio fetch o condición `YProvider.synced`. No atribuir a fallo del Worker ni declarar conexión exitosa. Antes de tocar fuente runtime, añadir **SOLO en test** diagnóstico seguro: estado WebSocket, `YProvider.wsconnected/wsconnecting/ws.readyState`, respuesta HTTP/WS a un ticket nuevo, logs Workerd filtrados y sin incluir `cap`, PIN, firma o clave. El último RED informativo queda archivado. Repetir CI y analizar fase concreta; no subir timeout para ocultar.
+
+## Multi-Worker segunda corrida con diagnóstico: HTTP 401 previo al WS, NO leak
+
+[CI 44028598100](https://github.com/jfcarpiopuntocom/friendly-123-injertos/actions/runs/44028598100) en SHA `9579abf777b632721b1058597d8517241137b973`: 5/5 gates Workerd sin autoridad + VM Owner PIN real PASS; nuevo job multiworker inicia dos Workers pero el Owner YProvider no sincroniza, `wsconnected=false` y una segunda credencial NUEVA recibe **HTTP 401 (previo al upgrade)**. No hay exposición de frames; `harness.getLogs` no devolvió errores. El diagnóstico evita imprimir `cap`, PIN o clave. El test nuevo queda 0/1 FAIL, NO es un positivo de integración.
+
+Plan de fase antes de editar de nuevo: añadir test-only preflight a `qa/p0-multiworker-central-service-binding.test.mjs`, sin cambiar `index.js`, para distinguir:
+1. ticket ficticio correctamente decodificable, sala/permiso/roleRevision;
+2. llamada directa a `qa-synthetic-authority` `/ws/consume` con ticket de test aparte (único);
+3. presencia de `WS_AUTHORITY_SERVICE.fetch` y `WS_SERVICE_KEY` en `getWorker('qa-yparty-primary').getEnv()` y `/ws/consume` por el binding, con otro nonce fresco;
+4. solo después abrir WebSocket Yjs y probar que central protege el acceso.
+
+No imprimir credenciales, solo booleans/status. Si el binding está ausente, ajustar SOLO `bindingOverrides`/test harness, nunca agregar fallback a KV. Si direct & binding pasan, revisar el parser `ticketQuery` y mensajes de HTTP sin exponer token. El Worker permanece fail-closed, PR #12 DRAFT.
