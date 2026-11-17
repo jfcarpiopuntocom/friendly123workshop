@@ -11,6 +11,7 @@ import {salaDeLicencia} from '../src/sala.js';
 
 const license='F123-SYNTHETIC-TEAM',instance='synthetic-room-client',key='synthetic-service-bridge-test-key-32-bytes',persist=fs.mkdtempSync(path.join(os.tmpdir(),'f123-two-room-'));
 let db,env,mf,url,room,bundle,registry,allowChannels=true,photoFlag=true;
+let slowSingleCheckMs=0,singleCheckCalls=0,batchCheckCalls=0;
 function storage(){
  let records=new Map(),tail=Promise.resolve();
  return {get:async k=>structuredClone(records.get(k)),
@@ -25,7 +26,14 @@ async function relay(){
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',compatibilityFlags:['nodejs_compat'],
  durableObjects:{Tienda:{className:'Tienda',useSQLite:true}},durableObjectsPersist:path.join(persist,'do'),
  kvNamespaces:['LICENCIAS'],bindings:mfBindings,
- serviceBindings:{WS_AUTHORITY:async request=>authorityWorker.fetch(new Request(request.url,request),env)}});
+ serviceBindings:{WS_AUTHORITY:async request=>{
+  const pathname=new URL(request.url).pathname;
+  if(pathname==='/ws/check'){
+    singleCheckCalls++;
+    if(slowSingleCheckMs)await new Promise(r=>setTimeout(r,slowSingleCheckMs));
+  }else if(pathname==='/ws/check-many')batchCheckCalls++;
+  return authorityWorker.fetch(new Request(request.url,request),env);
+ }}});
  await(await mf.getKVNamespace('LICENCIAS')).put('inst:'+instance,JSON.stringify({licenseCode:license,instanceId:instance}));
  url=await mf.ready;
 }
@@ -40,10 +48,10 @@ async function issue(channel,scopes){
  assert.equal(result.status,200,JSON.stringify(body));
  return body.token;
 }
-async function waitFor(predicate,label){
+async function waitFor(predicate,label,limitMs=6500){
  const start=Date.now();
  while(!predicate()){
-  if(Date.now()-start>6500)throw Error('timeout waiting for '+label);
+  if(Date.now()-start>limitMs)throw Error('timeout waiting for '+label);
   await new Promise(r=>setTimeout(r,25));
  }
 }
@@ -422,4 +430,38 @@ test('P0 browser HTTPS CORS for typed ops: exact preflight and POST; wrong origi
  assert.equal(payload.receipt?.stage,'stored-for-application',
   'CORS access cannot be an applied economic receipt');
  assert.equal((await post(origin)).status,403,'replay denied after successful command');
+});
+
+test('P0 cold join burst: 64 Yjs changes require batched signed outbound authorization, not a 250ms check per frame',{timeout:22000},async()=>{
+ // Workerd Service Binding still signs and checks every check-many grant.
+ // Only the legacy per-frame /ws/check is made artificially 250ms slower.
+ // Two actual YProviders use real sockets and Yjs updates.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const writer=await connect('cat',['cat:read','cat:write']);
+ const receiver=await connect('cat',['cat:read']);
+ const key='coldjoin-authorization-burst';
+ let receivedUpdates=0;
+ receiver.doc.on('update',()=>receivedUpdates++);
+ try{
+  await new Promise(r=>setTimeout(r,50));
+  slowSingleCheckMs=250;
+  singleCheckCalls=0;
+  batchCheckCalls=0;
+  const started=Date.now();
+  const products=writer.doc.getMap(key);
+  for(let i=0;i<64;i++)products.set('synthetic-'+String(i).padStart(3,'0'),{stock:i+1});
+  await waitFor(()=>receiver.doc.getMap(key).size===64,
+    '64 signed Yjs changes without per-frame remote queue',7500);
+  const elapsed=Date.now()-started;
+  assert.ok(receivedUpdates>=8,
+    'prove recipient received multiple actual Yjs frames, not a single snapshot');
+  assert.ok(elapsed<8000,'64 frames should not serialize remote 250ms authority calls');
+  assert.ok(singleCheckCalls<10,
+    'per-frame single-check calls would stall cold joining by the frame count');
+  assert.ok(batchCheckCalls>=1,'batched authority verification must actually occur');
+ } finally{
+  slowSingleCheckMs=0;
+  writer.close();
+  receiver.close();
+ }
 });
