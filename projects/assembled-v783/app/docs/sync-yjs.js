@@ -2689,6 +2689,17 @@
     }
     window.addEventListener("oc-tab-session-changed", sincronizarVisibilidad);
     document.addEventListener("visibilitychange", sincronizarVisibilidad);
+    // Safari may restore a frozen page from BFCache without a visibilitychange.
+    // A WebSocket retained in memory is not evidence of a live connection:
+    // close the old transports, preserving IDB/outbox, then use the same
+    // authorized foreground reconnection path for all three Yjs channels.
+    window.addEventListener("pageshow", function (evento) {
+      if (!evento || !evento.persisted || document.hidden) return;
+      [API.canal, API.fotosCanal, API.opsCanal].forEach(function (c) {
+        if (c) c.pausar();
+      });
+      sincronizarVisibilidad();
+    });
     API.canal.conectar();      // catálogo + _meta (nombre, pinsRol)
     API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
     API.opsCanal.conectar();   // ventas/ops
