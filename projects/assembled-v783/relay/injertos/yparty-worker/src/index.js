@@ -150,8 +150,17 @@ export class Tienda extends YServer {
         this.name !== this.env.SALA_PILOTO + '-fotos') {
       return new Response('Not found',{status:404});
     }
+    const origin=req.headers.get('origin');
+    const allowedOrigin=this.env.WS_PHOTO_ORIGIN_QA;
+    // The browser uses Authorization, so only an explicitly configured
+    // HTTPS origin may see the CORS response. Never reflect arbitrary origins.
+    if(origin && (origin!==allowedOrigin || !/^https:\/\/[^/]+$/.test(allowedOrigin||''))) {
+      return new Response('Acceso no autorizado',{status:403});
+    }
+    const cors=origin?{'access-control-allow-origin':allowedOrigin,'vary':'Origin'}:{};
+    const reply=(body,status,headers={})=>new Response(body,{status,headers:{...cors,...headers}});
     if (req.method !== 'GET' && req.method !== 'PUT') {
-      return new Response('Method not allowed',{status:405});
+      return reply('Method not allowed',405);
     }
     const auth=req.headers.get('authorization')||'';
     const access={
@@ -164,26 +173,24 @@ export class Tienda extends YServer {
     // Bare license+instance never grant access, and WS_SERVICE_KEY stays inside
     // the Worker's private Service Binding, never in browser headers/response.
     const signed=await askAuthority(this.env,'consume',access);
-    if(!signed)return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
+    if(!signed)return reply('Acceso no autorizado',403,{'cache-control':'no-store'});
     try {
       const sha=new URL(req.url).searchParams.get('sha');
       const photos=photoShaStore(this.ctx.storage);
       if(req.method==='GET'){
         const item=await photos.get(sha);
-        if(!item)return new Response('Not found',{status:404});
-        return new Response(item.bytes,{status:200,headers:{
+        if(!item)return reply('Not found',404);
+        return reply(item.bytes,200,{
           'content-type':item.tipo,'content-length':String(item.bytes.length),
           'cache-control':'no-store','x-content-type-options':'nosniff'
-        }});
+        });
       }
       const bytes=await boundedPhotoBody(req);
       const result=await photos.put({sha,tipo:req.headers.get('content-type'),bytes});
-      return new Response(JSON.stringify({sha:result.sha,bytes:result.bytes,tipo:result.tipo}),{
-        status:result.created?201:200,headers:{'content-type':'application/json','cache-control':'no-store'}
-      });
+      return reply(JSON.stringify({sha:result.sha,bytes:result.bytes,tipo:result.tipo}),
+        result.created?201:200,{'content-type':'application/json','cache-control':'no-store'});
     }catch(error){
-      return new Response('Photo unavailable',{status:Number.isInteger(error?.status)?error.status:503,
-        headers:{'cache-control':'no-store'}});
+      return reply('Photo unavailable',Number.isInteger(error?.status)?error.status:503,{'cache-control':'no-store'});
     }
   }
 
@@ -381,10 +388,26 @@ export default {
     // Limit the public endpoint before KV or a Durable Object sees the request.
     const path = new URL(req.url).pathname;
     if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "")) return new Response("Not found", { status: 404 });
-    const photoHttp=env.WS_PHOTO_BLOBS_QA==='1' &&
+    const photoEndpoint=env.WS_PHOTO_BLOBS_QA==='1' &&
       req.headers.get('Upgrade')?.toLowerCase() !== 'websocket' &&
-      path==='/parties/tienda/'+env.SALA_PILOTO+'-fotos' &&
-      (req.method==='GET'||req.method==='PUT');
+      path==='/parties/tienda/'+env.SALA_PILOTO+'-fotos';
+    if(photoEndpoint && req.method==='OPTIONS'){
+      const origin=req.headers.get('origin'),expected=env.WS_PHOTO_ORIGIN_QA;
+      const method=req.headers.get('access-control-request-method');
+      const requested=(req.headers.get('access-control-request-headers')||'')
+        .split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+      const allowedHeaders=new Set(['authorization','x-f123-license','x-f123-instance','content-type']);
+      if(!origin || origin!==expected || !/^https:\/\/[^/]+$/.test(expected||'') ||
+         !['GET','PUT'].includes(method) || !requested.length ||
+         requested.some(x=>!allowedHeaders.has(x)))return new Response('Acceso no autorizado',{status:403});
+      return new Response(null,{status:204,headers:{
+        'access-control-allow-origin':expected,
+        'access-control-allow-methods':'GET, PUT, OPTIONS',
+        'access-control-allow-headers':'Authorization, X-F123-License, X-F123-Instance, Content-Type',
+        'access-control-max-age':'60','vary':'Origin'
+      }});
+    }
+    const photoHttp=photoEndpoint && (req.method==='GET'||req.method==='PUT');
     // No raw Yjs WebSocket room for photo bytes, and no generic anonymous HTTP.
     const allowedWs=(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv","-cat","-ops"] : ["-priv"]) : ["","-cat","-ops"])
       .some(suffix=>path==='/parties/tienda/'+env.SALA_PILOTO+suffix);
