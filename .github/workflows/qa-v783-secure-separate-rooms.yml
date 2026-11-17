@@ -7,6 +7,7 @@ on:
     paths:
       - "projects/assembled-v783/relay/injertos/yparty-worker/src/index.js"
       - "projects/assembled-v783/relay/injertos/yparty-worker/src/ws-authority-client.js"
+      - "projects/assembled-v783/relay/injertos/yparty-worker/src/photo-sha-storage.mjs"
       - "projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-secure-separate-rooms.test.mjs"
       - ".github/workflows/qa-v783-secure-separate-rooms.yml"
   workflow_dispatch:

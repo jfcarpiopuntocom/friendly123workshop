@@ -10,7 +10,7 @@ import {pinAuthority} from '../../../../app/cloudflare-worker/pin-authority.mjs'
 import {salaDeLicencia} from '../src/sala.js';
 
 const license='F123-SYNTHETIC-TEAM',instance='synthetic-room-client',key='synthetic-service-bridge-test-key-32-bytes',persist=fs.mkdtempSync(path.join(os.tmpdir(),'f123-two-room-'));
-let db,env,mf,url,room,bundle,registry,allowChannels=true;
+let db,env,mf,url,room,bundle,registry,allowChannels=true,photoFlag=true;
 function storage(){
  let records=new Map(),tail=Promise.resolve();
  return {get:async k=>structuredClone(records.get(k)),
@@ -21,7 +21,7 @@ function storage(){
  finally{release();}}};
 }
 async function relay(){
- const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_SERVICE_KEY:key};
+ const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_PHOTO_BLOBS_QA:photoFlag?'1':'0',WS_PHOTO_ORIGIN_QA:'https://synthetic-photo.test',WS_SERVICE_KEY:key};
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',compatibilityFlags:['nodejs_compat'],
  durableObjects:{Tienda:{className:'Tienda',useSQLite:true}},durableObjectsPersist:path.join(persist,'do'),
  kvNamespaces:['LICENCIAS'],bindings:mfBindings,
@@ -140,4 +140,87 @@ test('P0 backwards-compatible priv admission remains owner-only and separate-roo
    assert.equal(result.binary,0);
   }
  }finally{await mf.dispose();allowChannels=true;await relay();}
+});
+
+
+async function photoHttp(method,sha,token,body) {
+ const target=new URL('/parties/tienda/'+room+'-fotos?sha='+sha,url);
+ const headers={'x-f123-license':license,'x-f123-instance':instance};
+ if(token)headers.authorization='Bearer '+token;
+ if(method==='PUT')headers['content-type']='image/png';
+ return fetch(target,{method,headers,...(body?{body}:{}),redirect:'manual'});
+}
+async function syntheticSha(bytes) {
+ const hash=await crypto.subtle.digest('SHA-256',bytes);
+ return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+}
+test('P0 real Workerd photo SHA blob (>2MiB) remains byte-identical after full cold restart and is never a Yjs room',{timeout:35000},async()=>{
+ const bytes=new Uint8Array(2*1024*1024+517);for(let i=0;i<bytes.length;i++)bytes[i]=i%251;
+ const sha=await syntheticSha(bytes);
+ const writer=await issue('fotos',['fotos:write']);
+ const put=await photoHttp('PUT',sha,writer,bytes);
+ assert.equal(put.status,201,'signed one-use fotos:write must persist immutable SHA bytes');
+ const receipt=await put.json();
+ assert.deepEqual({sha:receipt.sha,bytes:receipt.bytes,tipo:receipt.tipo},{sha,bytes:bytes.length,tipo:'image/png'});
+ assert.equal((await photoHttp('PUT',sha,writer,bytes)).status,403,'replayed one-use ticket denied');
+ assert.notEqual((await attempt('fotos',await issue('fotos',['fotos:read']))).status,'open','photo endpoint must not become a raw Yjs WebSocket room');
+ const reader=await issue('fotos',['fotos:read']),get=await photoHttp('GET',sha,reader);
+ assert.equal(get.status,200);
+ assert.equal(get.headers.get('content-type'),'image/png');
+ assert.deepEqual(new Uint8Array(await get.arrayBuffer()),bytes);
+ await mf.dispose();await relay();
+ const cold=await photoHttp('GET',sha,await issue('fotos',['fotos:read']));
+ assert.equal(cold.status,200,'read after Durable Object full restart');
+ assert.deepEqual(new Uint8Array(await cold.arrayBuffer()),bytes);
+});
+test('P0 photo upload is fail-closed on missing/replayed/wrong role ticket, wrong hash, or disabled flag',{timeout:20000},async()=>{
+ const bytes=new Uint8Array([137,80,78,71,1,2,3,4,5]);
+ const sha=await syntheticSha(bytes),wrong='f'.repeat(64);
+ assert.equal((await photoHttp('PUT',sha,null,bytes)).status,403,'bare license+instance cannot upload');
+ const wrongScope=await issue('fotos',['fotos:read']);
+ assert.equal((await photoHttp('PUT',sha,wrongScope,bytes)).status,403,'read ticket cannot write');
+ const hashTicket=await issue('fotos',['fotos:write']);
+ assert.equal((await photoHttp('PUT',wrong,hashTicket,bytes)).status,422,'SHA mismatch must never write');
+ const absent=await photoHttp('GET',wrong,await issue('fotos',['fotos:read']));
+ assert.equal(absent.status,404,'uncommitted blob not readable');
+ await mf.dispose();photoFlag=false;await relay();
+ try{
+  assert.equal((await photoHttp('PUT',sha,await issue('fotos',['fotos:write']),bytes)).status,404,'disabled QA never exposes HTTP blob endpoint');
+  assert.equal((await photoHttp('GET',sha,await issue('fotos',['fotos:read']))).status,404,'disabled QA never leaks existing bytes');
+ }finally{await mf.dispose();photoFlag=true;await relay();}
+});
+
+test('P0 real Workerd photo CORS: exact HTTPS origin only, browser preflight and cross-origin GET authorized',{timeout:16000},async()=>{
+ const target=new URL('/parties/tienda/'+room+'-fotos?sha='+'b'.repeat(64),url);
+ const preflight=(origin)=>fetch(target,{method:'OPTIONS',headers:{
+  origin,'access-control-request-method':'PUT',
+  'access-control-request-headers':'authorization,x-f123-license,x-f123-instance,content-type'
+ }});
+ const allowed=await preflight('https://synthetic-photo.test');
+ assert.equal(allowed.status,204,'browser Authorization preflight must be routable');
+ assert.equal(allowed.headers.get('access-control-allow-origin'),'https://synthetic-photo.test');
+ assert.match(allowed.headers.get('access-control-allow-methods')||'',/PUT/);
+ const wrong=await preflight('https://other-origin.example');
+ assert.equal(wrong.status,403,'no wildcard or reflection for other origins');
+ assert.equal(wrong.headers.get('access-control-allow-origin'),null);
+ const bytes=new Uint8Array([137,80,78,71,65,66]),sha=await syntheticSha(bytes),destination=new URL(target);
+ destination.searchParams.set('sha',sha);
+ const token=await issue('fotos',['fotos:write']);
+ const uploaded=await fetch(destination,{method:'PUT',headers:{
+  authorization:'Bearer '+token,'x-f123-license':license,'x-f123-instance':instance,
+  'content-type':'image/png',origin:'https://synthetic-photo.test'
+ },body:bytes});
+ assert.equal(uploaded.status,201);
+ assert.equal(uploaded.headers.get('access-control-allow-origin'),'https://synthetic-photo.test');
+ const token2=await issue('fotos',['fotos:read']);
+ const recovered=await fetch(destination,{method:'GET',headers:{
+  authorization:'Bearer '+token2,'x-f123-license':license,'x-f123-instance':instance,
+  origin:'https://synthetic-photo.test'
+ }});
+ assert.equal(recovered.status,200);
+ assert.equal(recovered.headers.get('access-control-allow-origin'),'https://synthetic-photo.test');
+ assert.deepEqual(new Uint8Array(await recovered.arrayBuffer()),bytes);
+ const denied=await fetch(destination,{method:'GET',headers:{origin:'https://other-origin.example'}});
+ assert.equal(denied.status,403);
+ assert.equal(denied.headers.get('access-control-allow-origin'),null);
 });
