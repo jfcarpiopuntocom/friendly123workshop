@@ -62,12 +62,19 @@ test('complete frozen history imports exact original Yjs ops into native SQL and
   assert.equal(first.already,false);
   const exported=await m.readFrozenImport({storage:w.storage});
   assert.equal(sha(exported.bytes),t.expectedStateSha256);
-  const restored=new Y.Doc();Y.applyUpdate(restored,exported.bytes);
-  assert.equal(restored.getMap('eventos').size,3);
-  assert.equal(restored.store.pendingStructs,null);
-  assert.equal(restored.store.pendingDs,null);
-  restored.destroy();
-  assert.equal((await m.installFrozenImport({storage:w.storage,proof})).already,true);
+  // Close the actual SQLite handle and reopen its on-disk file. A read against
+  // only the initial connection would not prove durability after a cold start.
+  const cold=w.reopen();
+  try {
+   const coldExport=await m.readFrozenImport({storage:cold.storage});
+   assert.equal(sha(coldExport.bytes),t.expectedStateSha256);
+   const restored=new Y.Doc();Y.applyUpdate(restored,coldExport.bytes);
+   assert.equal(restored.getMap('eventos').size,3);
+   assert.equal(restored.store.pendingStructs,null);
+   assert.equal(restored.store.pendingDs,null);
+   restored.destroy();
+   assert.equal((await m.installFrozenImport({storage:cold.storage,proof})).already,true);
+  } finally {cold.db.close();}
  }finally{w.cleanup();}
 });
 
