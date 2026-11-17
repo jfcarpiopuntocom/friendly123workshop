@@ -55,11 +55,11 @@ test('real Workerd SQL Durable Object imports a frozen Yjs ops state and survive
   assert.equal(acknowledgment.already,false);
   assert.equal(acknowledgment.receipt.sha256,h.expectedStateSha256);
   const warm=await w.fetch('room-a','/read');
-  assert.equal(warm.status,200,await warm.text());
+  assert.equal(warm.status,200,'warm Workerd readback must be successful');
   assert.equal(SHA(new Uint8Array(await warm.arrayBuffer())),h.expectedStateSha256);
   await w.restart();
   const cold=await w.fetch('room-a','/read');
-  assert.equal(cold.status,200,await cold.text());
+  assert.equal(cold.status,200,'cold Workerd readback must be successful');
   const bytes=new Uint8Array(await cold.arrayBuffer());
   assert.equal(SHA(bytes),h.expectedStateSha256);
   const doc=new Y.Doc();try{Y.applyUpdate(doc,bytes);assert.equal(doc.getMap('eventos').size,3);
