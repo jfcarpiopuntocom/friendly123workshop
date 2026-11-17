@@ -382,6 +382,7 @@ export default {
     const path = new URL(req.url).pathname;
     if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "")) return new Response("Not found", { status: 404 });
     const photoHttp=env.WS_PHOTO_BLOBS_QA==='1' &&
+      req.headers.get('Upgrade')?.toLowerCase() !== 'websocket' &&
       path==='/parties/tienda/'+env.SALA_PILOTO+'-fotos' &&
       (req.method==='GET'||req.method==='PUT');
     // No raw Yjs WebSocket room for photo bytes, and no generic anonymous HTTP.
