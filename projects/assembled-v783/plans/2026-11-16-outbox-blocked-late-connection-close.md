@@ -23,3 +23,10 @@ Fecha Ecuador: 16 noviembre 2026; workshop main observado `02df0b3de3cff9f858fce
 ## RED comprobado antes de tocar runtime
 
 [GitHub Actions 44006325294](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44006325294) en commit `c595c6a120b55797bf98752d15a8d416f196922e`: FAILURE esperado, **0 PASS / 1 FAIL, 0 skipped**. Asersión exacta del test real: `orphanClosed` esperado 1, actual 0 (línea 25); retry activo sigue sin cerrar. Node22, no network ni secretos, TAP+SHA artefacto ID `14294482236`. Se verifica que fuente original no cierra la conexión huérfana. Esta anotación se realiza antes del parche funcional.
+
+## Primera ronda GREEN (misma prueba, después del parche)
+
+- Cambio aislado de fuente `projects/assembled-v783/app/docs/sync-outbox.js` commit `6c410cac4876dd351e566bee60fc1b752a8b7f48`. Variable `aperturaAbandonada` marcada al ocurrir `onblocked`/`onerror`, `onsuccess` tardío cierra sólo `req.result` de esa apertura; la nueva conexión activa no se toca. El resto del archivo se preservó textualmente.
+- [CI focal 44006432418](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44006432418): **SUCCESS 1/1 PASS, 0 FAIL/SKIP/CANCEL**, mismo test contra módulo real, `node --check`, artefacto TAP/HEAD.
+- [CI de reapertura IDB #70 44006432451](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44006432451): **SUCCESS 6/6 PASS, 0 FAIL/SKIP/CANCEL**.
+- QA integrada 585 y compatibilidad abort #69 iniciadas sobre mismo commit; **pendientes en el momento de este registro**. No promover a READY ni fusionar hasta verificarlas. No confundir con status full 3250, que seguía rojo, ni con PC/iPhone reales.
