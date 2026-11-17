@@ -245,12 +245,21 @@ test('P0 real central TEAM employee cat:read connects read-only, rejects replay 
  assert.equal(issued.status,200,JSON.stringify(issued.data));
  const writer=await connect('cat',['cat:read','cat:write']);
  writer.doc.getMap('products').set('team-readable-catalog',{priceCents:850});
+ // Private roots share this real catalog Y.Doc today: server must not leak them to Team.
+ writer.doc.getMap('_meta').set('pinsRol',{owner:'SYNTHETIC_PRIVATE_ROLE_MARKER'});
+ writer.doc.getMap('clientes').set('private-synthetic-customer',{email:'nobody@example.invalid'});
+ writer.doc.getMap('hechos_financieros').set('private-synthetic-cash',{amountCents:72900});
  const memberDoc=new Y.Doc();
  const member=new YProvider(url.host,room+'-cat',memberDoc,{party:'tienda',disableBc:true,
   params:{licencia:license,instancia:instance,cap:issued.data.token},WebSocketPolyfill:WebSocket});
  try{
   await waitFor(()=>member.synced&&memberDoc.getMap('products').has('team-readable-catalog'),'Team read-only initial sync');
   assert.equal(memberDoc.getMap('products').get('team-readable-catalog').priceCents,850);
+  assert.deepEqual([
+   memberDoc.getMap('_meta').has('pinsRol'),
+   memberDoc.getMap('clientes').has('private-synthetic-customer'),
+   memberDoc.getMap('hechos_financieros').has('private-synthetic-cash')
+  ],[false,false,false], 'Team catalog read must never receive Owner PIN metadata, private customers or private money roots');
   assert.notEqual((await attempt('cat',issued.data.token)).status,'open','one-use Team cap replay must reject');
   memberDoc.getMap('products').set('team-unauthorized-raw-edit',{priceCents:1});
   const witness=await connect('cat',['cat:read']);
