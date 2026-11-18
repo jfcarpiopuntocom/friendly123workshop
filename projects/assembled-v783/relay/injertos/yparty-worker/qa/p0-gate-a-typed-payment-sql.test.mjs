@@ -15,7 +15,7 @@ const baseline={license,frozenHead:'firebase-head-pay-001',
   receivables:[{receivableId:'fiado_1',balanceCents:3000}]};
 const expectedSha256=createHash('sha256').update(JSON.stringify(baseline)).digest('hex');
 
-test('Workerd SQL: typed cobro reduces fiado balance and adds cash once by opId; overpay and employee fail closed',
+test('Workerd SQL: typed cobro reduces fiado balance and adds cash once by opId; overpay and revoked credentials fail closed',
   {timeout:45000},async()=>{
   const out=await build({entryPoints:[path.join(import.meta.dirname,'fixtures/authoritative-sql-worker.mjs')],
     bundle:true,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],
@@ -46,8 +46,8 @@ test('Workerd SQL: typed cobro reduces fiado balance and adds cash once by opId;
     const seeded=await post('/seed',{...baseline,sourceFrozenVerified:true,expectedSha256});
     assert.equal(seeded.status,200,JSON.stringify(seeded.body));
     assert.deepEqual(await state(),{balance:[3000],cash:500,stock:10,effects:0,receipts:0});
-    // No existing grant lets an employee collect: denied with no effect.
-    let r=await submit(pay(),'synthetic-team-ticket');
+    // Revoked credential is denied with no financial effect.
+    let r=await submit(pay(),'synthetic-revoked-ticket');
     assert.notEqual(r.status,200,JSON.stringify(r.body));
     assert.deepEqual(await state(),{balance:[3000],cash:500,stock:10,effects:0,receipts:0});
     // Unknown receivable is denied by the trusted resource check.
