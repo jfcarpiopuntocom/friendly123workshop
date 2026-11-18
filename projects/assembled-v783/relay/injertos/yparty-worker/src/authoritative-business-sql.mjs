@@ -81,9 +81,14 @@ export function installBusinessBaseline({storage,proof}={}){
     }
     // Import must precede receipt issuance. Pending old inbox cannot be
     // silently replayed onto a baseline with an unknown causal cut.
-    if(hasRows(sql,'typed_commercial_ops')||hasRows(sql,'f123_business_effects')||
-       hasRows(sql,'f123_business_stock')||hasRows(sql,'f123_business_baseline'))
-      fail('nonempty economic store requires controlled migration');
+    // A Yjs ops history in this SAME -ops DO is not automatically represented
+    // in the economic baseline. Seeding over a prior op journal would risk
+    // counting an older sale twice after reconnect. Defer to the certified
+    // Firebase/DO reconciliation gate instead of silently inventing a cutover.
+    if(['typed_commercial_ops','f123_business_effects','f123_business_stock',
+        'f123_business_baseline','documento','documento_bloques','diario',
+        'diario_bloques','f123_frozen_imports'].some(table=>hasRows(sql,table)))
+      fail('Yjs history or nonempty economic store requires controlled migration');
     sql.exec('INSERT INTO f123_business_baseline (license,frozen_head,sha256,count,cash_cents) VALUES (?,?,?,?,?)',
       state.license,state.frozenHead,proof.sha256,state.products.length,state.openingCashCents);
     for(const p of state.products)
