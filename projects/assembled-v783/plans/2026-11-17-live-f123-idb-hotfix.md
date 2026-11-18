@@ -15,3 +15,7 @@
 - No photo worker, no ledger opId architecture, no auto-reload/overlay, no global flag flip, no changes to stock or PIN, no deployment, no dashboard edits in this PR.
 - Revert the single source hunk + test/workflow or close draft PR; production master untouched until accepted. Next separate D1 dashboard filter PR only after this security hotfix is green.
 - Scores are separate: architecture candidate 67.0/100, full port 36.0/100, 0/6 frozen gates; a live PR alone does not earn port points or certify the 3-hour bridge.
+
+## Live CI RED environment correction (17 Nov 20:16 Ecuador)
+- New LIVE PR [#741](https://github.com/jfcarpiopuntocom/friendly-123/pull/741) was opened from exact master 45757cac, test imported BEFORE any runtime edit. [First CI 44214448977](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44214448977) failed **at module load** due to `Cannot find module fake-indexeddb`, NOT because the app passed or failed seven tests.
+- LIVE package.json and package-lock omit fake-indexeddb but workshop uses devDependency 6.2.8. Port ONLY that **devDependency with pinned integrity** from known workshop package-lock; absolutely no runtime dependency/version or network provider changes. Re-run RED against unmodified sync-yjs.js to capture actual source failure, then copy exact small helper and retest GREEN. No live deployment.
