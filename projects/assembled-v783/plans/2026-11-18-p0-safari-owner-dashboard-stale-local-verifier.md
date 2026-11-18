@@ -26,3 +26,8 @@
 - PR [#763](https://github.com/jfcarpiopuntocom/friendly-123/pull/763) merged into master at `c9c1beef7b635bfd73a618eb394fc819738750ee`; changed only dashboard source/bundle, release artifacts and synthetic tests/workflow. Official generated manifest v0.7.90 / shell v790 / golden326.
 - Production hotfix [#44373285783](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44373285783) triggered on merge; record final deploy status separately when complete.
 - Physical Owner Safari acceptance of real JFC license and commercial amounts UNKNOWN (requires observation in the user's Safari). No customer secret persisted in test, PR, plan, or logs.
+
+## Production completion
+- `hotfix` [Actions #44373285783](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44373285783): prove/promote, Pages build/deploy SUCCESS. Stable release served publicly HTTP 200: `version.json` v0.7.90 / shell v790, `dashboard.html` v0.7.90, `dashboard-main.min.js` contains new remote-verification fallback, `sw.js` v790.
+- `recorrido / recorrer`: SUCCESS; actual Chromium desktop and WebKit Safari-iPhone simulation both opened Dashboard v0.7.90 (public log timestamp 18:49 UTC). This is shell/navigation evidence, not JFC real-license Owner-PIN evidence.
+- Cold-join job is a separate known P0; record it separately, do not confuse it with Safari dashboard login or claim 100% convergence.
