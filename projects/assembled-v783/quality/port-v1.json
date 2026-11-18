@@ -2,8 +2,8 @@
   "version": 1,
   "metric": "operational-port-completion",
   "target": 100,
-  "reviewedAt": "2026-11-17T21:06:40Z",
-  "reviewedSha": "641a58070e4915e3da945144e6365cdf1a225764",
+  "reviewedAt": "2026-11-18T02:05:16Z",
+  "reviewedSha": "b864461e804b4b0fda28beb019d68a9a216082b9",
   "source": "friendly123workshop/projects/assembled-v783",
   "disclaimer": "Milestone-based operational PORT completion, NOT app quality, probability, elapsed-time estimate or customer activation. Credits for prep do not imply any first-shop gate passed. Six JFC gates are immutable. No real customer data or physical evidence.",
   "qualityMetricPath": "score-v1.json",
@@ -261,10 +261,17 @@
         {
           "id": "idb-outbox-web-locks",
           "points": 5,
-          "done": false,
+          "done": true,
           "label": "Drenado concurrente del outbox bajo Web Locks, reintento durable seguro",
-          "evidence": [],
-          "pendingReason": "Drenado concurrente del outbox bajo Web Locks, reintento durable seguro"
+          "evidence": [
+            {
+              "sha": "b864461e804b4b0fda28beb019d68a9a216082b9",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44220487700",
+              "type": "native-chromium-webkit-idb-qa",
+              "claim": "4/4 native Chromium and Playwright WebKit without skips, exact source-extracted sync-yjs v2 IDB functions with two same-origin tabs; real IDB/Web Locks and no-lock atomic fallback: concurrent A/B, ACK A with append C, cold page B/C and tombstone A; closed DB no false durability. CI tested PR merge SHA 5400d07ff68631608210d7f7abe2aaf633092975. NOT physical iPhone, not real commercial client path."
+            }
+          ],
+          "pendingReason": null
         },
         {
           "id": "safari-bfcache-reconnect",
