@@ -13,6 +13,17 @@ export class Tienda extends RealTienda {
       const proof=await prepareBusinessBaseline({...baseline,sourceFrozenVerified:true,expectedSha256:sha});
       installBusinessBaseline({storage:this.ctx.storage,proof});
     }
+    if(req.headers.get('x-f123-synthetic-inspect')==='1'){
+      const sql=this.ctx.storage.sql;
+      return Response.json({
+        stock:sql.exec('SELECT quantity FROM f123_business_stock WHERE license = ? AND product_id = ?',
+          'F123-SYNTHETIC-BUSINESS','sku_1').toArray()[0]?.quantity,
+        cash:sql.exec('SELECT cash_cents FROM f123_business_baseline WHERE license = ?',
+          'F123-SYNTHETIC-BUSINESS').toArray()[0]?.cash_cents,
+        effects:sql.exec('SELECT COUNT(*) AS n FROM f123_business_effects').one()?.n,
+        receipts:sql.exec('SELECT COUNT(*) AS n FROM typed_commercial_ops').toArray()[0]?.n||0
+      });
+    }
     return super.onRequest(req);
   }
 }
