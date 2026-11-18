@@ -20,3 +20,12 @@
 
 ## Rollback and scope
 Dashboard source+official generated bundle+release identity only, plus tests/workflow. No inventory, photos, money, license rotation at server, outbox or Yjs changes. Preserve /previo.
+
+## Evidence checkpoint · 18 Nov 2026
+- Source mismatch verified: commercial app Owner via canonical Cloudflare `/pin/verify`, dashboard through stale local `OCSecure`/Admin-list shortcut.
+- Connected Cloudflare read-only research verified license presence in the production registry. Registry contains numerous instance records for that license; these are *records*, not verified current physical devices. No owner PIN or company data read from the customer's Safari.
+- PR [#764](https://github.com/jfcarpiopuntocom/friendly-123/pull/764) merged SHA `ea6c173aa1d708cb9cbf2561044455e21c733e5a` from exact candidate `52352a37820f8e6b2c2d1efee313105741fa64ac`.
+- Candidate [P0 focused v791](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44380504914) **SUCCESS**, [P0 Hotfix Gate](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44380505003) **SUCCESS**, [release-control](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44380504911) **SUCCESS**.
+- Source, official generated bundle and manifest `v0.7.91 / f123-shell-v791 / golden327`; strict static host inventory expanded *only* for the dashboard's Owner `/pin/verify`. Existing WebKit, finance and authenticated broadcast suites green on candidate.
+- Merge production deploy [hotfix #44380915291](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44380915291) triggered, status pending at checkpoint. Do not claim live until Pages proven.
+- Physical Safari Owner acceptance and role classification of the alternate PIN must be independently observed by JFC; tests use only synthetic credentials.
