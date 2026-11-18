@@ -12,7 +12,7 @@ const room='a'.repeat(32);
 const tick=()=>new Promise(r=>setImmediate(r));
 
 function pilotHarness({role='dueno',pin='123',hidden=false,owned=true}={}){
- const requests=[],providers=[],fallbacks=[],timers=[];let currentPin=pin,currentRole=role;
+ const requests=[],providers=[],fallbacks=[],timers=[],visibility=[];let currentPin=pin,currentRole=role;
  class FakeAuthorizedProvider{
   constructor(host,roomName,doc,options){this.host=host;this.room=roomName;this.doc=doc;this.options=options;
    this.synced=false;this.ws=null;this.events={};providers.push(this);
@@ -22,12 +22,13 @@ function pilotHarness({role='dueno',pin='123',hidden=false,owned=true}={}){
   connect(){this.connected=true;return Promise.resolve(true);}
   disconnect(){this.disconnected=true;}
   destroy(){this.destroyed=true;}
+  awareness={destroy(){}};
  }
  const ctx={window:{
    OCSecure:{leerPinQueAbre(){return{owner:currentPin};}},
    OCAuth:{rolActual(){return currentRole;}},
    Y:{encodeStateAsUpdate(){return new Uint8Array([1]);}}
- },document:{hidden},localStorage:{getItem(k){return k==='f123_owned'&&owned?JSON.stringify({licenseCode:license,instanceId:instance}):null;}},
+ },document:{hidden,addEventListener(type,fn){if(type==='visibilitychange')visibility.push(fn);},removeEventListener(type,fn){if(type==='visibilitychange'){const i=visibility.indexOf(fn);if(i>=0)visibility.splice(i,1);}}},localStorage:{getItem(k){return k==='f123_owned'&&owned?JSON.stringify({licenseCode:license,instanceId:instance}):null;}},
   crypto:require('node:crypto').webcrypto,
   setTimeout(fn,delay){timers.push({fn,delay,cancelled:false});return timers.length;},clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true;},Uint8Array,Array,Promise,JSON,
   AuthorizedYProvider:FakeAuthorizedProvider,
@@ -38,7 +39,8 @@ function pilotHarness({role='dueno',pin='123',hidden=false,owned=true}={}){
  const body=src.split('\n').filter(line=>!/^import /.test(line)).join('\n');
  vm.runInNewContext(body,ctx,{filename:'yparty-piloto.js'});
  const doc={store:{pendingStructs:null,pendingDs:null},isDestroyed:false,on(){},once(){},off(){}};
- return {ctx,requests,providers,fallbacks,timers,
+ return {ctx,requests,providers,fallbacks,timers,visibility,
+  setHidden(v){ctx.document.hidden=v;visibility.slice().forEach(fn=>fn());},
   get PIN(){return currentPin;},set PIN(v){currentPin=v;},
   set role(v){currentRole=v;},
   create(type='cat'){
@@ -134,4 +136,38 @@ test('ticket helper refuses fotos, unknown channel, expired issuance and changed
    getCredentials:()=>({kind:'owner',licenseCode:license,instanceId:instance,pin:changed?'124':'123'}),
    fetch:async()=>{changed=true;return{ok:true,json:async()=>({ok:true,token:'ok.signature',expiresAt:Date.now()+10000})};}});
  await assert.rejects(changedParams(),/WS authorization unavailable/);
+});
+
+test('bridge A Safari/Android background -> foreground creates fresh signed catalog transport once, not a dead socket',{timeout:5000},async()=>{
+ const f=pilotHarness(),cat=f.create('cat');
+ cat.conectar();await tick();
+ const first=f.providers[0];
+ assert.equal(f.providers.length,1);
+ f.setHidden(true);
+ assert.equal(first.destroyed,true,'background must close stale auth socket');
+ assert.equal(cat.proveedor,null);
+ f.setHidden(false);await tick();
+ assert.equal(f.providers.length,2,'foreground must try a NEW socket and fresh ticket');
+ assert.notEqual(cat.proveedor,first);
+ assert.equal(f.requests.length,2,'fresh credentials for every actual connection attempt');
+ f.setHidden(false);await tick();
+ assert.equal(f.providers.length,2,'duplicate foreground events must not spawn another socket');
+ assert.equal(f.fallbacks.length,0,'temporary background alone must not erase 2.0 option');
+});
+test('bridge A repeated hidden authorization failures -> foreground fresh socket or old relay within 7.5s',{timeout:5000},async()=>{
+ const f=pilotHarness(),cat=f.create('cat');cat.conectar();await tick();
+ f.setHidden(true);
+ const previous=f.providers[0];
+ previous.events['authorization-error']?.[0]?.([{reason:'invalid-in-suspended-tab'}]);
+ assert.deepEqual(f.fallbacks,[],'late revoked callback from destroyed socket has no effect');
+ f.setHidden(false);await tick();
+ const fresh=f.providers[1];
+ assert.ok(fresh&&fresh!==previous&&cat.proveedor===fresh);
+ fresh.events['authorization-error']?.[0]?.([{reason:'permission-still-expired'}]);
+ assert.deepEqual(f.fallbacks,['cat'],'on actual auth denial, old encrypted relay is re-enabled');
+ assert.equal(cat.proveedor,null);
+ const before=f.providers.length;
+ f.setHidden(false);await tick();
+ assert.equal(f.providers.length,before,'once in failback, visibility cannot spawn a second competing catalog writer');
+ assert.ok(f.timers.some(t=>t.delay>0&&t.delay<8000));
 });
