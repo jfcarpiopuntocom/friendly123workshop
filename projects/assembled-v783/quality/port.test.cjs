@@ -59,7 +59,7 @@ test('reject weight manipulation, fabricated evidence, hidden gates and invalid 
   d=>{d.reviewedSha='latest';}
  ]){const copy=structuredClone(data);mutate(copy);assert.throws(()=>assessPort(copy));}
 });
-test('client↔Worker actual pilot source is signed and separated, but no complete commercial GO',()=>{
+test('Option A actual client signs catalog-only YParty and keeps money on legacy; not complete GO',()=>{
  const client=fs.readFileSync(path.join(root,'app/src/yparty-piloto.js'),'utf8');
  const worker=fs.readFileSync(path.join(root,'relay/injertos/yparty-worker/src/index.js'),'utf8');
  const authorized=fs.readFileSync(path.join(root,'app/src/authorized-yprovider.mjs'),'utf8');
@@ -68,10 +68,14 @@ test('client↔Worker actual pilot source is signed and separated, but no comple
  assert.equal(e.authorizedProviderAvailable,true);
  assert.equal(e.pilotUsesFreshTicket,true);
  assert.equal(e.pilotUsesPrivateRoom,false);
- assert.equal(e.pilotUsesSeparatedRooms,true);
- assert.equal(e.channelIsolationPreserved,true);
- assert.equal(e.compatible,true);
- assert.match(e.reason,/still pending|GO/i);
+ assert.equal(e.pilotUsesSeparatedRooms,false,'ops are NOT on YParty in the approved safe bridge');
+ assert.equal(e.hybridCatalogOnly,true,'signed YParty catalog has an explicit money fallback');
+ assert.equal(e.channelIsolationPreserved,true,'only the catalog joins YParty');
+ assert.equal(e.compatible,false,'partial hybrid is not the finished cat+ops port');
+ assert.match(e.reason,/SAFE HYBRID/);
+ const sync=fs.readFileSync(path.join(root,'app/docs/sync-yjs.js'),'utf8');
+ assert.ok(sync.includes('API.opsCanal = crearCanal(Y, API.opsDoc, "-ops"'),
+   'actual ops Y.Doc must still be exclusively published by the old encrypted relay');
 });
 test('port gate cannot be certified before every declared stage has evidence and completion',()=>{
  const copy=structuredClone(data);
