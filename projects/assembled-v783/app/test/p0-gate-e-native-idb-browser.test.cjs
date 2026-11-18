@@ -69,7 +69,7 @@ async function install(page,name,noLocks){
   // real browser objects or an intentionally local test fixture.
   const mk=new Function('API','suffix','persistencia','IDBKeyRange','navigator',
    '_outboxKey','_outbox','_unsaved','_groupAcks','avisarDurable','log',
-   'localStorage','window','CustomEvent', actual+\`
+   'localStorage','window','CustomEvent', actual+`
      return {
        read:()=>leerOutbox(),
        queue:async entry=>{_unsaved.push(entry); await mutarOutbox(function(){});},
@@ -77,7 +77,7 @@ async function install(page,name,noLocks){
          _outbox.pending=_outbox.pending.filter(entry=>entry.id!==id);
          if(!_outbox.confirmed.includes(id))_outbox.confirmed.push(id);
        })
-     };\`);
+     };`);
   const adapter={db,_db:Promise.resolve(db),get,set};
   const lib=mk({rollout:{outboxV2:true},roomId:'synthetic-room'},'-y',adapter,IDBKeyRange,
    noLocks?undefined:navigator,'f123_relay_outbox_v1-y',
@@ -122,13 +122,13 @@ async function scenario(engine,name,noLocks){
   assert.deepEqual(ids(latest),['B','C'],name+' cannot lose B/C or resurrect A');
   assert.deepEqual(Array.from(latest.confirmed),['A'],name+' durable ACK tombstone');
   const actualRows=await c.evaluate(async({metaKey,prefix})=>{
-   const db=await new Promise((r,j)=>{const x=indexedDB.open(window.__gateDB);
+   const db=await new Promise((r,j)=>{const x=indexedDB.open(name);
     x.onsuccess=()=>r(x.result);x.onerror=()=>j(x.error);});
    const get=k=>new Promise((r,j)=>{const tx=db.transaction('custom','readonly'),x=tx.objectStore('custom').get(k);
     x.onsuccess=()=>r(x.result);x.onerror=()=>j(x.error)});
    try{return{meta:await get(metaKey),a:await get(prefix+'A'),b:await get(prefix+'B'),c:await get(prefix+'C')};}
    finally{db.close();}
-  },{metaKey,prefix}).catch(()=>null);
+  },{name:dbName,metaKey,prefix});
   // Row structure is additionally proved by the cold library read above; no
   // direct DB assertion is made if browser blocks the diagnostic handle.
   if(actualRows) {
