@@ -97,11 +97,32 @@ export function installBusinessBaseline({storage,proof}={}){
     return {already:false,sha256:proof.sha256};
   });
 }
+// Owner-only physical count: sets certified stock to the counted total and
+// records the delta as an opId effect in the same transaction. No cash change.
+function applyCount({sql,txSql,command,principal}){
+  if(txSql!==sql||!LICENSE.test(command.license||'')||!IDENT.test(command.productId||'')||
+     !int(command.quantity)||command.amountCents!==0||
+     !principal||principal.license!==command.license||
+     principal.role!=='dueno'||principal.subject!=='owner-account'||
+     !Array.isArray(principal.scopes)||!principal.scopes.includes('ops:adjust'))
+    fail('unsupported command or principal');
+  if(!sql.exec('SELECT 1 AS ok FROM f123_business_baseline WHERE license = ?',command.license).toArray()[0])
+    fail('business baseline not certified');
+  const item=sql.exec('SELECT quantity FROM f123_business_stock WHERE license = ? AND product_id = ?',
+    command.license,command.productId).toArray()[0];
+  if(!item||!int(Number(item.quantity)))fail('product not in certified stock');
+  sql.exec('UPDATE f123_business_stock SET quantity = ? WHERE license = ? AND product_id = ?',
+    command.quantity,command.license,command.productId);
+  sql.exec('INSERT INTO f123_business_effects (license,op_id,product_id,quantity_delta,cash_delta_cents) VALUES (?,?,?,?,?)',
+    command.license,command.opId,command.productId,command.quantity-Number(item.quantity),0);
+  return {applied:true};
+}
 // Synchronous callback called INSIDE typed-commercial-ledger transactionSync.
 // It may not make HTTP calls, await, or use external Yjs/other-DO state.
 export function createBusinessSqlExecutor({sql}={}){
   if(typeof sql?.exec!=='function')fail('trusted DO SQL required');
   return function applyBusiness({sql:txSql,command,principal}={}){
+    if(command?.kind==='stock.adjust')return applyCount({sql,txSql,command,principal});
     if(txSql!==sql||!command||command.kind!=='sale.record'||
        !LICENSE.test(command.license||'')||!IDENT.test(command.productId||'')||
        !int(command.quantity)||command.quantity<1||!int(command.amountCents)||

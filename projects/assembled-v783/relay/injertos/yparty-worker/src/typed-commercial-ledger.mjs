@@ -5,6 +5,8 @@
 // No WebSocket bridge, public endpoint or PWA is changed by this module.
 const KINDS=Object.freeze({
   'sale.record':{scope:'ops:sale',detail:'productId',quantity:true},
+  // Physical count ("fijar en N"): quantity is the counted total, never money.
+  'stock.adjust':{scope:'ops:adjust',detail:'productId',quantity:true,count:true},
   'expense.record':{scope:'ops:expense',detail:'categoryId',quantity:false},
   'credit.payment.record':{scope:'ops:payment',detail:'receivableId',quantity:false,receivablePayment:true},
   // A customer payment is not a receivable nor a payment allocation.
@@ -35,7 +37,9 @@ function validate(command){
      !Number.isSafeInteger(command.amountCents) ||
      command.amountCents<0 || command.amountCents>MAX_AMOUNT ||
      (contract.customerPayment && command.amountCents===0) ||
-     (contract.quantity && (!Number.isSafeInteger(command.quantity)||command.quantity<1||command.quantity>10000)))
+     (contract.count && command.amountCents!==0) ||
+     (contract.quantity && (!Number.isSafeInteger(command.quantity)||
+       command.quantity<(contract.count?0:1)||command.quantity>(contract.count?1000000:10000))))
     return null;
   // Canonical order means identical operations hash to identical bytes regardless
   // of caller's JSON property ordering.
