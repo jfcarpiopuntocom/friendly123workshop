@@ -5,7 +5,7 @@ function browserStub(pin=null){
  const fallback=[],win={Y:{Doc:class{}},OCSecure:{leerPinQueAbre:()=>({owner:pin})},
   OCAuth:{rolActual:()=> 'dueno'}};
  const ctx={window:win,localStorage:{getItem:k=>k==='f123_owned'?JSON.stringify({licenseCode:'F123-SYNTHETIC-TEAM',instanceId:'synthetic-tab-client'}):null},
-  document:{hidden:false},setTimeout(){return 1;},clearTimeout(){},TextEncoder,TextDecoder,URL,URLSearchParams,
+  document:{hidden:false,addEventListener(){},removeEventListener(){}},setTimeout(){return 1;},clearTimeout(){},TextEncoder,TextDecoder,URL,URLSearchParams,
   Promise,Array,Uint8Array,ArrayBuffer,Math,Date,JSON,crypto:require('node:crypto').webcrypto,
   console:{warn(){},error(){}},WebSocket:class{constructor(){throw Error('browser stub must not connect');}}};
  vm.runInNewContext(vendor,ctx,{filename:'yparty-piloto.min.js'});
