@@ -5,8 +5,8 @@
   "baselineDate": "2026-11-10",
   "baselineProvenance": "retrospective-estimate",
   "baselineUncertainty": 5,
-  "reviewedDate": "2026-11-17T23:35:40Z",
-  "reviewedSha": "151b3b2b1b0a34c6873c56a090bf0eb461ca667e",
+  "reviewedDate": "2026-11-17T23:48:05Z",
+  "reviewedSha": "9ead72edbf4a088147ac62ae082d6aee46313433",
   "currentUncertainty": 4,
   "disclaimer": "Editorial engineering confidence score, NOT measured failure probability or verified production availability. Baseline inferred retrospectively, no exact 10-Nov SHA. Re-evaluate after every changed code SHA; gains require linked tests and explicit judgment. Six JFC GO gates override score.",
   "dimensions": [
@@ -159,13 +159,19 @@
         ]
       },
       "current": {
-        "points": 6,
+        "points": 6.5,
         "evidence": [
           {
             "level": "integrated-ci",
             "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302",
             "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
             "claim": "Photo regressions pass; not credited yet for approved SHA blob separation"
+          },
+          {
+            "level": "workerd-integrated-client",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44202469976",
+            "sha": "9ead72edbf4a088147ac62ae082d6aee46313433",
+            "claim": "Full 13/13 Workerd QA with actual browser photo SHA module, central signed one-use Owner issuer, >2MiB SQL blob PUT, Yjs catalog only reference, cold Worker restart and new browser client GET SHA verified; legacy Yjs fallback and physical cross-device remain unverified"
           }
         ]
       }

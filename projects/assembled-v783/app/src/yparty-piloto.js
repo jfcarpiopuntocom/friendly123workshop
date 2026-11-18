@@ -1,5 +1,6 @@
 import AuthorizedYProvider from './authorized-yprovider.mjs';
 import {createOwnerTicketParams} from './ws-owner-ticket-params.mjs';
+import {createPhotoShaBridge} from './photo-sha-bridge.mjs';
 
 const host = 'friendly123-yparty-qa-20261114.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
@@ -7,6 +8,31 @@ const plazoReconectar = 30000;
 
 window.F123YPartyPilot = function (sala, licencia) {
   return {
+    // HTTP-only transport for immutable SHA photo bytes. Do not give this
+    // capability to an authorized Yjs WebSocket provider.
+    fotoSha() {
+      if (!/^[a-f0-9]{32}$/.test(sala || '')) return null;
+      let owned;
+      try { owned=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
+      const instancia=owned?.instanceId;
+      if(String(owned?.licenseCode||'').trim().toUpperCase()!==licencia||
+         !/^[A-Za-z0-9_-]{6,128}$/.test(instancia||''))return null;
+      const getCredentials=()=>{
+        let current;
+        try { current=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
+        const pin=window.OCSecure?.leerPinQueAbre?.()?.owner;
+        if(String(current?.licenseCode||'').trim().toUpperCase()!==licencia||
+           current?.instanceId!==instancia||
+           window.OCAuth?.rolActual?.()!=='dueno'||
+           typeof pin!=='string'||!/^\d{3}$/.test(pin)||['456','789'].includes(pin))
+          throw new Error('owner-session-unavailable');
+        return{kind:'owner',licenseCode:licencia,instanceId:instancia,pin};
+      };
+      try {
+        getCredentials();
+        return createPhotoShaBridge({host,licenseCode:licencia,instanceId:instancia,room:sala,getCredentials});
+      } catch (_) { return null; }
+    },
     canal(doc, tipo, idb, aplicar, usarRelayHabitual) {
       let plazo = null;
       let revision = 0;

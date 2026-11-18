@@ -465,3 +465,107 @@ test('P0 cold join burst: 64 Yjs changes require batched signed outbound authori
   receiver.close();
  }
 });
+
+test('P0 combined REAL photo bridge: browser-signed PUT -> Workerd SQL + Yjs sha-only catalog ref -> cold restart -> signed GET',{timeout:60000},async()=>{
+ // This test uses original browser photo source, the real central Owner PIN
+ // issuer and the actual Workerd/SQLite photo server, not a mock photo store.
+ // Only the browser network routing and origin are simulated (no real iPhone).
+ const {createPhotoShaBridge}=await import('../../../../app/src/photo-sha-bridge.mjs');
+ const browserOrigin='https://synthetic-photo.test';
+ const expectedHost='friendly123-yparty-qa-20261114.jfcarpio.workers.dev';
+ const network=[];
+ const browserFetch=async(target,options)=>{
+  const requestUrl=new URL(String(target));
+  if(requestUrl.pathname==='/ws/ticket'){
+   assert.equal(requestUrl.host,'friendly123-licencias.jfcarpio.workers.dev');
+   network.push({kind:'issuer',url:String(target)});
+   return api('/ws/ticket',JSON.parse(options.body));
+  }
+  assert.equal(requestUrl.host,expectedHost,'only configured fixed QA relay host');
+  assert.equal(requestUrl.pathname,'/parties/tienda/'+room+'-fotos');
+  assert.ok(!requestUrl.searchParams.has('cap'),'one-use cap must be in header, never URL');
+  network.push({kind:options.method,url:String(target)});
+  const local=new URL(requestUrl.pathname+requestUrl.search,url);
+  const headers={...options.headers,origin:browserOrigin};
+  const response=await fetch(local,{method:options.method,headers,body:options.body});
+  assert.equal(response.headers.get('access-control-allow-origin'),browserOrigin);
+  return response;
+ };
+ const credentials=()=>({kind:'owner',licenseCode:license,instanceId:instance,pin:'123'});
+ const newBridge=()=>createPhotoShaBridge({host:expectedHost,licenseCode:license,
+   instanceId:instance,room,getCredentials:credentials,fetch:browserFetch});
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const writer=await connect('cat',['cat:read','cat:write']);
+ const second=await connect('cat',['cat:read']);
+ try{
+  const bytes=Buffer.alloc(2*1024*1024+67);bytes.fill(31);
+  const shaBytes=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
+  const photoSha=[...shaBytes].map(v=>v.toString(16).padStart(2,'0')).join('');
+  const image='data:image/png;base64,'+bytes.toString('base64');
+  const firstBrowser=newBridge();
+  const received=await firstBrowser.put(photoSha,image);
+  assert.deepEqual(received,{sha:photoSha,bytes:bytes.length,tipo:'image/png'},
+    'real Workerd response must match browser hash and length exactly');
+
+  // The new catalog reference contains ONLY metadata. The original legacy
+  // fotosDoc fallback remains untouched and is NOT claimed as SHA-only yet.
+  writer.doc.getMap('fotos_refs').set(photoSha,{sha:photoSha,bytes:bytes.length,tipo:'image/png'});
+  await waitFor(()=>second.doc.getMap('fotos_refs').has(photoSha),'another YProvider SHA photo reference',6500);
+  const metadata=second.doc.getMap('fotos_refs').get(photoSha);
+  assert.deepEqual(metadata,{sha:photoSha,bytes:bytes.length,tipo:'image/png'});
+  assert.equal(JSON.stringify(metadata).includes('data:image'),false);
+  // Distinct second browser has no local photo IDB payload; its GET must
+  // read the Workerd durable blob after a true Miniflare process restart.
+  writer.close();second.close();
+  await mf.dispose();mf=null;
+  await relay();
+  const freshBrowser=newBridge();
+  const restored=await freshBrowser.get(photoSha);
+  assert.equal(restored,image,'cold-browser GET exact SHA and MIME verified');
+  assert.deepEqual(network.map(x=>x.kind),['issuer','PUT','issuer','GET']);
+  assert.ok(network.every(x=>!x.url.includes('cap=')&&!x.url.includes('pin=')),
+    'no bearer or PIN allowed in URL');
+ }finally{
+  try{writer.close();second.close();}catch(_){}
+ }
+});
+
+test('P0 genuine cold join after full Workerd restart: fresh YProvider receives 64 durable Yjs facts with zero pending parents',{timeout:25000},async()=>{
+ // Prior 64-frame benchmark is LIVE propagation. This test is different:
+ // first publish+persist all facts, destroy every client and the DO process,
+ // then establish a new signed client from a blank Y.Doc and no IDB.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const key='synthetic-cold-after-reboot-64';
+ const owner=await connect('cat',['cat:read','cat:write']);
+ const witness=await connect('cat',['cat:read']);
+ const expected=new Map();
+ try{
+  for(let i=0;i<64;i++){
+   const id='cold-'+String(i).padStart(3,'0');
+   const value={movementId:id,delta:i-31,sequence:i};
+   expected.set(id,value);
+   owner.doc.getMap(key).set(id,value);
+  }
+  await waitFor(()=>witness.doc.getMap(key).size===64,
+   'pre-cut writer and independent witness have 64 committed facts',8000);
+  assert.equal(owner.doc.getMap(key).size,64);
+  for(const [id,val] of expected)assert.deepEqual(witness.doc.getMap(key).get(id),val,
+   'pre-restart witness must have precise values');
+ }finally{
+  owner.close();witness.close();
+ }
+ await mf.dispose();mf=null;
+ await relay();
+ const joinedAt=Date.now();
+ const cold=await connect('cat',['cat:read']);
+ try{
+  await waitFor(()=>cold.doc.getMap(key).size===64,'blank cold client after process restart',8000);
+  const elapsed=Date.now()-joinedAt;
+  assert.equal(cold.doc.getMap(key).size,64);
+  assert.equal(cold.doc.store.pendingStructs,null,'no orphaned Yjs ancestors on cold join');
+  assert.equal(cold.doc.store.pendingDs,null,'no pending delete sets on cold join');
+  for(const [id,val] of expected)assert.deepEqual(cold.doc.getMap(key).get(id),val,
+   'cold join reconstructed all movement fields, not only counts');
+  assert.ok(elapsed<10000,'synthetic Workerd coldjoin has a bounded latency');
+ }finally{cold.close();}
+});

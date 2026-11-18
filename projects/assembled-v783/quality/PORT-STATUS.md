@@ -6,10 +6,18 @@ Fuente ejecutable de la calidad: [score-v1.json](score-v1.json) + [score.cjs](sc
 
 | Métrica | Hace una semana | Corte anterior 17-nov | Actual 17-nov | Meta |
 |---|---:|---:|---:|---:|
-| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 66.0/100 | **66.5/100** (±4 criterio; candidato QA) | ≥95 |
+| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 66.5/100 | **67.0/100** (±4 criterio; candidato combinado QA) | ≥95 |
 | Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **36.0/100** | 100 **y 6/6 gates** |
 
-Calidad +21.5 puntos estimados frente al 10-nov (45.0→66.5); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+Calidad +22.0 puntos estimados frente al 10-nov (45.0→67.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+
+## Calidad 67.0/100 · foto SHA real de cliente→emisor→Workerd, no certificado físico
+
+El eje de calidad **fotos/PWA** pasa 6.0→6.5/10 (+0.5), exclusivamente para el **candidato combinado de PR93**. [CI Workerd 13/13](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44202469976) SHA `9ead72edbf4a088147ac62ae082d6aee46313433`: cliente real `createPhotoShaBridge` con emisor HMAC Owner central y token 1-uso subió una imagen sintética >2MiB al SQL de Durable Object, publicó referencia `{sha,bytes,tipo}` a Yjs de catálogo que recibió otro YProvider, reinició Workerd y nuevo cliente descargó y verificó MIME/SHA exactos. Solo se simularon el transporte de URL navegador hacia Miniflare y los datos/PIN de identidad; **NO iPhone físico**. Los ocho blobs del agente foto fueron copiados sin editar byte ni modificar su rama reservada.
+
+El índice de calidad pasó RED [66.5!=67.0](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44202908908) a [GREEN 67.0](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44202983982), rubric 7 ejes/100 pesos inalterados. Calidad **67.0±4** vs baseline retrospectivo **45.0±5** hace una semana, +22.0.
+
+**Port se mantiene en 36.0/100, 0/6 GO**, pues `sync-yjs.js` sigue con `fotosDoc` Yjs de fallback si HTTP falla; falta probar no insertar blobs nuevos en Yjs bajo desconexión y recuperarlos desde un outbox durable y verificar PC Opera↔Safari iPhone. Este experimento NO da por certificado `yjs-sha-reference-only` 0/4 ni `photo-restore-cross-device` 0/3. Ninguna bandera o app real activada, producción sin cambios.
 
 ## Revisión calidad 66.5/100 · unión fría en ráfaga, NO físico
 
