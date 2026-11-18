@@ -9,6 +9,12 @@ export class CommercialFixture {
   }
   async fetch(req){
     const path=new URL(req.url).pathname;
+    if(path==='/inject-yjs-history'&&req.method==='POST'){
+      // Synthetic persisted Yjs op fragment: this route exists ONLY in QA.
+      this.sql.exec('CREATE TABLE IF NOT EXISTS diario (n INTEGER PRIMARY KEY AUTOINCREMENT, cambio BLOB)');
+      this.sql.exec('INSERT INTO diario (cambio) VALUES (?)',new Uint8Array([1,2,3]));
+      return Response.json({ok:true});
+    }
     if(path==='/seed'&&req.method==='POST'){
       try{
         const input=await req.json();
