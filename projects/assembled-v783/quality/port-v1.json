@@ -32,34 +32,62 @@
         {
           "id": "typed-sale-commit",
           "points": 5,
-          "done": false,
+          "done": true,
           "label": "Venta tipada aplicada exactamente una vez a dinero e inventario con opId",
-          "evidence": [],
-          "pendingReason": "Venta tipada aplicada exactamente una vez a dinero e inventario con opId"
+          "evidence": [
+            {
+              "sha": "8dd7bacf20be8f5c827e83111a6561bdb9394999",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248299332",
+              "claim": "PR115 exact SHA: real Tienda -ops router (src/index.js) on local Workerd SQL applies typed sale.record once by opId to stock and cash with business-committed receipt; replay returns same receipt; QA flag WS_BUSINESS_EXECUTOR_QA only, synthetic seeded baseline, not LIVE",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
         },
         {
           "id": "typed-adjust-commit",
           "points": 4,
-          "done": false,
+          "done": true,
           "label": "Ajuste de stock tipado con verificación comercial durable",
-          "evidence": [],
-          "pendingReason": "Ajuste de stock tipado con verificación comercial durable"
+          "evidence": [
+            {
+              "sha": "8dd7bacf20be8f5c827e83111a6561bdb9394999",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248299332",
+              "claim": "PR115 exact SHA: real -ops router applies Owner/Admin stock.adjust physical count by opId, durable across Workerd restart; employee denied 403; QA flag only, synthetic baseline",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
         },
         {
           "id": "typed-payment-commit",
           "points": 4,
-          "done": false,
+          "done": true,
           "label": "Cobro y fiado tipados aplicados duramente por principal autorizado",
-          "evidence": [],
-          "pendingReason": "Cobro y fiado tipados aplicados duramente por principal autorizado"
+          "evidence": [
+            {
+              "sha": "8dd7bacf20be8f5c827e83111a6561bdb9394999",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248299332",
+              "claim": "PR115 exact SHA: real -ops router applies credit.payment.record (cobro/abono a fiado) for Owner, Admin and employee with trusted receivable check; overpay rolled back, replay same receipt after restart; QA flag only, synthetic baseline",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
         },
         {
           "id": "business-committed-ack",
           "points": 3,
-          "done": false,
+          "done": true,
           "label": "ACK de hecho comercial aplicado, no solo stored-for-application",
-          "evidence": [],
-          "pendingReason": "ACK de hecho comercial aplicado, no solo stored-for-application"
+          "evidence": [
+            {
+              "sha": "8dd7bacf20be8f5c827e83111a6561bdb9394999",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248299332",
+              "claim": "PR115 exact SHA: real router returns business-committed receipt only after SQL effect in the same DO transaction; flag OFF keeps stored-for-application 202 and cobro 503; 12/12 Workerd tests green",
+              "type": "workerd-ci"
+            }
+          ],
+          "pendingReason": null
         }
       ]
     },

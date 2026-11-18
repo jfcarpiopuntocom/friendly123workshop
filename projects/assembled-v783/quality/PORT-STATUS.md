@@ -7,9 +7,13 @@ Fuente ejecutable de la calidad: [score-v1.json](score-v1.json) + [score.cjs](sc
 | Métrica | Hace una semana | Corte anterior 17-nov | Actual 17-nov | Meta |
 |---|---:|---:|---:|---:|
 | Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 66.5/100 | **67.0/100** (±4 criterio; candidato combinado QA) | ≥95 |
-| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **41.0/100** (main@2f3c34ed, evidencia PR #97 fusionada) | 100 **y 6/6 gates** |
+| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 41.0/100 | **57.0/100** (candidato PR #115, Gate A en router real, QA; sin fusionar) | 100 **y 6/6 gates** |
 
 Calidad +22.0 puntos estimados frente al 10-nov (45.0→67.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +14.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+
+## P0 Gate A · +16.0 al PORT solo en candidato PR #115 (QA Workerd, NO LIVE)
+
+**Criterio congelado:** stages `typed-sale-commit` 5, `typed-adjust-commit` 4, `typed-payment-commit` 4 y `business-committed-ack` 3; gate A 4→20/20, port 41→**57/100**. Sin pesos ni gates nuevos; **0/6 certificados, NO-GO**. [CI exacta 44248299332](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248299332) SHA `8dd7bacf20be8f5c827e83111a6561bdb9394999`, 12/12: el router real `src/index.js` aplica venta, ajuste y cobro con recibo `business-committed`; replay = mismo recibo tras reinicio; empleado cobra y no ajusta (403); cobro mayor al saldo se revierte; bandera `WS_BUSINESS_EXECUTOR_QA` OFF = 202/503 anterior. [RED del marcador](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248483003) esperaba 57 y calculó 41. Línea base sintética sembrada solo en prueba: la migración real Firebase→DO sigue pendiente.
 
 ## P0 Gate E · +5.0 al PORT solo en candidato PR #97 (QA nativo, NO físico)
 
