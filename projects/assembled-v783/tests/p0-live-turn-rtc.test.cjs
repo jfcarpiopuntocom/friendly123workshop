@@ -38,12 +38,23 @@ test('v787 LIVE: two separate browser contexts exchange binary over forced TURN-
       await page.addScriptTag({content:source});
       await page.evaluate(({turnServers,locate})=>{
         const Native=window.RTCPeerConnection;
+        const OriginalWebSocket=window.WebSocket;
+        const signal={sent:[],received:[],closed:[],iceErrors:[],candidates:[],rtcEvents:[]};
+        class ObservedWS extends OriginalWebSocket {
+          constructor(url){super(url);this.addEventListener('message',ev=>{try{const m=JSON.parse(ev.data);signal.received.push(m.k||'unknown');}catch{signal.received.push('nonjson');}});this.addEventListener('close',ev=>signal.closed.push(ev.code));}
+          send(value){try{const m=JSON.parse(value);signal.sent.push(m.k||'unknown');}catch{signal.sent.push('nonjson');}return super.send(value);}
+        }
         function RelayOnly(settings){
           const peer=new Native({...settings,iceTransportPolicy:'relay'});
           window.__nativePc=peer;
+          peer.addEventListener('icecandidateerror',ev=>signal.iceErrors.push({code:ev.errorCode,text:String(ev.errorText||'').slice(0,180)}));
+          peer.addEventListener('icecandidate',ev=>{if(ev.candidate)signal.candidates.push(ev.candidate.type||'unknown');});
+          peer.addEventListener('signalingstatechange',()=>signal.rtcEvents.push('signal:'+peer.signalingState));
+          peer.addEventListener('iceconnectionstatechange',()=>signal.rtcEvents.push('ice:'+peer.iceConnectionState));
           return peer;
         }
-        const transport=window.F123Peer.create({iceServers:turnServers,RTCPeerConnection:RelayOnly});
+        window.__signal=signal;
+        const transport=window.F123Peer.create({iceServers:turnServers,RTCPeerConnection:RelayOnly,WebSocket:ObservedWS});
         const socket=transport.connect(locate);
         const status={open:false,bytes:[],errors:[],closed:false};
         window.__probe={socket,status,transport};
@@ -57,7 +68,7 @@ test('v787 LIVE: two separate browser contexts exchange binary over forced TURN-
       pages.push(page);
     }
     try{
-      await Promise.all(pages.map(p=>p.waitForFunction(()=>window.__probe.status.open,{timeout:65000})));
+      await Promise.all(pages.map(p=>p.waitForFunction(()=>window.__probe.status.open,null,{timeout:70000})));
       const evidence=await Promise.all(pages.map(p=>p.evaluate(async()=>{
         const pc=window.__nativePc;
         const stats=await pc.getStats();
@@ -75,7 +86,7 @@ test('v787 LIVE: two separate browser contexts exchange binary over forced TURN-
       assert.deepEqual(bytes,[7,8,9,123]);
       console.log('LIVE TURN-ONLY RTC PASS:',JSON.stringify({contexts:2,localCandidateTypes:evidence.map(x=>x.localCandidateType),receivedBytes:bytes.length}));
     }catch(error){
-      const trace=await Promise.all(pages.map(p=>p.evaluate(()=>({socket:window.__probe?.status,rtc:window.__nativePc?{connectionState:window.__nativePc.connectionState,iceConnectionState:window.__nativePc.iceConnectionState,iceGatheringState:window.__nativePc.iceGatheringState}:null})).catch(e=>({error:e.message}))));
+      const trace=await Promise.all(pages.map(p=>p.evaluate(()=>({socket:window.__probe?.status,signal:window.__signal,rtc:window.__nativePc?{connectionState:window.__nativePc.connectionState,iceConnectionState:window.__nativePc.iceConnectionState,iceGatheringState:window.__nativePc.iceGatheringState,hasLocalDescription:!!window.__nativePc.localDescription,hasRemoteDescription:!!window.__nativePc.remoteDescription}:null})).catch(e=>({error:e.message}))));
       console.error('LIVE TURN-ONLY RTC DIAGNOSTIC:',JSON.stringify(trace));
       throw error;
     }finally{
