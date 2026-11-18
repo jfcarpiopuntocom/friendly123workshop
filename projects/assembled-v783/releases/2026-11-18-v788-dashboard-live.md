@@ -20,3 +20,6 @@
 3. Recorrido `union-fria` pendiente de resultado, mantener NO-GO solo para esa cualidad si resulta fallida; la interfaz v788 y canal sintético tienen evidencia independiente.
 
 No datos reales se escribieron mediante pruebas; release a producción autorizado por usuario en conversación.
+## Post-release cold-join result (later check, same commit)
+
+- [Release job 134999588342](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44359796502/job/134999588342) **FAIL** at `CANARIO_ERROR_ETAPA: RECUPERACION` after repeated encrypted Firebase pull pages. At 101s: `pullPaginas:22`, `pullFrames:4202`, `pullUltimaMas:true`, `pullHeads:0`, `catalogoRecuperando:true`, `padresFaltantes:9`, `metadatosOwner:false`; final stage says `lecturaDiagnosticoFallida:true`. This **inherited cold-join defect** is distinct from dashboard page availability and transient PIN/photographic transport. Current controlled acceptance: production dashboard interface and synthetic encrypted PIN/photo PASS; live full Yjs cold join FAIL, no GO assertion for that path.
