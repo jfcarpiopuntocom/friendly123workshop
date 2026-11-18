@@ -8,6 +8,7 @@ import { salaDeLicencia } from "./sala.js";
 import {secureMode,ticketRequest,askAuthority,askAuthorityBatch,unexpired} from "./ws-authority-client.js";
 import {photoShaStore,boundedPhotoBody} from "./photo-sha-storage.mjs";
 import {createTypedCommercialLedger} from "./typed-commercial-ledger.mjs";
+import {createBusinessSqlExecutor} from "./authoritative-business-sql.mjs";
 
 export { salaDeLicencia };
 
@@ -238,9 +239,13 @@ export class Tienda extends YServer {
             token:submitted,licenseCode,instanceId,room:this.name,requiredScope:scope
           });
           return signed?{ok:true,principal:signed.principal}:{ok:false};
-        }
-        // NO business executor injected: customer/receivable writes remain
-        // fail-closed, and even a stored sale never gets an applied ACK.
+        },
+        // New SQL commercial effects only if explicitly enabled in the QA DO.
+        // Without an independently certified initial business baseline this
+        // callback fails before returning any ACK; money stays on legacy.
+        applyBusiness:this.env.WS_BUSINESS_EXECUTOR_QA==='1'
+          ? createBusinessSqlExecutor({sql:this.ctx.storage.sql}) : null
+        // Customer/receivable authority is still absent: fail-closed.
       });
       const answer=await ledger.submit({ticket,command});
       const status=answer.ok&&answer.receipt?.stage==='stored-for-application'?202:answer.status;
