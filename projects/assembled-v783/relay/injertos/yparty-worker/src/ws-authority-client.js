@@ -11,7 +11,7 @@ function validatedAccess(data,access){
   const owner=p?.role==='dueno'&&p.subject==='owner-account';
   const teamIdentity=(p?.role==='empleado'||p?.role==='admin')&&
     typeof p.subject==='string'&&/^[A-Za-z0-9_-]{5,120}$/.test(p.subject);
-  const oneScope=Array.isArray(p.scopes)&&p.scopes.length===1;
+  const oneScope=Array.isArray(p?.scopes)&&p.scopes.length===1;
   const teamTypedSale=teamIdentity&&
     access.room.endsWith('-ops')&&access.requiredScope==='ops:sale'&&
     oneScope&&p.scopes[0]==='ops:sale';
