@@ -70,7 +70,7 @@ function tab(db,locks,opts={}){
   });
   this.outboxLockAvailable=()=>typeof navigator!=='undefined' && !!navigator.locks;
   `,ctx);
- return{read:()=>ctx.outboxRead(),queue:x=>ctx.outboxQueue(x),ack:id=>ctx.outboxAck(id),signals:durableSignals,lockAvailable:ctx.outboxLockAvailable,unsaved};
+ return{read:()=>ctx.outboxRead(),queue:x=>ctx.outboxQueue(x),ack:id=>ctx.outboxAck(id),signals:durableSignals,lockAvailable:ctx.outboxLockAvailable,unsaved:()=>ctx._unsaved};
 }
 const item=id=>({k:'op',id,c:'synthetic-ciphertext-'+id,group:id,fingerprint:'hash-'+id});
 const ids=queue=>Array.from(queue.pending,e=>String(e.id)).sort();
@@ -139,7 +139,7 @@ test('P0 no Web Locks: two actual IDB tabs durably append independent opIds unde
   await Promise.all([a.queue(item('nolock-A')),b.queue(item('nolock-B'))]);
   const cold=tab(db,undefined),saved=await cold.read();
   assert.deepEqual(ids(saved),['nolock-A','nolock-B'],'both records must survive without Web Locks');
-  assert.equal(a.unsaved.length,0);assert.equal(b.unsaved.length,0);
+  assert.equal(a.unsaved().length,0);assert.equal(b.unsaved().length,0);
  }finally{db.close();}
 });
 test('P0 no Web Locks: a stale writer may NEVER erase ACK tombstones while another appends',{timeout:9000},async()=>{
@@ -176,5 +176,5 @@ test('P0 no Web Locks: failed IDB write cannot claim durable opId or erase local
  db.close();
  await assert.rejects(a.queue(item('nolock-failed')));
  assert.equal(a.signals.length,0);
- assert.deepEqual(a.unsaved.map(x=>x.id),['nolock-failed']);
+ assert.deepEqual(a.unsaved().map(x=>x.id),['nolock-failed']);
 });
