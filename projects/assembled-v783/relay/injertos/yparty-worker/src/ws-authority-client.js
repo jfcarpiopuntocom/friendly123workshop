@@ -9,11 +9,19 @@ function validatedAccess(data,access){
   // handshake for -ops ALWAYS requests ops:read, so a Team sale ticket is
   // insufficient to open a Yjs socket or receive private economic bytes.
   const owner=p?.role==='dueno'&&p.subject==='owner-account';
-  const teamTypedSale=(p?.role==='empleado'||p?.role==='admin')&&
-    typeof p.subject==='string'&&/^[A-Za-z0-9_-]{5,120}$/.test(p.subject)&&
+  const teamIdentity=(p?.role==='empleado'||p?.role==='admin')&&
+    typeof p.subject==='string'&&/^[A-Za-z0-9_-]{5,120}$/.test(p.subject);
+  const oneScope=Array.isArray(p?.scopes)&&p.scopes.length===1;
+  const teamTypedSale=teamIdentity&&
     access.room.endsWith('-ops')&&access.requiredScope==='ops:sale'&&
-    Array.isArray(p.scopes)&&p.scopes.length===1&&p.scopes[0]==='ops:sale';
-  if(data?.ok!==true||!(owner||teamTypedSale)||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes(access.requiredScope))return null;
+    oneScope&&p.scopes[0]==='ops:sale';
+  // Employees can fetch immutable SHA photos only by a narrowly signed
+  // HTTP fotos:read capability. The router never upgrades -fotos to WebSocket
+  // and never accepts fotos:read on PUT. Private/Yjs rooms stay Owner-only.
+  const teamPhotoRead=teamIdentity&&
+    access.room.endsWith('-fotos')&&access.requiredScope==='fotos:read'&&
+    oneScope&&p.scopes[0]==='fotos:read';
+  if(data?.ok!==true||!(owner||teamTypedSale||teamPhotoRead)||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes(access.requiredScope))return null;
   return{...access,principal:p};
 }
 async function query(env,action,body){
