@@ -111,7 +111,7 @@ export function installBusinessBaseline({storage,proof}={}){
     return {already:false,sha256:proof.sha256};
   });
 }
-// Owner or Admin (JFC 2026-11-18). Employee has no adjust or payment grant.
+// Owner or Admin (JFC 2026-11-18). Employee may collect (payment) but never adjust.
 function ownerOrAdmin(p){
   return (p.role==='dueno'&&p.subject==='owner-account')||
     (p.role==='admin'&&/^[A-Za-z0-9_-]{5,120}$/.test(p.subject||''));
@@ -138,12 +138,12 @@ function applyCount({sql,txSql,command,principal}){
 }
 // Cobro / abono a fiado: 1..balance cents, reduces the receivable and adds cash
 // in the same transaction. Effect row reuses product_id for the receivable id.
-// shortcut: Owner-only here; no issuer ceiling grants ops:payment yet, widen after JFC rules it.
+// Owner, Admin and employee may collect (JFC 2026-11-18).
 function applyPayment({sql,txSql,command,principal}){
   if(txSql!==sql||!LICENSE.test(command.license||'')||!IDENT.test(command.receivableId||'')||
      !int(command.amountCents)||command.amountCents<1||
      !principal||principal.license!==command.license||
-     principal.role!=='dueno'||principal.subject!=='owner-account'||
+     !(ownerOrAdmin(principal)||(principal.role==='empleado'&&/^[A-Za-z0-9_-]{5,120}$/.test(principal.subject||'')))||
      !Array.isArray(principal.scopes)||!principal.scopes.includes('ops:payment'))
     fail('unsupported command or principal');
   const baseline=sql.exec('SELECT cash_cents FROM f123_business_baseline WHERE license = ?',command.license).toArray()[0];
