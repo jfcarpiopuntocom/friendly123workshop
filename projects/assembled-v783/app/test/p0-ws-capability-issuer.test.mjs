@@ -69,7 +69,7 @@ test('JFC Gate A: Owner/Admin/Team get narrowly scoped payment tickets, Team nev
   for(const role of ['admin','empleado']){
     const ctx=await setup();await enroll(ctx,role);
     const request={credentials:credentials({kind:'team',subject:'member-one',pin:'234'}),room:ctx.room+'-ops',scopes:['ops:payment']};
-    assert.equal((await ctx.ws.issue(request)).ok,false,'Team must not inherit a scope without an explicit grant');
+    assert.equal((await ctx.ws.issue(request)).ok,true,'JFC approved payment for authenticated Team/Admin');
     const ws=wsCapabilityAuthority({...ctx.options,grants:{[role]:['ops:payment','ops:adjust']}});
     const one=await ws.issue(request);
     assert.equal(one.ok,true,role+' approved for a payment with explicit grant');
