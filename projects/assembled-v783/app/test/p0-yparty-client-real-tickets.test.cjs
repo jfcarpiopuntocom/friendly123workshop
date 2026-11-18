@@ -12,7 +12,7 @@ const room='a'.repeat(32);
 const tick=()=>new Promise(r=>setImmediate(r));
 
 function pilotHarness({role='dueno',pin='123',hidden=false,owned=true}={}){
- const requests=[],providers=[],fallbacks=[];let currentPin=pin,currentRole=role;
+ const requests=[],providers=[],fallbacks=[],timers=[];let currentPin=pin,currentRole=role;
  class FakeAuthorizedProvider{
   constructor(host,roomName,doc,options){this.host=host;this.room=roomName;this.doc=doc;this.options=options;
    this.synced=false;this.ws=null;this.events={};providers.push(this);
@@ -29,7 +29,7 @@ function pilotHarness({role='dueno',pin='123',hidden=false,owned=true}={}){
    Y:{encodeStateAsUpdate(){return new Uint8Array([1]);}}
  },document:{hidden},localStorage:{getItem(k){return k==='f123_owned'&&owned?JSON.stringify({licenseCode:license,instanceId:instance}):null;}},
   crypto:require('node:crypto').webcrypto,
-  setTimeout(){return 1;},clearTimeout(){},Uint8Array,Array,Promise,JSON,
+  setTimeout(fn,delay){timers.push({fn,delay,cancelled:false});return timers.length;},clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true;},Uint8Array,Array,Promise,JSON,
   AuthorizedYProvider:FakeAuthorizedProvider,
   createOwnerTicketParams(args){
    requests.push(args);
@@ -38,7 +38,7 @@ function pilotHarness({role='dueno',pin='123',hidden=false,owned=true}={}){
  const body=src.split('\n').filter(line=>!/^import /.test(line)).join('\n');
  vm.runInNewContext(body,ctx,{filename:'yparty-piloto.js'});
  const doc={store:{pendingStructs:null,pendingDs:null},isDestroyed:false,on(){},once(){},off(){}};
- return {ctx,requests,providers,fallbacks,
+ return {ctx,requests,providers,fallbacks,timers,
   get PIN(){return currentPin;},set PIN(v){currentPin=v;},
   set role(v){currentRole=v;},
   create(type='cat'){
@@ -51,21 +51,40 @@ test('pilot imports the established AuthorizedYProvider; never constructs bare Y
  assert.match(src,/import \{\s*createOwnerTicketParams\s*\} from ['"]\.\/ws-owner-ticket-params\.mjs['"]/);
  assert.doesNotMatch(src,/new YProvider\(/);
 });
-test('pilot cat and ops create one authorized provider per independent room and live Owner credentials per ticket',{timeout:5000},async()=>{
+test('bridge A: only Owner catalog opens secure YParty; ALL ops sales stay on proven encrypted relay',{timeout:5000},async()=>{
  const f=pilotHarness();
  const cat=f.create('cat'),ops=f.create('ops');
  cat.conectar();ops.conectar();await tick();
- assert.equal(f.providers.length,2);
- assert.deepEqual(f.providers.map(p=>p.room),[room+'-cat',room+'-ops']);
- assert.ok(f.providers.every(p=>typeof p.options.params==='function'&&p.options.disableBc===true));
- assert.equal(f.requests.length,2);
+ assert.equal(f.providers.length,1,'ops must NOT open a read-only economic WebSocket');
+ assert.deepEqual(f.providers.map(p=>p.room),[room+'-cat']);
+ assert.equal(f.requests.length,1);
  assert.equal(f.requests[0].room,room+'-cat');
- assert.equal(f.requests[1].room,room+'-ops');
  assert.equal(f.requests[0].getCredentials().pin,'123');
  f.PIN='149';
- assert.equal(f.requests[1].getCredentials().pin,'149','PIN must be read live from existing session on next ticket');
- assert.ok(f.providers.every(p=>p.options.connect===false));
- assert.equal(f.fallbacks.length,0);
+ assert.equal(f.requests[0].getCredentials().pin,'149','PIN read live on next catalog ticket');
+ assert.equal(f.providers[0].options.connect,false);
+ assert.equal(f.providers[0].options.disableBc,true);
+ assert.deepEqual(f.fallbacks,['ops'],'every Owner sale must remain publishable by the old encrypted path');
+ assert.equal(ops.proveedor,null);
+});
+test('bridge A: signed catalog rejection immediately releases socket and returns to old relay',{timeout:5000},async()=>{
+ const f=pilotHarness(),cat=f.create('cat');cat.conectar();await tick();
+ assert.equal(f.providers.length,1);
+ assert.ok(f.timers.some(t=>t.delay>0&&t.delay<8000),
+   'new catalog sync must have a strict <8s failback deadline');
+ assert.equal(typeof f.providers[0].events['authorization-error']?.[0],'function');
+ f.providers[0].events['authorization-error'][0]([{reason:'connection-not-confirmed'}]);
+ assert.deepEqual(f.fallbacks,['cat']);
+ assert.equal(f.providers[0].destroyed,true);
+ assert.equal(cat.proveedor,null);
+});
+test('bridge A: stalled catalog sync switches to old relay before eight seconds',{timeout:5000},async()=>{
+ const f=pilotHarness(),cat=f.create('cat');cat.conectar();await tick();
+ const timeout=f.timers.find(t=>t.delay>0&&t.delay<8000);
+ assert.ok(timeout,'catalog fallback deadline <8s is configured');
+ timeout.fn();
+ assert.deepEqual(f.fallbacks,['cat']);
+ assert.equal(cat.proveedor,null,'no abandoned provider beside legacy relay');
 });
 test('pilot never opens YParty without a live Owner PIN; photos stay on encrypted legacy relay',{timeout:5000},async()=>{
  const f=pilotHarness({pin:null});
