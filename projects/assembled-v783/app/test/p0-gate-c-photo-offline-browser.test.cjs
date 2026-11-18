@@ -12,6 +12,8 @@ const docs=path.join(__dirname,'../docs');
 const src=fs.readFileSync(path.join(docs,'sync-yjs.js'),'utf8');
 const cut=(a,b)=>{const i=src.indexOf(a),j=src.indexOf(b,i);assert.ok(i>0&&j>i,'exact source block '+a.trim());return src.slice(i,j);};
 const seed=cut('  var _fotosSembradas =','  /* SEMBRAR VENTAS');
+// Exact reconnect hook line (absent before GREEN: then the writer never drains its outbox).
+const onlineHook=(src.match(/^  window\.addEventListener\("online", function \(\) \{ if \(API\.fotoSha\) sembrarFotosAlRelay\(\); \}\);.*$/m)||[''])[0];
 const readThrough=cut('    if (API.fotoSha && window.OCFotos?.leerPorHash','    if (API.fotosRefs?.observe)');
 const raw=Buffer.alloc(300*1024);for(let i=0;i<raw.length;i++)raw[i]=(i*31+7)&255;
 const dataUrl='data:image/png;base64,'+raw.toString('base64');
@@ -65,7 +67,7 @@ for(const [writerName,writer,readerName,reader] of [['Chromium',chromium,'WebKit
    const ctxW=await bw.newContext(),w=await ctxW.newPage();
    await w.goto(s.url);
    assert.equal(await w.evaluate(({hash,dataUrl})=>OCFotos.guardarPorHash(hash,dataUrl),{hash,dataUrl}),true);
-   await install(w,[seed]);
+   await install(w,[seed,onlineHook]);
    await ctxW.setOffline(true);
    await w.evaluate(()=>sembrarFotosAlRelay());
    await w.waitForFunction(()=>window.__puts>=1&&!_fotosSembrando);
@@ -76,7 +78,7 @@ for(const [writerName,writer,readerName,reader] of [['Chromium',chromium,'WebKit
    await ctxW.setOffline(false);
    // Restart the writer: the photo survives only in its durable IndexedDB outbox.
    await w.reload();
-   await install(w,[seed]);
+   await install(w,[seed,onlineHook]);
    s.setOffline(false);
    await w.evaluate(()=>window.dispatchEvent(new Event('online')));
    await w.waitForFunction(h=>!!API.fotosRefs.get(h),hash,{timeout:20000});
