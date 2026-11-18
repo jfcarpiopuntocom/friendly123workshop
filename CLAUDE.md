@@ -1,3 +1,5 @@
+> **JFC 18-NOV-2026 · Regla inmediata de comunicación:** leer AGENTS.md. En P0, responder principalmente con evidencia nueva y acción ejecutada. No gastar texto en explicar qué no se hará, disclaimers repetidos, ceremonias ni fórmulas de empatía. Un solo bloqueo, un solo parche Ponytail, Superpowers RED→GREEN→servicio vivo, y registrar SHA/CI. Diferenciar código/test/producción/hardware real. No solicitar al usuario acciones manuales de QA.
+
 > Actualización JFC · 16 nov 2026: leer primero [AGENTS.md](AGENTS.md) y [projects/assembled-v783/START-HERE.md](projects/assembled-v783/START-HERE.md). Este repo es el taller común; las órdenes actuales allí sustituyen las notas históricas incompatibles. No sobrescribir la app de la raíz.
 
 # CLAUDE.md — léeme entero antes de planificar o tocar código
