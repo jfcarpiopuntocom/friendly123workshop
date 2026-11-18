@@ -76,7 +76,8 @@ async function install(page,name,noLocks){
        ack:async id=>mutarOutbox(function(){
          _outbox.pending=_outbox.pending.filter(entry=>entry.id!==id);
          if(!_outbox.confirmed.includes(id))_outbox.confirmed.push(id);
-       })
+       }),
+       pending:()=>_unsaved.map(x=>x.id)
      };`);
   const adapter={db,_db:Promise.resolve(db),get,set};
   const lib=mk({rollout:{outboxV2:true},roomId:'synthetic-room'},'-y',adapter,IDBKeyRange,
@@ -85,7 +86,7 @@ async function install(page,name,noLocks){
    ()=>signals.push('commit'),()=>{},localStorage,window,CustomEvent);
   window.__f123GateE={
    read:()=>lib.read(),queue:e=>lib.queue(e),ack:id=>lib.ack(id),
-   pending:()=>unsaved.map(x=>x.id),signals:()=>signals.length,
+   pending:()=>lib.pending(),signals:()=>signals.length,
    close:()=>db.close(),hasNativeLocks:()=>!!navigator.locks
   };
  },{name,actual,noLocks});
