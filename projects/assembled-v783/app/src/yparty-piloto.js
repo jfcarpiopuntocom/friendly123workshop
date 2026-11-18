@@ -36,6 +36,7 @@ window.F123YPartyPilot = function (sala, licencia) {
     canal(doc, tipo, idb, aplicar, usarRelayHabitual) {
       let plazo = null;
       let revision = 0;
+      let enRespaldo = false; // Visibility restores legacy, never creates a competing catalog writer.
       const canal = {
         proveedor: null,
         recuperando: true,
@@ -110,13 +111,13 @@ window.F123YPartyPilot = function (sala, licencia) {
             if (String(owned?.licenseCode || '').trim().toUpperCase() === licencia) instancia = owned.instanceId;
           } catch (_) {}
           if (!/^[A-Za-z0-9_-]{6,128}$/.test(instancia || '')) {
-            usarRelayHabitual(); return;
+            enRespaldo = true; usarRelayHabitual(); return;
           }
           // The private owner path deliberately handles only the channels for
           // which server-side one-use tickets exist. Never pipe photo bytes to
           // an unauthorized/private Yjs room; keep the encrypted old relay.
           if (tipo !== 'cat') { // Money remains on the proven encrypted legacy relay until a real business ACK exists.
-            usarRelayHabitual(); return;
+            enRespaldo = true; usarRelayHabitual(); return;
           }
           const getCredentials = () => {
             let owned;
@@ -137,12 +138,13 @@ window.F123YPartyPilot = function (sala, licencia) {
             params = createOwnerTicketParams({
               licenseCode:licencia,instanceId:instancia,room:sala+'-'+tipo,getCredentials
             });
-          } catch (_) { usarRelayHabitual(); return; }
+          } catch (_) { enRespaldo = true; usarRelayHabitual(); return; }
           const proveedor = new AuthorizedYProvider(host, sala + '-' + tipo, doc, {
             party:'tienda',params,disableBc:true,connect:false,
             maxBackoffTime:plazoReconectar
           });
           canal.proveedor = proveedor;
+          enRespaldo = false;
           esperarConexion(proveedor);
           proveedor.on('authorization-error', () => volverAlRelay(proveedor));
           proveedor.on('status', ({ status }) => {
@@ -169,6 +171,7 @@ window.F123YPartyPilot = function (sala, licencia) {
         if (canal.proveedor !== proveedor) return;
         // No uncommitted local Y.Doc or encrypted outbox is discarded.
         canal.proveedor = null;
+        enRespaldo = true;
         cancelarPlazo();
         try { proveedor.destroy(); } catch (_) {}
         usarRelayHabitual();
@@ -188,7 +191,18 @@ window.F123YPartyPilot = function (sala, licencia) {
       }
       doc.on('update', () => { revision++; completar(); });
       if (idb) idb.once('synced', completar);
-      doc.once('destroy', canal.pausar);
+      // Safari/PWA and Android can restore without a fresh app bootstrap.
+      // A previously failed catalog is already on legacy: never spawn a
+      // second writer on foreground; explicit, verified rejoin remains allowed.
+      function alVolverVisible() {
+        if (document.hidden) { canal.pausar(); return; }
+        if (!enRespaldo && !doc.isDestroyed) canal.conectar();
+      }
+      document.addEventListener('visibilitychange', alVolverVisible);
+      doc.once('destroy', () => {
+        document.removeEventListener('visibilitychange', alVolverVisible);
+        canal.pausar();
+      });
       canal.reanudar = canal.conectar;
       return canal;
     }
