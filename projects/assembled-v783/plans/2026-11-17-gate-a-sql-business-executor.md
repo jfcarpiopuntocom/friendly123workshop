@@ -1,0 +1,28 @@
+# Gate A · SQL business-committed REAL, contra false ACK · Opus 5.5 / Ponytail
+**Fecha Ecuador 17 nov 2026 · plan guardado ANTES de cualquier cambio de código.**
+**Repositorio exclusivo:** jfcarpiopuntocom/friendly123workshop, base main@1680bfecbc7af27f02b68890fb5b8bf2a60f5646. Rama feat/20261117-gate-a-sql-business-executor.
+
+## Especificación y límite
+- Guía Opus [seis gates A20 B20 C10 D25 E10 F15](https://app.notion.com/p/41b1642b67f381fbab5cf45ac55aabd3), sin agregar stages. Marcadores base: quality 67.0/100, port 41.0/100, GO 0/6. No atribuir aumento a una unidad no cableada/real-física.
+- Bloqueo del negocio exacto: `src/index.js` dentro de sala `-ops` llama `createTypedCommercialLedger` sin `applyBusiness`, devuelve 202 "stored-for-application", NEVER stock/cash applied. Ya hay ledger server-side transaccional que promueve pending→business-committed bajo adapter SIN doble efecto, tests Workerd sintéticos GREEN. El cliente `yparty-piloto.js` conserva dinero en viejo relay hasta que negocio nuevo sea seguro. No cambiarlo aquí.
+- **No asumir inventario inicial**: sin una base económica preimportada, SQL no puede aplicar nada. Otro DO `-cat` tiene Yjs pero no comparte transacción SQL de `-ops`. La pieza propuesta rechaza sin baseline, no inventa existencia ni hace stock negativo por descuido.
+- Respetar reservas de foto/browser, sync-yjs, outbox, autoridad central. Worker `src/index.js` reserva anterior MERGED y Liberada (confirmado en Notion). No modificar cliente ni LIVE ni activar flags de producción.
+
+## Cambio mínimo completo
+1. Nueva unidad server-only `src/authoritative-business-sql.mjs`:
+   - `prepareBusinessBaseline`: recibir lista exacta de productos {productId, quantity} y cashCents y frozenHead, licencia; verificar SHA-256 contra digest externo **de fuente congelada medido independientemente**. Devolver proof inforjable por API usando WeakMap de bytes/snapshot. Sin endpoint público ni PIN.
+   - `installBusinessBaseline`: insertar de una vez snapshot canónico en el DO `-ops` con SQL transactionSync; rechazar storage con operaciones económicas previas / estado conflictivo, cualquier re-siembra distinta, cantidades negativas, cash no integer, duplicados; readback comprobado. Firma de SHA no certifica existencia de todos los padres Firebase: prerequisite del gate D.
+   - `createBusinessSqlExecutor`: callback SYNCHRONOUS para `typed-commercial-ledger`, venta `sale.record` únicamente en primera unidad; verificar principal/ licencia y existencia antes de disminuir qty, sumar cashCents seguro, efecto opId append-only, rollback íntegro si falta stock o total supera safe integer. Ajustes/expenses/pagos NO deben ser aceptados como committed sin contrato/importación específico; permanecen pendientes o fallan de forma segura.
+2. En `src/index.js`, añadir import y conectar `applyBusiness: this.env.WS_BUSINESS_EXECUTOR_QA==='1' ? createBusinessSqlExecutor({sql:this.ctx.storage.sql}) : null`, junto a las flags anteriores de QA. El nuevo flag OFF por defecto. Conserva 202 anterior, cuando ON sin baseline retorna 503 sin ACK y SQL rollback. El futuro importer deberá llamar internamente installBaseline; NO se expone ruta de siembra HTTP. Si una venta anterior estaba en inbox sin ejecutar, la reenvía con el mismo opId y se promueve atómicamente solo si baseline está presente.
+3. RED→GREEN: prueba Node sobre código real (ESM import), luego Workerd Miniflare SQLite real: baseline seed, 1 venta real 200 business-committed, reload/retry exact-once, post-failure rollback, stock insuficiente, unauthorized, mismatch SHA, conflict baseline, shell flag OFF yields 202. No usar mocks para transacción.
+4. CI sin deploy: nuevo workflow focal en PR, ejecutar tests Workerd y smoke `p0-secure-separate-rooms.test.mjs` para asegurar no se abrió acceso Yjs Team; si CI histórico tiene rojos previos, separar causalidad.
+
+## Límites inamovibles
+Esto NO constituye importación real Firebase, NO es cuenta de tienda real, NO reemplaza el backend comercial legado, NO implementa ajuste/pago, NO acredita gate A 20/20 ni GO. Al activar 2.0 para usuarios solo tras D completo con baseline/certificado, B/C/E/F verificadas, y autorización de JFC. Rollback: retirar flag QA y la rama, sin escribir producción. La nueva tabla no toca Yjs ni fuentes migradas. Guardar SHA/CI/Notion antes de cambiar de contexto.
+
+## Seguridad hallada antes del siguiente parche, mismo gate A
+- La sala -ops de YParty puede guardar historia previa en tablas documento/documento_bloques/diario/diario_bloques o certificado f123_frozen_imports. Aunque todavía NO tenga typed_commercial_ops, sembrar stock/caja como si la tienda estuviese vacía permitiría después re-aplicar ventas históricas por nuevos opIds: potencial doble descuento/doble caja.
+- Añadir test Workerd RED en QA fixture de inyección sintética de un frame de diario existente. Debe rechazar installBusinessBaseline y jamás escribir stock/caja ni ACK.
+- Ponytail: impedir NUEVA siembra cuando cualquiera de las cuatro tablas de estado Yjs tenga filas; también cuando existe f123_frozen_imports pendiente de reconciliación. Permitir explícitamente una sala vacía, y mantener el retry idempotente del certificado empresarial ya instalado (las ventas posteriores nunca se resiembran). 
+- El cutover de historial real requerirá conciliación explícita entre fuente económica, IDs y YAML Yjs en el gate D aprobado. No intentar convertir el importador certificado previo en un certificado económico mágico ni borrar historial.
+- Revalidar tests del Worker actual 3/3 y secure rooms con bandera OFF. No subir score por el guard.
