@@ -1,0 +1,47 @@
+name: Gate A · Owner Admin Team payment scopes and SQL exact-once (QA only)
+on:
+  pull_request:
+    branches: [main, claude/gate-a-cobro]
+    paths:
+      - projects/assembled-v783/app/cloudflare-worker/ws-capability-issuer.mjs
+      - projects/assembled-v783/app/test/p0-ws-capability-issuer.test.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/ws-authority-client.js
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/authoritative-business-sql.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-gate-a-payment-roles.test.mjs
+      - .github/workflows/qa-gate-a-payment-roles.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  issuer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert central ticket roles on actual issuer source
+        working-directory: projects/assembled-v783/app
+        run: node --test test/p0-ws-capability-issuer.test.mjs
+  sql-and-relay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing locked QA dependencies
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate unchanged source syntax and real Workerd SQLite
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: |
+          node --check src/ws-authority-client.js
+          node --check src/authoritative-business-sql.mjs
+          node --test --test-concurrency=1 qa/p0-gate-a-payment-roles.test.mjs qa/p0-gate-a-typed-payment-sql.test.mjs
