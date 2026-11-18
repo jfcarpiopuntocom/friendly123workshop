@@ -17,3 +17,12 @@
 - No real license, real PIN, photos, customer records or telemetry in repository or tests.
 - No PIN reset, no changed crypto verifier, no customer data writes, no opId/outbox mutations.
 - Keep `previo` rollback, preserve one shop per license. If remote denies / times out, deny UI. No false 100% claim without physical Safari.
+
+## Evidence checkpoint (18 Nov 2026)
+- Plan pre-code committed workshop `1d30c0b8`.
+- RED real-source login handler [Actions #44372125998](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44372125998): 2 new failures on baseline where local verifier immediately rejected and did not ask remote Owner. Existing 7 local/tenant tests passed.
+- GREEN source-extracted 14-case focused check [Actions #44372776443](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44372776443): SUCCESS (includes official esbuild bundle parity and shell check). Requires remote affirmative reply; wrong PIN, no peer, local lockout and different license do not unlock. Admin positive synthetic peer included.
+- Exact-head [P0 Hotfix Gate #44372776424](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44372776424) SUCCESS and [Release continuity #44372776490](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44372776490) SUCCESS on `48806436df9923ac8ea186ed0609918ff9c0e401`.
+- PR [#763](https://github.com/jfcarpiopuntocom/friendly-123/pull/763) merged into master at `c9c1beef7b635bfd73a618eb394fc819738750ee`; changed only dashboard source/bundle, release artifacts and synthetic tests/workflow. Official generated manifest v0.7.90 / shell v790 / golden326.
+- Production hotfix [#44373285783](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44373285783) triggered on merge; record final deploy status separately when complete.
+- Physical Owner Safari acceptance of real JFC license and commercial amounts UNKNOWN (requires observation in the user's Safari). No customer secret persisted in test, PR, plan, or logs.
