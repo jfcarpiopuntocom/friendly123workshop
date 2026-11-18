@@ -31,3 +31,11 @@ test('compiled bundle leaves fotos on encrypted fallback even when Owner session
  const b=browserStub('123');assert.equal(b.connect('fotos').proveedor,null);
  assert.deepEqual(b.fallback,['fotos']);
 });
+
+test('bridge A actual served browser bundle never opens read-only new -ops for an Owner sale',{timeout:3000},()=>{
+ const b=browserStub('123');
+ const economic=b.connect('ops');
+ assert.equal(economic.proveedor,null);
+ assert.deepEqual(b.fallback,['ops'],
+   'money stays on the previously functioning encrypted relay until business-committed exists');
+});
