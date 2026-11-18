@@ -15,6 +15,10 @@ Calidad +22.0 puntos estimados frente al 10-nov (45.0→67.0); puntuación ingen
 
 **Criterio congelado:** stages `typed-sale-commit` 5, `typed-adjust-commit` 4, `typed-payment-commit` 4 y `business-committed-ack` 3; gate A 4→20/20, port 41→**57/100**. Sin pesos ni gates nuevos; **0/6 certificados, NO-GO**. [CI exacta 44248299332](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248299332) SHA `8dd7bacf20be8f5c827e83111a6561bdb9394999`, 12/12: el router real `src/index.js` aplica venta, ajuste y cobro con recibo `business-committed`; replay = mismo recibo tras reinicio; empleado cobra y no ajusta (403); cobro mayor al saldo se revierte; bandera `WS_BUSINESS_EXECUTOR_QA` OFF = 202/503 anterior. [RED del marcador](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44248483003) esperaba 57 y calculó 41. Línea base sintética sembrada solo en prueba: la migración real Firebase→DO sigue pendiente.
 
+## P0 Gate A · +16.0 al PORT (18-nov, main@fc5129d)
+
+PR #112 (ajuste `stock.adjust` tipado), #113 (cobro/abono a fiado tipado + `ops:adjust` Owner/Admin) y #115 (router real aplica venta, ajuste y cobro con recibo bajo `WS_BUSINESS_EXECUTOR_QA`, OFF por defecto; `ops:payment` Owner/Admin/Team por decisión de JFC) fusionadas. Gate A 4→20/20; port 41→**57/100**, calculado con `node port.cjs` sobre main. Base comercial sintética sembrada en pruebas; **0/6 gates certificados, NO-GO**; nada activado en producción.
+
 ## P0 Gate E · +5.0 al PORT solo en candidato PR #97 (QA nativo, NO físico)
 
 **Criterio congelado:** stage `idb-outbox-web-locks` 0→5/5, gate E 3→8/10; total port 36→**41/100** y calidad **67/100 sin cambios**. Ninguna nueva etapa, ningún peso nuevo; **0/6 gates certificados, NO-GO**. `port-v1.json` identifica el commit exacto de fuente probado `b864461e804b4b0fda28beb019d68a9a216082b9`.
@@ -47,13 +51,13 @@ No cambiaron ejes, pesos ni seis gates. **+0.5** en durabilidad (16.0→16.5/20)
 
 | Gate JFC/Opus | Máximo | Hitos comprobados | Restante |
 |---|---:|---:|---:|
-| A. Empleado denegado raw Yjs; venta, ajuste, cobro tipados opId con ACK comercial | 20 | 4.0 | 16.0 |
+| A. Empleado denegado raw Yjs; venta, ajuste, cobro tipados opId con ACK comercial | 20 | **20.0** | **0.0** |
 | B. Emisor Owner/Team; ingreso firmado por canal y reconexión; revocación | 20 | **16.0** | **4.0** |
 | C. Foto como blob SHA fuera de Yjs | 10 | **3.0** | **7.0** |
 | D. Firebase→DO→Firebase completo, SHA, sin padres pendientes | 25 | 10.0 | 15.0 |
 | E. Web Locks outbox y recuperación iPhone | 10 | 8.0 | 2.0 |
 | F. Dos ciclos físicos Opera PC↔Safari iPhone A→B→A | 15 | 0.0 | 15.0 |
-| **TOTAL** | **100** | **41.0** | **59.0** |
+| **TOTAL** | **100** | **57.0** | **43.0** |
 
 ### C1 · foto SHA Workerd SQL +3/100 acreditado (NO gate C completo)
 
