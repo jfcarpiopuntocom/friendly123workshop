@@ -29,3 +29,9 @@ Dashboard source+official generated bundle+release identity only, plus tests/wor
 - Source, official generated bundle and manifest `v0.7.91 / f123-shell-v791 / golden327`; strict static host inventory expanded *only* for the dashboard's Owner `/pin/verify`. Existing WebKit, finance and authenticated broadcast suites green on candidate.
 - Merge production deploy [hotfix #44380915291](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44380915291) triggered, status pending at checkpoint. Do not claim live until Pages proven.
 - Physical Safari Owner acceptance and role classification of the alternate PIN must be independently observed by JFC; tests use only synthetic credentials.
+
+## Production seal after merge
+- [Hotfix + GitHub Pages](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44380915291) promoted `estable` and completed site build/deploy from merge `ea6c173aa1d708cb9cbf2561044455e21c733e5a`: SUCCESS at the checked stage.
+- Exact public no-cache GET 200 for `version.json` v0.7.91, `dashboard.html` visible Dashboard v0.7.91, `dashboard-main.min.js` with canonical HTTPS Owner `/pin/verify`, `sw.js` f123-shell-v791. Report generated under `docs/ops/P0-safari-dashboard-owner-v791-QA.md`.
+- Post-release Chromium/WebKit `recorrido / recorrer` and independent cold-join `recorrido / union-fria` were still running at this checkpoint; track their final conclusions separately.
+- The final real Safari acceptance is only proven by the owner's new report of both roles using the correct same shop and numbers; no synthetic PASS substitutes for physical PIN access.
