@@ -9,9 +9,9 @@ const quality=JSON.parse(fs.readFileSync(path.join(parent,'score-v1.json'),'utf8
 const {assessPort,formatDual,inspectClientWire}=require('./port.cjs');
 const {evaluate}=require('./score.cjs');
 
-test('two distinct numbers: quality 67.0 and evidence-credited port 41.0',()=>{
+test('two distinct numbers: quality 67.0 and evidence-credited port 57.0',()=>{
  const p=assessPort(data),q=evaluate(quality);
- assert.equal(p.score,41.0);
+ assert.equal(p.score,57.0);
  assert.equal(q.current,67.0);
  assert.equal(p.maximum,100);
  assert.equal(p.gatesPassed,0);
@@ -21,14 +21,14 @@ test('two distinct numbers: quality 67.0 and evidence-credited port 41.0',()=>{
  assert.equal(p.reviewedSha,'b864461e804b4b0fda28beb019d68a9a216082b9');
  const report=formatDual({port:p,quality:q});
  assert.match(report,/67\.0\/100/);
- assert.match(report,/41\.0\/100/);
+ assert.match(report,/57\.0\/100/);
  assert.match(report,/45\.0\/100/);
  assert.match(report,/NO-GO/);
 });
 test('six JFC gates are immutable and sum to exactly 100 with fixed stages',()=>{
  const result=assessPort(data);
  assert.deepEqual(result.gates.map(g=>[g.id,g.weight,g.earned]),[
-  ['economics',20,4],['identity',20,16],['photos',10,3],
+  ['economics',20,20],['identity',20,16],['photos',10,3],
   ['migration',25,10],['mobile',10,8],['physical',15,0]
  ]);
  assert.ok(result.gates.every(g=>g.certified===false));
@@ -79,6 +79,7 @@ test('Option A actual client signs catalog-only YParty and keeps money on legacy
 });
 test('port gate cannot be certified before every declared stage has evidence and completion',()=>{
  const copy=structuredClone(data);
- copy.gates[0].certified=true;
+ // Economics stages are all evidenced now; use a gate that is still incomplete.
+ copy.gates.find(g=>g.stages.some(s=>!s.done)).certified=true;
  assert.throws(()=>assessPort(copy),/incomplete|certifi/i);
 });

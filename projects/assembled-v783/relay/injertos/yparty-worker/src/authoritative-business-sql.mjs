@@ -18,7 +18,7 @@ async function hash(text){
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256',data))]
     .map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
-function normalize({license,frozenHead,products,openingCashCents}){
+function normalize({license,frozenHead,products,openingCashCents,receivables}){
   if(!LICENSE.test(license||'')||!HEAD.test(frozenHead||'')||
      !Array.isArray(products)||!products.length||products.length>100000||
      !int(openingCashCents))fail('invalid independently anchored business baseline');
@@ -31,7 +31,17 @@ function normalize({license,frozenHead,products,openingCashCents}){
     seen.add(p.productId);
     return {productId:p.productId,quantity:p.quantity,unitPriceCents:p.unitPriceCents};
   }).sort((a,b)=>a.productId<b.productId?-1:a.productId>b.productId?1:0);
-  return {license,frozenHead,products:ordered,openingCashCents};
+  // Optional open fiados; omitted when absent so older certificates keep their hash.
+  if(receivables===undefined)return {license,frozenHead,products:ordered,openingCashCents};
+  const ids=new Set();
+  if(!Array.isArray(receivables)||receivables.length>100000)fail('invalid receivables');
+  const open=receivables.map(r=>{
+    if(!r||!IDENT.test(r.receivableId||'')||!int(r.balanceCents)||ids.has(r.receivableId))
+      fail('invalid or duplicate receivable');
+    ids.add(r.receivableId);
+    return {receivableId:r.receivableId,balanceCents:r.balanceCents};
+  }).sort((a,b)=>a.receivableId<b.receivableId?-1:a.receivableId>b.receivableId?1:0);
+  return {license,frozenHead,products:ordered,openingCashCents,receivables:open};
 }
 // The expected hash must be measured by a separate trusted Firebase freeze
 // observer; computing it from user input and calling this function is NOT proof.
@@ -51,6 +61,7 @@ export async function prepareBusinessBaseline({expectedSha256,sourceFrozenVerifi
 function createTables(sql){
   sql.exec('CREATE TABLE IF NOT EXISTS f123_business_baseline (license TEXT PRIMARY KEY, frozen_head TEXT NOT NULL, sha256 TEXT NOT NULL, count INTEGER NOT NULL, cash_cents INTEGER NOT NULL)');
   sql.exec('CREATE TABLE IF NOT EXISTS f123_business_stock (license TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL, unit_price_cents INTEGER NOT NULL, PRIMARY KEY(license,product_id))');
+  sql.exec('CREATE TABLE IF NOT EXISTS f123_business_receivables (license TEXT NOT NULL, receivable_id TEXT NOT NULL, balance_cents INTEGER NOT NULL, PRIMARY KEY(license,receivable_id))');
   sql.exec('CREATE TABLE IF NOT EXISTS f123_business_effects (license TEXT NOT NULL, op_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity_delta INTEGER NOT NULL, cash_delta_cents INTEGER NOT NULL, PRIMARY KEY(license,op_id))');
 }
 function hasRows(sql,table){
@@ -85,7 +96,7 @@ export function installBusinessBaseline({storage,proof}={}){
     // in the economic baseline. Seeding over a prior op journal would risk
     // counting an older sale twice after reconnect. Defer to the certified
     // Firebase/DO reconciliation gate instead of silently inventing a cutover.
-    if(['typed_commercial_ops','f123_business_effects','f123_business_stock',
+    if(['typed_commercial_ops','f123_business_effects','f123_business_stock','f123_business_receivables',
         'f123_business_baseline','documento','documento_bloques','diario',
         'diario_bloques','f123_frozen_imports'].some(table=>hasRows(sql,table)))
       fail('Yjs history or nonempty economic store requires controlled migration');
@@ -94,14 +105,69 @@ export function installBusinessBaseline({storage,proof}={}){
     for(const p of state.products)
       sql.exec('INSERT INTO f123_business_stock (license,product_id,quantity,unit_price_cents) VALUES (?,?,?,?)',
         state.license,p.productId,p.quantity,p.unitPriceCents);
+    for(const r of state.receivables||[])
+      sql.exec('INSERT INTO f123_business_receivables (license,receivable_id,balance_cents) VALUES (?,?,?)',
+        state.license,r.receivableId,r.balanceCents);
     return {already:false,sha256:proof.sha256};
   });
+}
+// Owner or Admin (JFC 2026-11-18). Employee may collect (payment) but never adjust.
+function ownerOrAdmin(p){
+  return (p.role==='dueno'&&p.subject==='owner-account')||
+    (p.role==='admin'&&/^[A-Za-z0-9_-]{5,120}$/.test(p.subject||''));
+}
+// Physical count: sets certified stock to the counted total and
+// records the delta as an opId effect in the same transaction. No cash change.
+function applyCount({sql,txSql,command,principal}){
+  if(txSql!==sql||!LICENSE.test(command.license||'')||!IDENT.test(command.productId||'')||
+     !int(command.quantity)||command.amountCents!==0||
+     !principal||principal.license!==command.license||
+     !ownerOrAdmin(principal)||
+     !Array.isArray(principal.scopes)||!principal.scopes.includes('ops:adjust'))
+    fail('unsupported command or principal');
+  if(!sql.exec('SELECT 1 AS ok FROM f123_business_baseline WHERE license = ?',command.license).toArray()[0])
+    fail('business baseline not certified');
+  const item=sql.exec('SELECT quantity FROM f123_business_stock WHERE license = ? AND product_id = ?',
+    command.license,command.productId).toArray()[0];
+  if(!item||!int(Number(item.quantity)))fail('product not in certified stock');
+  sql.exec('UPDATE f123_business_stock SET quantity = ? WHERE license = ? AND product_id = ?',
+    command.quantity,command.license,command.productId);
+  sql.exec('INSERT INTO f123_business_effects (license,op_id,product_id,quantity_delta,cash_delta_cents) VALUES (?,?,?,?,?)',
+    command.license,command.opId,command.productId,command.quantity-Number(item.quantity),0);
+  return {applied:true};
+}
+// Cobro / abono a fiado: 1..balance cents, reduces the receivable and adds cash
+// in the same transaction. Effect row reuses product_id for the receivable id.
+// Owner, Admin and employee may collect (JFC 2026-11-18).
+function applyPayment({sql,txSql,command,principal}){
+  if(txSql!==sql||!LICENSE.test(command.license||'')||!IDENT.test(command.receivableId||'')||
+     !int(command.amountCents)||command.amountCents<1||
+     !principal||principal.license!==command.license||
+     !(ownerOrAdmin(principal)||(principal.role==='empleado'&&/^[A-Za-z0-9_-]{5,120}$/.test(principal.subject||'')))||
+     !Array.isArray(principal.scopes)||!principal.scopes.includes('ops:payment'))
+    fail('unsupported command or principal');
+  const baseline=sql.exec('SELECT cash_cents FROM f123_business_baseline WHERE license = ?',command.license).toArray()[0];
+  if(!baseline)fail('business baseline not certified');
+  const debt=sql.exec('SELECT balance_cents FROM f123_business_receivables WHERE license = ? AND receivable_id = ?',
+    command.license,command.receivableId).toArray()[0];
+  if(!debt||!int(Number(debt.balance_cents))||Number(debt.balance_cents)<command.amountCents)
+    fail('receivable missing or payment exceeds balance');
+  const nextCash=BigInt(baseline.cash_cents)+BigInt(command.amountCents);
+  if(nextCash>BigInt(MAX))fail('cash overflow');
+  sql.exec('UPDATE f123_business_receivables SET balance_cents = balance_cents - ? WHERE license = ? AND receivable_id = ?',
+    command.amountCents,command.license,command.receivableId);
+  sql.exec('UPDATE f123_business_baseline SET cash_cents = ? WHERE license = ?',Number(nextCash),command.license);
+  sql.exec('INSERT INTO f123_business_effects (license,op_id,product_id,quantity_delta,cash_delta_cents) VALUES (?,?,?,?,?)',
+    command.license,command.opId,command.receivableId,0,command.amountCents);
+  return {applied:true};
 }
 // Synchronous callback called INSIDE typed-commercial-ledger transactionSync.
 // It may not make HTTP calls, await, or use external Yjs/other-DO state.
 export function createBusinessSqlExecutor({sql}={}){
   if(typeof sql?.exec!=='function')fail('trusted DO SQL required');
   return function applyBusiness({sql:txSql,command,principal}={}){
+    if(command?.kind==='stock.adjust')return applyCount({sql,txSql,command,principal});
+    if(command?.kind==='credit.payment.record')return applyPayment({sql,txSql,command,principal});
     if(txSql!==sql||!command||command.kind!=='sale.record'||
        !LICENSE.test(command.license||'')||!IDENT.test(command.productId||'')||
        !int(command.quantity)||command.quantity<1||!int(command.amountCents)||

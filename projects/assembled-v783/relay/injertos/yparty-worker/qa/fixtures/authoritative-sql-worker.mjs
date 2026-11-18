@@ -28,6 +28,7 @@ export class CommercialFixture {
       for(const [key,query] of [
         ['baseline','SELECT frozen_head,sha256,count,cash_cents FROM f123_business_baseline'],
         ['stock','SELECT product_id,quantity,unit_price_cents FROM f123_business_stock ORDER BY product_id'],
+        ['receivables','SELECT receivable_id,balance_cents FROM f123_business_receivables ORDER BY receivable_id'],
         ['effects','SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects ORDER BY op_id'],
         ['receipts','SELECT op_id,receipt_json FROM typed_commercial_ops ORDER BY op_id']]){
         try{rows[key]=this.sql.exec(query).toArray();}catch(_){rows[key]=[];}
@@ -41,14 +42,19 @@ export class CommercialFixture {
       sql:this.sql,transactionSync:this.ctx.storage.transactionSync.bind(this.ctx.storage),
       clock:()=>1730000000000,
       authorize:async({ticket,license,scope})=>{
-        if(ticket==='synthetic-revoked-ticket'||license!=='F123-SYNTHETIC-BUSINESS'||scope!=='ops:sale')
+        if(ticket==='synthetic-revoked-ticket'||license!=='F123-SYNTHETIC-BUSINESS'||!['ops:sale','ops:payment','ops:adjust'].includes(scope))
           return {ok:false};
         const owner=ticket==='synthetic-owner-ticket';
-        const team=ticket==='synthetic-team-ticket';
-        return owner||team
-          ? {ok:true,principal:{license,role:owner?'dueno':'empleado',
-              subject:owner?'owner-account':'team_12345',scopes:[scope]}}
+        const team=ticket==='synthetic-team-ticket',admin=ticket==='synthetic-admin-ticket';
+        return owner||team||admin
+          ? {ok:true,principal:{license,role:owner?'dueno':admin?'admin':'empleado',
+              subject:owner?'owner-account':admin?'admin_12345':'team_12345',scopes:[scope]}}
           : {ok:false};
+      },
+      // Trusted pre-check: the receivable must exist in THIS license's certified store.
+      authorizeReceivable:async({license,receivableId})=>{
+        try{return !!this.sql.exec('SELECT 1 AS ok FROM f123_business_receivables WHERE license = ? AND receivable_id = ?',
+          license,receivableId).toArray()[0];}catch(_){return false;}
       },
       ...(path==='/submit'?{applyBusiness:({sql,command,principal})=>{
         const result=executor({sql,command,principal});
