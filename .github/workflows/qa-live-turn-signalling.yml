@@ -19,3 +19,4 @@ jobs:
           node-version: '22'
       - name: Nonbusiness synthetic WebSocket ICE relay probe of deployed Cloudflare Worker
         run: node --test projects/assembled-v783/tests/p0-live-turn-signalling.test.cjs
+# QA-only probe; no deployment or business data.
