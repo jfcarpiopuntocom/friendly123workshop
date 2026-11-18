@@ -79,6 +79,7 @@ test('Option A actual client signs catalog-only YParty and keeps money on legacy
 });
 test('port gate cannot be certified before every declared stage has evidence and completion',()=>{
  const copy=structuredClone(data);
- copy.gates[0].certified=true;
+ // Economics stages are all evidenced now; use a gate that is still incomplete.
+ copy.gates.find(g=>g.stages.some(s=>!s.done)).certified=true;
  assert.throws(()=>assessPort(copy),/incomplete|certifi/i);
 });
