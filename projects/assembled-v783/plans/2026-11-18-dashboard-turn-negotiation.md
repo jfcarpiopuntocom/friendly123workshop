@@ -33,3 +33,13 @@
 - Do not award acceptance points until all required evidence is attached.
 
 **Next step:** reproduce RED in isolation, then prepare a reviewable draft rather than an unverified release.
+
+
+## 18 nov 10:08 Ecuador · ejecución verificada
+
+- User instruction globally persisted in workshop main `AGENTS.md` commit `2822544267c8a65d181016143a00d05260c8875e`, `CLAUDE.md` commit `3d670df8d4880161dc05a339862c6dfcd24df7a1`: evidence-first, concise, P0 focus, no defensive justification.
+- LIVE isolated draft PR [#760](https://github.com/jfcarpiopuntocom/friendly-123/pull/760), branch `fix/p0-dashboard-turn-ice-20261118`. Exactly two source changes: `docs/peer-sync.js` emits nonempty ICE `relay` candidates, `cloudflare-sync-relay/worker.js` strictly validates `typ relay` as metadata, plus tests and v787 shell+manifest. Customer LIVE remains v786.
+- TDD new regression `test/p0-dashboard-turn-ice-contract.test.mjs`, manifest generator cross-check exactly matched computed hashes `peer-sync.js=43765c44a6dfbec9fcff0749292867fcc5b624c9099525a4633a7ff17ce40e94`, `dashboard.html=29cdb804f0184786ccd344be1a32e87a8d4195d4b8e99c06cd0377a516edee7d`.
+- GitHub Actions exact SHA `3b69b36768f1a32c4c17d5320c89b97ec022fa3e`: `turn-ice`, `hex-boundary`, `two-tab-sales`, `webkit`, `integrated`, `Release continuity gate`, `browser-parity`, `preack-crash` SUCCESS as seen in check-runs. Some broader workflows still running.
+- `seal` failed at `.github/workflows/qa-port2-v785-shell-seal.yml` because it hardcodes v0.7.86 even when a candidate correctly increments to v0.7.87. Keep this failure visible; do not silently suppress the gate. Update or scope that historical seal test only after explicit investigation.
+- Signalling Worker LIVE deployment `d32ce026-f5b6-403c-b511-1d3b88bf5f7d` remains old; app+dashboard live TURN path not repaired yet, and the user's reported dashboard E2E is NOT CERTIFIED.
