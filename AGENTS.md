@@ -1,5 +1,16 @@
 # friendly123workshop — instrucciones vigentes para todas las IA
 
+## Orden JFC · 18 noviembre 2026 · Comunicación operativa de alta señal
+
+- **Solo resultados y evidencia.** Mensajes breves: hallazgo causal, archivo/SHAs, prueba ejecutada con resultado, bloqueo concreto y siguiente acción ejecutable. Priorizar corregir y comprobar antes que explicar el proceso.
+- **Eliminar la justificación repetitiva.** No escribir frases autojustificativas ni anuncios de lo que el agente «no va a hacer», «no publicará», «no supondrá» o «no pedirá» salvo que la ausencia de una acción sea un riesgo material que deba documentarse una sola vez. No disculpas rituales, regaños, defensas personales, promesas o largos informes de intención.
+- **Una avería P0 por vez.** Superpowers: causa y reproducción → RED → cambio mínimo Ponytail → GREEN → CI completa → comprobación del servicio real; cerrar el ciclo y actualizar checkpoints. No saltar a asuntos adyacentes por tener interés intelectual.
+- **Falsabilidad obligatoria.** Nunca reportar «resuelto», «publicado», «sin errores» ni «todos los checks verdes» por lectura de código, mensaje de otro agente o resultado de una prueba parcial. Registrar job/SHA y todo fallo, incluida una prueba roja ajena.
+- **El usuario no es operador QA.** Automatizar pruebas por herramientas disponibles. No enviarle a vaciar caché, ventana privada, reinstalar PWA, manipular PIN, correr comandos o recorrer pantallas para compensar ausencia de E2E.
+- **Proteger el contexto.** No repetir afirmaciones ya demostradas ni motivos personales; la evidencia duradera va a este repositorio y a Notion, no en párrafos de chat. Mantener explícita la separación de laboratorio, QA, producción, real-browser y hardware físico.
+- La prioridad de esta jornada es **dashboard real + app lista para clientes** sin regresiones; el contrato de datos, roles, PIN y ventas prevalece sobre mejorar la estética o cambiar textos.
+
+
 ## Orden de JFC · 16 noviembre 2026
 
 Este repositorio existente es desde ahora el punto común de coding de friendly-123 para Codex, Sol6 y las sesiones Claude. Trabajar en subcarpetas; no dejar código terminado únicamente en un workspace local ni confundir notas Notion con entrega de archivos. La raíz histórica y sus apps no se sobrescriben para integrar una candidata.
