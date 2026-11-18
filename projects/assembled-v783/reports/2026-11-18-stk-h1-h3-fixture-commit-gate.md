@@ -13,3 +13,8 @@
 - Do not make `leerHashSoloIdb` trust `req.onsuccess` as an IDB durability ACK; do not change client photos/stock/receipts or YParty.
 - Push a new source SHA onto PR #771, then check H3 21/21 as well as photo-durability, native-photo-quota Chromium/WebKit, p0-hotfix, release-control, exact manifest and Safari payment gate at **new SHA**.
 - Merge with expected_head_sha only after mandatory gates pass. No physical Safari acceptance implied.
+
+## Rerun on commit 63e27db8 · second fixture-only dependency
+- New H3 run https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44414078795 ended 19 PASS, **2 FAIL** (not cancelled).
+- Specific Node error: `_fotoBytesIdbConfirmados is not defined` at `leerPorHash` in the **VM-extracted function slice**, because the old test never loaded the new in-memory proof state and `_recordarFotoIdbConfirmada` helper from the top of `docs/idb-fotos.js`.
+- This is distinct from transaction completion. Repair the H3 fixture context only: supply a minimal in-memory Map and proof recorder, keeping all source-level assertions intact. No production change.
