@@ -138,12 +138,13 @@ function applyCount({sql,txSql,command,principal}){
 }
 // Cobro / abono a fiado: 1..balance cents, reduces the receivable and adds cash
 // in the same transaction. Effect row reuses product_id for the receivable id.
-// shortcut: Owner-only here; no issuer ceiling grants ops:payment yet, widen after JFC rules it.
+// JFC 18 Nov: verified Owner, Admin and Team collect; only Owner/Admin adjust physical stock.
 function applyPayment({sql,txSql,command,principal}){
   if(txSql!==sql||!LICENSE.test(command.license||'')||!IDENT.test(command.receivableId||'')||
      !int(command.amountCents)||command.amountCents<1||
      !principal||principal.license!==command.license||
-     principal.role!=='dueno'||principal.subject!=='owner-account'||
+     !(ownerOrAdmin(principal)||(principal.role==='empleado'&&
+       /^[A-Za-z0-9_-]{5,120}$/.test(principal.subject||'')))||
      !Array.isArray(principal.scopes)||!principal.scopes.includes('ops:payment'))
     fail('unsupported command or principal');
   const baseline=sql.exec('SELECT cash_cents FROM f123_business_baseline WHERE license = ?',command.license).toArray()[0];
