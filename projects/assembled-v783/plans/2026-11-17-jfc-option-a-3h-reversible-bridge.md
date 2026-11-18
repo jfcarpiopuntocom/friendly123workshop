@@ -21,3 +21,10 @@ Run with real iPhone Safari and Android Chrome: sale, photo, network outage/rest
 
 ## Rollback
 Disable per-store QA flag, continue encrypted legacy transports and local durable outbox, no deletion/migration; check old and new counts/receipts/opIds. Revert only new workshop source/served bundle commits if CI fails. Quality and port metrics scored strictly on tested evidence, no penalty for safe limited bridge.
+
+
+## Discovered integration trap: fallback was global, not per-channel (no moving goalposts)
+Actual app/docs/sync-yjs.js `usarRelayHabitual()` and `volverAlPiloto()` switch BOTH `API.canal` and `API.opsCanal`; `canalesPiloto=[catalog,ops]` and money goes into the read-only new WS. A pilot-level one-liner that calls `usarRelayHabitual()` on `ops` would also turn catalog back to legacy, violating Option A's hybrid read path. This was found immediately after source+served vendor changes; not credited as working until closed.
+Minimal complete change in the SAME original bridge, no new PR: create always-legacy `API.opsCanal` even when catalog pilot is active; `canalesPiloto` contains only the catalog; legacy ops object is reused and never paused during catalog failback/rejoin. Catalog fallback may create only a legacy catalog transport. Keep historical entire pre-pilot fallback when pilot flag off. Use existing same encrypted Y.Doc/IDB/outbox for ops, no ledger writes via new WS.
+TDD behavioral test executes extracted *actual* sync-yjs.js control functions with mocked `crearCanal` and pilot, verifies: catalog new + ops legacy simultaneously, ops object identity constant across catalog fallback and return, money updates reach ops legacy without duplicates, and both functions preserve serialized IDB. Old code must fail this test. Existing browser/authority and published-bundle tests must pass afterward.
+Do not advertise 2.0 catalog usable until both source and served compiled vendor + hybrid manager pass, with backend flag OFF for customers. This is precisely within user-approved step 2, not a new gate.
