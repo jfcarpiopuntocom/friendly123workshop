@@ -35,3 +35,9 @@ Dashboard source+official generated bundle+release identity only, plus tests/wor
 - Exact public no-cache GET 200 for `version.json` v0.7.91, `dashboard.html` visible Dashboard v0.7.91, `dashboard-main.min.js` with canonical HTTPS Owner `/pin/verify`, `sw.js` f123-shell-v791. Report generated under `docs/ops/P0-safari-dashboard-owner-v791-QA.md`.
 - Post-release Chromium/WebKit `recorrido / recorrer` and independent cold-join `recorrido / union-fria` were still running at this checkpoint; track their final conclusions separately.
 - The final real Safari acceptance is only proven by the owner's new report of both roles using the correct same shop and numbers; no synthetic PASS substitutes for physical PIN access.
+
+## Post-release browser evidence (verified)
+- [Production Actions #44380915291](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44380915291) job `recorrido / recorrer` **SUCCESS**.
+- Live logs: `Publicado: f123-shell-v791 (v0.7.91)`, `Chromium escritorio: Dashboard v0.7.91`, `Safari iPhone: Dashboard v0.7.91`.
+- Live CDN GET HTTP 200 for `version.json`, `dashboard.html`, `dashboard-main.min.js`, `sw.js`; new canonical Owner PIN Worker route verified in actual JS bytes.
+- This tests shell/navigation on WebKit, not the actual Owner PIN on user's physical Safari. Physical Owner/Admin acceptance remains unverified.
