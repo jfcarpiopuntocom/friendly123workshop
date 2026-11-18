@@ -11,6 +11,7 @@ import {salaDeLicencia} from '../src/sala.js';
 
 const license='F123-SYNTHETIC-TEAM',instance='synthetic-room-client',key='synthetic-service-bridge-test-key-32-bytes',persist=fs.mkdtempSync(path.join(os.tmpdir(),'f123-two-room-'));
 let db,env,mf,url,room,bundle,registry,allowChannels=true,photoFlag=true;
+let slowSingleCheckMs=0,singleCheckCalls=0,batchCheckCalls=0;
 function storage(){
  let records=new Map(),tail=Promise.resolve();
  return {get:async k=>structuredClone(records.get(k)),
@@ -21,11 +22,18 @@ function storage(){
  finally{release();}}};
 }
 async function relay(){
- const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_PHOTO_BLOBS_QA:photoFlag?'1':'0',WS_PHOTO_ORIGIN_QA:'https://synthetic-photo.test',WS_SERVICE_KEY:key};
+ const mfBindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:allowChannels?'1':'0',WS_PHOTO_BLOBS_QA:photoFlag?'1':'0',WS_TYPED_COMMANDS_QA:'1',WS_TYPED_ORIGIN_QA:'https://synthetic-shop.test',WS_PHOTO_ORIGIN_QA:'https://synthetic-photo.test',WS_SERVICE_KEY:key};
  mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',compatibilityFlags:['nodejs_compat'],
  durableObjects:{Tienda:{className:'Tienda',useSQLite:true}},durableObjectsPersist:path.join(persist,'do'),
  kvNamespaces:['LICENCIAS'],bindings:mfBindings,
- serviceBindings:{WS_AUTHORITY:async request=>authorityWorker.fetch(new Request(request.url,request),env)}});
+ serviceBindings:{WS_AUTHORITY:async request=>{
+  const pathname=new URL(request.url).pathname;
+  if(pathname==='/ws/check'){
+    singleCheckCalls++;
+    if(slowSingleCheckMs)await new Promise(r=>setTimeout(r,slowSingleCheckMs));
+  }else if(pathname==='/ws/check-many')batchCheckCalls++;
+  return authorityWorker.fetch(new Request(request.url,request),env);
+ }}});
  await(await mf.getKVNamespace('LICENCIAS')).put('inst:'+instance,JSON.stringify({licenseCode:license,instanceId:instance}));
  url=await mf.ready;
 }
@@ -40,10 +48,10 @@ async function issue(channel,scopes){
  assert.equal(result.status,200,JSON.stringify(body));
  return body.token;
 }
-async function waitFor(predicate,label){
+async function waitFor(predicate,label,limitMs=6500){
  const start=Date.now();
  while(!predicate()){
-  if(Date.now()-start>6500)throw Error('timeout waiting for '+label);
+  if(Date.now()-start>limitMs)throw Error('timeout waiting for '+label);
   await new Promise(r=>setTimeout(r,25));
  }
 }
@@ -226,73 +234,234 @@ test('P0 real Workerd photo CORS: exact HTTPS origin only, browser preflight and
 });
 
 
-test('P0 real central TEAM employee cat:read connects read-only, rejects replay and revocation, cannot touch ops',{timeout:45000},async()=>{
+test('P0 Team cannot read private catalog Y.Doc until a sanitized public projection is independently served',{timeout:45000},async()=>{
  const {teamAuthority}=await import('../../../../app/cloudflare-worker/team-authority.mjs');
- // Explicit server policy, never a role selected in the browser.
- env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read']});
+ // Real issuer may authorize an employee to see a future public projection,
+ // but this -cat room includes OWNER-private roots and must deny Team before Yjs.
+ env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read'],admin:['cat:read','cat:write']});
  const owner=pinAuthority(db,env.PIN_PEPPER);
  const team=teamAuthority({storage:db,ownerAuthority:owner,secret:env.TEAM_PIN_PEPPER});
  const identity={licenseCode:license,instanceId:instance,subject:'synthetic-employee-a'};
  const created=await team.update({...identity,role:'empleado',active:true,pin:'222',ownerPin:'123',
   expectedRevision:0,opId:'synthetic-team-register-a'});
  assert.equal(created.ok,true,JSON.stringify(created));
- const ticket=async(channel,scopes)=> {
-  const response=await api('/ws/ticket',{credentials:{kind:'team',...identity,pin:'222'},
-   room:room+'-'+channel,scopes,ttlMs:30000});
+ const ticket=async(channel,scopes,credentials={kind:'team',...identity,pin:'222'})=>{
+  const response=await api('/ws/ticket',{credentials,room:room+'-'+channel,scopes,ttlMs:30000});
   return {status:response.status,data:await response.json()};
  };
- const issued=await ticket('cat',['cat:read']);
- assert.equal(issued.status,200,JSON.stringify(issued.data));
  const writer=await connect('cat',['cat:read','cat:write']);
- writer.doc.getMap('products').set('team-readable-catalog',{priceCents:850});
- const memberDoc=new Y.Doc();
- const member=new YProvider(url.host,room+'-cat',memberDoc,{party:'tienda',disableBc:true,
-  params:{licencia:license,instancia:instance,cap:issued.data.token},WebSocketPolyfill:WebSocket});
  try{
-  await waitFor(()=>member.synced&&memberDoc.getMap('products').has('team-readable-catalog'),'Team read-only initial sync');
-  assert.equal(memberDoc.getMap('products').get('team-readable-catalog').priceCents,850);
-  assert.notEqual((await attempt('cat',issued.data.token)).status,'open','one-use Team cap replay must reject');
-  memberDoc.getMap('products').set('team-unauthorized-raw-edit',{priceCents:1});
-  const witness=await connect('cat',['cat:read']);
+  writer.doc.getMap('products').set('team-readable-catalog',{priceCents:850});
+  writer.doc.getMap('_meta').set('pinsRol',{owner:'SYNTHETIC_PRIVATE_ROLE_MARKER'});
+  writer.doc.getMap('clientes').set('private-synthetic-customer',{email:'nobody@example.invalid'});
+  writer.doc.getMap('hechos_financieros').set('private-synthetic-cash',{amountCents:72900});
+  // Owner access MUST remain functional after denying Team.
+  const anotherOwner=await connect('cat',['cat:read']);
   try{
-   await new Promise(resolve=>setTimeout(resolve,280));
-   assert.equal(witness.doc.getMap('products').has('team-unauthorized-raw-edit'),false,
-     'raw Team catalog mutation cannot reach another Owner Yjs reader');
-  }finally{witness.close();}
-  const forbidden=await ticket('ops',['ops:read']);
-  assert.notEqual(forbidden.status,200,'Team cannot read raw economic ops');
+   await waitFor(()=>anotherOwner.doc.getMap('products').has('team-readable-catalog'),'Owner catalog');
+   await waitFor(()=>anotherOwner.doc.getMap('_meta').has('pinsRol'),'Owner private metadata');
+   assert.equal(anotherOwner.doc.getMap('clientes').has('private-synthetic-customer'),true);
+   assert.equal(anotherOwner.doc.getMap('hechos_financieros').has('private-synthetic-cash'),true);
+  }finally{anotherOwner.close();}
+  const issued=await ticket('cat',['cat:read']);
+  assert.equal(issued.status,200,'central issuer can authorize a future sanitized Team read view');
+  const initial=await attempt('cat',issued.data.token);
+  assert.equal(initial.binary,0,'Team must receive ZERO Yjs bytes from owner-private catalog');
+  assert.notEqual(initial.status,'open','Team private catalog admission must fail closed');
+  assert.equal((await attempt('cat',issued.data.token)).binary,0,'reused Team token must also expose zero bytes');
+  assert.notEqual((await ticket('ops',['ops:read'])).status,200,'Team cannot access raw economic room');
   const standby=await ticket('cat',['cat:read']);
-  assert.equal(standby.status,200,'fresh Team ticket before revocation');
+  assert.equal(standby.status,200);
   const revoked=await team.update({...identity,role:'empleado',active:false,ownerPin:'123',
     expectedRevision:created.revision,opId:'synthetic-team-revoke-a'});
   assert.equal(revoked.ok,true,JSON.stringify(revoked));
   const after=await attempt('cat',standby.data.token);
-  assert.equal(after.binary,0,'revoked Team ticket must receive no Yjs binary frame');
-  assert.notEqual(after.status,'open','revoked Team cannot join catalog');
-  const retry=await ticket('cat',['cat:read']);
-  assert.notEqual(retry.status,200,'revoked Team cannot issue fresh read cap');
-  writer.doc.getMap('products').set('owner-after-team-revocation',{priceCents:917});
-  await new Promise(resolve=>setTimeout(resolve,450));
-  assert.equal(memberDoc.getMap('products').has('owner-after-team-revocation'),false,
-    'revoked connected Team peer must receive zero new catalog facts');
-  // Even an issuer-authorized admin cat:write must not gain an unrestricted
-  // Yjs writer through the read-only Team admission path.
-  env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['cat:read'],admin:['cat:read','cat:write']});
+  assert.equal(after.binary,0,'revoked and previously issued Team ticket receives zero Yjs bytes');
+  assert.notEqual(after.status,'open');
+  assert.notEqual((await ticket('cat',['cat:read'])).status,200,'issuer refuses revoked Team');
   const adminSubject='synthetic-team-admin-z';
   const adminSetup=await team.update({licenseCode:license,instanceId:instance,subject:adminSubject,
     role:'admin',active:true,pin:'333',ownerPin:'123',
     expectedRevision:revoked.revision,opId:'synthetic-team-admin-join'});
   assert.equal(adminSetup.ok,true,JSON.stringify(adminSetup));
-  const adminResponse=await api('/ws/ticket',{credentials:{kind:'team',licenseCode:license,
-    instanceId:instance,subject:adminSubject,pin:'333'},
-    room:room+'-cat',scopes:['cat:read','cat:write'],ttlMs:30000});
-  const adminResult=await adminResponse.json();
-  assert.equal(adminResponse.status,200,JSON.stringify(adminResult));
-  const rawWrite=await attempt('cat',adminResult.token);
-  assert.equal(rawWrite.binary,0,'Team must not receive Yjs frame with unrestricted catalog-write scope');
-  assert.notEqual(rawWrite.status,'open','Team cat:write token denied rather than allowing raw edits');
+  const adminCredentials={kind:'team',licenseCode:license,instanceId:instance,subject:adminSubject,pin:'333'};
+  const adminRead=await ticket('cat',['cat:read'],adminCredentials);
+  assert.equal(adminRead.status,200);
+  assert.equal((await attempt('cat',adminRead.data.token)).binary,0,'admin read cannot access private Owner Y.Doc');
+  const adminWrite=await ticket('cat',['cat:read','cat:write'],adminCredentials);
+  assert.equal(adminWrite.status,200);
+  const raw=await attempt('cat',adminWrite.data.token);
+  assert.equal(raw.binary,0,'Team admin raw write must never receive initial private Yjs state');
+  assert.notEqual(raw.status,'open');
  }finally{
-  member.destroy();memberDoc.destroy();writer.close();
+  writer.close();
   delete env.WS_QA_ROLE_GRANTS;
+ }
+});
+
+test('P0 real Worker typed sale HTTP: central fresh Owner ticket, 202 inbox only, conflict/replay/cross-room denied',{timeout:24000},async()=>{
+ // Synthetic test isolation only: previous 8 tests issued nearly all 32/min
+ // HMAC tickets. This does NOT change production rate limiting or cap checks.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const command={opId:'synthetic-op-http-001',kind:'sale.record',license,
+   productId:'synthetic-sku',quantity:1,amountCents:2500};
+ const target=new URL('/parties/tienda/'+room+'-ops',url);
+ const send=async(token,cmd=command)=>{
+   const response=await fetch(target,{method:'POST',headers:{
+     'content-type':'application/json','authorization':'Bearer '+token,
+     'x-f123-license':license,'x-f123-instance':instance
+   },body:JSON.stringify(cmd)});
+   let body;try{body=await response.json();}catch(_){body={};}
+   return {status:response.status,body};
+ };
+ const firstToken=await issue('ops',['ops:sale']);
+ const first=await send(firstToken);
+ assert.equal(first.status,202,'not an economic commit; no browser may mark sale paid yet');
+ assert.equal(first.body.receipt?.stage,'stored-for-application');
+ assert.equal(first.body.ok,true);
+ const reused=await send(firstToken);
+ assert.equal(reused.status,403,'no bearer bypass');
+ const readOnly=await send(await issue('ops',['ops:read']));
+ assert.equal(readOnly.status,403,'ops:read cannot post a sale');
+ const crossed=await send(await issue('cat',['cat:read']));
+ assert.equal(crossed.status,403,'cat cap cannot mutate ops');
+ const fresh=await send(await issue('ops',['ops:sale']));
+ assert.equal(fresh.status,202);
+ assert.equal(fresh.body.duplicate,true);
+ assert.deepEqual(fresh.body.receipt,first.body.receipt,'idempotent inbox receipt');
+ const changed=await send(await issue('ops',['ops:sale']),{...command,amountCents:1});
+ assert.equal(changed.status,409,'same opId, different money is prohibited');
+ const other=await send(await issue('ops',['ops:sale']),{...command,opId:'synthetic-op-http-002'});
+ assert.equal(other.status,202);
+ assert.equal(other.body.receipt.stage,'stored-for-application');
+ assert.equal('saleCommitted' in other.body.receipt,false);
+});
+
+test('P0 Team employee may submit TYPED ops:sale HTTP but never open economic Yjs or private catalog',{timeout:30000},async()=>{
+ const {teamAuthority}=await import('../../../../app/cloudflare-worker/team-authority.mjs');
+ env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['ops:sale']});
+ // Test-only issuer rate counter isolation: actual Workerd HMAC/role/nonce checks
+ // stay on, no changes to production 32/min quota or permission ceilings.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const owner=pinAuthority(db,env.PIN_PEPPER);
+ const team=teamAuthority({storage:db,ownerAuthority:owner,secret:env.TEAM_PIN_PEPPER});
+ const identity={licenseCode:license,instanceId:instance,subject:'synthetic-team-seller-b'};
+ try{
+  const current=await db.get('team-authority-v1:'+license);
+  const joined=await team.update({...identity,role:'empleado',active:true,pin:'444',ownerPin:'123',
+    expectedRevision:current.revision,opId:'synthetic-team-seller-join'});
+  assert.equal(joined.ok,true,JSON.stringify(joined));
+  const ticket=async()=>{
+    const response=await api('/ws/ticket',{credentials:{kind:'team',...identity,pin:'444'},
+      room:room+'-ops',scopes:['ops:sale'],ttlMs:30000});
+    return{status:response.status,data:await response.json()};
+  };
+  const wsCap=await ticket();
+  assert.equal(wsCap.status,200,JSON.stringify(wsCap.data));
+  const raw=await attempt('ops',wsCap.data.token);
+  assert.equal(raw.binary,0,'employee sale scope MUST NOT reveal any raw economic Yjs');
+  assert.notEqual(raw.status,'open','employee cannot open ops Yjs with sale-only scope');
+  assert.equal((await attempt('cat',wsCap.data.token)).binary,0,'ops ticket cannot read private catalog');
+
+  const issued=await ticket();
+  assert.equal(issued.status,200,JSON.stringify(issued.data));
+  const command={opId:'synthetic-team-sale-001',kind:'sale.record',license,
+    productId:'sku-1',quantity:1,amountCents:400};
+  const response=await fetch(new URL('/parties/tienda/'+room+'-ops',url),{
+    method:'POST',headers:{'content-type':'application/json',
+      'authorization':'Bearer '+issued.data.token,
+      'x-f123-license':license,'x-f123-instance':instance},
+    body:JSON.stringify(command)
+  });
+  const body=await response.json();
+  assert.equal(response.status,202,JSON.stringify(body));
+  assert.equal(body.receipt?.stage,'stored-for-application',
+    'employee can enqueue typed intent, but never claim commercial success without executor');
+  assert.equal(body.ok,true);
+  const revoked=await team.update({...identity,role:'empleado',active:false,ownerPin:'123',
+    expectedRevision:joined.revision,opId:'synthetic-team-seller-revoke'});
+  assert.equal(revoked.ok,true,JSON.stringify(revoked));
+  assert.notEqual((await ticket()).status,200,'revoked employee cannot issue more command tickets');
+ }finally{delete env.WS_QA_ROLE_GRANTS;}
+});
+
+test('P0 browser HTTPS CORS for typed ops: exact preflight and POST; wrong origin cannot spend an Owner ticket',{timeout:18000},async()=>{
+ const origin='https://synthetic-shop.test';
+ const endpoint=new URL('/parties/tienda/'+room+'-ops',url);
+ const required='authorization,content-type,x-f123-license,x-f123-instance';
+ const preflight=async({from=origin,headers=required,method='POST'}={})=>
+   fetch(endpoint,{method:'OPTIONS',headers:{
+     origin:from,'access-control-request-method':method,
+     'access-control-request-headers':headers
+   }});
+ const good=await preflight();
+ assert.equal(good.status,204,'browser Authorization preflight must succeed');
+ assert.equal(good.headers.get('access-control-allow-origin'),origin,
+   'explicit HTTPS allowlist only; no wildcard');
+ assert.equal(good.headers.get('access-control-allow-methods'),'POST');
+ const accepted=good.headers.get('access-control-allow-headers').toLowerCase();
+ for(const h of required.split(','))assert.ok(accepted.includes(h),h);
+ assert.match(good.headers.get('vary')||'',/origin/i);
+ assert.equal(good.headers.get('access-control-allow-credentials'),null);
+ assert.equal((await preflight({from:'https://not-the-shop.test'})).status,403);
+ assert.equal((await preflight({headers:required+',x-unknown-private'})).status,403);
+ assert.equal((await preflight({method:'PUT'})).status,403);
+
+ // Isolate issuer test quota only; token validation, replay protection, role
+ // checks and all production limits remain intact.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const token=await issue('ops',['ops:sale']);
+ const command={opId:'synthetic-browser-cors-001',kind:'sale.record',license,
+   productId:'synthetic-sku',quantity:1,amountCents:500};
+ const post=async(from,cap=token)=>fetch(endpoint,{method:'POST',headers:{
+   origin:from,'content-type':'application/json','authorization':'Bearer '+cap,
+   'x-f123-license':license,'x-f123-instance':instance
+ },body:JSON.stringify(command)});
+ const wrong=await post('https://not-the-shop.test');
+ assert.equal(wrong.status,403,'cross-origin POST forbidden before DO or issuer');
+ assert.equal(wrong.headers.get('access-control-allow-origin'),null);
+ const valid=await post(origin);
+ assert.equal(valid.status,202,'denied request must NOT consume valid one-use ticket');
+ assert.equal(valid.headers.get('access-control-allow-origin'),origin);
+ assert.match(valid.headers.get('vary')||'',/origin/i);
+ assert.equal(valid.headers.get('access-control-allow-credentials'),null);
+ assert.equal(valid.headers.get('set-cookie'),null);
+ const payload=await valid.json();
+ assert.equal(payload.receipt?.stage,'stored-for-application',
+  'CORS access cannot be an applied economic receipt');
+ assert.equal((await post(origin)).status,403,'replay denied after successful command');
+});
+
+test('P0 cold join burst: 64 Yjs changes require batched signed outbound authorization, not a 250ms check per frame',{timeout:22000},async()=>{
+ // Workerd Service Binding still signs and checks every check-many grant.
+ // Only the legacy per-frame /ws/check is made artificially 250ms slower.
+ // Two actual YProviders use real sockets and Yjs updates.
+ await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
+ const writer=await connect('cat',['cat:read','cat:write']);
+ const receiver=await connect('cat',['cat:read']);
+ const key='coldjoin-authorization-burst';
+ let receivedUpdates=0;
+ receiver.doc.on('update',()=>receivedUpdates++);
+ try{
+  await new Promise(r=>setTimeout(r,50));
+  slowSingleCheckMs=250;
+  singleCheckCalls=0;
+  batchCheckCalls=0;
+  const started=Date.now();
+  const products=writer.doc.getMap(key);
+  for(let i=0;i<64;i++)products.set('synthetic-'+String(i).padStart(3,'0'),{stock:i+1});
+  await waitFor(()=>receiver.doc.getMap(key).size===64,
+    '64 signed Yjs changes without per-frame remote queue',7500);
+  const elapsed=Date.now()-started;
+  assert.ok(receivedUpdates>=8,
+    'prove recipient received multiple actual Yjs frames, not a single snapshot');
+  assert.ok(elapsed<8000,'64 frames should not serialize remote 250ms authority calls');
+  assert.ok(singleCheckCalls<10,
+    'per-frame single-check calls would stall cold joining by the frame count');
+  assert.ok(batchCheckCalls>=1,'batched authority verification must actually occur');
+ } finally{
+  slowSingleCheckMs=0;
+  writer.close();
+  receiver.close();
  }
 });

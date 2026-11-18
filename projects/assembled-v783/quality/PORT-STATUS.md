@@ -6,10 +6,22 @@ Fuente ejecutable de la calidad: [score-v1.json](score-v1.json) + [score.cjs](sc
 
 | Métrica | Hace una semana | Corte anterior 17-nov | Actual 17-nov | Meta |
 |---|---:|---:|---:|---:|
-| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 64.5/100 | **64.5/100** (±4 criterio) | ≥95 |
-| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **33.0/100** | 100 **y 6/6 gates** |
+| Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 66.0/100 | **66.5/100** (±4 criterio; candidato QA) | ≥95 |
+| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **36.0/100** | 100 **y 6/6 gates** |
 
-Calidad +19.5 puntos estimados frente al 10-nov. Port +6.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+Calidad +21.5 puntos estimados frente al 10-nov (45.0→66.5); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+
+## Revisión calidad 66.5/100 · unión fría en ráfaga, NO físico
+
+El eje **sync** existente avanza 12.0→12.5/20 (+0.5) únicamente por [TDD Workerd RED 11/12](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44200433269) (timeout tras 7,5 s debido a 250 ms por comprobación de cada frame) y [GREEN 12/12 sobre fuente real](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44200699627) SHA `151b3b2b1b0a34c6873c56a090bf0eb461ca667e`: 64 cambios Yjs firmados y completos en segundo YProvider con lotes de máximo 32 frames, verificando centralmente permisos/revocación por lote. La prueba duró ~334 ms, **solo se retrasó artificialmente el endpoint check individual**, no check-many; no equivale a tiempo de Firebase ni al iPhone físico.
+
+[RED del marcador](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44200921547) calculó 66.0 cuando esperaba 66.5 antes de editar JSON. [GREEN del marcador](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44201003228) recalculó 66.5/100 sin tocar los pesos ni seis gates. Calidad 45.0±5 retrospectivo hace una semana, actual **66.5±4**, +21.5. **Port sigue 36.0/100 y GO 0/6**: todavía faltan negocio real, unión física y Firebase sin 15 padres pendientes. Producción intacta.
+
+## Revisión de calidad 66.0/100 verificada en Workerd (17-nov, no port GO)
+
+No cambiaron ejes, pesos ni seis gates. **+0.5** en durabilidad (16.0→16.5/20) por [Workerd SQL 3/3 con reintento queued→applied, reinicio y rollback](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44196026710); el ejecutor final es **sintético y no está conectado a la caja**. **+1.0** seguridad (7.5→8.5/15) por [denegación de Team al catálogo privado](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44193649188), [Team tipado y revocación 10/10](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44195009756) y [CORS exacto HTTPS con ticket intacto 11/11](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44199112764). **No** aumentaron negocio, sync, fotos, migración ni físico.
+
+[TDD marcador RED esperado](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44199685238) calculó 64.5 frente a 66.0 antes de actualizar JSON; [GREEN real calidad/Workerd](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44199783940) pasa con `score-v1.json` anclado al SHA `1fc46eb8ee4b1d54cee0aceb473574cae72ed75b`. **Port 36.0/100; 0/6; NO-GO**, no despliegue. `WS_TYPED_ORIGIN_QA` exige el origen HTTPS de la tienda *configurado explícitamente*; si falta, la petición de navegador falla cerrada. Nada de esto acredita venta aplicada ni una sola unión fría física.
 
 ## Rubros de port (100 puntos exactos, inmutables)
 
@@ -17,11 +29,15 @@ Calidad +19.5 puntos estimados frente al 10-nov. Port +6.0 **desde la primera me
 |---|---:|---:|---:|
 | A. Empleado denegado raw Yjs; venta, ajuste, cobro tipados opId con ACK comercial | 20 | 4.0 | 16.0 |
 | B. Emisor Owner/Team; ingreso firmado por canal y reconexión; revocación | 20 | **16.0** | **4.0** |
-| C. Foto como blob SHA fuera de Yjs | 10 | 0.0 | 10.0 |
+| C. Foto como blob SHA fuera de Yjs | 10 | **3.0** | **7.0** |
 | D. Firebase→DO→Firebase completo, SHA, sin padres pendientes | 25 | 10.0 | 15.0 |
 | E. Web Locks outbox y recuperación iPhone | 10 | 3.0 | 7.0 |
 | F. Dos ciclos físicos Opera PC↔Safari iPhone A→B→A | 15 | 0.0 | 15.0 |
-| **TOTAL** | **100** | **33.0** | **67.0** |
+| **TOTAL** | **100** | **36.0** | **64.0** |
+
+### C1 · foto SHA Workerd SQL +3/100 acreditado (NO gate C completo)
+
+[PR89 Workerd real](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/89), [CI exacta 44160604233](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44160604233) SHA `f76deabc271b73702619992155b4a33d114119b4`: bloques SQL de 512 KiB con foto >2 MiB sintética, PUT/GET autenticado por tickets Owner, SHA validado, reinicio Workerd y recuperación binaria, foto **nunca** aceptada como sala Yjs WebSocket en esa ruta. Se acredita exclusivamente stage `photo-sha-sql-blob` (+3.0); NO acreditar referencias Yjs `fotos_refs` ni recuperación PC-iPhone hasta pruebas del navegador/equipo exactas. La rama foto browser sigue fuera de main y no se activa comercialmente. La calidad **se mantiene 64.5**, GO **0/6**; el [TDD RED del marcador](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44176289376) mostró 33 frente a 36 esperado antes de cambiar JSON. PR92 mantiene contraprueba de privacidad Team RED 7/8: no fusionar ni activar Team sin aislamiento.
 
 ### Avance material del port: dos injertos previamente importados ahora están cableados
 
@@ -37,7 +53,7 @@ El validador antiguo `port.cjs:inspectClientWire` exigía indebidamente una sala
 
 ### Lo que bloquea la **primera tienda** (únicamente los seis gates originales)
 
-El Worker todavía no ejecuta venta/ajuste/cobro tipados con efecto comercial durable y **ACK de hecho aplicado**: el inbox actual entrega `stored-for-application`, no éxito de caja. Fotos como bytes siguen en Yjs legado; no existe todavía blob externo SHA conectado. Falta importar la historia **Firebase real** de 5.348 frames sin 15 padres pendientes y un rollback cifrado verificado; no sirve omitir `pendingStructs`. Outbox del transporte y iPhone deben superar Web Locks y suspensión física, y faltan dos ciclos A→B→A de Opera PC y Safari iPhone. Ningún otro requisito se añade aquí.
+El Worker todavía no ejecuta venta/ajuste/cobro tipados con efecto comercial durable y **ACK de hecho aplicado**: el inbox actual entrega `stored-for-application`, no éxito de caja. Hay almacenamiento externo SHA en Worker probado, pero las fotos como bytes siguen en Yjs legado y todavía falta puente completo del navegador. Falta importar la historia **Firebase real** de 5.348 frames sin 15 padres pendientes y un rollback cifrado verificado; no sirve omitir `pendingStructs`. Outbox del transporte y iPhone deben superar Web Locks y suspensión física, y faltan dos ciclos A→B→A de Opera PC y Safari iPhone. Ningún otro requisito se añade aquí.
 
 ## Comandos de control, fail-closed
 

@@ -7,12 +7,33 @@ import * as Y from "yjs";
 import { salaDeLicencia } from "./sala.js";
 import {secureMode,ticketRequest,askAuthority,askAuthorityBatch,unexpired} from "./ws-authority-client.js";
 import {photoShaStore,boundedPhotoBody} from "./photo-sha-storage.mjs";
+import {createTypedCommercialLedger} from "./typed-commercial-ledger.mjs";
 
 export { salaDeLicencia };
 
 const BLOQUE_BYTES = 512 * 1024;
 const COMPACTAR_CAMBIOS = 128;
 const COMPACTAR_BYTES = 1024 * 1024;
+
+// Bounded commands must never accept arbitrarily large JSON before the
+// authenticated inbox checks the exact typed schema.
+async function leerComandoTipado(req) {
+  const max=8192,reader=req.body?.getReader();
+  if(!reader)throw new TypeError('missing-body');
+  const chunks=[];let size=0;
+  try {
+    for(;;){
+      const {done,value}=await reader.read();
+      if(done)break;
+      size+=value.byteLength;
+      if(size>max)throw new RangeError('command-too-large');
+      chunks.push(value);
+    }
+  }catch(error){try{await reader.cancel();}catch(_){}throw error;}
+  const bytes=new Uint8Array(size);let offset=0;
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+  return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
+}
 
 export class Tienda extends YServer {
   // La sala duerme sin clientes activos; el estado vive en el almacenamiento del DO.
@@ -26,6 +47,58 @@ export class Tienda extends YServer {
   outboundQueue = Promise.resolve();
   outboundViews = new WeakMap();
   outboundViewSet = new WeakSet();
+  pendingOutboundFrames = [];
+  outboundBatchScheduled = false;
+
+  // Each batch verifies the exact current central grant for every recipient.
+  // Never cache permissions across batches; send synchronously AFTER the one
+  // batch authority response so another event cannot interleave a revocation
+  // between checked frames. The 32-frame cap bounds the revocation window.
+  async enviarLoteAutorizado(batch) {
+    const recipients=[...new Set(batch.map(frame=>frame.connection))]
+      .filter(connection=>connection.readyState===1);
+    const active=recipients.filter(connection=>unexpired(connection.state?.accesoFirmado));
+    const grants=active.length
+      ? await askAuthorityBatch(this.env,active.map(c=>c.state.accesoFirmado))
+      : [];
+    const proven=new Set();
+    for(const connection of recipients){
+      const i=active.indexOf(connection),grant=i>=0?grants?.[i]:null;
+      if(connection.readyState!==1)continue;
+      if(!grant||!unexpired(grant)){
+        connection.setState(p=>({...p,accesoFirmado:null}));
+        connection.close(1008,'Acceso no autorizado');
+        continue;
+      }
+      connection.setState(p=>({...p,accesoFirmado:grant}));
+      proven.add(connection);
+    }
+    for(const {connection,payload} of batch){
+      if(connection.readyState===1&&proven.has(connection)&&
+         unexpired(connection.state?.accesoFirmado))connection.send(payload);
+    }
+  }
+
+  programarLoteSaliente() {
+    if(this.outboundBatchScheduled||!this.pendingOutboundFrames.length)return;
+    this.outboundBatchScheduled=true;
+    queueMicrotask(()=>{
+      this.outboundBatchScheduled=false;
+      // Never serve arbitrary-sized bursts under one authorization check.
+      const batch=this.pendingOutboundFrames.splice(0,32);
+      const next=this.outboundQueue.then(()=>this.enviarLoteAutorizado(batch));
+      this.outboundQueue=next.catch(()=>{
+        for(const {connection} of batch){
+          if(connection.readyState===1){
+            connection.setState(p=>({...p,accesoFirmado:null}));
+            connection.close(1008,'Salida no autorizada');
+          }
+        }
+      });
+      this.ctx.waitUntil(this.outboundQueue);
+      if(this.pendingOutboundFrames.length)this.programarLoteSaliente();
+    });
+  }
 
   salidaSegura(connection) {
     if (!secureMode(this.env) || this.outboundViewSet.has(connection)) return connection;
@@ -33,20 +106,13 @@ export class Tienda extends YServer {
     const view = new Proxy(connection, {
       get: (target,key) => {
         if (key === 'send') return message => {
-          // YServer broadcasts from lifecycle/awareness too. Guard the actual send,
-          // not only inbound edits. Preserve per-room output order across async checks.
-          const payload = typeof message === 'string' ? message : new Uint8Array(message).slice();
-          const next = this.outboundQueue.then(async () => {
-            if (connection.readyState !== 1) return;
-            const access = connection.state?.accesoFirmado;
-            const current = unexpired(access) ? await askAuthority(this.env,'check',access) : null;
-            if (!current || !unexpired(current)) { connection.setState(p=>({...p,accesoFirmado:null})); connection.close(1008,'Acceso no autorizado'); return; }
-            if (connection.readyState !== 1) return;
-            connection.setState(p=>({...p,accesoFirmado:current}));
-            connection.send(payload);
-          });
-          this.outboundQueue = next.catch(() => { if (connection.readyState === 1) connection.close(1008,'Salida no autorizada'); });
-          this.ctx.waitUntil(this.outboundQueue);
+          // Include YServer lifecycle/awareness/sync sends. A per-frame
+          // remote check serializes a cold join with thousands of Yjs frames.
+          // Queue immutable payload copies; every bounded batch still checks
+          // signed roles/revocations centrally before delivering any bytes.
+          const payload=typeof message==='string'?message:new Uint8Array(message).slice();
+          this.pendingOutboundFrames.push({connection,payload});
+          this.programarLoteSaliente();
         };
         const value = Reflect.get(target,key,target);
         return typeof value === 'function' ? value.bind(target) : value;
@@ -146,6 +212,40 @@ export class Tienda extends YServer {
   // The photo room is HTTP-only. Only SHA/bytes/MIME references may later
   // appear in Yjs; raw blobs stay in this same YParty Durable Object's SQL.
   async onRequest(req) {
+    // A separate, opt-in HTTP typed-command INBOX. No raw Yjs economic writes;
+    // 202 means queued, NEVER that stock/cash were applied by the real app.
+    if(secureMode(this.env)&&this.env.WS_TYPED_COMMANDS_QA==='1'&&
+       this.env.WS_SEPARATE_ROOMS_QA==='1'&&
+       this.name===this.env.SALA_PILOTO+'-ops'){
+      if(req.method!=='POST')return new Response('Method not allowed',{status:405});
+      if(req.headers.get('content-type')?.split(';')[0].trim()!=='application/json')
+        return new Response('Expected JSON',{status:415});
+      let command;
+      try{command=await leerComandoTipado(req);}
+      catch(error){
+        return Response.json({ok:false,reason:error instanceof RangeError?'command-too-large':'invalid-json'},
+          {status:error instanceof RangeError?413:400,headers:{'cache-control':'no-store'}});
+      }
+      const auth=req.headers.get('authorization')||'';
+      const ticket=auth.startsWith('Bearer ')?auth.slice(7):'';
+      const licenseCode=String(req.headers.get('x-f123-license')||'').trim().toUpperCase();
+      const instanceId=req.headers.get('x-f123-instance')||'';
+      const ledger=createTypedCommercialLedger({
+        sql:this.ctx.storage.sql,transactionSync:this.ctx.storage.transactionSync.bind(this.ctx.storage),
+        authorize:async({ticket:submitted,license,scope})=>{
+          if(ticket!==submitted||license!==licenseCode)return{ok:false};
+          const signed=await askAuthority(this.env,'consume',{
+            token:submitted,licenseCode,instanceId,room:this.name,requiredScope:scope
+          });
+          return signed?{ok:true,principal:signed.principal}:{ok:false};
+        }
+        // NO business executor injected: customer/receivable writes remain
+        // fail-closed, and even a stored sale never gets an applied ACK.
+      });
+      const answer=await ledger.submit({ticket,command});
+      const status=answer.ok&&answer.receipt?.stage==='stored-for-application'?202:answer.status;
+      return Response.json(answer,{status,headers:{'cache-control':'no-store'}});
+    }
     if (!secureMode(this.env) || this.env.WS_PHOTO_BLOBS_QA !== '1' ||
         this.name !== this.env.SALA_PILOTO + '-fotos') {
       return new Response('Not found',{status:404});
@@ -408,11 +508,54 @@ export default {
       }});
     }
     const photoHttp=photoEndpoint && (req.method==='GET'||req.method==='PUT');
+    const typedEndpoint=env.WS_TYPED_COMMANDS_QA==='1'&&env.WS_SEPARATE_ROOMS_QA==='1'&&
+      path==='/parties/tienda/'+env.SALA_PILOTO+'-ops';
+    // Unlike WebSockets, a browser's signed HTTP POST needs CORS preflight.
+    // No wildcard origin, credentials or bearer tokens in a URL. A denied
+    // origin is rejected BEFORE routing into the Durable Object or consuming
+    // a one-use capability.
+    const typedOrigin=req.headers.get('origin');
+    const expectedTyped=env.WS_TYPED_ORIGIN_QA;
+    let validTypedOrigin=false;
+    try{
+      const parsed=new URL(expectedTyped);
+      validTypedOrigin=parsed.protocol==='https:'&&parsed.origin===expectedTyped;
+    }catch(_){}
+    const typedOriginAllowed=validTypedOrigin&&typedOrigin===expectedTyped;
+    if(typedEndpoint&&req.method==='OPTIONS'){
+      const requestedMethod=req.headers.get('access-control-request-method');
+      const requestedHeaders=(req.headers.get('access-control-request-headers')||'')
+        .split(',').map(v=>v.trim().toLowerCase()).filter(Boolean);
+      const allowed=new Set(['authorization','content-type','x-f123-license','x-f123-instance']);
+      if(!typedOriginAllowed||requestedMethod!=='POST'||!requestedHeaders.length||
+         requestedHeaders.some(h=>!allowed.has(h)))
+        return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
+      return new Response(null,{status:204,headers:{
+        'access-control-allow-origin':expectedTyped,
+        'access-control-allow-methods':'POST',
+        'access-control-allow-headers':'Authorization, Content-Type, X-F123-License, X-F123-Instance',
+        'access-control-max-age':'60','vary':'Origin','cache-control':'no-store'
+      }});
+    }
+    const typedHttp=typedEndpoint&&req.method==='POST';
+    if(typedHttp&&typedOrigin!==null&&!typedOriginAllowed)
+      return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
     // No raw Yjs WebSocket room for photo bytes, and no generic anonymous HTTP.
     const allowedWs=(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv","-cat","-ops"] : ["-priv"]) : ["","-cat","-ops"])
       .some(suffix=>path==='/parties/tienda/'+env.SALA_PILOTO+suffix);
-    if (!photoHttp && !allowedWs) return new Response("Not found", { status: 404 });
-    if (photoHttp) return (await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
+    if (!photoHttp && !typedHttp && !allowedWs) return new Response("Not found", { status: 404 });
+    if(photoHttp||typedHttp){
+      const response=(await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
+      if(typedHttp&&typedOrigin!==null){
+        // Only a previously approved HTTPS origin may receive this CORS
+        // response. The backend still requires a fresh signed scoped ticket.
+        const headers=new Headers(response.headers);
+        headers.set('access-control-allow-origin',expectedTyped);
+        headers.set('vary','Origin');
+        return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+      }
+      return response;
+    }
     if (req.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("WebSocket required", { status: 426 });
     }

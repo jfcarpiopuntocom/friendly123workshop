@@ -5,8 +5,8 @@
   "baselineDate": "2026-11-10",
   "baselineProvenance": "retrospective-estimate",
   "baselineUncertainty": 5,
-  "reviewedDate": "2026-11-17T17:49:53Z",
-  "reviewedSha": "728f2681d0be6a200b01f4134d7eb533fd9a9167",
+  "reviewedDate": "2026-11-17T23:35:40Z",
+  "reviewedSha": "151b3b2b1b0a34c6873c56a090bf0eb461ca667e",
   "currentUncertainty": 4,
   "disclaimer": "Editorial engineering confidence score, NOT measured failure probability or verified production availability. Baseline inferred retrospectively, no exact 10-Nov SHA. Re-evaluate after every changed code SHA; gains require linked tests and explicit judgment. Six JFC GO gates override score.",
   "dimensions": [
@@ -51,13 +51,19 @@
         ]
       },
       "current": {
-        "points": 16,
+        "points": 16.5,
         "evidence": [
           {
             "level": "integrated-ci",
             "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302",
             "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
             "claim": "Typed inbox/store recovery and local IDB regressions passed; production ACK not proven"
+          },
+          {
+            "level": "workerd-sql",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44196026710",
+            "sha": "897848ffef7434e97fde9b0a07f7b2956c0ccf80",
+            "claim": "Real Workerd SQLite 3/3: queued opId atomically promoted to business-committed by optional SQL adapter across restart, rollback/retry preserves exactly-once; real commercial app not wired"
           }
         ]
       }
@@ -77,13 +83,19 @@
         ]
       },
       "current": {
-        "points": 12,
+        "points": 12.5,
         "evidence": [
           {
             "level": "synthetic-ci",
             "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44128118555",
             "sha": "d68842905c9149cc391da787c43ea92365d619fa",
             "claim": "Yjs frozen pre-cut causal completeness green only in controlled tests; 15 parents still in real canary"
+          },
+          {
+            "level": "workerd",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44200699627",
+            "sha": "151b3b2b1b0a34c6873c56a090bf0eb461ca667e",
+            "claim": "Real Workerd 12/12 shows 64 Yjs frames received by another signed client with outbound authorization grouped in bounded 32-frame check-many batches, under simulated 250ms delay on legacy single checks; not a real iPhone or Firebase cold join"
           }
         ]
       }
@@ -103,13 +115,31 @@
         ]
       },
       "current": {
-        "points": 7.5,
+        "points": 8.5,
         "evidence": [
           {
             "level": "integrated-ci",
             "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44131873302",
             "sha": "d20e06a2e5f9737de498bc12e4705f246514c6fd",
             "claim": "Workerd local read/issuer proof, but no complete typed business executor and employee write path certification"
+          },
+          {
+            "level": "workerd",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44193649188",
+            "sha": "49dd97ba5829a9b5889a7538772e38682d96e486",
+            "claim": "Real Workerd Team Yjs private catalog disclosure demonstrated RED then denied before any private Yjs frames, owner flow remains unchanged; public Team catalog pending"
+          },
+          {
+            "level": "workerd",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44195009756",
+            "sha": "38d84b36867501f55ec89d6517f50fedf6483460",
+            "claim": "Real Workerd signed Team ops:sale typed HTTP 10/10, employee cannot open raw ops Yjs or private catalog, and central role revocation denies tickets"
+          },
+          {
+            "level": "workerd",
+            "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44199112764",
+            "sha": "1fc46eb8ee4b1d54cee0aceb473574cae72ed75b",
+            "claim": "Real Workerd strict HTTPS origin CORS 11/11: preflight before one-use ticket, wrong origin POST denied without spending valid Owner capability; actual browser commercial path not wired"
           }
         ]
       }

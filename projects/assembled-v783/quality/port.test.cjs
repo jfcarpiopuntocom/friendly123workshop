@@ -9,26 +9,26 @@ const quality=JSON.parse(fs.readFileSync(path.join(parent,'score-v1.json'),'utf8
 const {assessPort,formatDual,inspectClientWire}=require('./port.cjs');
 const {evaluate}=require('./score.cjs');
 
-test('two distinct numbers: versioned architecture quality 64.5 and actual port completion 33.0',()=>{
+test('two distinct numbers: quality 66.5 and evidence-credited port 36.0',()=>{
  const p=assessPort(data),q=evaluate(quality);
- assert.equal(p.score,33.0);
- assert.equal(q.current,64.5);
+ assert.equal(p.score,36.0);
+ assert.equal(q.current,66.5);
  assert.equal(p.maximum,100);
  assert.equal(p.gatesPassed,0);
  assert.equal(p.gatesRequired,6);
  assert.equal(p.ready,false);
  assert.equal(p.target,100);
- assert.equal(p.reviewedSha,'1db297d2387d389b2b2b05e6191133c52b7b4ebd');
+ assert.equal(p.reviewedSha,'641a58070e4915e3da945144e6365cdf1a225764');
  const report=formatDual({port:p,quality:q});
- assert.match(report,/64\.5\/100/);
- assert.match(report,/33\.0\/100/);
+ assert.match(report,/66\.5\/100/);
+ assert.match(report,/36\.0\/100/);
  assert.match(report,/45\.0\/100/);
  assert.match(report,/NO-GO/);
 });
 test('six JFC gates are immutable and sum to exactly 100 with fixed stages',()=>{
  const result=assessPort(data);
  assert.deepEqual(result.gates.map(g=>[g.id,g.weight,g.earned]),[
-  ['economics',20,4],['identity',20,16],['photos',10,0],
+  ['economics',20,4],['identity',20,16],['photos',10,3],
   ['migration',25,10],['mobile',10,3],['physical',15,0]
  ]);
  assert.ok(result.gates.every(g=>g.certified===false));
