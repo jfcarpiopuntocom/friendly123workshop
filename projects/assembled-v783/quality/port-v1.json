@@ -2,7 +2,7 @@
   "version": 1,
   "metric": "operational-port-completion",
   "target": 100,
-  "reviewedAt": "2026-11-18T02:05:16Z",
+  "reviewedAt": "2026-11-17T21:05:16-05:00",
   "reviewedSha": "b864461e804b4b0fda28beb019d68a9a216082b9",
   "source": "friendly123workshop/projects/assembled-v783",
   "disclaimer": "Milestone-based operational PORT completion, NOT app quality, probability, elapsed-time estimate or customer activation. Credits for prep do not imply any first-shop gate passed. Six JFC gates are immutable. No real customer data or physical evidence.",
