@@ -35,7 +35,7 @@ jobs:
           mkdir -p evidence
           git rev-parse HEAD | tee evidence/gate-a-business-head.txt
           node --check src/authoritative-business-sql.mjs
-          node --test --test-concurrency=1 qa/p0-gate-a-business-sql-workerd.test.mjs qa/p0-gate-a-real-router-business.test.mjs qa/p0-gate-a-yjs-history-precut.test.mjs 2>&1 | tee evidence/gate-a-business-workerd.tap
+          node --test --test-concurrency=1 qa/p0-gate-a-business-sql-workerd.test.mjs qa/p0-gate-a-real-router-business.test.mjs qa/p0-gate-a-yjs-history-precut.test.mjs qa/p0-typed-commercial-ledger-workerd.test.mjs qa/p0-typed-business-transaction-workerd.test.mjs 2>&1 | tee evidence/gate-a-business-workerd.tap
       - name: Preserve exact RED and GREEN TAP+SHA even on failure
         if: always()
         uses: actions/upload-artifact@v4
