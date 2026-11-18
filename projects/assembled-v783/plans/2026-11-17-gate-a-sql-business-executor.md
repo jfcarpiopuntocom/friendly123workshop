@@ -19,3 +19,10 @@
 
 ## Límites inamovibles
 Esto NO constituye importación real Firebase, NO es cuenta de tienda real, NO reemplaza el backend comercial legado, NO implementa ajuste/pago, NO acredita gate A 20/20 ni GO. Al activar 2.0 para usuarios solo tras D completo con baseline/certificado, B/C/E/F verificadas, y autorización de JFC. Rollback: retirar flag QA y la rama, sin escribir producción. La nueva tabla no toca Yjs ni fuentes migradas. Guardar SHA/CI/Notion antes de cambiar de contexto.
+
+## Seguridad hallada antes del siguiente parche, mismo gate A
+- La sala -ops de YParty puede guardar historia previa en tablas documento/documento_bloques/diario/diario_bloques o certificado f123_frozen_imports. Aunque todavía NO tenga typed_commercial_ops, sembrar stock/caja como si la tienda estuviese vacía permitiría después re-aplicar ventas históricas por nuevos opIds: potencial doble descuento/doble caja.
+- Añadir test Workerd RED en QA fixture de inyección sintética de un frame de diario existente. Debe rechazar installBusinessBaseline y jamás escribir stock/caja ni ACK.
+- Ponytail: impedir NUEVA siembra cuando cualquiera de las cuatro tablas de estado Yjs tenga filas; también cuando existe f123_frozen_imports pendiente de reconciliación. Permitir explícitamente una sala vacía, y mantener el retry idempotente del certificado empresarial ya instalado (las ventas posteriores nunca se resiembran). 
+- El cutover de historial real requerirá conciliación explícita entre fuente económica, IDs y YAML Yjs en el gate D aprobado. No intentar convertir el importador certificado previo en un certificado económico mágico ni borrar historial.
+- Revalidar tests del Worker actual 3/3 y secure rooms con bandera OFF. No subir score por el guard.
