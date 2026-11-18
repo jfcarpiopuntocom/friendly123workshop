@@ -60,3 +60,28 @@ test('batch checks cannot cross business/room boundaries or accept unbounded inp
  const r=await ticket(c);await c.ws.consume(use(c,r.token));assert.equal((await c.ws.checkMany({licenseCode:'F123-OTHER-FAKE',room:c.room+'-priv',requests:[use(c,r.token)]})).ok,false);
 });
 test('ops:adjust ceiling: Owner and Admin may hold it, employee never (even with a QA grant)',async()=>{const c=await setup();const r=await c.ws.issue({credentials:credentials(),room:c.room+'-ops',scopes:['ops:adjust']});assert.equal(r.ok,true);assert.equal((await c.ws.consume(use(c,r.token,{room:c.room+'-ops',requiredScope:'ops:adjust'}))).principal.role,'dueno');for(const [role,ok] of [['admin',true],['empleado',false]]){const d=await setup();await enroll(d,role);const granted=wsCapabilityAuthority({...d.options,grants:{[role]:['ops:adjust']}});const t=await granted.issue({credentials:credentials({kind:'team',subject:'member-one',pin:'234'}),room:d.room+'-ops',scopes:['ops:adjust']});assert.equal(t.ok,ok,role);}});
+
+test('JFC Gate A: Owner/Admin/Team get narrowly scoped payment tickets, Team never stock adjustment',async()=>{
+  const owner=await setup();
+  const issued=await owner.ws.issue({credentials:credentials(),room:owner.room+'-ops',scopes:['ops:payment']});
+  assert.equal(issued.ok,true,'Owner must receive payment scope');
+  assert.equal((await owner.ws.consume(use(owner,issued.token,{room:owner.room+'-ops',requiredScope:'ops:payment'}))).ok,true);
+  for(const role of ['admin','empleado']){
+    const ctx=await setup();await enroll(ctx,role);
+    const request={credentials:credentials({kind:'team',subject:'member-one',pin:'234'}),room:ctx.room+'-ops',scopes:['ops:payment']};
+    assert.equal((await ctx.ws.issue(request)).ok,false,'Team must not inherit a scope without an explicit grant');
+    const ws=wsCapabilityAuthority({...ctx.options,grants:{[role]:['ops:payment','ops:adjust']}});
+    const one=await ws.issue(request);
+    assert.equal(one.ok,true,role+' approved for a payment with explicit grant');
+    const bound=use(ctx,one.token,{room:ctx.room+'-ops',requiredScope:'ops:payment'});
+    assert.equal((await ws.consume(bound)).ok,true);
+    assert.equal((await ws.consume(bound)).ok,false,'one-use ticket replay denied');
+    const arbitrary=await ws.issue({...request,scopes:['ops:read']});
+    assert.equal(arbitrary.ok,false,'payment grant cannot open raw economic Yjs');
+    if(role==='empleado'){
+      assert.equal((await ws.issue({...request,scopes:['ops:adjust']})).ok,false,'Team cannot adjust stock');
+    }
+    await enroll(ctx,role,{opId:'synthetic-role-revoke',expectedRevision:1,active:false,pin:undefined});
+    assert.equal((await ws.check(bound)).ok,false,'revocation denies any further access');
+  }
+});
