@@ -7,6 +7,9 @@ on:
       - projects/assembled-v783/app/test/p0-ws-capability-issuer.test.mjs
       - projects/assembled-v783/relay/injertos/yparty-worker/src/ws-authority-client.js
       - projects/assembled-v783/relay/injertos/yparty-worker/src/authoritative-business-sql.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/certified-receivable-authority.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/fixtures/receivable-authority-worker.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-certified-receivable-authority.test.mjs
       - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-gate-a-payment-roles.test.mjs
       - .github/workflows/qa-gate-a-payment-roles.yml
   workflow_dispatch:
@@ -44,4 +47,5 @@ jobs:
         run: |
           node --check src/ws-authority-client.js
           node --check src/authoritative-business-sql.mjs
-          node --test --test-concurrency=1 qa/p0-gate-a-payment-roles.test.mjs qa/p0-gate-a-typed-payment-sql.test.mjs
+          node --check src/certified-receivable-authority.mjs
+          node --test --test-concurrency=1 qa/p0-gate-a-payment-roles.test.mjs qa/p0-gate-a-typed-payment-sql.test.mjs qa/p0-certified-receivable-authority.test.mjs
