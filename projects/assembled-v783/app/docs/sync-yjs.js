@@ -2648,11 +2648,11 @@
       canalesPiloto.forEach(function (c) { c.pausar(); });
       if (!canalesRespaldo) canalesRespaldo = [
         crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb),
-        crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb)
+        API.opsCanal // Money already uses the proved relay; never create a second writer.
       ];
       API.canal = canalesRespaldo[0];
       API.opsCanal = canalesRespaldo[1];
-      canalesRespaldo.forEach(function (c) { c.reanudar(); });
+      canalesRespaldo[0].reanudar(); // Only catalog changes transport; ops stays connected.
       esperaRetorno = 60000;
       programarRetorno();
     }
@@ -2678,9 +2678,9 @@
           return c.certificar();
         }));
         if (document.hidden || !respaldoListo() || !pruebas.every(function (prueba) { return prueba && prueba(); })) return;
-        canalesRespaldo.forEach(function (c) { c.pausar(); });
+        canalesRespaldo[0].pausar(); // Never pause the live monetary channel.
         API.canal = canalesPiloto[0];
-        API.opsCanal = canalesPiloto[1];
+        API.opsCanal = canalesRespaldo[1];
       } catch (e) { log("retorno del piloto", e && e.message); }
       finally {
         retornoEnCurso = false;
@@ -2774,10 +2774,11 @@
       API.opsBc = new BroadcastChannel("f123-yjs-ops-" + API.roomId);
       API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
-    API.opsCanal = piloto ? piloto.canal(API.opsDoc, "ops", API.opsIdb, pedirProcesarEventos, usarRelayHabitual)
-      : crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb);
+    // Bridge A: economic writes remain on the proven encrypted relay. The new
+    // -ops Yjs WebSocket is intentionally read-only and cannot apply a sale.
+    API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb);
     if (piloto) {
-      canalesPiloto = [API.canal, API.opsCanal];
+      canalesPiloto = [API.canal];
       API.canalPiloto = API.canal;
     }
     API.opsDoc.on("update", function (update, origin) {
@@ -2789,7 +2790,8 @@
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.opsCanal.enviarUpdate(update);
-      if (origin && canalesPiloto && origin === canalesPiloto[1].proveedor) pedirProcesarEventos();
+      // ops never joins the new pilot provider; legacy remote origins are
+      // processed by the existing 'red' / store reconciliation path.
     });
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
