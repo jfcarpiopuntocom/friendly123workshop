@@ -339,7 +339,7 @@ test('P0 real Worker typed sale HTTP: central fresh Owner ticket, 202 inbox only
 
 test('P0 Team employee may submit TYPED ops:sale HTTP but never open economic Yjs or private catalog',{timeout:30000},async()=>{
  const {teamAuthority}=await import('../../../../app/cloudflare-worker/team-authority.mjs');
- env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['ops:sale']});
+ env.WS_QA_ROLE_GRANTS=JSON.stringify({empleado:['ops:sale','fotos:read']});
  // Test-only issuer rate counter isolation: actual Workerd HMAC/role/nonce checks
  // stay on, no changes to production 32/min quota or permission ceilings.
  await db.transaction(tx=>tx.delete('ws-issue-rate-v1:'+license+':'+instance));
@@ -378,9 +378,40 @@ test('P0 Team employee may submit TYPED ops:sale HTTP but never open economic Yj
   assert.equal(body.receipt?.stage,'stored-for-application',
     'employee can enqueue typed intent, but never claim commercial success without executor');
   assert.equal(body.ok,true);
+  // Team photo READ is a narrow signed HTTP GET, never Yjs catalog or PUT.
+  const png=new Uint8Array(128);for(let i=0;i<png.length;i++)png[i]=(i*17)%251;
+  const photoSha=await syntheticSha(png);
+  assert.equal((await photoHttp('PUT',photoSha,await issue('fotos',['fotos:write']),png)).status,201);
+  const photoTicket=async()=>{
+    const response=await api('/ws/ticket',{credentials:{kind:'team',...identity,pin:'444'},
+      room:room+'-fotos',scopes:['fotos:read'],ttlMs:30000});
+    return{status:response.status,data:await response.json()};
+  };
+  const teamPhoto=await photoTicket();
+  assert.equal(teamPhoto.status,200,JSON.stringify(teamPhoto.data));
+  const get=await photoHttp('GET',photoSha,teamPhoto.data.token);
+  assert.equal(get.status,200,'employee with centrally signed fotos:read MUST retrieve catalogue photo');
+  assert.deepEqual(new Uint8Array(await get.arrayBuffer()),png);
+  assert.equal((await photoHttp('GET',photoSha,teamPhoto.data.token)).status,403,
+    'photo read capabilities are consumed exactly once');
+  const readForWrite=await photoTicket();
+  assert.equal(readForWrite.status,200);
+  assert.equal((await photoHttp('PUT',photoSha,readForWrite.data.token,png)).status,403,
+    'employee fotos:read may never mutate photo bytes');
+  const rawPhotoCap=await photoTicket();
+  assert.equal(rawPhotoCap.status,200);
+  const rawPhoto=await attempt('fotos',rawPhotoCap.data.token);
+  assert.notEqual(rawPhoto.status,'open','photo-only room is HTTP, never Team Yjs');
+  assert.equal(rawPhoto.binary,0);
+  const stalePhoto=await photoTicket();
+  assert.equal(stalePhoto.status,200);
   const revoked=await team.update({...identity,role:'empleado',active:false,ownerPin:'123',
     expectedRevision:joined.revision,opId:'synthetic-team-seller-revoke'});
   assert.equal(revoked.ok,true,JSON.stringify(revoked));
+  assert.equal((await photoHttp('GET',photoSha,stalePhoto.data.token)).status,403,
+    'already-issued but unused photo read ticket must be denied after Team revocation');
+  assert.notEqual((await photoTicket()).status,200,
+    'revoked employee cannot issue new photo read ticket');
   assert.notEqual((await ticket()).status,200,'revoked employee cannot issue more command tickets');
  }finally{delete env.WS_QA_ROLE_GRANTS;}
 });
