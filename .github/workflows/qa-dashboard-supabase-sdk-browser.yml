@@ -1,0 +1,23 @@
+name: P0 Browser Supabase SDK realtime dashboard
+on:
+  pull_request:
+    paths:
+      - projects/assembled-v783/tests/p0-dashboard-supabase-sdk-browser.test.cjs
+      - .github/workflows/qa-dashboard-supabase-sdk-browser.yml
+permissions:
+  contents: read
+jobs:
+  live-browser:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node --test projects/assembled-v783/tests/p0-dashboard-supabase-sdk-browser.test.cjs
