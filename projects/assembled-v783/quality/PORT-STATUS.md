@@ -7,9 +7,17 @@ Fuente ejecutable de la calidad: [score-v1.json](score-v1.json) + [score.cjs](sc
 | Métrica | Hace una semana | Corte anterior 17-nov | Actual 17-nov | Meta |
 |---|---:|---:|---:|---:|
 | Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 66.5/100 | **67.0/100** (±4 criterio; candidato combinado QA) | ≥95 |
-| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **36.0/100** | 100 **y 6/6 gates** |
+| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 27.0/100 | **41.0/100** (PR #97 candidato QA) | 100 **y 6/6 gates** |
 
-Calidad +22.0 puntos estimados frente al 10-nov (45.0→67.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +9.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+Calidad +22.0 puntos estimados frente al 10-nov (45.0→67.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +14.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+
+## P0 Gate E · +5.0 al PORT solo en candidato PR #97 (QA nativo, NO físico)
+
+**Criterio congelado:** stage `idb-outbox-web-locks` 0→5/5, gate E 3→8/10; total port 36→**41/100** y calidad **67/100 sin cambios**. Ninguna nueva etapa, ningún peso nuevo; **0/6 gates certificados, NO-GO**. `port-v1.json` identifica el commit exacto de fuente probado `b864461e804b4b0fda28beb019d68a9a216082b9`.
+
+[PR #97 DRAFT](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/97), [CI 4/4 GREEN](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44220487700), artefacto `gate-e-native-idb-44220487700`; CI ejecutó SHA de merge PR `5400d07ff68631608210d7f7abe2aaf633092975`, parte del candidato `b864461e`. Dos pestañas de mismo origen con IndexedDB real, funciones V2 extraídas de `app/docs/sync-yjs.js` SIN editar, ambos motores nativos Chromium y WebKit Playwright: carrera A/B, ACK A mientras B incorpora C, tercera apertura fría recupera solo B/C y tombstone A, cierre de DB no emite éxito ni pierde el pendiente. Se probó tanto Web Locks como la ruta atómica sin Locks, **cero FAIL, cero SKIP**. Además, [QA del ensamblaje](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44220487680) completó verde en el mismo head; esto no demuestra el histórico físico.
+
+[RED primero, marcador esperaba 41 y computó 36](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44220915090): fallaron las aserciones de 41 y gate E 8 antes de incorporar la evidencia JSON. El test es independiente del código comercial, que no cambió. La rama sigue DRAFT y no se habilitan flags ni producción; WebKit Playwright NO es iPhone Safari. Falta validar el marcador ya actualizado en CI y fusionar solo tras green/revisión de propietario. La reserva `sync-yjs.js` quedó intacta.
 
 ## Calidad 67.0/100 · foto SHA real de cliente→emisor→Workerd, no certificado físico
 
@@ -39,9 +47,9 @@ No cambiaron ejes, pesos ni seis gates. **+0.5** en durabilidad (16.0→16.5/20)
 | B. Emisor Owner/Team; ingreso firmado por canal y reconexión; revocación | 20 | **16.0** | **4.0** |
 | C. Foto como blob SHA fuera de Yjs | 10 | **3.0** | **7.0** |
 | D. Firebase→DO→Firebase completo, SHA, sin padres pendientes | 25 | 10.0 | 15.0 |
-| E. Web Locks outbox y recuperación iPhone | 10 | 3.0 | 7.0 |
+| E. Web Locks outbox y recuperación iPhone | 10 | 8.0 | 2.0 |
 | F. Dos ciclos físicos Opera PC↔Safari iPhone A→B→A | 15 | 0.0 | 15.0 |
-| **TOTAL** | **100** | **36.0** | **64.0** |
+| **TOTAL** | **100** | **41.0** | **59.0** |
 
 ### C1 · foto SHA Workerd SQL +3/100 acreditado (NO gate C completo)
 

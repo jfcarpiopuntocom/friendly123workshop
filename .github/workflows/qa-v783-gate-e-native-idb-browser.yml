@@ -1,0 +1,45 @@
+name: v783 Gate E native IndexedDB Chromium WebKit (QA only)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'projects/assembled-v783/app/test/p0-gate-e-native-idb-browser.test.cjs'
+      - 'projects/assembled-v783/app/docs/sync-yjs.js'
+      - '.github/workflows/qa-v783-gate-e-native-idb-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-real-idb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact dependencies and native browser engines
+        working-directory: projects/assembled-v783/app
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+      - name: Run exact source functions across two real IDB tabs in both browsers
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/gate-e-native-idb
+          git rev-parse HEAD | tee ../evidence/gate-e-native-idb/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=130000 test/p0-gate-e-native-idb-browser.test.cjs 2>&1 | tee ../evidence/gate-e-native-idb/tap.log
+      - name: Archive exact evidence including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-e-native-idb-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/gate-e-native-idb/
+          if-no-files-found: warn
+          retention-days: 14

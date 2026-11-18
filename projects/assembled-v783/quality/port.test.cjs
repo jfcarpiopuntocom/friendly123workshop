@@ -9,19 +9,19 @@ const quality=JSON.parse(fs.readFileSync(path.join(parent,'score-v1.json'),'utf8
 const {assessPort,formatDual,inspectClientWire}=require('./port.cjs');
 const {evaluate}=require('./score.cjs');
 
-test('two distinct numbers: quality 67.0 and evidence-credited port 36.0',()=>{
+test('two distinct numbers: quality 67.0 and evidence-credited port 41.0',()=>{
  const p=assessPort(data),q=evaluate(quality);
- assert.equal(p.score,36.0);
+ assert.equal(p.score,41.0);
  assert.equal(q.current,67.0);
  assert.equal(p.maximum,100);
  assert.equal(p.gatesPassed,0);
  assert.equal(p.gatesRequired,6);
  assert.equal(p.ready,false);
  assert.equal(p.target,100);
- assert.equal(p.reviewedSha,'641a58070e4915e3da945144e6365cdf1a225764');
+ assert.equal(p.reviewedSha,'b864461e804b4b0fda28beb019d68a9a216082b9');
  const report=formatDual({port:p,quality:q});
  assert.match(report,/67\.0\/100/);
- assert.match(report,/36\.0\/100/);
+ assert.match(report,/41\.0\/100/);
  assert.match(report,/45\.0\/100/);
  assert.match(report,/NO-GO/);
 });
@@ -29,7 +29,7 @@ test('six JFC gates are immutable and sum to exactly 100 with fixed stages',()=>
  const result=assessPort(data);
  assert.deepEqual(result.gates.map(g=>[g.id,g.weight,g.earned]),[
   ['economics',20,4],['identity',20,16],['photos',10,3],
-  ['migration',25,10],['mobile',10,3],['physical',15,0]
+  ['migration',25,10],['mobile',10,8],['physical',15,0]
  ]);
  assert.ok(result.gates.every(g=>g.certified===false));
 });
@@ -59,7 +59,7 @@ test('reject weight manipulation, fabricated evidence, hidden gates and invalid 
   d=>{d.reviewedSha='latest';}
  ]){const copy=structuredClone(data);mutate(copy);assert.throws(()=>assessPort(copy));}
 });
-test('client↔Worker actual pilot source is signed and separated, but no complete commercial GO',()=>{
+test('Option A actual client signs catalog-only YParty and keeps money on legacy; not complete GO',()=>{
  const client=fs.readFileSync(path.join(root,'app/src/yparty-piloto.js'),'utf8');
  const worker=fs.readFileSync(path.join(root,'relay/injertos/yparty-worker/src/index.js'),'utf8');
  const authorized=fs.readFileSync(path.join(root,'app/src/authorized-yprovider.mjs'),'utf8');
@@ -68,10 +68,14 @@ test('client↔Worker actual pilot source is signed and separated, but no comple
  assert.equal(e.authorizedProviderAvailable,true);
  assert.equal(e.pilotUsesFreshTicket,true);
  assert.equal(e.pilotUsesPrivateRoom,false);
- assert.equal(e.pilotUsesSeparatedRooms,true);
- assert.equal(e.channelIsolationPreserved,true);
- assert.equal(e.compatible,true);
- assert.match(e.reason,/still pending|GO/i);
+ assert.equal(e.pilotUsesSeparatedRooms,false,'ops are NOT on YParty in the approved safe bridge');
+ assert.equal(e.hybridCatalogOnly,true,'signed YParty catalog has an explicit money fallback');
+ assert.equal(e.channelIsolationPreserved,true,'only the catalog joins YParty');
+ assert.equal(e.compatible,false,'partial hybrid is not the finished cat+ops port');
+ assert.match(e.reason,/SAFE HYBRID/);
+ const sync=fs.readFileSync(path.join(root,'app/docs/sync-yjs.js'),'utf8');
+ assert.ok(sync.includes('API.opsCanal = crearCanal(Y, API.opsDoc, "-ops"'),
+   'actual ops Y.Doc must still be exclusively published by the old encrypted relay');
 });
 test('port gate cannot be certified before every declared stage has evidence and completion',()=>{
  const copy=structuredClone(data);
