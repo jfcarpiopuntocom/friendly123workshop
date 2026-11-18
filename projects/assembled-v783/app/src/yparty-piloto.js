@@ -4,7 +4,7 @@ import {createPhotoShaBridge} from './photo-sha-bridge.mjs';
 
 const host = 'friendly123-yparty-qa-20261114.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
-const plazoReconectar = 30000;
+const plazoReconectar = 7500;
 
 window.F123YPartyPilot = function (sala, licencia) {
   return {
@@ -115,7 +115,7 @@ window.F123YPartyPilot = function (sala, licencia) {
           // The private owner path deliberately handles only the channels for
           // which server-side one-use tickets exist. Never pipe photo bytes to
           // an unauthorized/private Yjs room; keep the encrypted old relay.
-          if (tipo !== 'cat' && tipo !== 'ops') {
+          if (tipo !== 'cat') { // Money remains on the proven encrypted legacy relay until a real business ACK exists.
             usarRelayHabitual(); return;
           }
           const getCredentials = () => {
@@ -144,6 +144,7 @@ window.F123YPartyPilot = function (sala, licencia) {
           });
           canal.proveedor = proveedor;
           esperarConexion(proveedor);
+          proveedor.on('authorization-error', () => volverAlRelay(proveedor));
           proveedor.on('status', ({ status }) => {
             if (status === 'connecting' && proveedor.ws) proveedor.ws.relayLayer = relayLayer;
           });
@@ -157,27 +158,26 @@ window.F123YPartyPilot = function (sala, licencia) {
           // turn must still disconnect the provider before it can send data.
           proveedor.connect().then(() => {
             if (document.hidden || canal.proveedor !== proveedor || doc.isDestroyed) proveedor.disconnect();
-          }).catch(() => {
-            if (canal.proveedor !== proveedor) return;
-            // Auth failed before the WS could certify any durable state.
-            // Keep the local Y.Doc and replayable outbox; the old encrypted
-            // relay is the only allowed failback, never bare identifiers.
-            canal.proveedor = null;
-            cancelarPlazo();
-            try { proveedor.destroy(); } catch (_) {}
-            usarRelayHabitual();
-          });
+          }).catch(() => volverAlRelay(proveedor));
         }
       };
       function cancelarPlazo() {
         clearTimeout(plazo);
         plazo = null;
       }
+      function volverAlRelay(proveedor) {
+        if (canal.proveedor !== proveedor) return;
+        // No uncommitted local Y.Doc or encrypted outbox is discarded.
+        canal.proveedor = null;
+        cancelarPlazo();
+        try { proveedor.destroy(); } catch (_) {}
+        usarRelayHabitual();
+      }
       function esperarConexion(proveedor) {
         if (plazo !== null || canal.proveedor !== proveedor) return;
         plazo = setTimeout(() => {
           plazo = null;
-          if (canal.proveedor === proveedor && !proveedor.synced && !document.hidden && !doc.isDestroyed) usarRelayHabitual();
+          if (canal.proveedor === proveedor && !proveedor.synced && !document.hidden && !doc.isDestroyed) volverAlRelay(proveedor);
         }, plazoReconectar);
       }
       function completar() {
