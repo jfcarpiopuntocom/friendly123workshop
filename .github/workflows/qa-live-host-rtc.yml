@@ -1,0 +1,22 @@
+name: QA live host-only RTC browser transport
+on:
+  pull_request:
+    paths:
+      - projects/assembled-v783/tests/p0-live-host-rtc.test.cjs
+      - .github/workflows/qa-live-host-rtc.yml
+permissions:
+  contents: read
+jobs:
+  native-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Two isolated Chromium contexts force host ICE; send only synthetic bytes
+        run: node --test projects/assembled-v783/tests/p0-live-host-rtc.test.cjs
+# Trigger exact-head CI acceptance only.
