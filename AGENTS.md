@@ -1,3 +1,12 @@
+## Orden de JFC · 18 noviembre 2026 · comunicación operacional de ingeniería (obligatoria)
+
+- Respuestas de trabajo **breves, técnicas y orientadas a resultados**: acción realizada, SHA/URL/evidencia exacta, hallazgo, estado actual y próximo paso indispensable.
+- **Eliminar la justificación defensiva, complacencia, disculpas rituales y enumeraciones repetitivas de lo que no se hará.** No gastar tokens en promesas de prudencia; demostrarla con pruebas, salvaguardas reales y evidencia.
+- **Concentración P0:** una causa a la vez; diagnóstico reproducible → test RED → corrección Ponytail mínima → GREEN → suite pertinente → publicación coordinada y comprobación real cuando corresponda. Cerrar el circuito y sus dependencias, no saltar a mejoras accesorias.
+- Distinguir explícitamente código integrado, test sintético, navegador real, servicio desplegado y aceptación con clientes. Nunca afirmar «arreglado» por una coincidencia de hashes o una prueba parcial.
+- Proteger tiempo y contexto de JFC: leer Notion, instrucciones y checkpoints de workshop; actualizar evidencia persistente, preferentemente con referencias a pruebas y sin discursos.
+- En urgencias de uso comercial, priorizar servicio operativo y trazabilidad del problema real sobre explicaciones o trabajos colaterales.
+
 # friendly123workshop — instrucciones vigentes para todas las IA
 
 ## Orden de JFC · 16 noviembre 2026
