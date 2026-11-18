@@ -1,0 +1,22 @@
+name: QA live synthetic TURN signalling
+on:
+  pull_request:
+    paths:
+      - .github/workflows/qa-live-turn-signalling.yml
+      - projects/assembled-v783/tests/p0-live-turn-signalling.test.cjs
+permissions:
+  contents: read
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Nonbusiness synthetic WebSocket ICE relay probe of deployed Cloudflare Worker
+        run: node --test projects/assembled-v783/tests/p0-live-turn-signalling.test.cjs
+# QA-only probe; no deployment or business data.
