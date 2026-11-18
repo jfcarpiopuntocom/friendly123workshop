@@ -79,20 +79,28 @@ function inspectClientWire({client,worker,authorized}){
  const separateDocs=/\bcanal\s*\(\s*doc\s*,\s*tipo\b/.test(client);
  const pilotUsesSeparatedRooms=/sala\s*\+\s*['"]-['"]\s*\+\s*tipo/.test(client)&&
    /tipo\s*!==\s*['"]cat['"]\s*&&\s*tipo\s*!==\s*['"]ops['"]/.test(client);
+ // Option A approved 17-Nov: ONLY catalog joins authenticated YParty; sales
+ // stay on the encrypted legacy ops transport, never a second Yjs writer.
+ // A safe hybrid is not a complete 2.0 economic/role integration.
+ const hybridCatalogOnly=/tipo\s*!==\s*['"]cat['"]/.test(client)&&
+   /enRespaldo\s*=\s*true\s*;\s*usarRelayHabitual\(\)\s*;\s*return\s*;/.test(client)&&
+   /sala\s*\+\s*['"]-['"]\s*\+\s*tipo/.test(client);
  const serverSeparatesRooms=worker.includes('WS_SEPARATE_ROOMS_QA')&&
    /['"]-cat['"]/.test(worker)&&/['"]-ops['"]/.test(worker)&&
    /if\s*\(this\.name\.endsWith\(['"]-ops['"]\)\)\s*return true/.test(worker);
  const channelIsolationPreserved=!separateDocs || (
-   (pilotUsesSeparatedRooms&&serverSeparatesRooms) ||
+   ((pilotUsesSeparatedRooms||hybridCatalogOnly)&&serverSeparatesRooms) ||
    (/-priv-cat/.test(worker)&&/-priv-ops/.test(worker)&&/-priv-fotos/.test(worker)&&
     /-priv-['"]\s*\+\s*tipo/.test(client))
  );
  const compatible=secureWorkerRequiresTicket&&authorizedProviderAvailable&&pilotUsesFreshTicket&&
    (pilotUsesPrivateRoom||pilotUsesSeparatedRooms)&&channelIsolationPreserved;
  return {secureWorkerRequiresTicket,authorizedProviderAvailable,pilotUsesFreshTicket,
-   pilotUsesPrivateRoom,pilotUsesSeparatedRooms,channelIsolationPreserved,compatible,
+   pilotUsesPrivateRoom,pilotUsesSeparatedRooms,hybridCatalogOnly,channelIsolationPreserved,compatible,
    reason:compatible?
      'Client/Worker source signed room contract aligned; real store GO and physical coldjoin still pending':
+     hybridCatalogOnly&&channelIsolationPreserved?
+       'SAFE HYBRID: signed catalog-only YParty; economic ops remain on the encrypted legacy relay; commercial GO still pending':
      !channelIsolationPreserved?'BLOCKED: separate cat/ops/fotos Y.Docs cannot share one YServer or bypass signed scopes':
      'BLOCKED: real client missing one-use cap callback or secure room contract'};
 }
