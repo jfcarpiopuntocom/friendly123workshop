@@ -8,9 +8,9 @@ const SUBJECT=/^[A-Za-z0-9_-]{5,120}$/;
 const ROOM=/^[a-f0-9]{32}-(cat|ops|fotos|priv)$/;
 const AUD='friendly-123-yparty-v1',TTL=60_000;
 const CEILING=Object.freeze({
-  dueno:['cat:read','cat:write','ops:read','ops:sale','ops:adjust','fotos:read','fotos:write','priv:read','priv:write'],
-  admin:['cat:read','cat:write','ops:sale','ops:adjust','fotos:read'],
-  empleado:['cat:read','ops:sale','fotos:read'],
+  dueno:['cat:read','cat:write','ops:read','ops:sale','ops:adjust','ops:payment','fotos:read','fotos:write','priv:read','priv:write'],
+  admin:['cat:read','cat:write','ops:sale','ops:adjust','ops:payment','fotos:read'],
+  empleado:['cat:read','ops:sale','ops:payment','fotos:read'],
   contador:[],artista:[]
 });
 const deny=reason=>({ok:false,reason});

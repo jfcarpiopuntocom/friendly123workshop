@@ -46,8 +46,8 @@ test('Workerd SQL: typed cobro reduces fiado balance and adds cash once by opId;
     const seeded=await post('/seed',{...baseline,sourceFrozenVerified:true,expectedSha256});
     assert.equal(seeded.status,200,JSON.stringify(seeded.body));
     assert.deepEqual(await state(),{balance:[3000],cash:500,stock:10,effects:0,receipts:0});
-    // No existing grant lets an employee collect: denied with no effect.
-    let r=await submit(pay(),'synthetic-team-ticket');
+    // A revoked ticket cannot collect: denied with no effect (employee cobro is allowed, JFC 2026-11-18).
+    let r=await submit(pay(),'synthetic-revoked-ticket');
     assert.notEqual(r.status,200,JSON.stringify(r.body));
     assert.deepEqual(await state(),{balance:[3000],cash:500,stock:10,effects:0,receipts:0});
     // Unknown receivable is denied by the trusted resource check.

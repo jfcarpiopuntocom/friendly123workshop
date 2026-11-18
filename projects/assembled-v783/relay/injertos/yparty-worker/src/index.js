@@ -244,8 +244,14 @@ export class Tienda extends YServer {
         // Without an independently certified initial business baseline this
         // callback fails before returning any ACK; money stays on legacy.
         applyBusiness:this.env.WS_BUSINESS_EXECUTOR_QA==='1'
-          ? createBusinessSqlExecutor({sql:this.ctx.storage.sql}) : null
-        // Customer/receivable authority is still absent: fail-closed.
+          ? createBusinessSqlExecutor({sql:this.ctx.storage.sql}) : null,
+        // Receivable must exist in THIS license's certified SQL store. Only with
+        // the QA executor; otherwise cobro stays fail-closed (503).
+        ...(this.env.WS_BUSINESS_EXECUTOR_QA==='1'?{authorizeReceivable:async({license,receivableId})=>{
+          try{return !!this.ctx.storage.sql.exec('SELECT 1 AS ok FROM f123_business_receivables WHERE license = ? AND receivable_id = ?',
+            license,receivableId).toArray()[0];}catch(_){return false;}
+        }}:{})
+        // Customer authority is still absent: fail-closed.
       });
       const answer=await ledger.submit({ticket,command});
       const status=answer.ok&&answer.receipt?.stage==='stored-for-application'?202:answer.status;
