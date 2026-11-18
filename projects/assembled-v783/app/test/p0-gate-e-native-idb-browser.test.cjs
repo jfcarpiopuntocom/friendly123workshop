@@ -121,7 +121,7 @@ async function scenario(engine,name,noLocks){
   const latest=await read(c);
   assert.deepEqual(ids(latest),['B','C'],name+' cannot lose B/C or resurrect A');
   assert.deepEqual(Array.from(latest.confirmed),['A'],name+' durable ACK tombstone');
-  const actualRows=await c.evaluate(async({metaKey,prefix})=>{
+  const actualRows=await c.evaluate(async({name,metaKey,prefix})=>{
    const db=await new Promise((r,j)=>{const x=indexedDB.open(name);
     x.onsuccess=()=>r(x.result);x.onerror=()=>j(x.error);});
    const get=k=>new Promise((r,j)=>{const tx=db.transaction('custom','readonly'),x=tx.objectStore('custom').get(k);
