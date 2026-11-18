@@ -1,0 +1,43 @@
+name: P0 Gate A authenticated business SQL Workerd exact-once (QA no deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/index.js
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/authoritative-business-sql.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-gate-a-business-sql-workerd.test.mjs
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/fixtures/authoritative-sql-worker.mjs
+      - .github/workflows/qa-v783-gate-a-sql-business.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-sql-business-ack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked existing Workerd dependencies, no scripts
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Source syntax and real Workerd SQL atomic economic business receipts
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/gate-a-business-head.txt
+          node --check src/authoritative-business-sql.mjs
+          node --test --test-concurrency=1 qa/p0-gate-a-business-sql-workerd.test.mjs 2>&1 | tee evidence/gate-a-business-workerd.tap
+      - name: Preserve exact RED and GREEN TAP+SHA even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-a-sql-${{ github.run_id }}
+          path: projects/assembled-v783/relay/injertos/yparty-worker/evidence/
+          if-no-files-found: warn
+          retention-days: 14
