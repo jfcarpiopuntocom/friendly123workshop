@@ -616,9 +616,18 @@
     // mutex. Read latest op rows + metadata, apply the synchronous mutation,
     // and store both together *inside the SAME transaction*. Never use the
     // stale per-tab _v2Cache as an authority for ACKs or newly added opIds.
-    function mutarOutboxAtomicoSinLocks(change) {
+    function mutarOutboxAtomicoSinLocks(change, legacyRun) {
       return v2Db().then(function (db) {
         if (!db) {
+          // Preserve the existing v1 transport when the *new* v2 rollout is
+          // disabled or deferred (e.g. a 107MB legacy queue). This is an
+          // explicit compatibility mode, not a claim of v2 multi-tab safety.
+          // A persisted v2 meta forces rollout=true inside v2Db(), so no v2
+          // data can fall through to the unsafe legacy read-modify-write.
+          if (!(API.rollout && API.rollout.outboxV2)) {
+            try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('f123-outbox-integrity', {detail:{status:'legacy-v1-single-tab-required'}})); } catch (_) {}
+            return legacyRun();
+          }
           // A localStorage read-modify-write is NOT a durable multipage outbox.
           // Keep unsaved facts locally; do not send a false durability ACK.
           try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('f123-outbox-integrity', { detail:{status:'blocked-no-atomic-idb'} })); } catch (_) {}
@@ -708,7 +717,7 @@
       // Tabs share this IndexedDB: serialize read/modify/write across contexts as well.
       if (typeof navigator !== "undefined" && navigator.locks)
         return navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, run);
-      return mutarOutboxAtomicoSinLocks(change);
+      return mutarOutboxAtomicoSinLocks(change, run);
     }
     var _durableQueue = leerOutbox().then(function (saved) {
       if (saved && Array.isArray(saved.pending)) _outbox = saved;
