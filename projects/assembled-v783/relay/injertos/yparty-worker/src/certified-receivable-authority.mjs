@@ -1,7 +1,7 @@
 // Gate A server-only resource guard for the legacy receivableId contract.
 // Central ticket verification must run separately on every submission/replay;
 // this function only verifies the trusted, independently installed SQL resource.
-// Never conflate receivableId with the browser's clienteId/car​​tera_abono ledger.
+// Never conflate receivableId with the browser's clienteId/cartera_abono ledger.
 const LICENSE=/^F123-[0-9A-Z*~$=-]{8,34}$/;
 const IDENT=/^[A-Za-z0-9_-]{1,64}$/;
 const SUBJECT=/^[A-Za-z0-9_-]{5,120}$/;
