@@ -15,6 +15,9 @@ function validatedAccess(data,access){
   const teamTypedSale=teamIdentity&&
     access.room.endsWith('-ops')&&access.requiredScope==='ops:sale'&&
     oneScope&&p.scopes[0]==='ops:sale';
+  // Team payment tickets authorize only typed HTTP ops, never raw economic Yjs.
+  const teamTypedPayment=teamIdentity&&access.room.endsWith('-ops')&&
+    access.requiredScope==='ops:payment'&&oneScope&&p.scopes[0]==='ops:payment';
   // JFC 2026-11-18: Admin uses what the Owner uses (except deleting the business).
   const adminTypedAdjust=p?.role==='admin'&&teamIdentity&&access.room.endsWith('-ops')&&
     access.requiredScope==='ops:adjust'&&oneScope&&p.scopes[0]==='ops:adjust';
@@ -24,7 +27,7 @@ function validatedAccess(data,access){
   const teamPhotoRead=teamIdentity&&
     access.room.endsWith('-fotos')&&access.requiredScope==='fotos:read'&&
     oneScope&&p.scopes[0]==='fotos:read';
-  if(data?.ok!==true||!(owner||teamTypedSale||adminTypedAdjust||teamPhotoRead)||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes(access.requiredScope))return null;
+  if(data?.ok!==true||!(owner||teamTypedSale||teamTypedPayment||adminTypedAdjust||teamPhotoRead)||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes(access.requiredScope))return null;
   return{...access,principal:p};
 }
 async function query(env,action,body){
