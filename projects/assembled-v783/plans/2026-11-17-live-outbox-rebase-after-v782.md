@@ -1,0 +1,15 @@
+# Clase A · Injerto IndexedDB #743 transportado a LIVE v0.7.82, QA sin publicación
+17 noviembre 2026 Ecuador noche; plan persistido ANTES de editar nueva rama LIVE.
+## Autoridad
+Orden Opus: primero #743 abort/retry/onblocked de docs/sync-outbox.js, luego #741 multi-tabs, #742 replay HTTP, #81 Safari BFCache y #74 cursor. JFC dio autorización expresa para PUBLICAR el dashboard D1-D3 v0.7.82; este plan NO asume autorización independiente para PUBLICAR el injerto comercial siguiente.
+LIVE master/estable publicado 6a06e959be8f66921ef0a386a4d9108f39301bd3, shell v782, golden318. Previous 94a4e047cdb0b2b14cbab004de599d7e43fef79b. PR legacy #743 DRAFT code head a20c3611788e286ae7a3fbe5a0cfe9d838d08a04, source blob 1c1b80310127484bdcb64662390517b1c38652c6, original master blob 76653372b1a5ee3cee29a6e959a6df2776f836e0. New LIVE master sync-outbox blob same 76653372...; forward port exact minimal code is safe with no overwrite if unchanged.
+## Work Ponytail
+1. Create isolated branch **hotfix/20261117-outbox-v783-on-dashboard-v782** from new LIVE master 6a06e959.... Never cherry-pick old v781 version.json, SW, manifest or overwrite D1-D3 dashboard.
+2. Copy literally source-dependent three tests and QA-only workflow from PR743, preserving strict RED against v782 source before application (expected 1/7 PASS 6 FAIL) and GREEN after code (expected 7/7). Copy src docs/sync-outbox.js from PR743 byte-identical only if master is verified old blob, else diff manually. No new UI, no DB schema, no PIN, no sales backend, no other agent files. Code makes tx.onabort settle; rejected open unlocks dbPromise for next attempt; late onsuccess closes orphan connection.
+3. CI P0 release requires manifest SHA bound to changed docs. Build fresh explicit unique version **v0.7.83, f123-shell-v783, golden319** (subject to official release-control history uniqueness; advance number if conflict); edit only version.json, sw.js, dashboard.html shell meta by deliberate diff, using existing release conventions; generator and dashboard source rebuild MUST run only through official scripts in branch CI to generate docs/version-manifest.json (never hand-edit).
+4. Dedicated QA Actions branch-only build: node scripts/gen-manifest.js; node scripts/release-control.cjs validate origin/master; bash check-sw.sh; git diff --exit-code -- docs/sw.js; save generated manifest commit only to isolated branch, no master. Preserve exact SHA test TAP evidence.
+5. New PR on LIVE master with exact-head CI and rollback. If red, diagnose or leave DRAFT; no auto merge or deploy without independent JFC authorization and physical QA according to current release policy. After test, continue class A #741/#742 and class B port, not raise 67/41 scores for legacy patches.
+## Frozen score
+Architecture quality 67.0/100, YParty operational completion 41.0/100, 0/6 certified; weights A20 B20 C10 D25 E10 F15. This patch affects legacy reliability not YParty port percentage.
+## Revert
+Close isolated PR without merge. If ever released, separate standard rollback through previo and deshacer.yml; no destructive IDB schema or storage name edits, use existing encrypted localStorage failback.
