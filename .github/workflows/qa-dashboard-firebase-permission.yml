@@ -12,5 +12,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - name: Synthetic room only, write-verify-delete exact temporary record
+      - name: Verify ephemeral Supabase broadcast first (no database writes)
+        run: node projects/assembled-v783/tests/p0-dashboard-supabase-broadcast.cjs
+      - name: Synthetic Firebase evidence gate (expected RED if cleanup denied)
+        if: always()
         run: node projects/assembled-v783/tests/p0-dashboard-firebase-permission.cjs
