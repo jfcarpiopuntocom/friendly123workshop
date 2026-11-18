@@ -30,3 +30,12 @@
 2. First Belén direct issue: wire IDB intents safely into the existing payment + allocation workflow and test quota/crash/idempotence before promoting.
 3. Then reconcile stock/beer by movement IDs and finance/Casa-artista by opIds, preserve current client history and pictures.
 4. No 70% or GO claim without new audited acceptance stage and SHA.
+
+## 18-nov · PR #766 v792 de QA a release candidate (sin afirmar deploy)
+- Owner cambió prioritización a DAG de causas, no cronología de Belén: root/cold-join → stock/identidad/fotos; causa distinta `localStorage` cuota Safari → fiados; ledger único → Casa/commissions.
+- `docs/plan-pagos-ui.js`: IDB durable antes del primer POST, mantiene mismo `opId` tras respuesta perdida; asignación `partes` y recibo propios; lectura de cuaderno real `OCTienda.licenciaActual()`, separación de licencia propia en dispositivos unidos, referencias legacy sin alcance claro → bloqueo explícito.
+- `docs/pago-intento-idb.mjs` es byte a byte igual a `src/pago-intento-idb.mjs`; `docs/sw.js` shell v792/golden328 incluye el módulo; `docs/version-manifest.json` hashes deterministas, 129 assets.
+- Real browser [QA #44390451690](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44390451690): Chromium/WebKit y pruebas existentes de crédito: verde. Último [QA #44392493328](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44392493328): UI modal, ESM HTTP real, quota+restart+tabs, regresiones antiguas: verde.
+- [Release-control #44392493028](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44392493028) y [p0-hotfix-gate #44392493338](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44392493338) SUCCESS sobre `d7cd0a9b`.
+- Gate protegido `hex-boundary` detectó una única *trailing whitespace* sintética en `test/p0-belen-idb-live-payment.test.cjs:158` con 49/49 pruebas funcionales y check-sw PASS. Corregida en commit `b4bf990c84a488379990cc925754fb765dfc32f7`; verificar required check en SHA exacto antes de merge. No había fallos de dinero.
+- **Estado actual**: PR #766 ready/no merge hasta required `hex-boundary` green, 2.0 sigue OFF, clientes siguen v791. Queda publicación fast-track, prueba HTTP publicada, luego root causal Yjs. No UAT Belén real.
