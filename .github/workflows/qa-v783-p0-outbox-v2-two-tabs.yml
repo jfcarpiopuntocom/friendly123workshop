@@ -1,0 +1,31 @@
+name: "P0 Opus real v2 outbox Web Locks two-tab proof (no deploy)"
+on:
+  push:
+    branches: ["feat/20261117-p0-web-locks-v2-proof"]
+  pull_request:
+    branches: [main]
+    paths:
+      - "projects/assembled-v783/app/test/p0-outbox-v2-two-tabs-web-lock.test.cjs"
+      - ".github/workflows/qa-v783-p0-outbox-v2-two-tabs.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  multi-tab-idb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing pinned application test dependencies
+        working-directory: projects/assembled-v783/app
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'Run RED-first actual sync-yjs.js v2 cross-tab outbox Web Locks tests'
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          node --test test/p0-outbox-v2-two-tabs-web-lock.test.cjs 2>&1 | tee /tmp/f123-v2-web-locks.tap
