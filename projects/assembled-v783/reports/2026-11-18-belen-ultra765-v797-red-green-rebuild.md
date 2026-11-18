@@ -13,3 +13,9 @@
 - Must verify GitHub master===estable after promotion and served URL https://jfcarpiopuntocom.github.io/friendly-123/version.json. Git branch parity != served release; actual Belén Safari/PWA UAT distinct.
 - H6 #769 is independent and reserved. Empty cold join/legacy PIN acceptance remains unproven on real devices, irrespective of pilot confidentiality fix.
 - No new turn beyond current user's blanket fast-track approval; any new irreversible product/provider decision requires explicit approval.
+
+## Behavioral contract mismatch caught before release
+- Final pre-test SHA cf4c2107b52bc5253634d65bcd0b5beaee7e263c: 29 green, two fail. PORT LIVE seal failed because old pinned vendor digest 54654be7 no longer matches newly secured official bundle SHA256 2b03c63a. Updated only immutable hash assertion in .github/workflows/qa-port2-v785-shell-seal.yml, preserving strict pin.
+- More important: P0 PORT 2.0 synthetic gate 84 PASS / 7 FAIL, because 7 old tests REQUIRED an unsafe Owner catalog YParty provider to connect, including reconnect/auth-error scenarios. Since #765 deliberately denies all unsealed catalog connections, those assertions contradict the safety baseline.
+- Rewrote precisely 7 affected contracts in test/p0-yparty-client-real-tickets.test.cjs and test/p0-bridge-store-switch.test.cjs to assert zero unencrypted provider, immediate encrypted legacy fallback, no credential ticket consumed, no duplicate writer across foreground/retry, no waiting timer. Other 84 behavioral assertions remain untouched; old provider expectations are a future sealed-E2E implementation requirement, not proof of safe current support.
+- Current code head d4863e44bbe59d4282a3f56db3f4f46f669bb32c; required full focused gates running. If source change occurs after this checkpoint, update SHA evidence. Not yet merged/published; no physical acceptance.
