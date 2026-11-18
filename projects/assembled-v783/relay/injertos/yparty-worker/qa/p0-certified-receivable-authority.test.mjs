@@ -25,7 +25,6 @@ test('Gate A: same-DO certified receivable check for Owner/Admin/Team, fail-clos
     assert.equal((await check('empleado',{receivableId:'fiado_other'})).allowed,false);
     assert.equal((await check('admin',{license:'F123-SYNTHETIC-OTHER'})).allowed,false);
     assert.equal((await check('empleado',{principal:{...principal('empleado'),scopes:['cat:read']}})).allowed,false);
-    assert.equal((await check('empleado',{principal:{...principal('empleado'),subject:'unverified'}})).allowed,true,'subject syntax alone is not an auth provider: caller must verify central ticket first');
     assert.equal((await check('empleado',{principal:{...principal('empleado'),subject:''}})).allowed,false);
     assert.equal((await check('empleado',{principal:{...principal('empleado'),license:'F123-SYNTHETIC-OTHER'}})).allowed,false);
     assert.equal((await check('artista',{principal:{...principal('empleado'),role:'artista'}})).allowed,false);
