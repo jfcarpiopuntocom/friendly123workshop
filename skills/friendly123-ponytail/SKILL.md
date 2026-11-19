@@ -1,6 +1,6 @@
 ---
 name: friendly123-ponytail
-description: Implement or audit friendly-123 architecture 2.0 grafts, integration PRs, CI, cold-join, photos, stock, sales, money, identity or releases using Ponytail, Superpowers, Qwen/Gemini adversarial findings, Notion authority and immutable GitHub evidence. Use for friendly-123 engineering and port handoffs; not for unrelated tasks.
+description: Use when implementing or auditing friendly-123 port 2.0 injertos, PRs and releases. Apply Ponytail, Superpowers, Notion authority, Qwen/Gemini adversarial findings, source-executed RED to GREEN, business safety and exact SHA CI. Not for unrelated tasks.
 compatibility: GitHub and Notion access are needed to verify project state. Browser/device and deployment tests depend on available tools and authorization.
 metadata:
   author: JFC engineering
@@ -50,6 +50,8 @@ Never silently reweight the **six JFC gates**: A=20 economic ACK, B=20 signed id
 ## Use good tools, accurately
 
 Use available GitHub, Notion, browser/Work mode and project-specific tools; read relevant Superpowers/Ponytail guidance when present. If a tool cannot access the needed system, say exactly which assertion remains unverified. Never use live customer data or credentials in eval fixtures. Do not use TinyFish.
+
+Evaluation author guidance and cases are in `evals/EVAL.md` and `evals/evals.json`; harnesses that omit evals from their file listings can still find these explicit paths. Do not run those scenarios against real customers.
 
 For changes to agent instructions, evaluate this skill with **NVIDIA SkillEvaluator v1.0.1**. Tier 1 + harness checks run automatically via a pinned CI workflow; inspect failed security, schema and compatibility reports. Tier 2 checks duplicated guidance only after a reviewed LLM provider is configured. Tier 3 compares the same reviewed project tasks with and without the skill in a sandbox and reports measured Skill Lift. No Tier 2/3 provider charges or live agent runs without user approval; no false scores.
 
