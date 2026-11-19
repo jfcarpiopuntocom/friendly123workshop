@@ -17,3 +17,7 @@ Create branch C37 from actual post-C36 product master. Write TDD RED before scor
 
 ## Documentation and audit
 PRECODE and final sha report in friendly123workshop; Notion append live relevo; release score-ownership only on merge; no customer cutover. Close each round with decimal metrics. Next causal gate: QA 2.0 single authoritative DO receipts tied to UI confirmation, failback no duplicate, physical PC↔Safari A→B→A x2.
+
+## Adenda de ejecución 19-nov: rama dependiente para evitar inactividad del runner
+- C36 `port2/20261119-c36-real-sale-opid-once@079542f810e4ce74204aa3173eae4a15085b4f87` tiene 40/41 CI SUCCESS y el último Safari/IndexedDB job aún instala Chromium/WebKit. Se permite PREPARAR C37 en una **rama apilada desde este HEAD exacto** sin tocar runtime ni mezclar PR. El test RED se produce mientras finaliza C36; C37 es DRAFT y **no se fusiona hasta C36 MERGED, 100% CI del C36 y una revisión del merge SHA en ambas métricas**.
+- C37 inicialmente puede evaluar `assessedProductSha` contra el HEAD C36 para pruebas de fuente. Después del merge C36 debe quedar anclado al commit de producto `master` realmente fusionado (SHA de merge, no adivinado). El resultado final no podrá afirmar un incremento hasta que ambos PR estén fusionados y verificables.
