@@ -1,0 +1,58 @@
+# NVIDIA SkillEvaluator v1.0.1 release-generated immutable workflow/image pins.
+# The 'skills' directory contains our repo-scoped engineering skills.
+# Tier 1 is keyless; Tier 2/3 require explicit provider, budget and sandbox.
+name: NVIDIA SkillEvaluator 1.0.1 · agent skill quality, security and compatibility
+on:
+  pull_request:
+    paths:
+      - "skills/**"
+      - ".github/workflows/skill-checks.yml"
+  push:
+    branches: [main]
+    paths:
+      - "skills/**"
+      - ".github/workflows/skill-checks.yml"
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  tier1:
+    uses: NVIDIA/SkillEvaluator/.github/workflows/evaluate-skills.yml@c9369a7811bde083b550f2ac488222e8c388d7fd
+    with:
+      image: ghcr.io/nvidia/skillevaluator-tier1@sha256:fbff256df8f760019539d442b7cb533d7ec50efab37f4482b7b670e2e4b4189a
+      paths: skills
+      min-score: 80
+      security-baselines: false
+      scan-mode: auto
+      llm: false
+  harness-and-dataset:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: "pyproject.toml"
+      - name: Install exact NVIDIA release, no unpinned source
+        run: |
+          python -m pip install --disable-pip-version-check "skillevaluator==1.0.1"
+          skillevaluator --version
+      - name: HarnessCheck for Codex, Claude Code, Hermes and OpenCode
+        run: |
+          mkdir -p /tmp/f123-skill-evaluation
+          skillevaluator harness-check skills/friendly123-ponytail \
+            --harness codex,claude-code,hermes,opencode \
+            --json /tmp/f123-skill-evaluation/harness.json -v
+      - name: Tier 3 dataset contract (NO model calls or evaluation)
+        run: |
+          python -m json.tool skills/friendly123-ponytail/evals/evals.json > /dev/null
+          skillevaluator tier3 validate skills/friendly123-ponytail --strict
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: f123-skillevaluator-v101-harness
+          path: /tmp/f123-skill-evaluation/
+          if-no-files-found: warn
+          retention-days: 30
