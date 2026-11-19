@@ -15,7 +15,11 @@ const realHelper=first>=0&&last>first?source.slice(first,last):'';
 
 function setup({noPilot=false}={}){
  const state={role:null,pin:null,owned:{licenseCode:LICENSE,instanceId:INSTANCE},calls:0,puts:0,gets:0,putBody:null,getBody:null};
- const win={OCAuth:{rolActual:()=>state.role},OCSecure:{leerPinQueAbre:()=>({owner:state.pin})}};
+ const listeners=new Map();
+ const win={OCAuth:{rolActual:()=>state.role},OCSecure:{leerPinQueAbre:()=>({owner:state.pin})},
+  addEventListener:(event,handler)=>{if(!listeners.has(event))listeners.set(event,new Set());listeners.get(event).add(handler);},
+  removeEventListener:(event,handler)=>listeners.get(event)?.delete(handler),
+  dispatchEvent:(event)=>{for(const handler of listeners.get(event.type)||[])handler(event);return true;}};
  const localStorage={getItem:k=>k==='f123_owned'?JSON.stringify(state.owned):null};
  const pilot=noPilot?null:{fotoSha(){
   state.calls++;
@@ -60,6 +64,21 @@ test('late logout or license/device switch rejects in-flight HTTP ACK instead of
  state.owned={licenseCode:'F123-SYNTHOTHER999',instanceId:INSTANCE};
  await assert.rejects(()=>ctx.API.fotoSha.get('sha'),/session|owner|unavailable/i);
 });
+test('A→logout→A with same Owner PIN before delayed ACK is a different session',async()=>{
+ const {state,ctx}=setup();state.role='dueno';state.pin='123';
+ ctx.window.dispatchEvent({type:'oc-login',detail:{rol:'dueno'}});
+ let finish;state.putBody=()=>new Promise(resolve=>finish=resolve);
+ const pending=ctx.API.fotoSha.put('sha','bytes');
+ assert.equal(typeof finish,'function');
+ state.role=null;
+ ctx.window.dispatchEvent({type:'oc-logout'});
+ state.role='dueno';state.pin='123';
+ ctx.window.dispatchEvent({type:'oc-login',detail:{rol:'dueno'}});
+ finish({sha:'sha',bytes:4,tipo:'image/png'});
+ await assert.rejects(pending,/session|changed|unavailable/i,
+   'same PIN and notebook must never launder a previous session HTTP ACK');
+});
+
 test('PIN change mid-GET cannot pass same-shop readback checks',async()=>{
  const {state,ctx}=setup();state.role='dueno';state.pin='123';
  let finish;state.getBody=()=>new Promise(resolve=>finish=resolve);
