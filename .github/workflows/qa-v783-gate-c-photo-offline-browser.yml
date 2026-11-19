@@ -38,7 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ../evidence/gate-c-photo-offline
-          git rev-parse HEAD | tee ../evidence/gate-c-photo-offline/sha.txt
+          git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD | tee ../evidence/gate-c-photo-offline/sha.txt
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=130000 test/p0-gate-c-photo-offline-browser.test.cjs test/p0-yparty-photo-sha-browser.test.cjs test/p0-h3-photo-seed-bounded.test.cjs test/v670-cross-layer-photo-seed.test.cjs 2>&1 | tee ../evidence/gate-c-photo-offline/tap.log
       - name: Archive exact evidence including failures
         if: always()
