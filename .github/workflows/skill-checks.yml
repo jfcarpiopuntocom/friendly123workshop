@@ -35,7 +35,7 @@ jobs:
           python-version: "3.13"
       - name: Install exact NVIDIA release, no unpinned source
         run: |
-          python -m pip install --disable-pip-version-check "skillevaluator==1.0.1"
+          python -m pip install --disable-pip-version-check "skillevaluator[tier3]==1.0.1"
           skillevaluator --version
       - name: HarnessCheck for Codex, Claude Code, Hermes and OpenCode
         run: |
@@ -43,6 +43,20 @@ jobs:
           skillevaluator harness-check skills/friendly123-ponytail \
             --harness codex,claude-code,hermes,opencode \
             --json /tmp/f123-skill-evaluation/harness.json -v
+      - name: Enforce four harnesses load (HarnessCheck alone is advisory)
+        run: |
+          python - <<'PY'
+          import json
+          path='/tmp/f123-skill-evaluation/harness.json'
+          with open(path, encoding='utf-8') as handle:
+              result=json.load(handle)
+          entries=[entry for skill in result['harness_compatibility'].values() for entry in skill]
+          found={entry['harness']:entry['status'] for entry in entries}
+          expected={'codex','claude-code','hermes','opencode'}
+          if not expected <= found.keys() or any(found[h]!='loads' for h in expected):
+              raise SystemExit('Skill must load in all four reviewed harnesses: '+str(found))
+          print('F123_HARNESS_GATE: 4/4 loads', found)
+          PY
       - name: Tier 3 dataset contract (NO model calls or evaluation)
         run: |
           python -m json.tool skills/friendly123-ponytail/evals/evals.json > /dev/null
