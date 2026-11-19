@@ -22,7 +22,7 @@ function validEvidence(e){
 }
 function assessPort(data){
  valid(data&&data.version===1&&data.metric==='operational-port-completion'&&data.target===100,'version/target');
- valid(HEX40.test(data.reviewedSha||'')&&/^2026-11-17T/.test(data.reviewedAt||''),'reviewed commit/date');
+ valid(HEX40.test(data.reviewedSha||'')&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/.test(data.reviewedAt||'')&&Number.isFinite(Date.parse(data.reviewedAt)),'reviewed commit/date');
  valid(Array.isArray(data.gates)&&data.gates.length===6,'exact six gates');
  let score=0,maximum=0,gatesPassed=0;
  const used=new Set(),gates=[];
@@ -112,7 +112,7 @@ function formatDual({port,quality}){
   'Estado: '+(port.ready&&quality.ready?'APTO PARA REVISIÓN DE GO':'NO-GO para primera tienda real'),
   'Port revisado: '+port.reviewedSha,
   ...port.gates.map(g=>g.id+': '+g.earned.toFixed(1)+'/'+g.weight.toFixed(1)+(g.certified?' · GATE CERTIFICADO':' · PENDIENTE')),
-  'Próximo P0: comando económico aplicado en servidor, fotos SHA fuera Yjs y migración real reversible; sin nuevas condiciones'
+  'Próximo P0: puente foto SHA posterior al PIN, privacidad Team y apertura de historia Yjs real sin padres pendientes'
  ].join('\n');
 }
 module.exports={assessPort,formatDual,inspectClientWire};

@@ -2,8 +2,8 @@
   "version": 1,
   "metric": "operational-port-completion",
   "target": 100,
-  "reviewedAt": "2026-11-17T21:05:16-05:00",
-  "reviewedSha": "b864461e804b4b0fda28beb019d68a9a216082b9",
+  "reviewedAt": "2026-11-18T22:54:24-05:00",
+  "reviewedSha": "d31388d96afcadc23affbfce858ed37c2937c5cc",
   "source": "friendly123workshop/projects/assembled-v783",
   "disclaimer": "Milestone-based operational PORT completion, NOT app quality, probability, elapsed-time estimate or customer activation. Credits for prep do not imply any first-shop gate passed. Six JFC gates are immutable. No real customer data or physical evidence.",
   "qualityMetricPath": "score-v1.json",
@@ -188,10 +188,17 @@
         {
           "id": "yjs-sha-reference-only",
           "points": 4,
-          "done": false,
+          "done": true,
           "label": "Documento Yjs conserva solo sha/bytes/tipo y ningún blob de foto",
-          "evidence": [],
-          "pendingReason": "Documento Yjs conserva solo sha/bytes/tipo y ningún blob de foto"
+          "evidence": [
+            {
+              "sha": "d31388d96afcadc23affbfce858ed37c2937c5cc",
+              "url": "https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44454217429",
+              "type": "native-chromium-webkit-qa",
+              "claim": "PR128 source real and same current app: 24/24 two-engine native QA proves SHA bridge upload after offline IndexedDB save and browser reload, only sha/bytes/tipo Yjs references and exact binary readback on second engine; no real owner login or physical iPhone certified."
+            }
+          ],
+          "pendingReason": null
         },
         {
           "id": "photo-restore-cross-device",
