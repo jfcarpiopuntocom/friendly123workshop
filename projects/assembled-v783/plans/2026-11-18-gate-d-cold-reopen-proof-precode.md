@@ -1,0 +1,16 @@
+# Gate D 2.0 · Reabrir certificado real sin falso ACK de historial (Ponytail PRECODE)
+
+Corte Ecuador 2026-11-18 noche. Fuente workshop main `759ee1d37f5503de5c8beda3a578fd08be48934f`. Rama `fix/20261118-gate-d-frozen-reopen-verified`. Propiedad de archivos: `relay/injertos/yparty-worker/src/open-existing-store.mjs`, `qa/p0-gate-d-open-existing-workerd.test.mjs`, `qa/fixtures/gate-d-open-existing-worker.mjs`. No tocar `docs/sync-yjs.js` reservado PR #130, ni Worker LIVE, ni puntuaciones GO. [MDD/Notion port](https://app.notion.com/p/41c1642b67f381cf8e04f2e53e91db94); [auditorías Qwen/Gemini](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/reports/2026-11-18-qwen-gemini-adversarial-audit-reconciliation-v801.md).
+
+## Causa comprobable en 2.0
+`openExistingStore()` del Gate D #116, ya instalado en workshop, retorna `opened:true, already:true` en cuanto existe una fila `f123_frozen_imports`, **sin validar ningún bloque del documento ni su diario** en el reinicio. Si una cuota/evicción/corrupción elimina la foto persistida del Yjs, la bandera de importación miente. Este es un falso ACK de unión fría, agravado por el antecedente de padres Firebase faltantes. Evitar cualquier snapshot-reset destructivo.
+
+## RED→GREEN con Workerd real
+1. Extender fixture `qa/fixtures/gate-d-open-existing-worker.mjs` **solo de test**, con acción de corrupción sintética controlada que borra un bloque de documento después de importación y antes de reinicio. El fixture es importado en Miniflare con emisor sintético, no forma parte del despliegue.
+2. Añadir test real a `qa/p0-gate-d-open-existing-workerd.test.mjs`: abrir historia con dos autores, obtener status `opened:true`, corromper bloque SQL, reiniciar. Esperado: `opened:false`, `failback` explícito, ningún `already:true` ni operación que borre datos de otra tienda. **RED** en fuente actual.
+3. Fix mínimo en `open-existing-store.mjs`: si ya existe el recibo, validar canal y HEAD original (si se vuelve a proporcionar la fuente), y hacer lectura de **todo snapshot + journal** con `exportCompleteYpartyYjs()`, que ya verifica chunks, secuencia, padres Yjs y copia consistente en transacción SQL. No usar `readFrozenImport` con journal: rechaza cambios nuevos legítimos. Si falla, `opened:false` + failback sin escrituras ni inventar causalidad.
+4. GREEN sobre fuente y reejecutar Gate D sintético de dos escritores, reinicio con actualizaciones y failback incremental, fuente con padre faltante, flag OFF. [Workflow existente](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/.github/workflows/qa-v783-gate-d-open-existing.yml) exact SHA. Añadir prueba de basura en journal si el test lo soporta, sin alterar importador estable.
+5. Proteger alcance de la garantía: `reopen-verified` solo prueba estado durable SQL completo; NO prueba que el HEAD Firebase histórico sea completo, ni los 19 padres faltantes ni el cliente iPhone, ni conexión `Tienda.onStart` real (el hook todavía vive en fixture). Calidad 67, port 61, GO 0/6.
+
+## Corte y failback
+Flag `WS_OPEN_EXISTING_QA` OFF por defecto. Sin cambios en LIVE, sin activar YParty, sin borrar ni migrar datos de tienda. Un receipt de importación no equivale a éxito del negocio. Evidencia de CI SHA, nota Notion y reporte workshop después de la ejecución.

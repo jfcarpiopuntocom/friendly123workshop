@@ -78,6 +78,10 @@ async function relay({flag,source}){
   async gate(ch,body){
    return mf.dispatchFetch('http://localhost/parties/tienda/'+room+'-'+ch,{method:body?'POST':'GET',
     headers:{'x-f123-synthetic-gate-d':'1'},body});},
+  async tamperCertificate(ch){
+   return mf.dispatchFetch('http://localhost/parties/tienda/'+room+'-'+ch,{
+     method:'GET',headers:{'x-f123-synthetic-gate-d':'1','x-f123-synthetic-tamper-cert':'1'}});
+  },
   async restart(){open.splice(0).forEach(f=>f());await mf.dispose();await boot();},
   async close(){open.splice(0).forEach(f=>f());await mf.dispose();fs.rmSync(dir,{recursive:true,force:true});}};
 }
@@ -150,5 +154,24 @@ test('Gate D flag OFF by default: the new server opens nothing',{timeout:40000},
   assert.equal(reader.getMap('products').size,0);
   const s=await(await w.gate('cat')).json();
   assert.deepEqual([s.gateD.opened,s.gateD.failback,s.blocks],[false,'flag-off',0]);
+ }finally{await w.close();}
+});
+
+test('Gate D RED: corrupted certified import receipt cannot ACK a reopened Yjs store',{timeout:50000},async()=>{
+ const h=history(),w=await relay({flag:true,source:h.source});
+ try{
+  const writer=await w.connect('cat',['cat:read','cat:write']);
+  assert.equal(writer.getMap('products').size,7);
+  assert.equal((await(await w.gate('cat')).json()).gateD.opened,true);
+  const corrupted=await w.tamperCertificate('cat');
+  assert.equal(corrupted.status,200);
+  assert.equal((await corrupted.json()).tampered,true);
+  await w.restart();
+  const status=await(await w.gate('cat')).json();
+  assert.equal(status.gateD.opened,false,
+    'a certificate is not itself proof that the existing Yjs history is still valid');
+  assert.equal(status.gateD.already,undefined,'no false already-opened ACK');
+  assert.match(status.gateD.failback,/certif|mismatch|proof|corrupt/i);
+  assert.ok(status.blocks>0,'reject without deleting source evidence or resetting the store');
  }finally{await w.close();}
 });

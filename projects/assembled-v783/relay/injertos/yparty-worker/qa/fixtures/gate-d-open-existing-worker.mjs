@@ -16,6 +16,12 @@ export class Tienda extends RealTienda {
   }
   async onRequest(req) {
     if(req.headers.get('x-f123-synthetic-gate-d')!=='1')return super.onRequest(req);
+    if(req.headers.get('x-f123-synthetic-tamper-cert')==='1'){
+      const row=this.ctx.storage.sql.exec('SELECT sha256 FROM f123_frozen_imports WHERE id=1').toArray()[0];
+      if(!row)return new Response('missing proof',{status:409});
+      this.ctx.storage.sql.exec('UPDATE f123_frozen_imports SET sha256 = ? WHERE id=1','0'.repeat(64));
+      return Response.json({tampered:true});
+    }
     if(req.method==='GET')return Response.json({gateD:this.gateD,
       blocks:this.ctx.storage.sql.exec('SELECT COUNT(*) AS n FROM documento_bloques').one().n});
     try{
