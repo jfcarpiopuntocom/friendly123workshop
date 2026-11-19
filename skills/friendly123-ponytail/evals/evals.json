@@ -1,0 +1,113 @@
+{
+  "skill_name": "friendly123-ponytail",
+  "evals": [
+    {
+      "id": "coldjoin-independent-parents",
+      "prompt": "Audita este caso de friendly-123: un dispositivo nuevo leyó 6.112 frames, todavía tiene 19 Yjs padres pendientes, 9 HTTP 401 de Firebase y el canario final dice head-invalido. Un auditor propone resetear snapshot. Prioriza causa y diseño de prueba, con límites de evidencia.",
+      "expected_output": "Distingue la falla de observabilidad del canario de una corrupción probada; no borra snapshot ni padres, propone RED sobre recepción real y barrido anticipado acotado antes del fin de la cola, prueba escritores independientes, 401, no ACK de cursor incompleto.",
+      "assertions": [
+        "Separa hechos de hipótesis y no recomienda snapshot-reset sin prueba",
+        "Preserva todas las operaciones independientes y evita un cursor durable falso",
+        "Propone test de integración con HEAD y dependencias faltantes"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "photo-cas-lost-ack",
+      "prompt": "En la tienda de prueba el backend exige expectedFotoHash y expectedFotoRev sólo si están presentes, pero la UI envía exclusivamente fotoHash. Simula dos equipos A→B→C, una pestaña se cierra después de guardar bytes, y se pierde el ACK. ¿Cuál es el injerto completo?",
+      "expected_output": "Señala CAS bypass, exige único flujo foto SHA con intención IDB durable por opId/cuaderno, preimagen, CAS, readback idempotente, tratamiento 409 sin borrar C, pruebas offline/reinicio y dos aparatos; distingue HTTP200 local de persistencia cruzada.",
+      "assertions": [
+        "Identifica que el CAS opcional no protege llamados legacy",
+        "No sobreescribe foto C con reintento B",
+        "Demanda prueba fuente→storage→UI y por licencia"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "workerd-economic-ack",
+      "prompt": "Tenemos Workerd SQLite con un inbox que devuelve 202 stored-for-application. El equipo quiere mostrar 'Venta confirmada' y reducir stock en el segundo navegador. ¿Qué debería ocurrir antes?",
+      "expected_output": "No equipara recepción con efecto comercial; exige base causal autorizada, venta opId atómica con stock y dinero, recibo business-committed/readback, deduplicación y pruebas de fallo/rollback; mantiene OFF para clientes.",
+      "assertions": [
+        "No acepta 202 como ACK de negocio",
+        "Separa snapshot Yjs de saldo comercial",
+        "Preserva idempotencia y seguridad de rol"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "team-private-yjs",
+      "prompt": "En el Worker 2.0 el empleado tiene cat:read, pero la sala -cat comparte un Y.Doc con clientes, PIN y hechos financieros. El gate de escritura pasa. ¿Autorizarías merge?",
+      "expected_output": "NO-GO por divulgación de lectura aunque no escriba; propone proyección pública allowlist en otro documento/sala, prueba negativa Workerd real, revocación y reconexión; evita cambiar permisos para que pase.",
+      "assertions": [
+        "Señala el problema de privacidad de lectura",
+        "No habilita acceso Team a datos privados",
+        "Prueba controles negativos antes de merge"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "h6-remote-filter",
+      "prompt": "La verificación H6 de Casa pasa al cargar estado local; la ruta remota filtra sólo hechos de caja y cartera antes de pasar al dashboard. El dueño exige ganancia confiable. ¿Qué probarías?",
+      "expected_output": "Exige verificar cadena completa antes de filtrar y certificar snapshot/HEAD, degradar a 'por conciliar' sin inventar ganancia, probar hechos alterados, omitidos, desordenados y writers independientes.",
+      "assertions": [
+        "Evita verificar subcadena aislada",
+        "Propone fail-closed ante historia incompleta",
+        "No inventa resultados de la Casa"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "shell-bundle-diff",
+      "prompt": "Un injerto de fotos #117 tiene 4/4 tests de HTTP SHA verdes, pero la CI falla al volver a generar vendor/yparty-piloto.min.js: git diff --exit-code falla. Se propone fusionar porque el comportamiento está verde. Decide.",
+      "expected_output": "Clasifica como defecto de sellado/reproducibilidad y NO-GO de esa PR hasta reconstruir vendor desde fuente y lock exactos; conserva tests, no fuerza checksum, anota SHA, ci y propiedad del archivo sin pisar rama ajena.",
+      "assertions": [
+        "Separa pruebas funcionales de hash del bundle",
+        "No permite merge con bundle diferente",
+        "Respeta owner y rebase exacto"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "port-score-tracking",
+      "prompt": "El port del workshop reporta 57/100 y calidad 67/100; una nueva biblioteca de evaluación de skills pasa 100/100. ¿Cuánto acreditas al port, qué gates faltan y cómo registras progreso?",
+      "expected_output": "Cero puntos de port por evaluar una skill; conserva 6 gates A20 B20 C10 D25 E10 F15, informa 0/6 certificados, calidad/port fuentes versionadas separadas, SHA y evidencia; no llama comercial GO.",
+      "assertions": [
+        "No suma puntos de toolchain",
+        "Preserva pesos y métricas diferenciadas",
+        "Exige evidencia del producto y pruebas físicas"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "belen-priority-rootcause",
+      "prompt": "Belén reporta fotos que desaparecen, cantidades divergentes tras reabrir PC e iPhone, y totales de Casa no confiables. ¿Qué orden de injertos propones si ya existen módulos maduros del port 2.0?",
+      "expected_output": "Prioriza por fuente de verdad, identidad/sala/corte causal, efectos comerciales por opId, blobs SHA y cadena financiera; escucha voz de Belén como aceptación, incorpora módulos existentes y pruebas A→B→A×2 sin reimplementar legacy.",
+      "assertions": [
+        "Ordena por causa raíz no cronología",
+        "Reutiliza ensamblaje y evita nuevas autoridades paralelas",
+        "Incorpora pruebas reales de Belén y seguridad"
+      ],
+      "expected_skill": "friendly123-ponytail"
+    },
+    {
+      "id": "negative-microeconomics",
+      "prompt": "Explica brevemente la diferencia entre costos marginales y costos medios en microeconomía.",
+      "expected_output": "Explica ambos costos con precisión y un ejemplo, sin introducir despliegues, auditorías de friendly-123 ni cambios de repositorio.",
+      "assertions": [
+        "Da explicación económica correcta",
+        "No activa flujo de ingeniería de software"
+      ],
+      "expected_skill": null
+    },
+    {
+      "id": "negative-recipe",
+      "prompt": "¿Cómo preparo una ensalada de frutas con mango y piña para dos personas?",
+      "expected_output": "Propone una receta sencilla con dos porciones e indicaciones razonables de seguridad alimentaria, sin referencias a PR o a herramientas de ingeniería.",
+      "assertions": [
+        "Responde la receta",
+        "No activa procedimientos de GitHub/Notion"
+      ],
+      "expected_skill": null
+    }
+  ]
+}
