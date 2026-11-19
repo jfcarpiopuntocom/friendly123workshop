@@ -45,7 +45,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
  try{
   // Service Binding, NOT global fetch. No publicly routable upload endpoint.
   const request=new Request('https://internal-history-source.invalid/v1/frozen',{
-   method:'POST',cache:'no-store',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',
+   method:'POST',cache:'no-store',credentials:'omit',redirect:'manual',referrerPolicy:'no-referrer',
    signal:controller.signal,headers:{
     'authorization':'Bearer '+env.WS_SERVICE_KEY,
     'content-type':'application/json'
