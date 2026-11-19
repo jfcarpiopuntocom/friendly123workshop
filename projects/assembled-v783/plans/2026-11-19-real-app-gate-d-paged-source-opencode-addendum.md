@@ -1,0 +1,15 @@
+## Addendum OpenCode / Hermes (19-nov) — examen antes de codificar
+
+Se incorporó el informe de OpenCode `cold-join-2026-11-19[1].md` (22609 B, 19-nov, solo lectura). Referencias y hallazgos comprobados en código master@5beff221:
+
+- `certified-frozen-import.mjs` rechaza SQL con `documento`, `documento_bloques`, `diario` o `diario_bloques` ya poblados: **Gate D no fusiona dos historias; solo carga un DO vacío o reabre su propio certificado previo**. Habrá una tarea separada de fusión causal `mergeFrozenIntoExisting` con SHA y rechazo de divergencias comerciales antes de activar tiendas con DO previo; no debilitar el rechazo.
+- `trusted-frozen-source.mjs` actual no restringe raíces `cat`; importa `_meta`/PIN y dinero si se le entrega el Y.Doc privado. **Privacy fail-closed obligatoria**: para el contrato paginado v2 solo permitir proyección pública separada `productos`/`ubicaciones` y rechazo si campos privados han sobrevivido; no intentar enviar el Y.Doc privado ni eliminar el guard #765 del cliente. La v1 de laboratorio sigue OFF.
+- `completeToHead:true` es afirmación de servicio, no verificación independiente de universo: QA valida hashes/vector/causalidad, pero certificación real necesita fuente externa y conciliación de negocio (ventas, gastos, fiados, fotos) más HEAD estable. No dar 80/100 con CI sintética.
+- Mejorar wire a `base64` por frame (en lugar de `number[]`) y **manifest** `{chunk,chunks,totalBytes,bytes,sha256,rootSha256}`. Orden secuencial 1...N; cada página responde mismo HEAD/vector/expectedStateSha y cada POST solicita `chunk`. `sha256` por página cubre `uint32be(length)+bytes` de cada frame; `rootSha256=SHA256(UTF8(pageShaHex.join('\\n')))` sobre toda la secuencia de hashes. Rechazar páginas ausentes/corruptas/repetidas, totales falsos y `completeToHead:true` antes de último bloque. Primer POST sin chunk para compatibilidad v1; segundo POST con `chunk:2` y sucesivos. El servicio HTTP es solo `WS_FROZEN_HISTORY_SOURCE` firmado por secreto interno.
+- Mantener 16MiB por página, 4096 frames/página, 4MiB/frame, 16384 frames/64MiB total, 16 páginas y timeout agregado 5s en esta QA; OpenCode recomienda separar presupuesto red+CPU y alarma para DO real, tarea posterior independiente.
+- Otro hallazgo que no se arregla con paginar: `eventCount` no verifica sustitución de un evento bajo la misma clave; hace falta `events_digest` en el certificado y comparador comercial. No modificar el exportador sin TDD separado.
+- Conservar defensas probadas: `transactionSync`, SQL bajo barriera de lectura, rechazo snapshot dual, pending Yjs, readback y failback.
+
+**Actualización de pruebas:** además de RED de 4097 frames, 401 en página 2, HEAD distinto, orden saltado, SHA/root falsos, totalBytes falso y v1 compatible, RED de privacidad `_meta`/ventas en `cat` del manifiesto v2. El plan anterior de cursor opaco se sustituye por numeración idempotente `chunk`, como propuso OpenCode.
+
+Criterio de aceptación de este cambio: source pagination+certificado convergente y límites dentro de las banderas QA, sin cambios de Sync3/cliente/Cloudflare, sin acreditar etapas de migración final.
