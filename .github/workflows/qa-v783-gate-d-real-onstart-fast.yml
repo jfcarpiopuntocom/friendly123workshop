@@ -1,0 +1,38 @@
+name: Gate D real Tienda trusted-source cold join (fast synthetic, no deploy)
+on:
+  push:
+    branches: [port2/20261119-gate-d-real-onstart-trusted-source]
+    paths:
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/**
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-gate-d-real-onstart-workerd.test.mjs
+      - .github/workflows/qa-v783-gate-d-real-onstart-fast.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/relay/injertos/yparty-worker/src/**
+      - projects/assembled-v783/relay/injertos/yparty-worker/qa/p0-gate-d-real-onstart-workerd.test.mjs
+      - .github/workflows/qa-v783-gate-d-real-onstart-fast.yml
+permissions:
+  contents: read
+jobs:
+  real-onstart:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact Yjs and auth issuer dependencies
+        run: |
+          cd projects/assembled-v783/app
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd ../relay/injertos/yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real, not subclassed, Tienda.onStart with signed internal history source
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=45000 qa/p0-gate-d-real-onstart-workerd.test.mjs
