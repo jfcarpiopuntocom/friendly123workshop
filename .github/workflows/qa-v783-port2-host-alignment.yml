@@ -1,0 +1,32 @@
+name: P0 PORT 2.0 QA Worker host ↔ browser vendor (no deploy)
+on:
+  push:
+    branches: [fix/20261118-port2-qa-host-bundle]
+    paths:
+      - projects/assembled-v783/app/src/yparty-piloto.js
+      - projects/assembled-v783/app/docs/vendor/yparty-piloto.min.js
+      - projects/assembled-v783/app/test/p0-port2-qa-host-bundle.test.cjs
+      - .github/workflows/qa-v783-port2-host-alignment.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/app/src/yparty-piloto.js
+      - projects/assembled-v783/app/docs/vendor/yparty-piloto.min.js
+      - projects/assembled-v783/app/test/p0-port2-qa-host-bundle.test.cjs
+      - .github/workflows/qa-v783-port2-host-alignment.yml
+permissions:
+  contents: read
+jobs:
+  host-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Real source and browser-minified bundle must route to same isolated QA
+        working-directory: projects/assembled-v783/app
+        run: node --test test/p0-port2-qa-host-bundle.test.cjs
