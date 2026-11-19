@@ -25,7 +25,7 @@ function setup({noPilot=false}={}){
    get:async(...args)=>{state.gets++;return typeof state.getBody==='function'?state.getBody(...args):'data:image/png;base64,AA==';}
   };
  }};
- const ctx={window:win,localStorage,API:{},piloto,codigo:LICENSE,JSON,Promise,Object,Error,String};
+ const ctx={window:win,localStorage,API:{},piloto:pilot,codigo:LICENSE,JSON,Promise,Object,Error,String};
  vm.createContext(ctx);
  vm.runInContext(realHelper+'\n'+assign[0],ctx,{timeout:1000});
  return {state,ctx};
