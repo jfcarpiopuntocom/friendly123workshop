@@ -17,3 +17,9 @@
 - H6 prevents misleading "complete" financing; it does NOT reconcile missing financial facts, compute a new Casa profit, change payments, or solve missing cold-join inventory. Source facts remain untouched.
 - Do not assert Belén received shell, that her $34 cash ties, or that PC vs Safari histories have converged until physical verification.
 - Next common cause after this read-only safety gate: cross-device cold-join certified event history by opId/causal cutoff (single license one notebook), preserving PN stock and financial facts; inspect existing workshop PR #77 and active source reservations before a new code change.
+
+## Exact-SHA final premerge / fast-track
+- Final ordinary SHA 1d2a91b4ee52eb943ecff74880a4ed2eaff625fa: GitHub Actions **25/26 SUCCESS, zero failures**. The last `P0 v637 incremental inventory DOM parity (Chromium + WebKit)` run 44429798600 stays **IN_PROGRESS** at `npx playwright install --with-deps chromium webkit`, before executing any browser tests. That gate is unrelated to H6 production source and must NOT be described as green.
+- Explicit exact-SHA mandatory ruleset checks: Release continuity gate, integrated, Synthetic sync + real-browser contracts, Workers Builds: friendly-123, two-tab-sales, mixed-shell, hex-boundary ALL success. Specific D1 Belén finance `belen-finance-browser` Chromium and WebKit success; Fable and hotfix gates success.
+- Owner explicitly approved repeated fast-track publishes. Scope is read-only H6 fact verification; no new ledger writers or business transforms. Proposed squash/estable promotion may proceed with exact SHA plus this transparent non-blocking installer exception, without editing or bypassing protected GitHub ruleset.
+- Zero client data touched; physical A→B→A and real idiomARTE adoption remain UNKNOWN.
