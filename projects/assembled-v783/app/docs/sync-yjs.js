@@ -3144,12 +3144,16 @@
         (typeof API.fotoSha.disponible === "function" && !API.fotoSha.disponible())) return;
     sembrarFotosAlRelay();
   }
-  function resembrarFotoTrasLoginCancelar() {
-    window.removeEventListener("oc-login", resembrarFotoTrasLogin);
-  }
   function registrarResiembraFotoTrasLogin() {
     if (!API.fotosDoc) return;
+    var docRegistrado = API.fotosDoc;
     window.addEventListener("oc-login", resembrarFotoTrasLogin);
+    function resembrarFotoTrasLoginCancelar() {
+      // Closing the previous notebook after a fresh boot must not detach
+      // the Owner listener of the currently active photo Y.Doc.
+      if (API.fotosDoc === docRegistrado)
+        window.removeEventListener("oc-login", resembrarFotoTrasLogin);
+    }
     API.fotosDoc.once("destroy", resembrarFotoTrasLoginCancelar);
   }
   API.sembrarFotos = sembrarFotosAlRelay; // also used by stuck-history reconnect
