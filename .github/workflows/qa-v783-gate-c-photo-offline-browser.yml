@@ -15,7 +15,9 @@ permissions:
 jobs:
   gate-c-browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,11 +27,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: projects/assembled-v783/app/package-lock.json
-      - name: Install exact dependencies and native browser engines
+      - name: Install exact Node dependencies (native browsers pinned in image)
         working-directory: projects/assembled-v783/app
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          npx playwright install --with-deps chromium webkit
+          node -p 'require("playwright/package.json").version'
       - name: Run exact sync-yjs photo blocks in real Chromium and WebKit
         working-directory: projects/assembled-v783/app
         shell: bash
