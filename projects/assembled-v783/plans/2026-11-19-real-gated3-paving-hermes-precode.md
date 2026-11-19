@@ -2,7 +2,7 @@
 
 Target **jfcarpiopuntocom/friendly-123**, master base `c4ca4bbaa3054562b0604655d5054eb284230117`. Workshop es solo plan y QA. JFC: preservar Sync3, no reparaciones en arquitectura 1.0, implementación Ponytail y auditoría.
 
-Fuente: [Notion Hermes Paving](https://app.notion.com/p/41d1642b67f3810891f0f987393fcf94). HTTP `100.100.48.91:8098` no está accesible desde este entorno; usar sus datos publicados en Notion y fixtures equivalentes verificables; no atribuir lectura del HTML no obtenido.
+Fuente: [Notion Hermes Paving](https://app.notion.com/p/41d1642b67f3810891f0f987393fcf94). El HTML interno no está accesible desde este entorno; usar su síntesis publicada en Notion y fixtures equivalentes verificables; no atribuir lectura del HTML no obtenido.
 
 ## Defecto raíz A: SHA no reproducible
 - `cloudflare-yparty-worker/src/catalog-safe-projection.mjs` crea Y.Doc con clientID aleatorio, SHA estado diferente entre llamadas sobre misma entrada. Root cause reproducible. Scope solo proyección y tests QA (sin cliente).
