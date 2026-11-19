@@ -78,6 +78,10 @@ async function relay({flag,source}){
   async gate(ch,body){
    return mf.dispatchFetch('http://localhost/parties/tienda/'+room+'-'+ch,{method:body?'POST':'GET',
     headers:{'x-f123-synthetic-gate-d':'1'},body});},
+  async tamperCertificate(ch){
+   return mf.dispatchFetch('http://localhost/parties/tienda/'+room+'-'+ch,{
+     method:'GET',headers:{'x-f123-synthetic-gate-d':'1','x-f123-synthetic-tamper-cert':'1'}});
+  },
   async restart(){open.splice(0).forEach(f=>f());await mf.dispose();await boot();},
   async close(){open.splice(0).forEach(f=>f());await mf.dispose();fs.rmSync(dir,{recursive:true,force:true});}};
 }
