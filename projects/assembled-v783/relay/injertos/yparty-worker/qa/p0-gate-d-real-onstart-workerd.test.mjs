@@ -35,10 +35,20 @@ function history({dropParent=false}={}){
  const frames=[...fb,...parents]; // B's children arrive in earlier pages than A's parents
  const legacy=new Y.Doc();for(const f of frames)Y.applyUpdate(legacy,f,'firebase');
  a.destroy();b.destroy();
- const proof=ch=>({channel:ch,frozenHead:'synthetic-head-0042',completeToHead:true,frames:frames.map(f=>[...f]),
-  expectedStateSha256:sha(Y.encodeStateAsUpdate(legacy)),expectedVectorSha256:sha(Y.encodeStateVector(legacy)),
-  ...(ch==='ops'?{expectedOpIds:legacy.getMap('eventos').size}:{})});
- return {legacy,frames,source:{cat:proof('cat'),ops:proof('ops')}};
+ // An operations history is a distinct, independently authored
+ // Y.Doc. It can never carry products, costs, PINs or customer metadata.
+ const opsDoc=new Y.Doc(),opsFrames=[];
+ opsDoc.on('update',u=>opsFrames.push([...u]));
+ const events=opsDoc.getMap('eventos');
+ legacy.getMap('eventos').forEach((record,id)=>events.set(id,structuredClone(record)));
+ const cat={channel:'cat',frozenHead:'synthetic-head-0042',completeToHead:true,
+  frames:frames.map(f=>[...f]),expectedStateSha256:sha(Y.encodeStateAsUpdate(legacy)),
+  expectedVectorSha256:sha(Y.encodeStateVector(legacy))};
+ const ops={channel:'ops',frozenHead:'synthetic-head-0042',completeToHead:true,
+  frames:opsFrames,expectedStateSha256:sha(Y.encodeStateAsUpdate(opsDoc)),
+  expectedVectorSha256:sha(Y.encodeStateVector(opsDoc)),expectedOpIds:events.size};
+ opsDoc.destroy();
+ return {legacy,frames,source:{cat,ops}};
 }
 async function authority(){
  let records=new Map(),tail=Promise.resolve();
@@ -113,6 +123,9 @@ test('REAL Tienda.onStart imports certified pre-cut Yjs to the live WS room befo
   assert.equal(sha(Y.encodeStateVector(cat)),h.source.cat.expectedVectorSha256);
   assert.equal(w.sourceCalls,1,'one internal history source read for first cold boot');
   cat.getMap('products').set('sku-9',{name:'Synthetic new post-cut',priceCents:900});
+  const witnessed=await w.connect('cat',['cat:read']);
+  await waitFor(()=>witnessed.getMap('products').get('sku-9')?.priceCents===900,
+    'server accepted and forwarded post-cut update');
   await w.restart();
   w.disableSource();
   const cold=await w.connect('cat',['cat:read']);
@@ -134,6 +147,16 @@ test('REAL Tienda.onStart preserves separate -ops immutable events, not catalog 
   assert.equal(ops.getMap('products').size,0,
     'commercial ops must never export private catalog map from the other room');
   assert.equal(w.sourceCalls,2,'each named room imports its own historical proof');
+ }finally{await w.close();}
+});
+
+test('Gate D rejects private catalog Y.Doc disguised as an ops-room history',{timeout:30000},async()=>{
+ const h=history();
+ h.source.ops={...h.source.cat,channel:'ops',expectedOpIds:h.legacy.getMap('eventos').size};
+ const w=await relay({flag:true,source:h.source});
+ try{
+  await assert.rejects(()=>w.connect('ops',['ops:read']),/timeout|refused|failure|closed|error/i);
+  assert.equal(w.sourceCalls,1,'internal service was consulted, then rejected');
  }finally{await w.close();}
 });
 

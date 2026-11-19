@@ -327,22 +327,7 @@ export class Tienda extends YServer {
     } catch (_) { /* Sin confirmación, la caja conserva el respaldo. */ }
   }
 
-  async onStart() {
-    this.ctx.storage.sql.exec(
-      "CREATE TABLE IF NOT EXISTS documento (id INTEGER PRIMARY KEY, contenido BLOB)"
-    );
-    this.ctx.storage.sql.exec(
-      "CREATE TABLE IF NOT EXISTS documento_bloques (n INTEGER PRIMARY KEY, contenido BLOB NOT NULL)"
-    );
-    // Diario: cada cambio que llega se anota YA, antes de responder (una caja no puede perder una venta si el
-    // Durable Object se reinicia dentro de la espera de 2 s de onSave). onSave compacta y vacia el diario.
-    this.ctx.storage.sql.exec(
-      "CREATE TABLE IF NOT EXISTS diario (n INTEGER PRIMARY KEY AUTOINCREMENT, cambio BLOB)"
-    );
-    // Los bloques de una misma actualización se escriben y retiran juntos.
-    this.ctx.storage.sql.exec(
-      "CREATE TABLE IF NOT EXISTS diario_bloques (n INTEGER NOT NULL, parte INTEGER NOT NULL, contenido BLOB NOT NULL, PRIMARY KEY (n, parte))"
-    );
+  async abrirHistorialCongeladoSiAplica() {
     // Gate D 2.0. This runs on the REAL Durable Object, before the YServer
     // loads or serves anything. OFF by default, never an HTTP import route.
     if (this.env.WS_OPEN_EXISTING_QA === '1') {
@@ -363,8 +348,28 @@ export class Tienda extends YServer {
       const imported=await openExistingStore({env:this.env,storage:this.ctx.storage,source});
       if(!imported.opened || (certified && imported.already !== true))
         throw new Error('Gate D refuses uncertified or incomplete historical Yjs');
+      this.gateD=imported;
       this.gateDVerified=true; // server-side only, never returned as commercial ACK
     }
+  }
+
+  async onStart() {
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS documento (id INTEGER PRIMARY KEY, contenido BLOB)"
+    );
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS documento_bloques (n INTEGER PRIMARY KEY, contenido BLOB NOT NULL)"
+    );
+    // Diario: cada cambio que llega se anota YA, antes de responder (una caja no puede perder una venta si el
+    // Durable Object se reinicia dentro de la espera de 2 s de onSave). onSave compacta y vacia el diario.
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS diario (n INTEGER PRIMARY KEY AUTOINCREMENT, cambio BLOB)"
+    );
+    // Los bloques de una misma actualización se escriben y retiran juntos.
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS diario_bloques (n INTEGER NOT NULL, parte INTEGER NOT NULL, contenido BLOB NOT NULL, PRIMARY KEY (n, parte))"
+    );
+    await this.abrirHistorialCongeladoSiAplica();
     // Hibernated attachments must be checked BEFORE YServer's onStart sync broadcasts.
     if (secureMode(this.env)) await this.comprobarConexiones();
     this.secureReady = true;

@@ -7,6 +7,10 @@ import {getServerByName} from 'partyserver';
 import {openExistingStore,failbackUpdate} from '../../src/open-existing-store.mjs';
 
 export class Tienda extends RealTienda {
+  // This historical fixture specifically tests the helper independently,
+  // including the rejected-import fallback. The REAL production-hook
+  // contract has its own Workerd test with no subclass override.
+  async abrirHistorialCongeladoSiAplica() {}
   async onStart() {
     const sources=this.env.GATE_D_TEST_SOURCE?JSON.parse(this.env.GATE_D_TEST_SOURCE):{};
     const s=sources[this.name.slice(-3)];

@@ -1,3 +1,5 @@
+import * as Y from 'yjs';
+
 // Gate D: server-only, bounded pre-cut history intake for the *actual* Tienda.
 // This binding must be to an independent, authorized source service; never read
 // a Firebase HEAD, PIN, frames or claimed proof from a browser/WebSocket.
@@ -71,6 +73,16 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    for(const value of frame)if(!Number.isInteger(value)||value<0||value>255)throw fail();
    return Uint8Array.from(frame);
   });
+  // Distinct ops room may ONLY contain event IDs. Never import the raw
+  // private catalog Y.Doc into a room with a different authorization scope.
+  if(channel==='ops'){
+   const doc=new Y.Doc();
+   try {
+    for(const frame of frames)Y.applyUpdate(doc,frame,'trusted-source-ops-check');
+    if(doc.store.pendingStructs||doc.store.pendingDs)throw fail();
+    for(const root of doc.share.keys())if(root!=='eventos')throw fail();
+   }finally{doc.destroy()}
+  }
   return {channel,frozenHead:body.frozenHead,completeToHead:true,
    expectedStateSha256:body.expectedStateSha256,
    expectedVectorSha256:body.expectedVectorSha256,
