@@ -1,0 +1,45 @@
+# TEMPORARY branch-only workshop vendor build; remove after generated artifact lands.
+# No deploy, no Cloudflare writes, no customer app or license touched.
+name: TEMP compile port2 browser vendor from locked source
+on:
+  push:
+    branches: ["fix/20261118-port2-qa-host-bundle"]
+    paths:
+      - "projects/assembled-v783/app/src/yparty-piloto.js"
+      - ".github/workflows/tmp-port2-build-yparty-vendor.yml"
+permissions:
+  contents: write
+jobs:
+  compile-and-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Rebuild exact vendor from npm lock
+        working-directory: projects/assembled-v783/app
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node -p 'require("esbuild/package.json").version'
+          node scripts/build-yparty-piloto.cjs
+          grep -q 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev' docs/vendor/yparty-piloto.min.js
+          if grep -q 'friendly123-yparty-qa-20261114.jfcarpio.workers.dev' docs/vendor/yparty-piloto.min.js; then exit 1; fi
+      - name: Commit ONLY generated vendor blob to this feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          path=projects/assembled-v783/app/docs/vendor/yparty-piloto.min.js
+          git add -- "$path"
+          if git diff --cached --quiet -- "$path"; then
+            echo "Generated blob was already reproducible"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build(port2): regenerate QA YParty browser vendor from pinned esbuild'
+          git push origin HEAD:refs/heads/fix/20261118-port2-qa-host-bundle
