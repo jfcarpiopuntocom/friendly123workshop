@@ -1,0 +1,22 @@
+# Ponytail 2.0 · conectar REAL Tienda.onStart al historial congelado por fuente interna (PRECODE)
+
+**Fecha 19 noviembre 2026 UTC / 18 noviembre Ecuador**. Base workshop `1390be5b6ee33ddd344bceff3953df4cd69e1735`; rama `port2/20261119-gate-d-real-onstart-trusted-source`. Esta es la continuación del [plan de raíz Gate D](../plans/2026-11-19-gate-d-current-yjs-workerd-onstart-integration-next.md) y la [auditoría externa Qwen/Gemini](../reports/2026-11-18-qwen-gemini-adversarial-audit-reconciliation-v801.md); [relevo Notion](https://app.notion.com/p/41c1642b67f381cf8e04f2e53e91db94). **Un dueño** `relay/injertos/yparty-worker/src/index.js`, nuevo adaptador `trusted-frozen-source.mjs`, y sus QA/tests. No tocar `app/docs/sync-yjs.js` ni arquitectura 1.0, no tocar Cloudflare LIVE ni canario publicado ni secretos.
+
+## Código existente y root
+- `open-existing-store.mjs` [PR #116](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/116) y [PR #131](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/131) verifica snapshot+journal + HEAD ya anclado, failback diff. El hook vive solo en `qa/fixtures/gate-d-open-existing-worker.mjs` (subclase de `Tienda`); **`src/index.js Tienda.onStart` no abre historial** aunque `WS_OPEN_EXISTING_QA=1`.
+- `Tienda.onStart` crea SQL tablas, comprueba conexiones y llama `super.onStart` que sirve Yjs. Un error de importación que devuelva `opened:false` NO debe dejarlo cargar y servir una sala vacía: no falsa certificación.
+- [Cloudflare real QA audit](../reports/2026-11-18-cloudflare-port2-qa-deployed-vs-workshop.md): canario desplegado aún flags OFF y sin importador; emisor `/ws/ticket` ausente. Esta rama NO cambia despliegues.
+
+## Contrato de fuente no controlable por navegador
+1. `env.WS_FROZEN_HISTORY_SOURCE` es **Service Binding de Workerd**, no request ni input de WebSocket/headers. Conectar solo tras `WS_OPEN_EXISTING_QA=1`, `WS_AUTHORITY_QA=1`, `WS_SEPARATE_ROOMS_QA=1`, `this.name===SALA_PILOTO+'-cat'|'...-ops'` en Tienda real. `WS_SERVICE_KEY` servidor→servidor (secreto existente) enviado en HTTP header, nunca query/body/browser ni log.
+2. Servicio separado recibe `channel,room` y devuelve frames completos, frozen HEAD, expectedStateSha256/vector y expectedOpIds (ops), CERTIFICADOS de fuente histórica independiente. Una fuente sin frames, cupones de autorización, o prefijo de sala correcto se RECHAZA. Bounded read de respuesta, temporizador corto, sin aceptar otro room o >límite QA. No confundir hashes declarados por el proveedor con prueba de causalidad (el importador verifica).
+3. Si el certificado SQL ya existe, reabrir vía `openExistingStore({source:undefined})` comprueba snapshot+journal Yjs completo y evita depender de emisor durante un reinicio legítimo. Si certificado corrupto, fail-closed (no borrar datos). Si room sin certificado y source no disponible/incompleta: no `super.onStart`, no sala vacía, no ACK. Nunca snapshot reset.
+4. Inyección QA sintética solo por Service Binding test de Miniflare. No texto JSON de env ni route pública de upload. No tocar estructura de negocio ni cadena H6. Test real debe demostrar `Tienda` propia, no subclase que llama opener.
+
+## TDD RED→GREEN
+1. Probar Workerd + SQLite + clase `Tienda` real: source service responde historial **Yjs de dos autores** y el nuevo lector autentica con ticket sintético, coincide su estado/vector tras cold join y después de reiniciar. RED actual: Tienda inicia doc vacío (fixture actual hace el injerto manual).
+2. Negativos: missing service binding, flag OFF, sala equivocada, 401 del servicio, padres causales pendientes, bytes corruptos, certificado/cold-reopen corrupto → no crear sala falsa ni borrar SQL. Comprobar un solo writer del diario y failback.
+3. GREEN focal [workflow Gate D existente](../../../../.github/workflows/qa-v783-gate-d-open-existing.yml) y QA integrada exact HEAD; sin afirmar hardware iPhone ni autorización comercial. Actualizar skill-evaluation compatible NVIDIA si ya existe, solo como calidad de herramientas y **no** puntos de port.
+
+## Límites
+Con 19 padres faltantes + 9 Firebase 401 históricos y sin fuente REAL certificada, `WS_OPEN_EXISTING_QA` queda OFF en la nube. No 2.0 LIVE; score **arquitectura 67/100, port 61/100, GO 0/6**. No subir fotografías, eventos, PIN ni licencia real. Para historia de 400MB, lector actual acotado de QA exige diseño paginado previo a una migración real: nunca «truncar y reportar ok».
