@@ -76,10 +76,16 @@ test('reseed after actual oc-login Owner, not on staff; destroy removes old hand
  const start=source.indexOf('  function resembrarFotoTrasLogin(');
  const end=source.indexOf('  API.fotosDoc.once("destroy", resembrarFotoTrasLoginCancelar);',start);
  assert.ok(start>0&&end>start,'exact production oc-login handler and cleanup required');
- const body=source.slice(start,end+'  API.fotosDoc.once("destroy", resembrarFotoTrasLoginCancelar);'.length);
+ // Registration belongs to an initialized photo document, not top-level
+ // script evaluation, which happens before arrancarInicial creates fotosDoc.
+ const body=source.slice(start,end+'  API.fotosDoc.once("destroy", resembrarFotoTrasLoginCancelar);'.length)+'\n  }';
  const callbacks={};let seeds=0;
- const ctx={window:{addEventListener:(ev,fn)=>callbacks[ev]=fn,removeEventListener:(ev,fn)=>{if(callbacks[ev]===fn)delete callbacks[ev];}},API:{fotoSha:{disponible:()=>true},fotosDoc:{once:(ev,fn)=>callbacks.destroy=fn}},sembrarFotosAlRelay:()=>seeds++};
+ const ctx={window:{addEventListener:(ev,fn)=>callbacks[ev]=fn,removeEventListener:(ev,fn)=>{if(callbacks[ev]===fn)delete callbacks[ev];}},API:{fotoSha:{disponible:()=>true},fotosDoc:null},sembrarFotosAlRelay:()=>seeds++};
  vm.createContext(ctx);vm.runInContext(body,ctx,{timeout:1000});
+ vm.runInContext('registrarResiembraFotoTrasLogin()',ctx);
+ assert.equal(callbacks['oc-login'],undefined,'not before the photo Y.Doc exists');
+ ctx.API.fotosDoc={once:(ev,fn)=>callbacks.destroy=fn};
+ vm.runInContext('registrarResiembraFotoTrasLogin()',ctx);
  assert.equal(typeof callbacks['oc-login'],'function');
  callbacks['oc-login']({detail:{rol:'empleado'}});assert.equal(seeds,0);
  callbacks['oc-login']({detail:{rol:'dueno'}});assert.equal(seeds,1);
