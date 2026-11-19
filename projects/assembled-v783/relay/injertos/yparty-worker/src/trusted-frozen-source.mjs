@@ -93,7 +93,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
     error?.name==='AbortError'?'timeout':
     error?.name==='SyntaxError'?'json':'rejected';
   throw new Error('trusted frozen history unavailable: '+stage+' ('+kind+
-    (env.WS_FROZEN_DIAGNOSTIC_QA==='1'?': '+String(error?.message||'').replace(/[^A-Za-z0-9 ._:/()-]/g,'?').slice(0,100):'')+')');
+    ')');
  }
  finally{clearTimeout(timeout)}
 }
