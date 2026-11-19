@@ -77,7 +77,7 @@ async function relay({flag,source}){
         return new Response('invalid room',{status:403});
       const payload=source?.[params.channel];
       if(!payload)return new Response('no certified history',{status:404});
-      return Response.json({...payload});
+      return Response.json({room:params.room,...payload});
     }
    }});
   await(await mf.getKVNamespace('LICENCIAS')).put('inst:'+instance,JSON.stringify({licenseCode:license,instanceId:instance}));
