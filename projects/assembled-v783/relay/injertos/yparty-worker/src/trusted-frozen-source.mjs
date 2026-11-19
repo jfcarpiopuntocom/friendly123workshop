@@ -40,6 +40,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
     typeof env.WS_FROZEN_HISTORY_SOURCE?.fetch!=='function'||
     typeof env.WS_SERVICE_KEY!=='string'||env.WS_SERVICE_KEY.length<32)
    throw fail();
+ let stage='fetch';
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),TIMEOUT_MS);
  try{
   // Service Binding, NOT global fetch. No publicly routable upload endpoint.
@@ -51,7 +52,9 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    },body:JSON.stringify({room,channel})
   });
   const response=await env.WS_FROZEN_HISTORY_SOURCE.fetch(request);
+  stage='bounded-source-read';
   const body=await readLimited(response,controller.signal);
+  stage='proof-shape';
   if(body?.room!==room||body.channel!==channel||!HEAD.test(body.frozenHead||'')||
      body.completeToHead!==true||!HASH.test(body.expectedStateSha256||'')||
      !HASH.test(body.expectedVectorSha256||'')||
@@ -59,6 +62,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
      (channel==='cat'&&body.expectedOpIds!==undefined)||
      !Array.isArray(body.frames)||body.frames.length<1||body.frames.length>MAX_FRAMES)
     throw fail();
+  stage='byte-frames';
   let total=0;
   const frames=body.frames.map(frame=>{
    if(!Array.isArray(frame)||frame.length<1||frame.length>MAX_FRAME)throw fail();
@@ -71,6 +75,6 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    expectedStateSha256:body.expectedStateSha256,
    expectedVectorSha256:body.expectedVectorSha256,
    ...(channel==='ops'?{expectedOpIds:body.expectedOpIds}:{}),frames};
- }catch(_){throw fail()}
+ }catch(_){throw new Error('trusted frozen history unavailable: '+stage)}
  finally{clearTimeout(timeout)}
 }
