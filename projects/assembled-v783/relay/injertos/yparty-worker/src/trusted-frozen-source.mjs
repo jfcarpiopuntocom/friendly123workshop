@@ -75,6 +75,13 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    expectedStateSha256:body.expectedStateSha256,
    expectedVectorSha256:body.expectedVectorSha256,
    ...(channel==='ops'?{expectedOpIds:body.expectedOpIds}:{}),frames};
- }catch(_){throw new Error('trusted frozen history unavailable: '+stage)}
+ }catch(error){
+  // SANITIZED QA diagnostic only, never log request, headers, PIN or history.
+  const kind=error instanceof TypeError?'type':
+    error?.name==='AbortError'?'timeout':
+    error?.name==='SyntaxError'?'json':'rejected';
+  throw new Error('trusted frozen history unavailable: '+stage+' ('+kind+
+    (env.WS_FROZEN_DIAGNOSTIC_QA==='1'?': '+String(error?.message||'').replace(/[^A-Za-z0-9 ._:/()-]/g,'?').slice(0,100):'')+')');
+ }
  finally{clearTimeout(timeout)}
 }
