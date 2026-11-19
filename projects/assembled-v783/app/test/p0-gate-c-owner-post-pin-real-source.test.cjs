@@ -91,6 +91,26 @@ test('reseed after actual oc-login Owner, not on staff; destroy removes old hand
  callbacks['oc-login']({detail:{rol:'dueno'}});assert.equal(seeds,1);
  callbacks.destroy();assert.equal(callbacks['oc-login'],undefined);
 });
+test('older Y.Doc destroyed after notebook reinit must NOT unregister new Owner login listener',()=>{
+ const a=source.indexOf('  function resembrarFotoTrasLogin(');
+ const b=source.indexOf('  API.fotosDoc.once("destroy", resembrarFotoTrasLoginCancelar);',a);
+ assert.ok(a>0&&b>a,'real registration and cleanup must remain source-locatable');
+ const body=source.slice(a,b+'  API.fotosDoc.once("destroy", resembrarFotoTrasLoginCancelar);'.length)+'\n  }';
+ const active=new Set(),oldDoc={once:(_ev,fn)=>{oldDoc.cleanup=fn}},newDoc={once:(_ev,fn)=>{newDoc.cleanup=fn}};
+ let seeded=0;
+ const ctx={window:{addEventListener:(name,fn)=>{if(name==='oc-login')active.add(fn)},removeEventListener:(name,fn)=>{if(name==='oc-login')active.delete(fn)}},API:{fotoSha:{disponible:()=>true},fotosDoc:oldDoc},sembrarFotosAlRelay:()=>seeded++};
+ vm.createContext(ctx);vm.runInContext(body,ctx,{timeout:1000});
+ vm.runInContext('registrarResiembraFotoTrasLogin()',ctx);
+ ctx.API.fotosDoc=newDoc;
+ vm.runInContext('registrarResiembraFotoTrasLogin()',ctx);
+ assert.equal(active.size,1,'one login listener, never competing notebook writers');
+ oldDoc.cleanup(); // suspend/close the PREVIOUS notebook after NEW one is active
+ assert.equal(active.size,1,'old doc teardown cannot detach the new notebook');
+ for(const fn of active)fn({detail:{rol:'dueno'}});
+ assert.equal(seeded,1);
+ newDoc.cleanup();
+ assert.equal(active.size,0,'current doc teardown unregisters the listener');
+});
 test('internal IDB seeder uses original local read, never the UI remote read-through',async()=>{
  const a=source.indexOf('          if (!dataUrl && lecturasIDBBloqueadas < 2 && fotos && typeof fotos.leerPorHash === "function")');
  const b=source.indexOf('          if (!dataUrl) dataUrl = (API.fotosMap',a);
