@@ -61,6 +61,7 @@ async function relay({flag,source}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'f123-gate-d-real-')),env=await authority();let mf,url;
  let sourceCalls=0,sourceAllowed=true;
  const bindings={SALA_PILOTO:room,WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:'1',WS_SERVICE_KEY:key,
+  WS_FROZEN_DIAGNOSTIC_QA:'1',
   ...(flag?{WS_OPEN_EXISTING_QA:'1'}:{})};
  const boot=async()=>{mf=new Miniflare({modules:true,script:bundle,compatibilityDate:'2026-06-01',compatibilityFlags:['nodejs_compat'],
   durableObjects:{Tienda:{className:'Tienda',useSQLite:true}},durableObjectsPersist:path.join(dir,'do'),
