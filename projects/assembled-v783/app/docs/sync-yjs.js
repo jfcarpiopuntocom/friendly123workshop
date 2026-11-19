@@ -3001,6 +3001,7 @@
     if (_fotosGuardadoPendiente && !document.hidden) pedirVolcarFotos();
   }
   window.addEventListener("online", reintentarGuardadoFoto);
+  window.addEventListener("online", function () { if (API.fotoSha) sembrarFotosAlRelay(); }); // SHA bridge: drain IDB photo outbox on reconnect
   document.addEventListener("visibilitychange", reintentarGuardadoFoto);
 
   // Yjs(fotos) -> OCFotos (IndexedDB local). Cada hash que llegó y no esté local
@@ -3186,7 +3187,7 @@
               if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
               _fotosSembradas[hash][capaFoto] = 1;
               continue; // IMPORTANT: no raw dataURL goes into the Yjs fotos doc.
-            } catch (_) { /* signed HTTP unavailable: retain old encrypted photo relay */ }
+            } catch (_) { fotoSinLeer = true; continue; } // bridge on: bytes stay in durable OCFotos IDB (outbox), never in Yjs; retried
           }
           var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
             "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));

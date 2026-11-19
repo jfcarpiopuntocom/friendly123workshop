@@ -1,0 +1,50 @@
+name: v783 Gate C photo SHA offline + cross-browser restore Chromium WebKit (QA only)
+on:
+  push:
+    branches: ["integrate/20261118-gate-c-photo-sha-offline"]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'projects/assembled-v783/app/test/p0-gate-c-photo-offline-browser.test.cjs'
+      - 'projects/assembled-v783/app/docs/sync-yjs.js'
+      - 'projects/assembled-v783/app/docs/idb-fotos.js'
+      - '.github/workflows/qa-v783-gate-c-photo-offline-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gate-c-browser:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact Node dependencies (native browsers pinned in image)
+        working-directory: projects/assembled-v783/app
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node -p 'require("playwright/package.json").version'
+      - name: Run exact sync-yjs photo blocks in real Chromium and WebKit
+        working-directory: projects/assembled-v783/app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence/gate-c-photo-offline
+          git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD | tee ../evidence/gate-c-photo-offline/sha.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=130000 test/p0-gate-c-photo-offline-browser.test.cjs test/p0-yparty-photo-sha-browser.test.cjs test/p0-h3-photo-seed-bounded.test.cjs test/v670-cross-layer-photo-seed.test.cjs 2>&1 | tee ../evidence/gate-c-photo-offline/tap.log
+      - name: Archive exact evidence including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-c-photo-offline-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/gate-c-photo-offline/
+          if-no-files-found: warn
+          retention-days: 14
