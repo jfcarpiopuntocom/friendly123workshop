@@ -1,15 +1,18 @@
-# friendly-123 · DOS MÉTRICAS /100 · 17-nov-2026
+# friendly-123 · DOS MÉTRICAS /100 · 18-nov-2026
 
 Fuente ejecutable de la calidad: [score-v1.json](score-v1.json) + [score.cjs](score.cjs). Fuente independiente de **culminación del port**: [port-v1.json](port-v1.json) + [port.cjs](port.cjs). Los pesos/stages y **seis gates aprobados JFC/Opus están congelados**, no se mueven por necesidad de ingeniería. Este marcador mide **hitos con evidencia**: los decimales no son probabilidades ni porcentaje de horas trabajadas.
+
+## Gate C2 · +4 al PORT (18-nov), NO-GO comercial
+[PR #128](https://github.com/jfcarpiopuntocom/friendly123workshop/pull/128) integrada en main@86d33c3. Fuente `d31388d96afcadc23affbfce858ed37c2937c5cc`: [RED 22/24](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44453002009) → [GREEN 24/24](https://github.com/jfcarpiopuntocom/friendly123workshop/actions/runs/44454217429), dos navegadores nativos Chromium↔WebKit. Bajo puente HTTP SHA QA, una foto permanece en IndexedDB desconectado, revive tras recarga, se confirma por SHA y Yjs sólo conserva `{sha,bytes,tipo}`. C2 +4, C total 7/10, PORT 61/100; no se acredita C3 (PC/iPhone físico), calidad 67/100 o un gate GO (0/6). Bridge todavía se inicializa antes de `oc-login` y puede ser nulo en arranque frío: próximo injerto de activación perezosa, proyección segura y readback. Esta prueba no certifica fotos de Belén en clientes reales, ni publicación comercial.
 
 ## Comparación auditada
 
 | Métrica | Hace una semana | Corte anterior 17-nov | Actual 17-nov | Meta |
 |---|---:|---:|---:|---:|
 | Calidad y robustez arquitectónica | 45.0/100 estimado retrospectivo (±5) | 66.5/100 | **67.0/100** (±4 criterio; candidato combinado QA) | ≥95 |
-| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 41.0/100 | **57.0/100** (candidato PR #115, Gate A en router real, QA; sin fusionar) | 100 **y 6/6 gates** |
+| Culminación del PORT operativo | Sin rúbrica histórica (no inventar) | 57.0/100 | **61.0/100** (Gate C2 SHA-only probado en Chromium↔WebKit, sin clientes) | 100 **y 6/6 gates** |
 
-Calidad +22.0 puntos estimados frente al 10-nov (45.0→67.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +14.0 **desde la primera medición versionada**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
+Calidad +22.0 puntos estimados frente al 10-nov (45.0→67.0); puntuación ingenieril de **candidato QA**, no indicador de disponibilidad física. Port +34.0 **desde la primera medición versionada (27.0 el 17-nov)**, no inferir avance semanal. **Comercial 0/6 gates certificados. NO-GO**. La primera tienda solo puede activarse tras las seis condiciones aprobadas por JFC y el score de calidad ≥95.
 
 ## P0 Gate A · +16.0 al PORT solo en candidato PR #115 (QA Workerd, NO LIVE)
 
@@ -53,11 +56,11 @@ No cambiaron ejes, pesos ni seis gates. **+0.5** en durabilidad (16.0→16.5/20)
 |---|---:|---:|---:|
 | A. Empleado denegado raw Yjs; venta, ajuste, cobro tipados opId con ACK comercial | 20 | **20.0** | **0.0** |
 | B. Emisor Owner/Team; ingreso firmado por canal y reconexión; revocación | 20 | **16.0** | **4.0** |
-| C. Foto como blob SHA fuera de Yjs | 10 | **3.0** | **7.0** |
+| C. Foto como blob SHA fuera de Yjs | 10 | **7.0** | **3.0** |
 | D. Firebase→DO→Firebase completo, SHA, sin padres pendientes | 25 | 10.0 | 15.0 |
 | E. Web Locks outbox y recuperación iPhone | 10 | 8.0 | 2.0 |
 | F. Dos ciclos físicos Opera PC↔Safari iPhone A→B→A | 15 | 0.0 | 15.0 |
-| **TOTAL** | **100** | **57.0** | **43.0** |
+| **TOTAL** | **100** | **61.0** | **39.0** |
 
 ### C1 · foto SHA Workerd SQL +3/100 acreditado (NO gate C completo)
 
