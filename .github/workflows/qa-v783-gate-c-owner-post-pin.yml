@@ -1,0 +1,32 @@
+name: Gate C post-PIN Owner photo SHA real-source (no deploy)
+on:
+  push:
+    branches: [fix/20261118-gate-c-post-pin-photo-bridge]
+    paths:
+      - projects/assembled-v783/app/docs/sync-yjs.js
+      - projects/assembled-v783/app/test/p0-gate-c-owner-post-pin-real-source.test.cjs
+      - .github/workflows/qa-v783-gate-c-owner-post-pin.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - projects/assembled-v783/app/docs/sync-yjs.js
+      - projects/assembled-v783/app/test/p0-gate-c-owner-post-pin-real-source.test.cjs
+      - .github/workflows/qa-v783-gate-c-owner-post-pin.yml
+permissions:
+  contents: read
+jobs:
+  owner-photo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source-executed post-PIN photo invariants
+        run: |
+          set -euo pipefail
+          node --check projects/assembled-v783/app/docs/sync-yjs.js
+          node --test --test-concurrency=1 projects/assembled-v783/app/test/p0-gate-c-owner-post-pin-real-source.test.cjs

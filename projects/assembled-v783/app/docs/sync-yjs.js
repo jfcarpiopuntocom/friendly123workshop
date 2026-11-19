@@ -2566,6 +2566,64 @@
     return _arranquePromise;
   }
 
+  // Gate C: the PIN screen boots sync BEFORE Owner login. Keep ONE adapter
+  // bound to this notebook, but acquire a fresh scoped HTTP bridge on each
+  // operation instead of caching the pre-PIN null result or a capability.
+  // No credentials, tokens or photo bytes are saved by this facade.
+  function crearPuenteFotoPerecedero(piloto, codigo) {
+    if (!piloto || typeof piloto.fotoSha !== "function") return null;
+    var documento = API.doc;
+    var fachada = null;
+    // An Owner logout→login with the SAME PIN is still a new session.
+    // A response issued in the old session must never publish a photo reference.
+    var revisionSesion = 0;
+    function invalidarSesionFoto() { revisionSesion++; }
+    ["oc-login", "oc-logout", "oc-tab-session-changed"].forEach(function (evento) {
+      window.addEventListener(evento, invalidarSesionFoto);
+    });
+    if (documento && typeof documento.once === "function") documento.once("destroy", function () {
+      invalidarSesionFoto();
+      ["oc-login", "oc-logout", "oc-tab-session-changed"].forEach(function (evento) {
+        window.removeEventListener(evento, invalidarSesionFoto);
+      });
+    });
+    function sesionActual() {
+      try {
+        var own = JSON.parse(localStorage.getItem("f123_owned") || "null");
+        var pin = window.OCSecure?.leerPinQueAbre?.()?.owner;
+        if (window.OCAuth?.rolActual?.() !== "dueno" ||
+            String(own?.licenseCode || "").trim().toUpperCase() !== codigo ||
+            !/^[A-Za-z0-9_-]{6,128}$/.test(own?.instanceId || "") ||
+            typeof pin !== "string" || !/^\d{3}$/.test(pin) ||
+            pin === "456" || pin === "789" ||
+            (documento && API.doc !== documento) ||
+            (API.codigoCuaderno && API.codigoCuaderno !== codigo)) return null;
+        return JSON.stringify([codigo, own.instanceId, pin]);
+      } catch (_) { return null; }
+    }
+    function obtener() {
+      if (!sesionActual()) return null;
+      try { return piloto.fotoSha(); } catch (_) { return null; }
+    }
+    async function ejecutar(metodo, args) {
+      var inicio = sesionActual(), revisionInicial = revisionSesion;
+      var puente = inicio && obtener();
+      if (!inicio || !puente || typeof puente[metodo] !== "function")
+        throw new Error("photo-owner-session-unavailable");
+      var resultado = await puente[metodo].apply(puente, args);
+      if (API.fotoSha !== fachada || revisionSesion !== revisionInicial ||
+          sesionActual() !== inicio || !obtener())
+        throw new Error("photo-owner-session-changed");
+      return resultado;
+    }
+    fachada = Object.freeze({
+      disponible: function () { return API.fotoSha === fachada && !!obtener(); },
+      put: function (hash, dataUrl) { return ejecutar("put", [hash, dataUrl]); },
+      get: function (hash) { return ejecutar("get", [hash]); }
+    });
+    return fachada;
+  }
+
   async function arrancarInicial() {
     /* UNA LICENCIA = UNA SALA (v295, JFC 2026-09-16). "salas"/f123_sync_room es
        VESTIGIAL y ya NO decide nada: la sala es SIEMPRE la LICENCIA
@@ -2605,7 +2663,7 @@
     // QA pilot: photo BYTES belong in the authenticated SQL blob store, not in Yjs.
     // The catalog carries ONLY immutable {sha,bytes,tipo} references.
     API.fotosRefs = API.doc.getMap("fotos_refs");
-    API.fotoSha = piloto && typeof piloto.fotoSha === "function" ? piloto.fotoSha() : null;
+    API.fotoSha = crearPuenteFotoPerecedero(piloto, codigo);
     COLECCIONES.forEach(function (c) { API.mapas[c] = API.doc.getMap(c); });
     API.hechosMap = API.doc.getMap("hechos_financieros");
     // FASE 2 (JFC 2026-09-09): mapa aparte para el nombre del negocio y los PINs
@@ -2725,7 +2783,8 @@
         if (local) return local;
         var docOrigen = API.doc, refs = API.fotosRefs, bridge = API.fotoSha;
         var metadata = refs?.get(hash);
-        if (!bridge || !metadata || metadata.sha !== hash ||
+        if (!bridge || (typeof bridge.disponible === "function" && !bridge.disponible()) ||
+            !metadata || metadata.sha !== hash ||
             !/^[a-f0-9]{64}$/.test(hash || "") ||
             !Number.isSafeInteger(metadata.bytes) || metadata.bytes < 1 ||
             metadata.bytes > 6*1024*1024 ||
@@ -2753,6 +2812,7 @@
       API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
     API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay, API.fotosIdb); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
+    registrarResiembraFotoTrasLogin(); // cold PIN: the photo doc now exists; add ONE scoped listener
     API.fotosDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.fotosIdb && origin === API.fotosIdb)) { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -3092,6 +3152,25 @@
       return b.toString(16).padStart(2,"0");
     }).join("");
   }
+  // Login happens after auth-ui has accepted the Owner PIN. Register only
+  // after the photo Y.Doc exists, and unregister if this notebook is destroyed.
+  function resembrarFotoTrasLogin(evento) {
+    if (evento?.detail?.rol !== "dueno" || !API.fotoSha ||
+        (typeof API.fotoSha.disponible === "function" && !API.fotoSha.disponible())) return;
+    sembrarFotosAlRelay();
+  }
+  function registrarResiembraFotoTrasLogin() {
+    if (!API.fotosDoc) return;
+    var docRegistrado = API.fotosDoc;
+    window.addEventListener("oc-login", resembrarFotoTrasLogin);
+    function resembrarFotoTrasLoginCancelar() {
+      // Closing the previous notebook after a fresh boot must not detach
+      // the Owner listener of the currently active photo Y.Doc.
+      if (API.fotosDoc === docRegistrado)
+        window.removeEventListener("oc-login", resembrarFotoTrasLogin);
+    }
+    API.fotosDoc.once("destroy", resembrarFotoTrasLoginCancelar);
+  }
   API.sembrarFotos = sembrarFotosAlRelay; // also used by stuck-history reconnect
   function sembrarFotosAlRelay() {
     if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
@@ -3155,7 +3234,11 @@
           // reopening IndexedDB for every remaining photo in this pass.
           if (!dataUrl && lecturasIDBBloqueadas < 2 && fotos && typeof fotos.leerPorHash === "function") {
             try {
-              dataUrl = await _esperarFoto(fotos.leerPorHash(hash));
+              // Internal seeding reads IDB/legacy LOCAL bytes only. The UI
+              // wrapper may perform a signed HTTP GET, which must not consume
+              // its 16-read budget or stall the inventory photo pass.
+              var leerSoloLocal = fotos.__f123PhotoReadOriginal || fotos.leerPorHash;
+              dataUrl = await _esperarFoto(leerSoloLocal.call(fotos, hash));
               lecturasIDBBloqueadas = 0;
             } catch (_) { lecturasIDBBloqueadas++; }
           }
