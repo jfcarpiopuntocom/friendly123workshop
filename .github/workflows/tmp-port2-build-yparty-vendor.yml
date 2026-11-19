@@ -22,12 +22,16 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Install exact YParty dependencies from existing Workerd lock
+        working-directory: projects/assembled-v783/relay/injertos/yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Rebuild exact vendor from npm lock
         working-directory: projects/assembled-v783/app
         run: |
           set -euo pipefail
           npm ci --ignore-scripts --no-audit --no-fund
           node -p 'require("esbuild/package.json").version'
+          export NODE_PATH="$(realpath ../relay/injertos/yparty-worker/node_modules)"
           node scripts/build-yparty-piloto.cjs
           grep -q 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev' docs/vendor/yparty-piloto.min.js
           if grep -q 'friendly123-yparty-qa-20261114.jfcarpio.workers.dev' docs/vendor/yparty-piloto.min.js; then exit 1; fi
