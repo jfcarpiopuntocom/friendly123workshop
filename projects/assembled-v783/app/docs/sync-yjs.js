@@ -2574,6 +2574,19 @@
     if (!piloto || typeof piloto.fotoSha !== "function") return null;
     var documento = API.doc;
     var fachada = null;
+    // An Owner logout→login with the SAME PIN is still a new session.
+    // A response issued in the old session must never publish a photo reference.
+    var revisionSesion = 0;
+    function invalidarSesionFoto() { revisionSesion++; }
+    ["oc-login", "oc-logout", "oc-tab-session-changed"].forEach(function (evento) {
+      window.addEventListener(evento, invalidarSesionFoto);
+    });
+    if (documento && typeof documento.once === "function") documento.once("destroy", function () {
+      invalidarSesionFoto();
+      ["oc-login", "oc-logout", "oc-tab-session-changed"].forEach(function (evento) {
+        window.removeEventListener(evento, invalidarSesionFoto);
+      });
+    });
     function sesionActual() {
       try {
         var own = JSON.parse(localStorage.getItem("f123_owned") || "null");
@@ -2593,11 +2606,13 @@
       try { return piloto.fotoSha(); } catch (_) { return null; }
     }
     async function ejecutar(metodo, args) {
-      var inicio = sesionActual(), puente = inicio && obtener();
+      var inicio = sesionActual(), revisionInicial = revisionSesion;
+      var puente = inicio && obtener();
       if (!inicio || !puente || typeof puente[metodo] !== "function")
         throw new Error("photo-owner-session-unavailable");
       var resultado = await puente[metodo].apply(puente, args);
-      if (API.fotoSha !== fachada || sesionActual() !== inicio || !obtener())
+      if (API.fotoSha !== fachada || revisionSesion !== revisionInicial ||
+          sesionActual() !== inicio || !obtener())
         throw new Error("photo-owner-session-changed");
       return resultado;
     }
