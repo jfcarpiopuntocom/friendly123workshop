@@ -1,0 +1,15 @@
+# C94 P0 real Safari pilot mode mismatch — execution report
+
+2026-11-20. Same app friendly-123. User directive: **NO historical reconstruction. NO read/write/delete Belén or any client device data.** Real runtime source only, test fixtures synthetic JFC. Sync3 remains.
+
+**Exact live bug:** `src/yparty-piloto.js` coordinator calls `failbackToLegacy('document-hidden')` on iOS hidden and `pagehide`. The coordinator C21a changes mode from `active-2.0` to `failback-legacy-1.0` and closes -cat writer, while browser facade `docs/sync-yjs.js` still keeps `API.modoCorte20Activo=true` because it does not receive `onModeChange`. `API.opsDoc` and `API.doc` then suppress their old transports based on a false positive; after Safari resume operations may not be sent. No device mutations required to reproduce.
+
+**PRECODE before code:** [C94 PRECODE](../plans/2026-11-20-c94-iphone-cutover-mode-desync-precode.md). **PR:** https://github.com/jfcarpiopuntocom/friendly-123/pull/895 branch port2/20261120-c94-iphone-mode-fence.
+
+**RED first:** workflow C94 run https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44811445966 on SHA bc1957f301613dd71eaf762e5cdea8d3a82514a6. 5 genuine RED failures: (1) suspended iPhone facade still active, (2) writer conflict and lost cert, (3) stale old coordinator can revoke new, (4) replacement keeps active flag, (5) external observer not wired. Existing source C27/C38 tests passing.
+
+**GREEN source:** change `docs/sync-yjs.js` `API.crearCoordinadorCorte20` only: destruct old; clear stale active flag; copy opts; supply onModeChange that can only DISARM and only if coordinator is still current; call optional owner-supplied observer; never arm writer based on mode event, leave C38 dual-writer/zero-outbox guards intact. No reconnection or legacy re-enable triggered. C94 specific run SHA 4ed5b541b7a14c93fc0f72edfbf47c2e059c56f7 SUCCESS before release packaging.
+
+**Complete PWA v0.8.27 candidate** SHA 1e21b13c9d9c463a2ea25be6a47f46ec1c23d1e0 modifies docs/sync-yjs.js, docs/sw.js (cache f123-shell-v827), docs/version.json (v0.8.27 golden363), docs/dashboard.html version label, docs/version-manifest.json exact SHA: `sync-yjs.js` 847585970f98dcea43576d45391102d70040196b013a7a40870281eb04943eda, `dashboard.html` 360934807cfd1d54cbadaf7405ed49679b39fdcd595a9fc4ee2a3dc7f8da4c0e. Hashes verified against canonical repository SHA256 implementation and prior manifest; v637 shell manifest PASS and C27/C38 PASS in final workflow. Complete candidate 48/60 currently SUCCESS, no failure; do NOT claim merged until all QA green.
+
+**Invariants:** no active user customer data read; no PWA SW uninstall, no IndexedDB reset, no PIN rotation, no Firebase/R2 writes, no commercial activation. Notion Gemini coordination in master Gemini Desktop page and Sol6 living handoff. C94 repairs correctness of existing 2.0 pipeline; it is NOT proof of JFC physical A→B→A or commercial GO. Official scores PORT92.0/100 and quality80.4/100, GO0/6.
