@@ -32,3 +32,13 @@ Fuentes, todas en solo lectura: Firebase (`-y`, `-ops`, legacy 1.0) + **copia** 
 - Corregí un error propio: las bases `amig::`/`c123::` son otras apps (amigable-123 / consultorio-123) con el mismo código; no se mezclan.
 **Veredicto:** HEAD económico completo todavía **NO CERTIFICADO** (17 escritores con ancestro ausente). Puntos sin cambio.
 **Siguiente:** obtener el IndexedDB de los aparatos que estuvieron activos el 4–7 nov (copia de solo lectura del navegador del celular/PC), repetir la unión; solo con 0 pendientes → paquete R2.
+
+## C90c · SELLADO en R2 QA privado (20 nov, ~15:10)
+Decisión de JFC: «no hay datos perdidos; solo sellar y avanzar»; los aparatos (iPhone y tablet de Belén) no se tocan y lo suyo entra hacia adelante por unión.
+- HEAD sellado `fb-7d8e5559ecb3eb245c73f7c5`; testigo de Firebase releído justo antes de subir: **igual** (sin escrituras entre lectura y sellado).
+- Bucket `friendly123-frozen-history-qa` (privado, Standard, sin dominio público): estaba vacío; sin sobrescrituras.
+- **`-ops` certificado** con el packer del repo: `f123-frozen/v1/<sala32>/<HEAD>/ops/` = manifest + 2 páginas; manifest SHA-256 **c1d0116caf669bb4bb71f201218cb3af96bb35a232bff8678b811396c283b35a** (ancla externa: este reporte); 227 opIds; stateSha 5d551592…; vectorSha c75c6388….
+- **Copia sellada byte a byte** (todavía cifrada AES-GCM) de `-y`, `-ops` y legacy 1.0 + manifiesto: `f123-sealed-raw/v1/<sala32>/<HEAD>/`. No se importa; es una garantía.
+- 7/7 objetos subidos y **releídos desde R2 con el mismo SHA-256**. Costo: 7 PUT + 7 GET y ~36 MB, dentro del plan gratuito de R2 (sin cargo comprobado en facturación: **sin comprobar**).
+- Sin cambios en Firebase, aparatos, Worker de producción ni banderas.
+**Pendiente para el +2,0 de R2:** desplegar el Worker privado `friendly123-frozen-history-qa` (wrangler.frozen-source.jsonc) con el pin del manifest e instalar `WS_FROZEN_HISTORY_SOURCE` en el Worker QA; verificar binding por API + lectura real. Puntos: **sin cambio** hasta entonces.
