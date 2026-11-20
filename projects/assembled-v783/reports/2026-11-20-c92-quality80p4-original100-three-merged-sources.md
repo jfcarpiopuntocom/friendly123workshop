@@ -23,5 +23,5 @@
 
 ## Verificación última posterior al cierre
 - GitHub master exacto `c10a64576c7bf61e1c971c20f38c9e9415b66f47` leído con `docs/engineering/architecture-2-port-score.json` score92, pending8.0, GO0/6 y `docs/engineering/architecture-2-quality-score.json` score80.4, previous80.1, dimensiones [19.0,18.7,15.9,11.1,7.8,7.9,0.0].
-- Cloudflare a la última consulta todavía desplegaba `3d2ae220...` (#891) al 100%; **no afirmar build/deploy exacto de C92 c10a hasta nueva evidencia**. C92 modifica solo documentación de métricas/auditoría/test, no cortes de fuente.
+- Cloudflare Workers GET **confirmó build exacto para C92 master `c10a64576c7bf61e1c971c20f38c9e9415b66f47`**: build UUID `6a3ee435-01df-48c6-bba5-7fcef5bbd5de`, `SUCCESS/stopped` y versión `5e912a42-20e0-4761-bd77-8957d2a5ad06` desplegada al **100%** en Worker público `friendly-123` (deployment ID `223d0d3d-ade5-4404-9d66-f2b7f29ea31b`, 20-nov-2026 19:56:03Z). C92 modifica solo documentación de métricas/auditoría/test, no cortes de fuente ni habilita GO.
 - Los hechos económicos de Firebase -y + legacy + -ops y los de IndexedDB/outbox por navegador deben UNIRSE causalmente con SHA/opId sin sobrescribir. No certificar completitud desde este ChatGPT; Firebase plugin disponible solo para Codex/MCP local.
