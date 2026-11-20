@@ -1,0 +1,11 @@
+# C94 PRECODE mínimo · P0 Safari suspend/BFCache: 2.0 pierde sesión, fachada sigue diciendo activo
+
+20-nov-2026. Producto jfcarpiopuntocom/friendly-123; base master a671600dc69cc1e4cb412709c8ef360567f1c047. Misma app; Sync3 intacto. SOLO QA sintética/licencia JFC; no leer/escribir/borrar datos ni dispositivos de Belén. Reconstrucción histórica es indeseable, no solicitada y prohibida.
+
+**Causa raíz comprobada en código:** src/yparty-piloto.js crea coordinador y en visibilitychange/pagehide ejecuta coordinator.failbackToLegacy; src/port2-cross-device-failback.mjs cambia su mode() de active-2.0 a failback-legacy-1.0 y cierra catalog session. PERO docs/sync-yjs.js crea el coordinador sin onModeChange, y API.modoCorte20Activo sigue true hasta acción manual. Con 2.0 realmente caído, la fachada sigue evitando publicar updates por legado (también opsDoc). Potencial bloqueo tras suspensión iOS o conflicto escritor.
+
+**Cambio mínimo:** solo docs/sync-yjs.js función API.crearCoordinadorCorte20; un nuevo test test/p0-c94-pilot-failback-mode-fence.test.cjs. Pasar onModeChange que desarme API.modoCorte20Activo en failback solo si el coordinador emisor sigue vigente; JAMÁS activar 2.0 desde callback (solo API.activarCorte20Runtime con guard doble escritor C38). Preservar callbacks externos, no permitir que coordinadores obsoletos apaguen los nuevos. NO revivir relay viejo automáticamente, borrar ops, resetear PIN, PWA ni acceder a aparatos.
+
+**TDD RED→GREEN:** test del código REAL extraído de la fachada: callback de failback iOS/conflicto desarma bandera; callback de active no arma 2.0; callback de coordinador antiguo no modifica estado nuevo; callback externo continúa. C27/C31/C38/legacy-fence y pruebas Playwright browser conservadas. No créditos de port o calidad sin rúbrica real; oficiales 92,0/100 y 80,4/100, GO0/6.
+
+**Lanzamiento:** después de 12/12 CI sin fallos, merge por SHA y Cloudflare real exacto, actualizar Notion/Gemini con evidencia. Sin activar flags ni modificar datos de clientes.
