@@ -1,0 +1,15 @@
+# C61 PRECODE · C60 real source merged, puntuar únicamente cold-join público válido y seguro
+
+Fecha 2026-11-20 Ecuador. Producto ACTUAL = MISMA friendly-123, source merge C60 master 9e5986623b42dfe6b27f0cdcb96a6d3360fe6962; Sync3 intacto, QA OFF; workshop SOLO pruebas/planes. Baseline oficial de scores C59: migración 91,5/100,0, calidad 78,7/100,0, GO0/6 físico0/5. No atribuir negocio ni HEAD Firebase REAL.
+
+## Fuente obligatoria
+- [PR #860 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/860), candidato 4df23b91465af8a54f04054e7168b9dfa0cafdc4, [RED C60 Actions 44717977111](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44717977111) 28 PASS 2 FAIL (valid Yjs public fields same values but reordered, v1 numeric and v2 paged); [GREEN Actions 44718117414](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44718117414) **30/30 PASS** including old private PIN/costo rejected. Candidate full **15/15 workflows GREEN**. Cloudflare Workers Builds exact merged SHA **SUCCESS**, UUID 9491d0f5-3bd9-4cd0-b355-ec9ff2a02620.
+- Source `cloudflare-yparty-worker/src/trusted-frozen-source.mjs`: replaced erroneous JSON.stringify(record) equality with exact same allowed field set and scalar value comparison after existing mature projectPublicCatalog; forbids private field count. Independent source sha256 and projected SHA remain mandatory where specified, no new root/HTTP permissions.
+- Not resolved: legacy v1 source accepts a doc with *only* unknown root when no productos/ubicaciones; this is a separate P0 security gate. No credit in C61 for fixing it, no private original cat allowed. Real HEAD Firebase transaction/OP causal anchor still unverified, no R2 binding installed.
+
+## Fixed100 TDD score-only
+1. Branch C61 ONLY after C60 real code MERGED, exact SHA. RED test/p0-architecture-2-port-score.test.cjs: migration91.8 from91.5 (+0.3), remaining8.2, delta baseline68.5 ->23.3, quality78.9 from78.7 (+0.2), previous total78.7, durability18.2->18.4 previous18.2, GO0/6 physical0/5. Frozen-history original weight18, new c60-frozen-public-field-key-order-verified QA0.3 DONE source `cloudflare-yparty-worker/src/trusted-frozen-source.mjs`; real-firebase-head-complete PENDING2.2; R2 binding2 PENDING. This only credits verified import compatibility QA, NOT actual Firebase HEAD.
+2. GREEN solely four score files: docs/engineering/architecture-2-port-score.json and -quality-score.json, scripts/architecture-2-port-score.cjs, docs/engineering/architecture-2-port-score.md, plus RED test. Pin all DONE evidence to exact C60 merge. Source guard must verify field-by-field, test 2 RED+negative PII, version unchanged v0.8.24, immutable weights100 and no additional commercial points.
+3. 11/11 CI, merge product, Cloudflare build exact SHA SUCCESS, read-after-merge both JSON, write Notion+workshop final report, preserve ledger PR #841 reservation.
+
+Rollback score-only not runtime; always GO0/6 physical0/5.
