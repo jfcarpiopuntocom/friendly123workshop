@@ -1,0 +1,19 @@
+name: P0 Firebase temporary dashboard channel permissions
+on:
+  pull_request:
+    paths: [projects/assembled-v783/tests/p0-dashboard-firebase-permission.cjs, .github/workflows/qa-dashboard-firebase-permission.yml]
+permissions:
+  contents: read
+jobs:
+  firebase-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify ephemeral Supabase broadcast first (no database writes)
+        run: node projects/assembled-v783/tests/p0-dashboard-supabase-broadcast.cjs
+      - name: Synthetic Firebase evidence gate (expected RED if cleanup denied)
+        if: always()
+        run: node projects/assembled-v783/tests/p0-dashboard-firebase-permission.cjs
