@@ -42,3 +42,12 @@ Decisión de JFC: «no hay datos perdidos; solo sellar y avanzar»; los aparatos
 - 7/7 objetos subidos y **releídos desde R2 con el mismo SHA-256**. Costo: 7 PUT + 7 GET y ~36 MB, dentro del plan gratuito de R2 (sin cargo comprobado en facturación: **sin comprobar**).
 - Sin cambios en Firebase, aparatos, Worker de producción ni banderas.
 **Pendiente para el +2,0 de R2:** desplegar el Worker privado `friendly123-frozen-history-qa` (wrangler.frozen-source.jsonc) con el pin del manifest e instalar `WS_FROZEN_HISTORY_SOURCE` en el Worker QA; verificar binding por API + lectura real. Puntos: **sin cambio** hasta entonces.
+
+## C91 · Worker de fuente + Service Binding QA + lectura real E2E (20 nov, ~16:00)
+- Fuente privada `friendly123-frozen-history-qa` desplegada (4c2534de), sin rutas ni workers.dev; ROOM/HEAD del sellado; pin `F123_FROZEN_OPS_MANIFEST_SHA256` = c1d0116c…b35a.
+- Worker QA `friendly123-yparty-port2-canary-qa` desplegado desde la rama C91 (5ea0fba3): binding `WS_FROZEN_HISTORY_SOURCE → friendly123-frozen-history-qa` **verificado por API**; clave propia `WS_FROZEN_SOURCE_KEY` (la `WS_SERVICE_KEY` compartida con licencias ni se envía ni se rotó).
+- **Lectura real E2E PASS:** probe efímero `wrangler dev --remote` (binding real al Worker desplegado), `readTrustedFrozenSource` con `WS_R2_MANIFEST_REQUIRED_QA=1` → `prepareFrozenImport` del producto: HEAD fb-7d8e5559ecb3eb245c73f7c5, stateSha **5d551592bba72b2be7b998e584e0e3b913ec9010d6364ada77ec872cca4cec95**, vectorSha c75c6388…, **227 opIds** = certificación independiente de Firebase.
+- PR #902 (incluye #890): CI 19/19 pass, MERGEABLE/CLEAN. **Merge pendiente** (la sesión de Claude no tiene permiso para mergear a master).
+### Traspaso para acreditar puntos (archivo reservado por #889: scripts/architecture-2-port-score.cjs + test)
+- `r2-service-binding-installed` (+2,0): evidencia completa arriba (objetos R2 auténticos releídos con SHA, manifest anclado fuera de R2, Worker fuente privado, binding por API, lectura real E2E idéntica a la certificación). Acreditar **después del merge de #902**.
+- `real-firebase-head-complete` (+2,0): `-ops` completo y certificado; `-y` sellado byte a byte con 17 escritores con ancestro pendiente, a completarse hacia adelante desde los aparatos. Criterio de JFC: «no hay datos perdidos, sellar y avanzar». Acreditarlo o no depende de la rúbrica oficial; Claude no lo acredita por su cuenta.
