@@ -1,0 +1,9 @@
+# C53 / C52 · cierre de envío legado en app real, Ponytail PRECODE
+
+El mismo producto `jfcarpiopuntocom/friendly-123`, NO otra app. Sync3 continúa integrado. friendly123workshop solamente guarda evidencia.
+
+- Baseline `master` tras [PR #850](https://github.com/jfcarpiopuntocom/friendly-123/pull/850): migración **89,5/100,0**; calidad **77,9/100,0**; comercial **0/6**; aceptación física **0/5**. Rúbrica original 100,0, 10,5 todavía pendientes.
+- Frente YA existente [PR #851](https://github.com/jfcarpiopuntocom/friendly-123/pull/851), HEAD exacto `660fa475939261f30465e73dab8f3caa2433a950`, 55/55 workflows verdes. Código 1.0→2.0 de **la app real**; v0.8.22 shell v822. Guardas `API.modoCorte20Activo` y `API.corteFotosShaActivo` suspenden en modo 2.0 únicamente 3 remitentes viejos `canalSombra`, `fotosCanal`, `opsCanal`, y se reanudan al failback. `API.canal` mantiene su comportamiento; verificar su rol antes de decir "todos los emisores antiguos retirados". No reescribir Sync3, no mover rutinas de otros agentes.
+- Criterio obligatorio de merge: HEAD original esperado exacto + mergeable true + 55/55 CI success, ausencia de cambios concurrentes. Conservar QA OFF y C38. Luego comprobar Cloudflare Workers Builds SUCCESS para SHA master del merge.
+- Solo después, nueva PR SCORE-ONLY con plan fijo100 y source hash: split de `typed-delta-and-legacy-retirement` PENDING **1,5** en prueba **C52 old senders disabled under cutover 0,5 DONE**, y **retiro total 1.0 PENDING**, con ganancia migración máxima +0,5 (90,0). Calidad máxima +0,2 en dimensión `migration` por test RED→GREEN 0.2 (78,1), no físico ni SLO. Tests reales, gate 100.0 y source manifest. No acreditar el mismo código dos veces ni cambiar otros pesos.
+- Si falla 1 workflow de PR #851, merger block y anotación exacta sin dar puntos. No activar a clientes ni reclamar `GO` hasta PC↔Safari/PWA ×2 con identidad, finanzas y backing.
