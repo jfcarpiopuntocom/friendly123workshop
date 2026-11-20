@@ -1,0 +1,17 @@
+# C69 PRECODE condicional · economía C68 real y calidad /100 sin mover transición no ganada
+
+**20 nov 2026 Ecuador.** Se PORTA la MISMA `jfcarpiopuntocom/friendly-123` desde 1.0 a 2.0, se conserva Sync3; workshop solo PRECODE/QA/bitácora. Baseline hasta C68: transición **92,0/100,0**, calidad **79,3/100,0** sobre presupuesto original 100,0, GO comercial 0/6, físico PC Opera↔iPhone Safari/PWA 0/5, switches QA OFF. Ledger `docs/core/ledger.js` reservado por [PR #841](https://github.com/jfcarpiopuntocom/friendly-123/pull/841). [PR #868](https://github.com/jfcarpiopuntocom/friendly-123/pull/868) paralela toca fotos SHA `docs/vista-perchas.js`/`docs/sync-yjs.js` y requiere un dueño por archivo; **NO tocarla**. C68 económica [PR #869](https://github.com/jfcarpiopuntocom/friendly-123/pull/869) solo servidor SQL negocio, QA y workflow propio.
+
+## Fuente ganada, antes de atribuir puntos
+
+**RED verdadero C68:** [Actions44739485973](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44739485973) sobre fuente original `authoritative-business-sql.mjs` en `master@b6c24a0ed1573dff8321728e78b79672d20b440f`: **8 tests native SQLite, 1 PASS/7 FAIL**, ausencias/cambios de fiado, caja/stock sin opId, efecto de pago faltante, SKU/factura fantasma; cada FAIL fue falta de excepción, no error de setup. El control con venta/cobro/recuento legítimos pasó.
+
+**GREEN inicial C68:** [Actions44739725091](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44739725091) rama `b8a9190aafb1d888cf84a672b888276b36f5796b`, 8/8 nativo SQLite, 2/2 Workerd fiados/pagos, 2/2 Workerd ventas/caja, validator original100 PASS; no se modifica ruta de aplicación de efectos, solo reentrada read-only. Completar **todos** los checks GitHub exact HEAD, verificar PR merge fuente en master real y Cloudflare Workers Builds SHA merge **SUCCESS** antes de puntuar. No equiparar Workerd sintético a dinero real de cliente.
+
+## Cambio score TDD sólo con fuente fusionada
+
+1. Abrir PR score C69 separada tras merger fuente. TEST RED primero `test/p0-architecture-2-port-score.test.cjs`, exigir calidad **79,4**, previous79,3, delta+0,1; business18,5→18,6/20; verificar fuente C68 *real* `reconcileCertifiedBusinessReadback`, pruebas fuente ejecutadas de duplicado fiado y caja sin opId y comprobación de todos los 7 casos. **Transición 92,0/100,0 permanece, GO0/6/físico0/5**. Script y JSON aún79,3 → RED en CI, sin mover score por test.
+2. Tras RED auténtico, editar en PR exclusiva: `docs/engineering/architecture-2-quality-score.json`, `scripts/architecture-2-port-score.cjs`, `test/p0-architecture-2-port-score.test.cjs`, `docs/engineering/architecture-2-port-score.md`. Calidad business18,5→18,6, total79,3→79,4 (+0,1). Pin exacto `lastAuditedProductSha` del merge C68 e informe técnico, otras dimensiones y pesos intactos. No alterar hitos pendientes del PORT.
+3. Validar CLI y tests RED→GREEN más GH full CI y Cloudflare build exact SHA merge; sólo entonces actualizar Notion y STATUS. Si no hay evidencia genuina, mantener score79,3.
+
+**Contador de transición actual92,0/100,0**, 8,0 pendientes reales: Firebase economic HEAD 2,0, R2 Service Binding real 2,0, activación/roles/fotos/corte físico 4,0. Cada puntuación describe evidencia de ingeniería y no autoriza activación comercial. Detener si existe owner externo del source económico, colisión con PR868, fallo de CLI o necesidad de escribir clientes reales.
