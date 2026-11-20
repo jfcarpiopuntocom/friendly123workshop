@@ -1,0 +1,8 @@
+# C42 Red Team independent tests PRECODE, no collision with collaborator
+2026-11-19 Ecuador. Actual friendly-123 master@07ad93bf76289b7207edf722181a76851a06b20b PORT86.5 quality76.6 GO0/6.
+PR838 collaborator C42 head aee38dfc230cfad61fea98a0e9b28cac42822c97: 59/59 GitHub Actions and mandatory Workers Builds SUCCESS, but GitHub review ID 5986113521 identifies 3 untested P0 safety cases.
+Notion reservation C42 https://app.notion.com/p/41e1642b67f38199bfdfdb13a0969067 owns docs/mock-backend.js, docs/sync-yjs.js, release assets and test/p0-c42-checkout-receipt-status.test.cjs. Never edit those.
+Use separate independent QA branch off exact PR838 head and only NEW paths test/p0-c42-redteam-receipt-identity.test.cjs + .github/workflows/qa-port2-c42-redteam-receipt-identity.yml. PR target original C42 branch for reviewer to merge, not master.
+Test actual source function excerpts in Node VM with simulated window events, mocked sales. RED cases: (1) server committed receipt.opId B vs client command.opId A must not confirm sale B; (2) real confirmed-DO then stale 202 same opId must stay committed in both saved sale object and API receipt Map; (3) quarantine:true and reconcileRequired:true must not appear as generic pending.
+CI lightweight Node 22 only, no Cloudflare runtime changes or production deployment. Intentionally RED until collaborator resolves root source bugs with minimal Ponytail change in reserved files. Score unchanged until product merge and independent fixed-100 audit.
+GitHub review https://github.com/jfcarpiopuntocom/friendly-123/pull/838 ; no production GO, no workshop-to-product score.
