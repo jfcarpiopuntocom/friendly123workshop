@@ -1,0 +1,22 @@
+name: QA live TURN-only RTC browser transport
+on:
+  pull_request:
+    paths:
+      - projects/assembled-v783/tests/p0-live-turn-rtc.test.cjs
+      - .github/workflows/qa-live-turn-rtc.yml
+permissions:
+  contents: read
+jobs:
+  native-turn:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Two isolated Chromium contexts force TURN; send only synthetic bytes
+        run: node --test projects/assembled-v783/tests/p0-live-turn-rtc.test.cjs
+# Trigger exact-head CI acceptance only.
