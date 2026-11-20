@@ -1,0 +1,25 @@
+# C74 · Precio económico original certificado + bootstrap bloqueado ante historia ocupada · MERGED
+
+**20-nov-2026 Ecuador.** Se PORTA la **MISMA** aplicación `jfcarpiopuntocom/friendly-123` de arquitectura 1.0→2.0 por componentes maduros; Sync3 ya es2.0 y se conserva. Workshop sólo PRECODE/QA/registro, el código funcional está en producto real.
+
+**Fuente fusionada [PR #875](https://github.com/jfcarpiopuntocom/friendly-123/pull/875): master `45d54fbdec1fb07fbca52f090c2abcc75528c040`.** GH CI global exact HEAD fuente `76e9f9969d46f8df0f81905ad7a7826f86d6f307`: **14/14 workflows SUCCESS**. Cloudflare Workers Builds API GET read-only en la cuenta real `friendly-123`, branch `master`, SHA exacta `45d54fbdec1fb07fbca52f090c2abcc75528c040`, **SUCCESS**, UUID `d4c8a595-0ef2-4b26-8788-7966307703fa`; build NO significa GO comercial ni corte de clientes. No Cloudflare settings writes, buckets, switches ni datos comerciales reales.
+
+## PRECODE anterior y dos causas raíz
+
+[PRECODE detallado C74 antes de toda edición](../plans/2026-11-20-c74-certified-price-and-occupied-economic-bootstrap-precode.md), Notion bitácora viva. Otra IA detectó dos deltas en la [PR #873](https://github.com/jfcarpiopuntocom/friendly-123/pull/873) CERRADA SIN MERGE: se seleccionaron únicamente los aportes aún independientes de C72, sin adoptar implementación SHA manual ni sobrescribir su `@noble/hashes@2.4.0` de integridad fijada. Reservas activas de PR #871 unión Yjs, #868 fotos y #841 ledger intactas.
+
+1. C72 comprobaba hash del `typed_commercial_payloads`, receipt `business-committed`, efecto SQL y caja concordantes, pero no exigía para una venta que el **importe respete `cantidad × precio original SHA-certificado`**. Un mismo SQL con venta de dos SKU originalmente a1999 centavos podía ser alterado coordinadamente con payload/cash/effect/recibo+SHA a venta de4998, generando falso `already:true` en reentrada a pesar de precio originalmente3998.
+2. `installBusinessBaseline` al crear PRIMER certificado no miraba historia previa en tablas `typed_commercial_payloads` ni `f123_frozen_unions`, permitiendo sembrar base sobre un inbox económico huérfano o una unión Yjs pre-corte sin certificación de padres/corte.
+
+## Fuente real RED→GREEN, sin engaños de harness
+
+- **Primer intento RED [Actions44749545420](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44749545420)** falló en parseo del test (usaba `await proof()` dentro de función síncrona `assert.throws`). Esto fue **fallo de harness**, no hallazgo de producto; se corrigió en test-only sin cambios funcionales.
+- **RED AUTÉNTICO [Actions44749696133](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44749696133)** branch test-only `420d80cf289430a3f3a132a0f4b117cbf8a9304f`, Node22 `node:sqlite` NATIVO y fuentes VERDADERAS `prepareBusinessBaseline/installBusinessBaseline/createBusinessSqlExecutor/createTypedCommercialLedger`: **5 tests, 2 PASS, 3 FAIL** con `Missing expected exception` en los 3 defectos anteriores. Controles de venta legal 3998, cobro fiado1000 y stock adjust + duplicate opId, y tablas vacías PASS.
+- **GREEN fuente mínima [Actions44749881266](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44749881266)** head `76e9f9969d46f8df0f81905ad7a7826f86d6f307`: **C74 5/5 real SQLite, C72 11/11 original recibos SHA, C68 8/8 fiados, 2/2 Workerd cobro y 2/2 Workerd venta/caja, score CLI original100**. GitHub global **14/14 workflows SUCCESS**, incluye Gate D Workerd, release-control, S3/Sync3 P0 y navegador Chromium+WebKit de dos pestañas. QA sintética/Workerd no es prueba Opera PC↔Safari iPhone físico.
+- **Cambio funcional Ponytail solo** `cloudflare-yparty-worker/src/authoritative-business-sql.mjs`: bajo `reconcileCertifiedBusinessReadback` (sólo reentrada), `const certifiedPrices=new Map(state.products.map(...BigInt(unitPriceCents)))` y para `q<0&&c>0` valida `BigInt(c)===BigInt(-q)*certifiedPrices.get(effect.product_id)`. En primer `installBusinessBaseline`, añade `typed_commercial_payloads` y `f123_frozen_unions` a `hasRows`. Jamás crea compensaciones, normaliza saldos ni cambia ruta caliente de venta; `@noble/hashes` madura, recibos C72, Sync3 y roles conservados. Se preserva el historial que llevó al rechazo y queda pendiente certificación de corte externo.
+
+## Indicadores /100 y no-go
+
+Al merge C74, scoreboard oficial en `master@45d54fb...` todavía es **transición 92,0/100,0** y **calidad79,5/100,0**, GO comercial0/6 y físico0/5. [PRECODE C75 separado](../plans/2026-11-20-c75-c74-quality-79p6-source-evidence-precode.md) propone **+0,1 solo calidad Business18,7→18,8 y total79,5→79,6**, condicional a RED score test-only, GREEN global CI y Cloudflare exact SHA de score merged. No sumar QA a migración.
+
+**8,0 puntos de transición NO ganados:** Firebase HEAD económico real2,0, R2 Service Binding REAL2,0, operaciones/roles/fotos/failback físico4,0. GO0/6 físico0/5, QA OFF. No certificar dinero/stock real de Belén con pruebas sintéticas. Próximo paso: corte Firebase auténtico y unión R2 en QA, con pruebas físicas PC→iPhone→PC×2.
