@@ -1,0 +1,17 @@
+# C63 PRECODE condicional · C62 privacidad de raíces Yjs legacy en mismo producto
+
+20 nov 2026 Ecuador. Baseline oficial C61 de MISMA friendly-123: master 340d410f6fced0b64eff31314af0dac7f9f7f2e6, migración **91,8/100,0**, calidad **78,9/100,0**, GO0/6 físico0/5, Sync3 intacto, flags QA OFF. Workshop solo plan/evidencia. C63 score debe esperar C62 SOURCE MERGED full CI+Cloudflare exact SHA.
+
+## C62 fuente y pruebas candidatas
+- [PR #862](https://github.com/jfcarpiopuntocom/friendly-123/pull/862) branch C62, C62 P0: legacy v1 numeric Yjs cat con root products / banco_privado / eventos, pero sin productos o ubicaciones, previamente pasaba blacklist parcial. Fuente real `cloudflare-yparty-worker/src/trusted-frozen-source.mjs` ahora requiere SIEMPRE root exacta public `productos` o `ubicaciones`, igual que paged v2. No copiar operaciones o PIN a cat.
+- [RED Actions 44720698975](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44720698975): **30/31 PASS, 1 FAIL**: root products privada fue aceptada y no hubo rechazo aunque source SHA y completeToHead verificaran. [GREEN Actions 44721086871](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44721086871) **31/31 PASS 0 FAIL/SKIP**, incluye 3 raíces desconocidas, reordered public v1/v2 C60 y rechazo ownerPin/costo.
+- Fixture Workerd real `qa/p0-gate-d-real-onstart-workerd.test.mjs` dejó de mezclar private products+eventos en -cat. Construye una fuente synthetic PUBLIC productos(id,nombre,precio,stockActual), mantiene OPS eventos en Y.Doc separado, conserva ensayo cold join, forward delta, restart y missing Yjs parent. Gate D real Workerd y D5 PITR GREEN fuente C62. No cambiar production data, ledger P0 PR841 ni R2 real.
+
+## C63 TDD puntuación solo tras merge
+1. Esperar full GH CI C62 verde, merge exact source product SHA, Cloudflare Workers Builds SUCCESS exact sha; leer JSON official 91.8/78.9. No acreditar si faltan pruebas o hay conflictos.
+2. Original rubrica frozen-history peso18.0, pendiente real-firebase-head-complete2.2. Dividir en nuevo `c62-legacy-frozen-private-root-rejection` **0.2 DONE source trusted-frozen-source.mjs evidence pin source merge** y restante `real-firebase-head-complete` **2.0 PENDING**; r2-service-binding-installed **2.0 PENDING**, GO0/6 físico0/5. Migración candidata **92.0/100.0**, pending8.0, delta base68.5 =23.5.
+3. Calidad security10.7→10.9/15 (+0.2), total quality **78.9→79.1/100**; durability18.4, sync15.9, physical0 no cambio. Prior dimension security10.7, previous overall78.9. Nunca atribuir Firebase HEAD ni prueba física.
+4. RED primero en `test/p0-architecture-2-port-score.test.cjs`, EXPECT92.0/79.1, source SHA and fixed100 while JSON still91.8/78.9. GREEN solo score JSONs, `scripts/architecture-2-port-score.cjs`, docs MD; guard C62 must assert forbidden legacy roots rejection (source exact allowlist for cat independent of format) and QA 3 roots and Workerd real fixture separate rooms. C60 field order QA remains, no double credit.
+5. CI 11/11 score full, merge, exact Cloudflare SHA success, read-after-merge both JSON, persist Notion/workshop report. No SW release version bump for server-only change. QA flags OFF, no customers/costs.
+
+Crédito source QA de seguridad en el injerto Gate D real, no certificación del HEAD económico de Firebase ni la sala cat comercial; preservar scope.
