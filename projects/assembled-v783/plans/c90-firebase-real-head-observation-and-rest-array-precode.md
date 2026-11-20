@@ -23,3 +23,12 @@ HEAD económico completo **NO CERTIFICADO**. Puntos: sin cambio (92,0 / 80,0).
 1. Certificación de unión: `-ops` ∪ legacy 1.0 (5 hechos) ∪ `hechos_financieros` de `-y`, por opId, con duplicados detectados.
 2. Recuperar el fragmento huérfano de `-y` desde el outbox del aparato que lo emitió (marcado `huerfano` en IndexedDB), sin borrar nada local; volver a certificar.
 3. Solo después: paquete R2 + Worker fuente + Service Binding QA.
+
+## C90b · Unión certificable y recuperación del fragmento huérfano (20 nov, tarde)
+Fuentes, todas en solo lectura: Firebase (`-y`, `-ops`, legacy 1.0) + **copia** del IndexedDB de la app en Opera Air de la laptop de JFC (abierta en Chromium con toda la red interceptada; no corrió código de la app; el original quedó intacto). Vivaldi, AbacusAI y Playwright: sin datos de la tienda.
+- **Eventos:** `-ops` ∪ legacy = 232 opIds (227 + 5 solo-legacy), 0 conflictos de payload. `-ops` local = Firebase byte a byte (mismo stateSha).
+- **Ledger `hechos_financieros`:** Firebase 489 → unión con local **547** (58 hechos que solo estaban en el navegador). 1 cadena sigue con el eslabón previo ausente.
+- **`-y`:** la copia local aporta ~15 MB que Firebase no tiene. Pendientes de causalidad: Firebase 18 escritores → unión 17. El fragmento huérfano del 4 nov (update tag 0, 20 piezas) no se encontró completo en ningún navegador de la laptop.
+- Corregí un error propio: las bases `amig::`/`c123::` son otras apps (amigable-123 / consultorio-123) con el mismo código; no se mezclan.
+**Veredicto:** HEAD económico completo todavía **NO CERTIFICADO** (17 escritores con ancestro ausente). Puntos sin cambio.
+**Siguiente:** obtener el IndexedDB de los aparatos que estuvieron activos el 4–7 nov (copia de solo lectura del navegador del celular/PC), repetir la unión; solo con 0 pendientes → paquete R2.
