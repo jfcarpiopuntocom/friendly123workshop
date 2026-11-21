@@ -1,0 +1,83 @@
+name: Export friendly-123 33 essential files
+on:
+  push:
+    branches:
+      - tools/export-f123-33-20261121
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout immutable friendly-123 source
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 4223a7db5ede522cde51e3319d3c446f541a8047
+          persist-credentials: false
+      - name: Assemble exactly 33 original source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deliverable/source
+          while IFS= read -r file; do
+            test -f "$file"
+            mkdir -p "deliverable/source/$(dirname "$file")"
+            cp -- "$file" "deliverable/source/$file"
+          done <<'PATHS'
+          docs/index.html
+          docs/app-inline-01.min.js
+          docs/app-style-02.min.css
+          docs/mock-backend.js
+          docs/auth-ui.js
+          docs/sync-yjs.js
+          docs/sync-realtime.js
+          docs/peer-sync.js
+          docs/relay-selector.js
+          docs/sync-outbox.js
+          docs/crypto-store.js
+          docs/estado-idb.js
+          docs/idb-fotos.js
+          docs/sw.js
+          docs/hechos.js
+          docs/core/ledger.js
+          docs/core/business-read-model.js
+          docs/core/payout-ledger.js
+          docs/tab-session.js
+          docs/identity-context.js
+          docs/pago-intento-idb.mjs
+          docs/dashboard-main.min.js
+          docs/dashboard.html
+          docs/vendor/yparty-piloto.min.js
+          src/yparty-piloto.js
+          src/port2-typed-ops-client.mjs
+          src/port2-typed-ops-idb-store.mjs
+          src/port2-typed-ops-reconciler.mjs
+          src/port2-catalog-delta-writer.mjs
+          src/port2-cross-device-failback.mjs
+          cloudflare-yparty-worker/src/authoritative-business-sql.mjs
+          cloudflare-yparty-worker/src/photo-sha-storage.mjs
+          cloudflare-yparty-worker/src/ws-authority-client.js
+          PATHS
+          count="$(find deliverable/source -type f | wc -l)"
+          test "$count" -eq 33
+          cd deliverable
+          {
+            echo "# friendly-123 original source export"
+            echo "Repository: https://github.com/jfcarpiopuntocom/friendly-123"
+            echo "Immutable source commit: 4223a7db5ede522cde51e3319d3c446f541a8047"
+            echo "Public app: https://jfcarpiopuntocom.github.io/friendly-123/"
+            echo "Exactly 33 source files under source/. Other files are metadata."
+            echo "No private keys, customer records, browser data, or credentials were exported."
+            echo "This is an AI review context pack, not a complete build or an authorization to deploy."
+          } > README-SOURCE.txt
+          find source -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          zip -q -r ../friendly-123-33-files-4223a7.zip source README-SOURCE.txt SHA256SUMS.txt
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: friendly-123-33-files-4223a7
+          path: friendly-123-33-files-4223a7.zip
+          retention-days: 30
+          if-no-files-found: error
