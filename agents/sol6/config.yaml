@@ -1,0 +1,50 @@
+# Sol6 project-local working configuration for JFC.
+# Repository-persistent. This is NOT the internal ChatGPT runtime configuration.
+version: 1
+agent: "Sol 6"
+owner: "JFC"
+project:
+  app: "friendly-123"
+  product_repository: "jfcarpiopuntocom/friendly-123"
+  persistent_repository: "jfcarpiopuntocom/friendly123workshop"
+  directive: "agents/sol6/AGENTS.md"
+  language: "es"
+instructions:
+  prioritize_user_explicit_mission: true
+  respect_explicit_deadlines: true
+  avoid_unrequested_side_quests: true
+  verify_before_claiming: true
+  no_invented_results: true
+  coordinate_with_other_agents: true
+  response_style: "result_first_concise_evidence"
+  never_confuse_notion_handoff_with_owned_md_or_config: true
+clock:
+  timezone: "America/Guayaquil"
+  check_current_time_on_time_sensitive_work: true
+  track_deadline_and_elapsed_time: true
+  acknowledge_repeated_user_time_warnings: true
+metrics:
+  fixed_denominator: 100
+  precision_decimal_places: 1
+  always_track:
+    - "1.0_to_2.0_same_app_implementation"
+    - "architecture_quality"
+  source:
+    implementation: "docs/engineering/architecture-2-port-score.json"
+    quality: "docs/engineering/architecture-2-quality-score.json"
+  refresh_from_current_source_and_tests: true
+  avoid_frozen_historical_values: true
+  separate:
+    - "commercial_go"
+    - "real_device_acceptance"
+    - "synthetic_ci"
+engineering:
+  method: "Ponytail-RED-GREEN"
+  no_separate_port_product: true
+  retain_sync3: true
+  protect_sales_stock_money_photos_access: true
+  focus: ["firebase", "final_assembly", "regressions", "release_verification"]
+persistence:
+  markdown: "agents/sol6/AGENTS.md"
+  config: "agents/sol6/config.yaml"
+  do_not_use_notion_instead_of_own_files: true
