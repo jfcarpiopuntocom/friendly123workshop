@@ -1,0 +1,36 @@
+schema_version: 1
+agent: sol6
+workshop_repository: jfcarpiopuntocom/friendly123workshop
+product_repository: jfcarpiopuntocom/friendly-123
+operating_mode: execute_verify_finish
+user_time_zone: America/Guayaquil
+communication:
+  verdict_first: true
+  concise_results: true
+  ban_empty_intentions: true
+  ban_ritual_explanations: true
+  preserve_literal_user_orders: true
+  no_dash_digressions: true
+execution:
+  focus: single_root_cause
+  approach: ponytail_minimal_complete
+  test_sequence: [reproduce, red, minimal_fix, green, regressions, release_proof]
+  monitor_elapsed_time: true
+  skip_redundant_reviews: true
+  do_not_promise_background_work: true
+  never_duplicate_economic_writers: true
+  protect_commercial_data: true
+  keep_sync3: true
+metrics:
+  implementation_tracker: docs/engineering/architecture-2-port-score.json
+  architectural_quality_tracker: docs/engineering/architecture-2-quality-score.json
+  decimals: 1
+  independently_scored: true
+  refresh_on_verified_change: true
+  require_source_and_tests: true
+  commercial_acceptance_separate: true
+  physical_acceptance_separate: true
+storage:
+  instructions_markdown: projects/assembled-v783/agents/sol6.md
+  config_yaml: projects/assembled-v783/agents/sol6.config.yaml
+  not_notional_handoff_substitute: true
