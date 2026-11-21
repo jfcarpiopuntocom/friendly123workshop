@@ -1,3 +1,7 @@
+## Sol6, instrucciones y configuración persistentes
+
+Antes de continuar trabajo de Sol6, leer [`projects/assembled-v783/agents/sol6.md`](projects/assembled-v783/agents/sol6.md) y [`projects/assembled-v783/agents/sol6.config.yaml`](projects/assembled-v783/agents/sol6.config.yaml). Son archivos operativos del agente y **no** sustitutos en Notion. Ejecutar acciones y pruebas antes de emitir respuestas de intención.
+
 ## Orden de JFC · 18 noviembre 2026 · comunicación operacional de ingeniería (obligatoria)
 
 - Respuestas de trabajo **breves, técnicas y orientadas a resultados**: acción realizada, SHA/URL/evidencia exacta, hallazgo, estado actual y próximo paso indispensable.
