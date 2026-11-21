@@ -1,0 +1,13 @@
+# C112 PRECODE · P0 Browser product create must not ACK before durable commit
+2026-11-20 Ecuador, owner Sol6/ChatGPT. Same friendly-123 app; browsers 10:1 over PWA.
+
+## Confirmed source defect in live v0.8.35
+`docs/mock-backend.js` `POST /api/productos` calls `productos.push(nuevo)`, `mov('alta')` (which publishes), `avisarCatalogoCambiado` then directly `return J(ficha(nuevo))` 200. Only shared `finally` executes `if(debePersistir) guardarEstadoLocal()` without awaiting or checking durable ACK. Real store offline QA from Claude reported 200 new product disappearing after reload. Direct causal proof is endpoint allowing 200 without durable confirmation; field specific case must be reproduced in synthetic source-executed RED.
+
+## Changes and tests, Ponytail minimal complete
+1. RED source-executed test `test/p0-c112-product-create-durable-ack.test.cjs` real `test/helpers/browser.cjs`, artificially fail strict CAS and A/B write; assert HTTP 503 (not 200), no product, no movement and no stock catalog event. Also test provisional product is not visible while CAS pending; commit true yields HTTP 200 and one catalog event only after ACK, product in durable snapshot. Test base variant metadata rollback.
+2. `docs/mock-backend.js` POST /api/productos: set `debePersistir=false` to prevent background write; snapshot affected base variant old family/rev, audit length+seal; create same product/facts, `mov('alta', ...,false)`; use existing `_ventaConfirmando`, `_ventaPendiente`, `guardarEstadoLocal(true,true)` durable gate to block in-flight publish/reads; revert on false/error; only publish after durable success; always release/flush remote pending merge. Avoid creating a new lock or sweeping all catalog.
+3. No new license, PIN, Yjs or relay behavior. Source first, test RED→GREEN. Any false ACK after committed IDB is reported not confirmed and must not create second silent operation; follow-up readback may need explicit proof for this scenario.
+4. Test focal stock and product routes, release guards, identity v0.8.36 / v836 / golden372 only if still available. Generate app assets / manifest with official scripts; no manual SHA. Merge only exact P0 gate success, deploy via hotfix, verify public origins. No contact with customer data.
+
+Reservation https://app.notion.com/p/41f1642b67f381459eb6e1f172d41f7b ; Claude #923 owns `docs/estado-idb.js` and is untouched. Existing v0.8.35 commercial branch and scores port100 quality81.4 unchanged unless separately audited. No physical GO claims.
