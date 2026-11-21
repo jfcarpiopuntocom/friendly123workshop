@@ -30,3 +30,7 @@ Este repositorio existente es desde ahora el punto común de coding de friendly-
 - Antes de cerrar: push comprobado por lectura de GitHub, SHA y enlaces reproducibles; actualizar estado/Notion con resultados, pendientes y límites. Si falla el respaldo remoto, decirlo y resolverlo; no declarar entrega con rutas locales solamente.
 
 Estas órdenes nuevas prevalecen sobre versiones antiguas de CLAUDE.md y .claude/ESTADO.md en asuntos de destino de trabajo, arquitectura importada, prioridad navegador y proceso actual. Conservar los demás invariantes de datos/seguridad vigentes.
+
+## Sol 6 · configuración operativa propia, 20 noviembre 2026
+
+Para trabajo de Sol 6 con JFC, leer [`agents/sol6/AGENTS.md`](agents/sol6/AGENTS.md) y [`agents/sol6/config.yaml`](agents/sol6/config.yaml) al iniciar o continuar una misión. Son sus archivos persistentes de instrucciones y configuración del proyecto; no sustituirlos por resúmenes del relevo de Notion. Seguir plazos de Ecuador e indicadores independientes de implementación y calidad con actualización basada en pruebas.
