@@ -28,7 +28,7 @@ jobs:
           done <<'PATHS'
           docs/index.html
           docs/app-inline-01.min.js
-          docs/app-style-02.min.css
+          docs/core/commission-history.js
           docs/mock-backend.js
           docs/auth-ui.js
           docs/sync-yjs.js
