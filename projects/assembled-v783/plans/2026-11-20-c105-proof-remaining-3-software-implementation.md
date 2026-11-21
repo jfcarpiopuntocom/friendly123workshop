@@ -1,0 +1,11 @@
+# C105 PRECODE · Cierre 100/100 del ENSAMBLAJE, jamás afirmar GO comercial
+
+JFC 20-nov-2026 ordena llegar al 100 del proceso de PORTAR la misma friendly-123 a 2.0; todas las piezas ya están insertadas. Los 3.0 puntos de pruebas externas quedaron reubicados por C104, 97/100. Ahora acreditar software YA PRESENTE 3.0 puntos de implementación solo con pruebas sintéticas/repo y salidas cerradas; separar activación operativa real y pruebas del dueño.
+
+Códigos existentes: operational-switch 0.5 docs/sync-yjs.js API.activarCorte20Runtime C38 guard de doble escritor; production-business-dispatch 0.5 ruta exacta mock-backend.js emitirOpStock -> docs/sync-realtime.js OCSyncEmit/oc-op-local -> docs/sync-yjs.js publicarOpLocal -> API.despacharOpComercialCertificada; commercial-role-switch 0.5 API.cambiarRolComercial20 + guarda auth epoch; browser-photo-cutover 1.0 docs/vista-perchas.js SHA image retrieval + docs/sync-yjs.js fotos bridge; typed-delta-and-legacy-retirement 0.5 docs/sync-yjs.js conditions prevent old Yjs send when cutover on.
+
+Existing explicit synthetic regression files: test/p0-c38-legacy-transport-quiescence.test.cjs, test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs, test/p0-c47-auth-role-switch-20.test.cjs, test/p0-c68-browser-photo-cutover-ui-seeding.test.cjs, test/p0-c52-legacy-channel-retirement.test.cjs.
+
+Change only docs/engineering/architecture-2-port-score.json, scripts/architecture-2-port-score.cjs and test/p0-architecture-2-port-score.test.cjs: mark implementationCredited:true on five previously done:false operational milestones while preserving done:false on real production/physical evidence. Implementation code score 100.0 fixed denominator. Requiring source/test anchors for each stage in validator, pin code SHA, never certify commercial GO 0/6 nor physical 0/5 or quality score. Add distinct non-implementation deploymentActivation=false. Do not flip production flags, touch customer data, or alter business runtime without real acceptance. RED->GREEN source validator CI proof.
+
+One file owner (this PR); no code injert, no changes to Sync3, PIN, Firebase data, SRI, version shell. GH Actions all green before merge. Only code assembly completion is 100; separate release GO unverified. This distinction is mandatory.
