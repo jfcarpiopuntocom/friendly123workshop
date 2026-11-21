@@ -1,0 +1,6 @@
+# C103 PRECODE · Firebase, integridad de dos importes en abonos
+20-nov-2026. Cierre de pruebas y ensamblaje 2.0 de la misma friendly-123. Sin nuevos injertos.
+Hallazgo: el abono real 1.0 emite monto (unidades) y amountCents (centavos) en el mismo payload. El canonicalizador cloudflare-yparty-worker/src/frozen-ops-baseline.mjs permite dos importes contradictorios sin rechazo. OpenCode lo dejó señalado como pendiente después de #886.
+Alcance exacto: función canonical en frozen-ops-baseline.mjs y prueba existente p0-c86-frozen-ops-legacy-decimals.test.mjs. Sin tocar app docs, shell, worker activo, Firebase, flags, PIN, IDB, tiendas reales ni Sync3.
+RED contra master sobre importes contradichos (1250 centavos frente a monto 15.50), prueba de objeto anidado en payload, negativos y guardas para NaN. GREEN 1250/12.5, ausencias válidas y cold reopen sintético. Conservar digest SHA canónico exacto para eventos válidos; check solo semántico, ningún cambio de serialización.
+Ponytail: tests RED, cambio mínimo, tests GREEN Workerd y GH checks del SHA, merge solo completo. No acreditación de GO sin evidencia real ni incremento artificial del score.
