@@ -1,0 +1,11 @@
+# C108 PRECODE · Acotar siembra síncrona de conteo físico a un producto
+
+Fecha: 20 nov 2026 Ecuador (22:00+). Fase final de la misma friendly-123 2.0. Prioridad informada por expediente de riesgos del usuario y PR #904. No abrir injertos ni otra app.
+
+Diagnóstico fuente REAL master `144c9317590554dbe79d58cd7a02a55694b47d6e`: `docs/mock-backend.js` ajuste físico ya SIEMBRA ANTES de `_drenarCatalogosPendientes`; NO reintroducir esa mitad de la PR #904. En `docs/sync-yjs.js` `sembrarConteoConfirmado` lee `OCSync.catalogoPropio()` para validar epoch y luego llama `sembrar()`; éste vuelve a leer TODO el catálogo, recorre todas las colecciones, fotos, ventas, finanzas y PIN. Esto es trabajo sincrónico innecesario en Safari. Hipótesis de OOM no diagnosticada físicamente: criterio del fix es reducir fanout y preservar durable ACK/epoch, no afirmar causalidad sin pruebas.
+
+Alcance único: `docs/sync-yjs.js` y nuevo test `test/p0-c108-one-product-physical-seed.test.cjs`, fixtures sintéticos. Mantener firma textual de `function sembrar()` porque pruebas reales históricas extraen esa declaración; aceptar opcional id y catálogo confirmado mediante argumentos, sin alterar llamada normal. Para conteo confirmado procesar SOLO producto id especificado dentro de transacción Yjs existente, reutilizar snapshot ya leído, omitir metadatos PIN/nombre, fotos, ventas y finanzas; normal `sembrar()` sigue intacto. `API.sembrarConteoConfirmado` debe devolver true solo si epoch y cantidad coinciden tras Yjs.
+
+Prueba RED: VM ejecuta función real extraída con fake mapas y catálogo sintético con 2 productos, otros registros y PIN; debe publicar solo id objetivo y no reconsultar `catalogoPropio`, ni mutar otras colecciones o meta, ni disparar fotos/finanzas. Además test de regresión default full seed. GREEN: C108 + suites stock existing incluyendo Playwright `p0-conteo-fisico-ultimo-manda`; checks CI completos. Si toca JS docs/, actualizar shell f123-shell-v833, golden369, version + SW + manifest con control de release SHA, sin nueva identidad vieja; QA Chromium/WebKit y fijar observaciones.
+
+Despliegue condicionado a evidencia verde, preservando datos reales/cliente y sin duplicar escritor ni desactivar Sync3. Calidad 81.2 se reevaluará solo si pruebas nuevas acreditan mejora. PR #904 antiguo sigue draft y con conflicto; no merge/rebase directo.
