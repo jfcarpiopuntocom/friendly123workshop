@@ -1,0 +1,9 @@
+# C109 PRECODE · Independent quality delta for C108 conditional on release
+
+Date 2026-11-20 Ecuador evening. DO NOT touch quality score before C108 green + merged + public SHA and accepted release gate. Fixed weights quality dimensions 20 business,20 durability,20 sync,15 security,10 photos,10 migration,5 physical; current 81.2/100 since C106, port implementation 100/100.
+
+Candidate narrow credit +0.1 to **sync**, from 16.0 to 16.1, ONLY after authentic source-backed GitHub tests and merged actual runtime v0.8.33. Evidence: C108 PR #918, RED 32/34 focused, GREEN 34/34 focused job ID 136708254226, authored source VM synthetic 4201 vs 1 Y.Map writes of 2400 products+other collections per confirmed physical count, matching epoch and fail-closed stale guard. Preserve distinctions: local VM is not physical Safari; commercial GO 0/6 and physical acceptance 0/5 not affected. No claim that 4200 fewer map writes equals 99.98% wallclock speed.
+
+Change quality source `docs/engineering/architecture-2-quality-score.json` with new chronological C109: C106 baseline 81.2, reviewed source SHA exact released merge; preserve full C106 evidence/history and avoid double-count. Modify original CLI and test to verify C109 against C108 actual source tokens, source-executed QA and evidence; ensure old C106 historical guards remain and new current score computed. Do not blanket replace every 81.2 literal or reinterpret historical reviews. RED→GREEN source-backed test. On any CI or release failure, do not award score. Keep Sync3 no extra transport.
+
+Original source assembly of the 1.0→2.0 app is complete 100%, this incremental quality audit is separate. Workshop remains QA/doc not product.
