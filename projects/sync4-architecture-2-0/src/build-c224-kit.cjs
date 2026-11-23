@@ -51,6 +51,18 @@ try {
   const syPath = path.join(tmp, 'docs', 'sync-yjs.js');
   replaceExact(
     syPath,
+    '      var capaFb = ws.relayLayer === "f123_relay_cupo_fb_v1";',
+    '      var capaFb = ws.relayLayer === "f123_relay_cupo_fb_v1" || ws.relayLayer === "f123_relay_cupo_cf_v1";',
+    'sync-yjs C224 drenarDurable capaFb allows cf'
+  );
+  replaceExact(
+    syPath,
+    '          if (packed || cabeCrudo || !canal.ws || canal.ws.relayLayer !== "f123_relay_cupo_fb_v1") return packed;',
+    '          if (packed || cabeCrudo || !canal.ws || (canal.ws.relayLayer !== "f123_relay_cupo_fb_v1" && canal.ws.relayLayer !== "f123_relay_cupo_cf_v1")) return packed;',
+    'sync-yjs C224 hacerCkpt gzip gate allows cf'
+  );
+  replaceExact(
+    syPath,
     '      if (!API.modoCorte20Activo || API.canal === API.canalPiloto) API.canal.enviarUpdate(update);\n' +
     '      if (!API.modoCorte20Activo && API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);',
     '      // C224: Cloudflare 2.0 E2E-encrypted private relay (f123_relay_cupo_cf_v1) is NOT a legacy relay;\n' +
@@ -59,6 +71,13 @@ try {
     '      if (!API.modoCorte20Activo || API.canal === API.canalPiloto || cfPrivadoActivo) API.canal.enviarUpdate(update);\n' +
     '      if (!API.modoCorte20Activo && API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);',
     'sync-yjs C224 cfPrivadoActivo'
+  );
+  replaceExact(
+    syPath,
+    '      if (!API.modoCorte20Activo) API.opsCanal.enviarUpdate(update);',
+    '      var cfOpsActivo = !!(API.opsCanal && API.opsCanal.ws && API.opsCanal.ws.relayLayer === "f123_relay_cupo_cf_v1");\n' +
+    '      if (!API.modoCorte20Activo || cfOpsActivo) API.opsCanal.enviarUpdate(update);',
+    'sync-yjs C224 cfOpsActivo'
   );
 
   // 5. Patch docs/relay-selector.js (Patch 13)
@@ -194,8 +213,9 @@ try {
     '      } catch (_) {}\n' +
     '    });\n' +
     '  }\n' +
-    '  window.F123Relay = {',
-    'relay-selector oc-login upgrade'
+    '  window.F123Relay = {\n' +
+    '    ckptFrameBytes: (cf && cf.ckptFrameBytes) || (fb && fb.ckptFrameBytes) || 768 * 1024,',
+    'relay-selector oc-login upgrade + ckptFrameBytes'
   );
 
   // Save clean LF-only individual patches 12 & 13 into workshop

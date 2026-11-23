@@ -1,5 +1,5 @@
 diff --git a/docs/relay-selector.js b/docs/relay-selector.js
-index b33562e4..3c63d359 100644
+index b33562e4..d4ababf8 100644
 --- a/docs/relay-selector.js
 +++ b/docs/relay-selector.js
 @@ -7,7 +7,7 @@
@@ -112,7 +112,7 @@ index b33562e4..3c63d359 100644
          capa.relay === fb && (n <= FRAME_RESERVADO || !/-(y|ops)$/.test(String(url)))
            ? CAP_UP_RESERVA : CAP_UP;
        if (c.up + n > limite) {
-@@ -606,6 +618,21 @@
+@@ -606,7 +618,23 @@
      });
      return H;
    }
@@ -132,5 +132,7 @@ index b33562e4..3c63d359 100644
 +    });
 +  }
    window.F123Relay = {
++    ckptFrameBytes: (cf && cf.ckptFrameBytes) || (fb && fb.ckptFrameBytes) || 768 * 1024,
      ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
      estadoCupo: function () { return capas.map(function (capa) {
+       var c = leer(capa.key), f = leer(capa.key + "_fotos");
