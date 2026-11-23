@@ -13,12 +13,14 @@ const {
   patchSyncRealtimeAllowColdDevicePause,
   patchYpartyPilotoDiagnostico,
   patchIndexHtmlDeferredBoot,
-  buildCargaTardiaV2Source
+  buildCargaTardiaV2Source,
+  patchI18nSplitEs,
+  patchSwAddI18nEs
 } = require('../src/sync4-v895-c214-patchers.cjs');
 const { BASELINE_22NOV_BYTES, TARGET_40PCT_BYTES } = require('../src/audit-js-budget.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const V895 = 'f13c0a7d';
+const V895 = '17131947';
 const HAS_V895 = (() => {
   try {
     cp.execFileSync('git', ['-C', LIVE_REPO, 'cat-file', '-e', `${V895}^{commit}`]);
@@ -170,13 +172,13 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
   assert.equal(sandbox.OCI18n.getLang(), 'es');
   assert.notEqual(sandbox.t('rec.title'), 'Restore points');
 
-  // Verify ALL 4 generated C214 patches apply cleanly on LIVE v0.8.95 (f13c0a7d)!
+  // Verify ALL 5 generated C214 patches apply cleanly on LIVE v0.8.95 (17131947)!
   const patchDir = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), '..', 'patches-v895');
   if (fs.existsSync(patchDir)) {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-v895-apply-'));
     try {
       cp.execFileSync('git', ['init', '-q'], { cwd: tmp });
-      for (const rel of ['src/port2-readonly-catalog-session.mjs', 'docs/sync-realtime.js', 'src/yparty-piloto.js', 'docs/index.html', 'docs/carga-tardia.js']) {
+      for (const rel of ['src/port2-readonly-catalog-session.mjs', 'docs/sync-realtime.js', 'src/yparty-piloto.js', 'docs/index.html', 'docs/carga-tardia.js', 'docs/i18n.js', 'docs/sw.js']) {
         const out = path.join(tmp, rel);
         fs.mkdirSync(path.dirname(out), { recursive: true });
         fs.writeFileSync(out, gitShowV895(rel), 'utf8');
@@ -187,5 +189,71 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
+  }
+});
+
+test('C214 Patch 05 on live v0.8.95 (17131947): real i18n-es lazy split saves >80 KB raw with 100% Spanish key-for-key parity', () => {
+  if (!HAS_V895) return;
+  const origI18n = gitShowV895('docs/i18n.js');
+  const origSw = gitShowV895('docs/sw.js');
+  const split = patchI18nSplitEs(origI18n);
+  const swPatched = patchSwAddI18nEs(origSw);
+
+  assert.equal(swPatched.changed, true);
+  assert.ok(swPatched.source.includes('./i18n-es.min.js'));
+  const savedRaw = Buffer.byteLength(origI18n, 'utf8') - Buffer.byteLength(split.i18nSource, 'utf8');
+  assert.ok(savedRaw > 80_000, `Expected >80 KB raw savings from ES split, got ${savedRaw} B`);
+
+  const makeSandbox = (initialLang = null) => {
+    const store = new Map(initialLang ? [['f123_lang', initialLang]] : []);
+    const events = [];
+    const lazyCalls = [];
+    const sb = {
+      window: null,
+      navigator: { language: 'en-US' },
+      localStorage: {
+        getItem: k => (store.has(k) ? store.get(k) : null),
+        setItem: (k, v) => store.set(k, String(v))
+      },
+      document: {
+        documentElement: { lang: 'en' },
+        addEventListener: () => {},
+        querySelectorAll: () => [],
+        querySelector: () => null
+      },
+      CustomEvent: class CustomEvent { constructor(t, o) { this.type = t; this.detail = o?.detail; } },
+      OCCargaTardia: {
+        asegurar: (grp) => {
+          lazyCalls.push(grp);
+          if (grp === 'i18nEs') vm.runInNewContext(split.i18nEsSource, sb);
+          return Promise.resolve(true);
+        }
+      },
+      __events: events,
+      __lazyCalls: lazyCalls
+    };
+    sb.window = sb;
+    sb.window.dispatchEvent = (ev) => events.push(ev);
+    return sb;
+  };
+
+  // Run original monolithic i18n.js to get ground-truth EN + ES dictionaries
+  const sbOrig = makeSandbox();
+  vm.runInNewContext(origI18n, sbOrig);
+  const origEsKeys = Object.keys(sbOrig.OCI18n.DICT.es);
+  assert.ok(origEsKeys.length > 500, `Expected >500 ES keys, got ${origEsKeys.length}`);
+
+  // Run split slim i18n.js in EN default mode -> ZERO lazy ES load!
+  const sbSplit = makeSandbox();
+  vm.runInNewContext(split.i18nSource, sbSplit);
+  assert.equal(sbSplit.__lazyCalls.length, 0, 'EN default boot MUST NOT load i18n-es');
+  assert.equal(sbSplit.t('rec.title'), 'Restore points');
+
+  // Switch to ES -> lazy loads i18n-es.js and matches 100% of original ES keys verbatim!
+  sbSplit.OCI18n.setLang('es');
+  assert.deepEqual(sbSplit.__lazyCalls, ['i18nEs']);
+  assert.equal(Object.keys(sbSplit.OCI18n.DICT.es).length, origEsKeys.length);
+  for (const k of origEsKeys) {
+    assert.equal(sbSplit.OCI18n.DICT.es[k], sbOrig.OCI18n.DICT.es[k], `ES mismatch for key ${k}`);
   }
 });

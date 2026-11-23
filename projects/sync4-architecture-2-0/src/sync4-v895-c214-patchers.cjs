@@ -142,10 +142,152 @@ function buildCargaTardiaV2Source() {
   return fs.readFileSync(path.join(__dirname, 'carga-tardia-v2.js'), 'utf8');
 }
 
+function patchI18nSplitEs(i18nSource) {
+  const esStartRe = /^[ \t]*es:\s*\{[ \t]*\r?\n/m;
+  const startMatch = esStartRe.exec(i18nSource);
+  if (!startMatch) {
+    throw new Error('i18n es dictionary start anchor not found in docs/i18n.js');
+  }
+  const openBraceIdx = i18nSource.indexOf('{', startMatch.index);
+  let depth = 0, inStr = false, quote = '', esc = false, closeBraceIdx = -1;
+  for (let i = openBraceIdx; i < i18nSource.length; i++) {
+    const ch = i18nSource[i];
+    if (inStr) {
+      if (esc) { esc = false; continue; }
+      if (ch === '\\') { esc = true; continue; }
+      if (ch === quote) inStr = false;
+      continue;
+    }
+    if (ch === '/' && i18nSource[i + 1] === '/') {
+      const nl = i18nSource.indexOf('\n', i);
+      i = nl === -1 ? i18nSource.length : nl;
+      continue;
+    }
+    if (ch === '/' && i18nSource[i + 1] === '*') {
+      const endC = i18nSource.indexOf('*/', i + 2);
+      i = endC === -1 ? i18nSource.length : endC + 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { inStr = true; quote = ch; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) { closeBraceIdx = i; break; }
+    }
+  }
+  if (closeBraceIdx <= openBraceIdx) {
+    throw new Error('i18n es dictionary closing brace not found');
+  }
+  const esObjectLiteral = i18nSource.slice(openBraceIdx, closeBraceIdx + 1);
+  const esModuleSource = [
+    '// i18n-es.js — Spanish dictionary split for <=40% JS startup budget (C214).',
+    '// Loaded lazily on demand or at startup when active language is "es"; cached in sw.js SHELL.',
+    '(function () {',
+    '  "use strict";',
+    '  const ES = ' + esObjectLiteral + ';',
+    '  if (typeof window !== "undefined" && window.OCI18n && typeof window.OCI18n.registrarEs === "function") {',
+    '    window.OCI18n.registrarEs(ES);',
+    '  } else if (typeof window !== "undefined") {',
+    '    window.__OCI18nEsPending = ES;',
+    '  }',
+    '})();',
+    ''
+  ].join('\n');
+
+  let slimI18n = i18nSource.slice(0, openBraceIdx) + '{}' + i18nSource.slice(closeBraceIdx + 1);
+
+  const setLangTarget =
+    '  function setLang(l) {\n' +
+    '    lang = l === "es" ? "es" : "en";\n' +
+    '    try { localStorage.setItem(LS_KEY, lang); } catch (_) {}\n' +
+    '    document.documentElement.lang = lang;\n' +
+    '    applyStatic();\n' +
+    '    // Las vistas dinámicas escuchan esto para re-renderizar en el nuevo idioma.\n' +
+    '    window.dispatchEvent(new CustomEvent("oc-lang-change", { detail: { lang } }));\n' +
+    '  }';
+
+  const setLangReplacement = [
+    '  let _esCargado = false;',
+    '  let _esCargando = false;',
+    '  function registrarEs(dic) {',
+    '    if (!dic || typeof dic !== "object") return;',
+    '    Object.assign(DICT.es, dic);',
+    '    _esCargado = true;',
+    '    _esCargando = false;',
+    '    if (lang === "es") {',
+    '      try { applyStatic(); } catch (_) {}',
+    '      try { window.dispatchEvent(new CustomEvent("oc-lang-change", { detail: { lang } })); } catch (_) {}',
+    '    }',
+    '  }',
+    '  function cargarEsSiHaceFalta() {',
+    '    if (_esCargado || _esCargando) return;',
+    '    if (typeof window !== "undefined" && window.__OCI18nEsPending) {',
+    '      const pending = window.__OCI18nEsPending;',
+    '      delete window.__OCI18nEsPending;',
+    '      registrarEs(pending);',
+    '      return;',
+    '    }',
+    '    _esCargando = true;',
+    '    if (typeof window !== "undefined" && window.OCCargaTardia && typeof window.OCCargaTardia.asegurar === "function") {',
+    '      window.OCCargaTardia.asegurar("i18nEs").catch(function () { _esCargando = false; });',
+    '      return;',
+    '    }',
+    '    if (typeof document !== "undefined" && document.createElement) {',
+    '      const s = document.createElement("script");',
+    '      s.src = "./i18n-es.min.js";',
+    '      s.async = false;',
+    '      s.onerror = function () { _esCargando = false; };',
+    '      (document.head || document.documentElement).appendChild(s);',
+    '    } else {',
+    '      _esCargando = false;',
+    '    }',
+    '  }',
+    '  function setLang(l) {',
+    '    lang = l === "es" ? "es" : "en";',
+    '    try { localStorage.setItem(LS_KEY, lang); } catch (_) {}',
+    '    document.documentElement.lang = lang;',
+    '    if (lang === "es" && !_esCargado) cargarEsSiHaceFalta();',
+    '    applyStatic();',
+    '    // Las vistas dinámicas escuchan esto para re-renderizar en el nuevo idioma.',
+    '    window.dispatchEvent(new CustomEvent("oc-lang-change", { detail: { lang } }));',
+    '  }'
+  ].join('\n');
+
+  if (!slimI18n.includes(setLangTarget)) {
+    throw new Error('i18n setLang anchor not found in docs/i18n.js');
+  }
+  slimI18n = slimI18n.replace(setLangTarget, setLangReplacement);
+
+  const exportTarget = '  window.OCI18n = { t, tf, setLang, getLang, locale, applyStatic, DICT };';
+  const exportReplacement =
+    '  window.OCI18n = { t, tf, setLang, getLang, locale, applyStatic, registrarEs, cargarEsSiHaceFalta, DICT };\n' +
+    '  if (lang === "es") cargarEsSiHaceFalta();';
+  if (!slimI18n.includes(exportTarget)) {
+    throw new Error('i18n export anchor not found in docs/i18n.js');
+  }
+  slimI18n = slimI18n.replace(exportTarget, exportReplacement);
+
+  return { i18nSource: slimI18n, i18nEsSource: esModuleSource, changed: true };
+}
+
+function patchSwAddI18nEs(swSource) {
+  if (swSource.includes('./i18n-es.min.js')) return { source: swSource, changed: false };
+  const anchor = '"./i18n.min.js",';
+  if (!swSource.includes(anchor)) {
+    throw new Error('sw.js ./i18n.min.js anchor not found');
+  }
+  return {
+    source: swSource.replace(anchor, '"./i18n.min.js",\n  "./i18n-es.min.js",'),
+    changed: true
+  };
+}
+
 module.exports = {
   patchReadOnlyCatalogSalaVaciaEmptyRoots,
   patchSyncRealtimeAllowColdDevicePause,
   patchYpartyPilotoDiagnostico,
   patchIndexHtmlDeferredBoot,
-  buildCargaTardiaV2Source
+  buildCargaTardiaV2Source,
+  patchI18nSplitEs,
+  patchSwAddI18nEs
 };

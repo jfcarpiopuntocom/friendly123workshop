@@ -8,11 +8,13 @@ const {
   patchSyncRealtimeAllowColdDevicePause,
   patchYpartyPilotoDiagnostico,
   patchIndexHtmlDeferredBoot,
-  buildCargaTardiaV2Source
+  buildCargaTardiaV2Source,
+  patchI18nSplitEs,
+  patchSwAddI18nEs
 } = require('./sync4-v895-c214-patchers.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const BASE_COMMIT = 'f13c0a7d'; // origin/feat/c213-sync4-todos-roles-pin-panel (v0.8.95)
+const BASE_COMMIT = '17131947'; // latest origin/feat/c213-sync4-todos-roles-pin-panel (v0.8.95)
 const OUT_DIR = path.join(__dirname, '..', 'patches-v895');
 
 function gitShow(relPath) {
@@ -24,6 +26,7 @@ function makeUnifiedPatch(files) {
   try {
     cp.execFileSync('git', ['init', '-q'], { cwd: tmp });
     for (const f of files) {
+      if (f.before === null) continue;
       const p = path.join(tmp, f.relPath);
       fs.mkdirSync(path.dirname(p), { recursive: true });
       fs.writeFileSync(p, f.before, 'utf8');
@@ -31,7 +34,10 @@ function makeUnifiedPatch(files) {
     cp.execFileSync('git', ['add', '.'], { cwd: tmp });
     cp.execFileSync('git', ['-c', 'user.name=Builder', '-c', 'user.email=builder@local', 'commit', '-q', '-m', 'base'], { cwd: tmp });
     for (const f of files) {
-      fs.writeFileSync(path.join(tmp, f.relPath), f.after, 'utf8');
+      const p = path.join(tmp, f.relPath);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, f.after, 'utf8');
+      if (f.before === null) cp.execFileSync('git', ['add', '-N', f.relPath], { cwd: tmp });
     }
     return cp.execFileSync('git', ['diff', '--no-ext-diff', '--binary'], { cwd: tmp, encoding: 'utf8' });
   } finally {
@@ -41,56 +47,60 @@ function makeUnifiedPatch(files) {
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
+const i18nBase = gitShow('docs/i18n.js');
+const i18nSplit = patchI18nSplitEs(i18nBase);
+
 const specs = [
   {
     name: '01-v895-readonly-catalog-salavacia-empty-roots.patch',
-    files: [
-      {
-        relPath: 'src/port2-readonly-catalog-session.mjs',
-        transform: patchReadOnlyCatalogSalaVaciaEmptyRoots
-      }
-    ]
+    pairs: () => {
+      const before = gitShow('src/port2-readonly-catalog-session.mjs');
+      const res = patchReadOnlyCatalogSalaVaciaEmptyRoots(before);
+      return [{ relPath: 'src/port2-readonly-catalog-session.mjs', before, after: res.source }];
+    }
   },
   {
     name: '02-v895-sync-realtime-allow-cold-device-pause.patch',
-    files: [
-      {
-        relPath: 'docs/sync-realtime.js',
-        transform: patchSyncRealtimeAllowColdDevicePause
-      }
-    ]
+    pairs: () => {
+      const before = gitShow('docs/sync-realtime.js');
+      const res = patchSyncRealtimeAllowColdDevicePause(before);
+      return [{ relPath: 'docs/sync-realtime.js', before, after: res.source }];
+    }
   },
   {
     name: '03-v895-yparty-piloto-ruta-efectiva-diagnostico.patch',
-    files: [
-      {
-        relPath: 'src/yparty-piloto.js',
-        transform: patchYpartyPilotoDiagnostico
-      }
-    ]
+    pairs: () => {
+      const before = gitShow('src/yparty-piloto.js');
+      const res = patchYpartyPilotoDiagnostico(before);
+      return [{ relPath: 'src/yparty-piloto.js', before, after: res.source }];
+    }
   },
   {
     name: '04-v895-carga-tardia-40pct-boot.patch',
-    files: [
-      {
-        relPath: 'docs/index.html',
-        transform: patchIndexHtmlDeferredBoot
-      },
-      {
-        relPath: 'docs/carga-tardia.js',
-        transform: () => ({ source: buildCargaTardiaV2Source(), changed: true })
-      }
-    ]
+    pairs: () => {
+      const idxBefore = gitShow('docs/index.html');
+      const ctBefore = gitShow('docs/carga-tardia.js');
+      return [
+        { relPath: 'docs/index.html', before: idxBefore, after: patchIndexHtmlDeferredBoot(idxBefore).source },
+        { relPath: 'docs/carga-tardia.js', before: ctBefore, after: buildCargaTardiaV2Source() }
+      ];
+    }
+  },
+  {
+    name: '05-v895-i18n-es-lazy-split.patch',
+    pairs: () => {
+      const swBefore = gitShow('docs/sw.js');
+      return [
+        { relPath: 'docs/i18n.js', before: i18nBase, after: i18nSplit.i18nSource },
+        { relPath: 'docs/i18n-es.js', before: null, after: i18nSplit.i18nEsSource },
+        { relPath: 'docs/sw.js', before: swBefore, after: patchSwAddI18nEs(swBefore).source }
+      ];
+    }
   }
 ];
 
 for (const spec of specs) {
-  const pairs = spec.files.map(f => {
-    const before = gitShow(f.relPath);
-    const res = f.transform(before);
-    if (!res.changed) throw new Error(`Expected change for ${f.relPath} in ${spec.name}`);
-    return { relPath: f.relPath, before, after: res.source };
-  });
+  const pairs = spec.pairs();
   const patchText = makeUnifiedPatch(pairs);
   const outPath = path.join(OUT_DIR, spec.name);
   fs.writeFileSync(outPath, patchText, 'utf8');
