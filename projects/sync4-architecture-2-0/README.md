@@ -13,16 +13,18 @@ Paquete verificado en laboratorio (`friendly123workshop`, rama `feat/sync4-archi
 - **C212 (`v0.8.94`, `9fe50b58`, live en Pages):** adoptó arranque post-PIN y optimización Hoy (`app-inline-01.js`, `business-read-model.js`, `mock-backend.js`).
 - **C213 (`v0.8.95`, `f13c0a7d`, rama `feat/c213-sync4-todos-roles-pin-panel`):** adoptó los **7 parches Sync4** previos (`patches/01..07`) para roles `dueno`/`admin`/`empleado` y `/team/verify` PIN-only.
 
-## 2. Nuevos parches C214 listos sobre `v0.8.95` (`f13c0a7d`) — `patches-v895/`
+## 2. Nuevos parches C214 listos sobre `v0.8.95` (`17131947`) — `patches-v895/`
 
-Auditando `f13c0a7d` línea por línea aparecieron **4 bloqueos reales en `v0.8.95`**, todos con prueba RED→GREEN contra los blobs exactos de `f13c0a7d` y `git apply --check` limpio:
+Auditando `v0.8.95` (`f13c0a7d` → `17131947`) línea por línea aparecieron **6 mejoras/bloqueos reales**, todos con prueba RED→GREEN contra los blobs exactos de `17131947` y `git apply --check` limpio:
 
-| Parche en `patches-v895/` | Archivo en `friendly-123` | Bloqueo real en `v0.8.95` (`f13c0a7d`) | Solución mínima (Ponytail) |
+| Parche en `patches-v895/` | Archivo en `friendly-123` | Bloqueo real en `v0.8.95` (`17131947`) | Solución mínima (Ponytail) |
 |---|---|---|---|
 | `01-v895-readonly-catalog-salavacia-empty-roots.patch` | `src/port2-readonly-catalog-session.mjs` | `admin`/`empleado` que entra a una sala nueva `sala-vacia` (antes de que el dueño suba el 1er producto) falla con `throw fail()` en línea 119 porque `publicDoc.share` aún no tiene `'productos'`/`'ubicaciones'`. | Cuando `body.frozenHead === 'sala-vacia'`, materializa `publicDoc.getMap('productos')` y `publicDoc.getMap('ubicaciones')` y conserva `assertPublicCatalogTransportDoc` (bloqueando cualquier raíz privada). |
 | `02-v895-sync-realtime-allow-cold-device-pause.patch` | `docs/sync-realtime.js` | `pausarParaArquitectura20(licencia)` devuelve `{ ok: false }` si `!leerSala()` — todo aparato nuevo o recién vinculado sin sala Sync3 previa aborta la activación de Sync4. | Permite pausar el relay legado cuando `!sala` (sin sala Sync3) manteniendo la guarda de licencia coincidente y `tienePendientesDurables()`. |
 | `03-v895-yparty-piloto-ruta-efectiva-diagnostico.patch` | `src/yparty-piloto.js` | Sin observabilidad unificada `rutaEfectiva` (Micropasos 23 y 32) para QA Safari/Opera. | Expone `window.OCSync4Diagnostico()` y `diagnostico()` con `{ motor, rutaEfectiva, modoCorte20Activo, coordMode, rol, host, privadoExpuesto: false }` — cero PII/PINs, cero acceso al `Y.Doc` privado. |
-| `04-v895-carga-tardia-40pct-boot.patch` | `docs/index.html`, `docs/carga-tardia.js` | `v0.8.95` aún carga `2,522,894 B` (`68.07 %`) de JS síncrono pre-PIN. | Difiere 44 scripts post-PIN / bajo demanda (100 % presentes en `sw.js` `SHELL`, 0 faltantes offline). Combinado con split `i18n-es` y minificación de kept scripts cruza **≤ 40 %** (`≤ 1,482,506 B`) con `i18n` EN/ES verificado en VM. |
+| `04-v895-carga-tardia-40pct-boot.patch` | `docs/index.html`, `docs/carga-tardia.js` | `v0.8.95` aún carga `2,522,894 B` (`68.07 %`) de JS síncrono pre-PIN. | Difiere 44 scripts post-PIN / bajo demanda (44/44 presentes en `sw.js` `SHELL`, 100 % con guardas en `app-inline-01.min.js`). |
+| `05-v895-i18n-es-lazy-split.patch` | `docs/i18n.js`, `docs/i18n-es.js`, `docs/sw.js` | El diccionario `es` (~85 KB raw / `74,129 B` min) se parsea síncronamente pre-PIN aunque el idioma por defecto sea `en`. | Separa `es` en `docs/i18n-es.js`, agrega `./i18n-es.min.js` al `SHELL` de `docs/sw.js` y carga `es` bajo demanda (o al arranque si `lang === "es"`). Paridad 100 % clave por clave verificada en VM; junto al parche 04 cruza **≤ 40 %** (`≤ 1,482,506 B`). |
+| `06-v895-auth-ui-admin-central-verify-and-logout-wipe.patch` | `docs/auth-ui.js` | Línea 1362 omite `/team/verify` si `rolHash === "admin"`, no bloquea un PIN de equipo revocado (`403 team-not-verified`), y `cerrarSesion()` nunca limpia `window.__f123CentralTeamPrincipal` en dispositivos compartidos. | Incluye `rolHash === "admin"` en `/team/verify`, bloquea login local obsoleto cuando la autoridad responde `403 team-not-verified` (preservando acceso offline ante 503/red) y borra `window.__f123CentralTeamPrincipal = null` al salir y al iniciar `validar()`. |
 
 ---
 
