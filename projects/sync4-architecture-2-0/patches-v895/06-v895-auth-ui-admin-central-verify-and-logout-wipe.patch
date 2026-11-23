@@ -1,0 +1,36 @@
+diff --git a/docs/auth-ui.js b/docs/auth-ui.js
+index 137981b..20bf12c 100644
+--- a/docs/auth-ui.js
++++ b/docs/auth-ui.js
+@@ -1359,7 +1359,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
+     }
+     // Sync4 C17: resolve Admin/Employee PIN centrally via JFC panel (/team/verify) so
+     // brand-new or linked devices unlock immediately without waiting on legacy Sync3.
+-    if ((!rolHash || rolHash === "empleado") && dispositivoApropiado() && central !== "owner" &&
++    window.__f123CentralTeamPrincipal = null;
++    if ((!rolHash || rolHash === "empleado" || rolHash === "admin") && dispositivoApropiado() && central !== "owner" &&
+         !/^localhost$|^127.0.0.1$|^fixture.invalid$/.test(location.hostname) &&
+         !(typeof navigator !== "undefined" && navigator.onLine === false) && !_cbBloqueado()) {
+       try {
+@@ -1377,7 +1378,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
+               body: JSON.stringify({ licenseCode: licC17, instanceId: instC17, pin: String(code) })
+             });
+             if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }
+-            const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;
++            const dTeam = rTeam ? await rTeam.json().catch(() => null) : null;
++            if (rTeam && rTeam.status === 403 && dTeam && dTeam.reason === "team-not-verified" &&
++                (rolHash === "admin" || rolHash === "empleado")) {
++              error("Este PIN de equipo fue reemplazado o desactivado en el panel JFC.");
++              return;
++            }
+             if (dTeam && dTeam.ok === true && dTeam.principal &&
+                 (dTeam.principal.role === "admin" || dTeam.principal.role === "empleado")) {
+               window.__f123CentralTeamPrincipal = Object.freeze({
+@@ -2035,6 +2041,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
+     demoSesion = false;
+     window.OCCurrentUser = null; // borrar sesion de encargado nombrado
+     window.OCCurrentArtista = null; // benchmark #6
++    window.__f123CentralTeamPrincipal = null; // C214: wipe central team principal on logout
+     try { sessionStorage.removeItem("f123_sesion_artista"); } catch (_) {}
+     document.body.classList.remove("rol-artista");
+     document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo", "rol-contador", "rol-admin");

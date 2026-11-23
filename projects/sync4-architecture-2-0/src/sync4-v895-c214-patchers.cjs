@@ -282,6 +282,60 @@ function patchSwAddI18nEs(swSource) {
   };
 }
 
+function patchAuthUiAdminVerifyAndLogoutWipe(source) {
+  let out = source;
+  let changed = false;
+
+  const verifyTarget =
+    '    if ((!rolHash || rolHash === "empleado") && dispositivoApropiado() && central !== "owner" &&';
+  const verifyReplacement =
+    '    window.__f123CentralTeamPrincipal = null;\n' +
+    '    if ((!rolHash || rolHash === "empleado" || rolHash === "admin") && dispositivoApropiado() && central !== "owner" &&';
+  if (!out.includes('rolHash === "admin") && dispositivoApropiado()')) {
+    if (!out.includes(verifyTarget)) {
+      throw new Error('BUG-V895-6 verify anchor not found in docs/auth-ui.js');
+    }
+    out = out.replace(verifyTarget, verifyReplacement);
+    changed = true;
+  }
+
+  const revokeTarget =
+    '            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }\n' +
+    '            const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;';
+  const revokeReplacement =
+    '            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }\n' +
+    '            const dTeam = rTeam ? await rTeam.json().catch(() => null) : null;\n' +
+    '            if (rTeam && rTeam.status === 403 && dTeam && dTeam.reason === "team-not-verified" &&\n' +
+    '                (rolHash === "admin" || rolHash === "empleado")) {\n' +
+    '              error("Este PIN de equipo fue reemplazado o desactivado en el panel JFC.");\n' +
+    '              return;\n' +
+    '            }';
+  if (!out.includes('dTeam.reason === "team-not-verified"')) {
+    if (!out.includes(revokeTarget)) {
+      throw new Error('BUG-V895-6 revoke anchor not found in docs/auth-ui.js');
+    }
+    out = out.replace(revokeTarget, revokeReplacement);
+    changed = true;
+  }
+
+  const logoutTarget =
+    '    window.OCCurrentUser = null; // borrar sesion de encargado nombrado\n' +
+    '    window.OCCurrentArtista = null; // benchmark #6';
+  const logoutReplacement =
+    '    window.OCCurrentUser = null; // borrar sesion de encargado nombrado\n' +
+    '    window.OCCurrentArtista = null; // benchmark #6\n' +
+    '    window.__f123CentralTeamPrincipal = null; // C214: wipe central team principal on logout';
+  if (!out.includes('window.__f123CentralTeamPrincipal = null; // C214')) {
+    if (!out.includes(logoutTarget)) {
+      throw new Error('BUG-V895-6 logout anchor not found in docs/auth-ui.js');
+    }
+    out = out.replace(logoutTarget, logoutReplacement);
+    changed = true;
+  }
+
+  return { source: out, changed };
+}
+
 module.exports = {
   patchReadOnlyCatalogSalaVaciaEmptyRoots,
   patchSyncRealtimeAllowColdDevicePause,
@@ -289,5 +343,6 @@ module.exports = {
   patchIndexHtmlDeferredBoot,
   buildCargaTardiaV2Source,
   patchI18nSplitEs,
-  patchSwAddI18nEs
+  patchSwAddI18nEs,
+  patchAuthUiAdminVerifyAndLogoutWipe
 };

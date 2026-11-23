@@ -10,7 +10,8 @@ const {
   patchIndexHtmlDeferredBoot,
   buildCargaTardiaV2Source,
   patchI18nSplitEs,
-  patchSwAddI18nEs
+  patchSwAddI18nEs,
+  patchAuthUiAdminVerifyAndLogoutWipe
 } = require('./sync4-v895-c214-patchers.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
@@ -95,6 +96,14 @@ const specs = [
         { relPath: 'docs/i18n-es.js', before: null, after: i18nSplit.i18nEsSource },
         { relPath: 'docs/sw.js', before: swBefore, after: patchSwAddI18nEs(swBefore).source }
       ];
+    }
+  },
+  {
+    name: '06-v895-auth-ui-admin-central-verify-and-logout-wipe.patch',
+    pairs: () => {
+      const before = gitShow('docs/auth-ui.js');
+      const res = patchAuthUiAdminVerifyAndLogoutWipe(before);
+      return [{ relPath: 'docs/auth-ui.js', before, after: res.source }];
     }
   }
 ];

@@ -15,7 +15,8 @@ const {
   patchIndexHtmlDeferredBoot,
   buildCargaTardiaV2Source,
   patchI18nSplitEs,
-  patchSwAddI18nEs
+  patchSwAddI18nEs,
+  patchAuthUiAdminVerifyAndLogoutWipe
 } = require('../src/sync4-v895-c214-patchers.cjs');
 const { BASELINE_22NOV_BYTES, TARGET_40PCT_BYTES } = require('../src/audit-js-budget.cjs');
 
@@ -178,7 +179,7 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-v895-apply-'));
     try {
       cp.execFileSync('git', ['init', '-q'], { cwd: tmp });
-      for (const rel of ['src/port2-readonly-catalog-session.mjs', 'docs/sync-realtime.js', 'src/yparty-piloto.js', 'docs/index.html', 'docs/carga-tardia.js', 'docs/i18n.js', 'docs/sw.js']) {
+      for (const rel of ['src/port2-readonly-catalog-session.mjs', 'docs/sync-realtime.js', 'src/yparty-piloto.js', 'docs/index.html', 'docs/carga-tardia.js', 'docs/i18n.js', 'docs/sw.js', 'docs/auth-ui.js']) {
         const out = path.join(tmp, rel);
         fs.mkdirSync(path.dirname(out), { recursive: true });
         fs.writeFileSync(out, gitShowV895(rel), 'utf8');
@@ -256,4 +257,19 @@ test('C214 Patch 05 on live v0.8.95 (17131947): real i18n-es lazy split saves >8
   for (const k of origEsKeys) {
     assert.equal(sbSplit.OCI18n.DICT.es[k], sbOrig.OCI18n.DICT.es[k], `ES mismatch for key ${k}`);
   }
+});
+
+test('RED on live v0.8.95 (17131947) -> GREEN C214 Patch 06: Admin central /team/verify, 403 revocation block & logout principal wipe', () => {
+  if (!HAS_V895) return;
+  const raw = gitShowV895('docs/auth-ui.js');
+
+  // RED: live v0.8.95 skips /team/verify for cached rolHash === "admin", ignores 403 team-not-verified, and never wipes __f123CentralTeamPrincipal on logout!
+  assert.match(raw, /if \(\(!rolHash \|\| rolHash === "empleado"\) && dispositivoApropiado\(\)/);
+  assert.equal(raw.includes('window.__f123CentralTeamPrincipal = null;'), false);
+
+  const patched = patchAuthUiAdminVerifyAndLogoutWipe(raw);
+  assert.equal(patched.changed, true);
+  assert.match(patched.source, /rolHash === "empleado" \|\| rolHash === "admin"/);
+  assert.match(patched.source, /rTeam\.status === 403 && dTeam && dTeam\.reason === "team-not-verified"/);
+  assert.match(patched.source, /window\.__f123CentralTeamPrincipal = null; \/\/ C214: wipe central team principal on logout/);
 });
