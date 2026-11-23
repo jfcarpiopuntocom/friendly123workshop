@@ -399,8 +399,10 @@ function patchPinWorkerAutoRegisterVerifiedInstance(source) {
     '     :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};\n' +
     '    if(r&&r.ok===true&&INSTANCE.test(body.instanceId||"")){\n' +
     '     const instKey="inst:"+body.instanceId;\n' +
-    '     const prev=await storage.get(instKey);\n' +
-    '     if(!prev){await storage.put(instKey,{instanceId:body.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify",createdAt:Date.now()});}\n' +
+    '     await storage.transaction(async tx=>{\n' +
+    '      const prev=await tx.get(instKey);\n' +
+    '      if(!prev){await tx.put(instKey,{instanceId:body.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify",createdAt:Date.now()});}\n' +
+    '     });\n' +
     '    }';
   if (!out.includes('origen:"central-pin-verify"')) {
     if (!out.includes(t1)) throw new Error('BUG-C218-8a verify-unmatched anchor not found in cloudflare-worker/pin-worker-api.mjs');
@@ -419,6 +421,122 @@ function patchPinWorkerAutoRegisterVerifiedInstance(source) {
   return { source: out, changed };
 }
 
+/**
+ * Patch 09 (Micropasos 37, 43, 60 on v0.8.98 8d1519df:docs/sync-yjs.js):
+ * After a transient Sync4-A failback (typed-command-fallback or unmapped-typed-command),
+ * automatically schedule a bounded non-blocking drain + return to Sync4-A once online & visible,
+ * so a 2-second Wi-Fi hiccup never strands a store off Sync4-A for the rest of the shift.
+ */
+function patchSyncYjsAutoFailbackReturnToA(source) {
+  const target =
+    '      return Promise.resolve().then(function () {\n' +
+    '        if (API.coordinadorCorte20 !== coord || API.opsMap !== mapa) return null;\n' +
+    '        return coord.failbackToLegacy(motivo);\n' +
+    '      }).then(async function (res) {\n' +
+    '        if (!res || res.mode !== "failback-legacy-1.0" ||\n' +
+    '            API.coordinadorCorte20 !== coord || API.opsMap !== mapa ||\n' +
+    '            API.modoCorte20Activo === true) return false;\n' +
+    '        var autorizado = typeof API.puedeDespacharOpEnLegado === "function"\n' +
+    '          ? await API.puedeDespacharOpEnLegado(op.opId) : false;\n' +
+    '        if (autorizado !== true || API.coordinadorCorte20 !== coord ||\n' +
+    '            API.opsMap !== mapa || API.modoCorte20Activo === true) return false;\n' +
+    '        try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); return true; }\n' +
+    '        catch (_) { return false; }\n' +
+    '      }).catch(function () { return false; });';
+
+  const replacement =
+    '      return Promise.resolve().then(function () {\n' +
+    '        if (API.coordinadorCorte20 !== coord || API.opsMap !== mapa) return null;\n' +
+    '        return coord.failbackToLegacy(motivo);\n' +
+    '      }).then(async function (res) {\n' +
+    '        if (!res || res.mode !== "failback-legacy-1.0" ||\n' +
+    '            API.coordinadorCorte20 !== coord || API.opsMap !== mapa ||\n' +
+    '            API.modoCorte20Activo === true) return false;\n' +
+    '        var autorizado = typeof API.puedeDespacharOpEnLegado === "function"\n' +
+    '          ? await API.puedeDespacharOpEnLegado(op.opId) : false;\n' +
+    '        if (autorizado !== true || API.coordinadorCorte20 !== coord ||\n' +
+    '            API.opsMap !== mapa || API.modoCorte20Activo === true) return false;\n' +
+    '        var okLegado = false;\n' +
+    '        try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); okLegado = true; }\n' +
+    '        catch (_) { okLegado = false; }\n' +
+    '        // Sync4 Micropaso 43/60: schedule bounded non-blocking return to Sync4-A after transient failback.\n' +
+    '        if (!API.__retornoSync4Timer && (motivo === "typed-command-fallback" || motivo === "unmapped-typed-command")) {\n' +
+    '          API.__retornoSync4Timer = setTimeout(function () {\n' +
+    '            API.__retornoSync4Timer = null;\n' +
+    '            if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)) return;\n' +
+    '            var c = API.coordinadorCorte20;\n' +
+    '            Promise.resolve(c && typeof c.drainLatchedSameDo === "function" ? c.drainLatchedSameDo() : null)\n' +
+    '              .catch(function () {})\n' +
+    '              .finally(function () { if (typeof _intentarActivarCorte20SiElegible === "function") _intentarActivarCorte20SiElegible(); });\n' +
+    '          }, 15000);\n' +
+    '        }\n' +
+    '        return okLegado;\n' +
+    '      }).catch(function () { return false; });';
+
+  if (source.includes('API.__retornoSync4Timer')) return { source, changed: false };
+  if (!source.includes(target)) {
+    throw new Error('BUG-V898-9 failback return anchor not found in docs/sync-yjs.js');
+  }
+  return { source: source.replace(target, replacement), changed: true };
+}
+
+/**
+ * Patch 10 (Micropasos 41, 43, 60, 61 on v0.8.98 8d1519df:src/yparty-piloto.js):
+ * Wake up same-DO durable reconciliation automatically when Safari/Opera returns to foreground
+ * (!document.hidden) or regains connectivity (online), preventing stuck pending/202 ops.
+ */
+function patchYpartyPilotoWakeupDrain(source) {
+  const target =
+    "      const onHidden = () => {\n" +
+    "        if (document.hidden) void coordinator.failbackToLegacy('document-hidden');\n" +
+    "      };\n" +
+    "      const onPageHide = () => {\n" +
+    "        void coordinator.failbackToLegacy('pagehide');\n" +
+    "      };\n" +
+    "      document.addEventListener('visibilitychange', onHidden);\n" +
+    "      window.addEventListener('pagehide', onPageHide);\n" +
+    "      return Object.freeze({\n" +
+    "        ...coordinator,\n" +
+    "        destroy() {\n" +
+    "          document.removeEventListener('visibilitychange', onHidden);\n" +
+    "          window.removeEventListener('pagehide', onPageHide);\n" +
+    "          coordinator.destroy();\n" +
+    "        }\n" +
+    "      });";
+
+  const replacement =
+    "      const onHidden = () => {\n" +
+    "        if (document.hidden) void coordinator.failbackToLegacy('document-hidden');\n" +
+    "        else if (typeof coordinator.drainLatchedSameDo === 'function') void coordinator.drainLatchedSameDo().catch(() => {});\n" +
+    "      };\n" +
+    "      const onOnline = () => {\n" +
+    "        if (!document.hidden && typeof coordinator.drainLatchedSameDo === 'function') {\n" +
+    "          void coordinator.drainLatchedSameDo().catch(() => {});\n" +
+    "        }\n" +
+    "      };\n" +
+    "      const onPageHide = () => {\n" +
+    "        void coordinator.failbackToLegacy('pagehide');\n" +
+    "      };\n" +
+    "      document.addEventListener('visibilitychange', onHidden);\n" +
+    "      window.addEventListener('online', onOnline);\n" +
+    "      window.addEventListener('pagehide', onPageHide);\n" +
+    "      return Object.freeze({\n" +
+    "        ...coordinator,\n" +
+    "        destroy() {\n" +
+    "          document.removeEventListener('visibilitychange', onHidden);\n" +
+    "          window.removeEventListener('online', onOnline);\n" +
+    "          window.removeEventListener('pagehide', onPageHide);\n" +
+    "          coordinator.destroy();\n" +
+    "        }\n" +
+    "      });";
+
+  if (source.includes("window.addEventListener('online', onOnline);")) return { source, changed: false };
+  if (!source.includes(target)) {
+    throw new Error('BUG-V898-10 wakeup drain anchor not found in src/yparty-piloto.js');
+  }
+  return { source: source.replace(target, replacement), changed: true };
+}
+
 module.exports = {
   patchReadOnlyCatalogSalaVaciaEmptyRoots,
   patchSyncRealtimeAllowColdDevicePause,
@@ -429,5 +547,7 @@ module.exports = {
   patchSwAddI18nEs,
   patchAuthUiAdminVerifyAndLogoutWipe,
   patchSyncYjsUnblockPilotAndRetry,
-  patchPinWorkerAutoRegisterVerifiedInstance
+  patchPinWorkerAutoRegisterVerifiedInstance,
+  patchSyncYjsAutoFailbackReturnToA,
+  patchYpartyPilotoWakeupDrain
 };

@@ -13,11 +13,13 @@ const {
   patchSwAddI18nEs,
   patchAuthUiAdminVerifyAndLogoutWipe,
   patchSyncYjsUnblockPilotAndRetry,
-  patchPinWorkerAutoRegisterVerifiedInstance
+  patchPinWorkerAutoRegisterVerifiedInstance,
+  patchSyncYjsAutoFailbackReturnToA,
+  patchYpartyPilotoWakeupDrain
 } = require('./sync4-v895-c214-patchers.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const BASE_COMMIT = 'be33ccbf'; // merged origin/master = origin/estable (v0.8.97)
+const BASE_COMMIT = '8d1519df'; // merged origin/master = origin/estable (v0.8.98)
 const C218_WORKER_COMMIT = '94096dde'; // origin/fix/c218-pin-aparato-nuevo
 const OUT_DIR = path.join(__dirname, '..', 'patches-v895');
 
@@ -123,6 +125,22 @@ const specs = [
       const before = gitShow('cloudflare-worker/pin-worker-api.mjs', C218_WORKER_COMMIT);
       const res = patchPinWorkerAutoRegisterVerifiedInstance(before);
       return [{ relPath: 'cloudflare-worker/pin-worker-api.mjs', before, after: res.source }];
+    }
+  },
+  {
+    name: '09-v898-sync-yjs-auto-failback-return-to-a.patch',
+    pairs: () => {
+      const before = gitShow('docs/sync-yjs.js');
+      const res = patchSyncYjsAutoFailbackReturnToA(before);
+      return [{ relPath: 'docs/sync-yjs.js', before, after: res.source }];
+    }
+  },
+  {
+    name: '10-v898-yparty-piloto-wakeup-drain.patch',
+    pairs: () => {
+      const before = gitShow('src/yparty-piloto.js');
+      const res = patchYpartyPilotoWakeupDrain(before);
+      return [{ relPath: 'src/yparty-piloto.js', before, after: res.source }];
     }
   }
 ];

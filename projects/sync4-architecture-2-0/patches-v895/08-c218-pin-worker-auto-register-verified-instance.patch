@@ -1,20 +1,22 @@
 diff --git a/cloudflare-worker/pin-worker-api.mjs b/cloudflare-worker/pin-worker-api.mjs
-index 03f3f7a..ec4f903 100644
+index 03f3f7a..28a6641 100644
 --- a/cloudflare-worker/pin-worker-api.mjs
 +++ b/cloudflare-worker/pin-worker-api.mjs
-@@ -37,6 +37,11 @@ export function pinDoRoute(req,storage,env){
+@@ -37,6 +37,13 @@ export function pinDoRoute(req,storage,env){
      r=stored&&!fabrica?await p.verify(body.licenseCode,body.pin,body.pinTs)
       :stored?{ok:false,reason:"license-instance-mismatch"}
       :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};
 +    if(r&&r.ok===true&&INSTANCE.test(body.instanceId||"")){
 +     const instKey="inst:"+body.instanceId;
-+     const prev=await storage.get(instKey);
-+     if(!prev){await storage.put(instKey,{instanceId:body.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify",createdAt:Date.now()});}
++     await storage.transaction(async tx=>{
++      const prev=await tx.get(instKey);
++      if(!prev){await tx.put(instKey,{instanceId:body.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify",createdAt:Date.now()});}
++     });
 +    }
     }
     else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
     else return reply({ok:false},404);
-@@ -66,7 +71,7 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
+@@ -66,7 +73,7 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
   const unmatched=!saved||saved.instanceId!==instanceId||String(saved.licenseCode||"").trim().toUpperCase()!==licenseCode;
   // Login of an unmatched device asks the authority whether this license is centrally set (see verify-unmatched).
   if(unmatched&&action!=="verify")return reply({ok:false,reason:"license-instance-mismatch"},404);

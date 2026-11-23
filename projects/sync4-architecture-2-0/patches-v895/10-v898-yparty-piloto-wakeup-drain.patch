@@ -1,0 +1,29 @@
+diff --git a/src/yparty-piloto.js b/src/yparty-piloto.js
+index b96723d..267b544 100644
+--- a/src/yparty-piloto.js
++++ b/src/yparty-piloto.js
+@@ -196,16 +196,24 @@ window.F123YPartyPilot = function (sala, licencia) {
+       }
+       const onHidden = () => {
+         if (document.hidden) void coordinator.failbackToLegacy('document-hidden');
++        else if (typeof coordinator.drainLatchedSameDo === 'function') void coordinator.drainLatchedSameDo().catch(() => {});
++      };
++      const onOnline = () => {
++        if (!document.hidden && typeof coordinator.drainLatchedSameDo === 'function') {
++          void coordinator.drainLatchedSameDo().catch(() => {});
++        }
+       };
+       const onPageHide = () => {
+         void coordinator.failbackToLegacy('pagehide');
+       };
+       document.addEventListener('visibilitychange', onHidden);
++      window.addEventListener('online', onOnline);
+       window.addEventListener('pagehide', onPageHide);
+       return Object.freeze({
+         ...coordinator,
+         destroy() {
+           document.removeEventListener('visibilitychange', onHidden);
++          window.removeEventListener('online', onOnline);
+           window.removeEventListener('pagehide', onPageHide);
+           coordinator.destroy();
+         }

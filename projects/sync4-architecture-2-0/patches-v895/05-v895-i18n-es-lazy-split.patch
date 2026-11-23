@@ -2484,7 +2484,7 @@ index 5f489c9..6098516 100644
    window.tf = tf;
  
 diff --git a/docs/sw.js b/docs/sw.js
-index 076cfef..b782fd3 100644
+index 7e24e2c..7592d6e 100644
 --- a/docs/sw.js
 +++ b/docs/sw.js
 @@ -126,6 +126,7 @@ const SHELL = [

@@ -19,12 +19,14 @@ const {
   patchSwAddI18nEs,
   patchAuthUiAdminVerifyAndLogoutWipe,
   patchSyncYjsUnblockPilotAndRetry,
-  patchPinWorkerAutoRegisterVerifiedInstance
+  patchPinWorkerAutoRegisterVerifiedInstance,
+  patchSyncYjsAutoFailbackReturnToA,
+  patchYpartyPilotoWakeupDrain
 } = require('../src/sync4-v895-c214-patchers.cjs');
 const { BASELINE_22NOV_BYTES, TARGET_40PCT_BYTES } = require('../src/audit-js-budget.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const V895 = 'be33ccbf';
+const V895 = '8d1519df';
 const C218_PIN = '94096dde';
 const HAS_V895 = (() => {
   try {
@@ -305,7 +307,7 @@ test('RED on C218 pin-aparato-nuevo (94096dde) -> GREEN Patch 08: verified new d
   const patched = patchPinWorkerAutoRegisterVerifiedInstance(raw);
   assert.equal(patched.changed, true);
   assert.match(patched.source, /if\(unmatched\)data=\{licenseCode,instanceId,pin:String\(data\.pin\|\|""\)\};/);
-  assert.match(patched.source, /if\(!prev\)\{await storage\.put\(instKey,\{instanceId:body\.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify"/);
+  assert.match(patched.source, /if\(!prev\)\{await tx\.put\(instKey,\{instanceId:body\.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify"/);
 
   // Also verify git apply --check of patch 08 directly on 94096dde!
   const patch08 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'patches-v895', '08-c218-pin-worker-auto-register-verified-instance.patch');
@@ -319,4 +321,22 @@ test('RED on C218 pin-aparato-nuevo (94096dde) -> GREEN Patch 08: verified new d
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+test('RED on live v0.8.98 (8d1519df) -> GREEN Patch 09 & 10: auto-return to Sync4-A after transient failback + foreground/online drain', () => {
+  if (!HAS_V895) return;
+  const syRaw = gitShowV895('docs/sync-yjs.js');
+  const ypRaw = gitShowV895('src/yparty-piloto.js');
+
+  assert.equal(syRaw.includes('API.__retornoSync4Timer'), false, 'RED: v0.8.98 never schedules return to Sync4-A after transient failback');
+  assert.equal(ypRaw.includes("window.addEventListener('online', onOnline);"), false, 'RED: v0.8.98 never drains latched ops on foreground/online wakeup');
+
+  const syPatched = patchSyncYjsAutoFailbackReturnToA(syRaw);
+  const ypPatched = patchYpartyPilotoWakeupDrain(ypRaw);
+  assert.equal(syPatched.changed, true);
+  assert.equal(ypPatched.changed, true);
+  assert.match(syPatched.source, /drainLatchedSameDo/);
+  assert.match(syPatched.source, /_intentarActivarCorte20SiElegible/);
+  assert.match(ypPatched.source, /window\.addEventListener\('online', onOnline\)/);
+  assert.match(ypPatched.source, /coordinator\.drainLatchedSameDo\(\)/);
 });
