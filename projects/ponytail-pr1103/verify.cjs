@@ -20,6 +20,8 @@ expected=expected.replace(lookup,lookup+'\n    // Only purchase chips rerender; 
 const before='          .then(function () { return reanudarAsignacion(clienteId, pendienteAsignacion); })\n          .catch(function (errorGuardar) {\n            // Keep the exact pending reference if storage succeeded and the\n            // network failed. Never create a new opId on an uncertain payment.\n            throw errorGuardar;\n          });';
 assert.ok(expected.includes(before));
 expected=expected.replace(before,'          // Rejections reach the existing payment-preservation handler.\n          .then(function () { return reanudarAsignacion(clienteId, pendienteAsignacion); });');
+// An existing guard test intentionally asserts the literal amount read on the deferred plan response.
+expected=expected.replace('!elegidos.length && !campoMonto.value','!elegidos.length && !q("pp-ab-monto").value');
 assert.equal(c,orig.slice(0,start)+expected+orig.slice(end),'unreviewed source modification');
 assert.match(c,/await _pagoLiberarReferencia\(/);
 assert.match(c,/Number\.isSafeInteger\(centavos\)/);
