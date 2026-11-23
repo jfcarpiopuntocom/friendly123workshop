@@ -238,7 +238,10 @@ test('C224 E2E cold device: Owner uploads chunked encrypted money/sales/commissi
   }
 
   // Load real browser/cf-relay.js into VM
-  const src = fs.readFileSync(path.join(ROOT, 'docs', 'cf-relay.js'), 'utf8');
+  const cfPath = fs.existsSync(path.join(ROOT, 'docs', 'cf-relay.js'))
+    ? path.join(ROOT, 'docs', 'cf-relay.js')
+    : path.join(ROOT, 'browser', 'cf-relay.js');
+  const src = fs.readFileSync(cfPath, 'utf8');
   const listeners = {};
   const sandbox = {
     window: { addEventListener: (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); } },
