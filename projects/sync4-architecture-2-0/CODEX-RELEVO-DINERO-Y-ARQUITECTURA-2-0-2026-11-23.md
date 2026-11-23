@@ -27,13 +27,13 @@
 
 Verificado directamente en el código `4a6d038f` y en las pruebas en vivo de Claude de hoy (`4:40 am` y `9:46 am GMT-5`):
 
-1. **Pre-PIN `401` auto-pausa Cloudflare `15 minutos` (`docs/cf-relay.js:244` + `docs/relay-selector.js:141-160`):**
-   - `cf-relay.js` (`readSessionCredentials()`) devuelve `null` mientras el usuario está en la pantalla de PIN (`#oc-gate`), porque aún no hay PIN de dueño ni credencial de equipo confirmada.
-   - `ensureSession()` lanza `401`, el socket falso cierra con código `1008`, y **`relay-selector.js` interpreta `1008` como rechazo de servidor y pausa `f123_relay_cupo_cf_v1` durante `PAUSA_MS = 15 min` (`900_000 ms`)** antes de que el dueño siquiera digite el PIN.
-2. **Trampa de capa parcial en `relay-selector.js` (`capaVaciaSigue` + `sondaOtraCapa`):**
-   - `capaVaciaSigue` (`docs/relay-selector.js:242`) **solo** baja de capa si `Number(h.rev) === 0 && Number(h.seq) === 0`. Si el buzón Cloudflare DO (`friendly123-relay-privado`) ya recibió **1 sola escritura** (por ejemplo las 6 ventas de prueba visibles detrás de `#oc-gate`), deja de considerarse vacío.
-   - A partir de ahí, `sondaOtraCapa` (`docs/relay-selector.js:161`) solo consulta Firebase (`fb.leerHead`), y solo pausa Cloudflare `3 min` si `headAplicado(url)` difiere del `head` actual de Firebase.
-   - Además, en **`docs/sync-yjs.js:1336-1355`**, `_pullCursor` (`rev`, `seq`) se persiste por canal sin identificar la capa de origen: si una capa empieza en otro `{ rev, seq }`, pueden dispararse relecturas o quedar suspendido tras `_legacyProbeAttempts >= 2` (`"checkpoint v1 sin prueba: relectura suspendida"`).
+1. **Pre-PIN `401` pausa Cloudflare antes de digitar el PIN (`docs/cf-relay.js:244` + `docs/relay-selector.js:141-160, 637-649`):**
+   - Mientras el usuario está en `#oc-gate`, `cf-relay.js` (`readSessionCredentials()`) devuelve `null`, cierra `1008` y `relay-selector.js` pausa `f123_relay_cupo_cf_v1` `PAUSA_MS = 15 min`.
+   - **Aclaración verificada en `4a6d038f` (confirmada también por Codex 10:53 am):** `docs/relay-selector.js:637-649` **sí** limpia `pausaHasta = 0` al dispararse `oc-login` y cierra sockets que no sean CF (`1012`) para subir a Cloudflare. El riesgo ocurre **durante/antes** del login si el aparato cayó en otra capa y luego choca con el punto #2 abajo.
+2. **Trampa de capa parcial + `_pullCursor` único por canal sin capa (`docs/relay-selector.js:242` + `docs/sync-yjs.js:1169-1174, 1355`):**
+   - `capaVaciaSigue` (`docs/relay-selector.js:242`) **solo** baja de capa si `Number(h.rev) === 0 && Number(h.seq) === 0`. Con 1 sola escritura en Cloudflare DO (p. ej. las 6 ventas de prueba visibles detrás de `#oc-gate`), ya no salta automático.
+   - **Bug confirmado por Codex en arnés sintético (`docs/sync-yjs.js:1355`):** `_pullCursor` (`f123_yjs_pull_cursor_v2` + suffix) guarda `{ rev, seq }` sin identificar la capa (`cf` vs `fb`). Al cambiar de proveedor cuando ambos coinciden en el mismo par numérico `rev/seq`, `procesarHead` (`:1355`) lo da por aplicado y **omite `pedirPagina`**, y `guardarPullCursor` (`:1172`) ignora cursores con `rev` menor aunque vengan de otro backend.
+   - **Ceguera de fallo en corte 2.0 (`docs/sync-yjs.js:3472-3479`):** `_intentarActivarCorte20SiElegible` envuelve `pausarParaArquitectura20` + `activarCorte20Runtime` (`coord.activate20()`) en `.catch(function () {})` sin registrar motivo diagnóstico cuando revierte a legado, lo que oculta por qué `modoCorte20Activo` no encendió en los perfiles de lectura que probó Codex.
 3. **Historial en Supabase (`C240`) o en dispositivo antiguo que aún no subió checkpoint (`C225`):**
    - Como confirmó Claude a las `4:40 am`, el buzón Cloudflare DO (`C224`) **no tenía** todavía el historial privado completo de `••••2J24` hasta que el aparato antiguo que guarda todo en local abra `>= v0.9.05` (y suba su `ckpt` >768 KiB) o se recupere vía Firebase/respaldo `.json`.
    - Lo que haya quedado **exclusivamente** en Supabase no es accesible hoy mientras Supabase esté `DORMANT` (restringido hasta diciembre).
@@ -78,10 +78,10 @@ Solo **3 contratos** generan efecto económico `business-committed` (`HTTP 200`)
 ## 4. Ruta de apoyo concreto para Codex (Ponytail `full`, cero pérdidas, orden estricto)
 
 ### Fase 0 — Inmediata (recuperación segura del dinero/movimientos faltantes + estabilidad base)
-1. **Cerrar `C242 v0.9.12`** (ya listo en `friendly123workshop` `0a24e439`, `133/133` + `WEBKIT_C242_PASS`): aplica `apply-c242.cjs`, sube a `master` → `estable`, o integra sus 5 fixes en el primer PR de Codex para no pisar la limpieza Safari/IDB.
-2. **Corregir las 2 trampas de transporte privado (`docs/cf-relay.js` + `docs/relay-selector.js` + `docs/sync-yjs.js`):**
-   - **Pre-PIN `401` (`cf-relay.js`):** mientras no exista PIN/sesión (`readSessionCredentials() === null`), **no** emitir cierre `1008` que dispare `PAUSA_MS = 15 min` en `relay-selector.js`; diferir apertura de Cloudflare hasta `oc-login` (o usar código específico no punitivo que no llene `pausaHasta`).
-   - **Cursor y convergencia multi-capa (`cf` vs `fb`):** separar el seguimiento de cursor/head por capa (`cf` vs `fb`) para que tener datos nuevos en Cloudflare **jamás** bloquee ni invalide el pull histórico pendiente de Firebase en `-y` ni en `-ops`.
+1. **Coordinar `wt-sync4` antes de editar (`fix/c242-pagar-todas-fechas`):** actualmente `C:\00 Projects\claude-f123\wt-sync4` tiene trabajo en curso sobre `C242 v0.9.12` + `pagar-todas-fechas` (`docs/core/commission-history.js`, `src/app/app-inline-01.js`, `docs/estado-idb.js`, `docs/index.html`, `docs/reenganchar.html`, `docs/sync-yjs.js`). Trabajar en rama/worktree aislado y consultar Buzón antes de tocar esos archivos.
+2. **Corregir las 2 brechas recién confirmadas en transporte privado y diagnóstico 2.0 (`docs/sync-yjs.js` + `docs/cf-relay.js`/`docs/relay-selector.js`):**
+   - **Cursor por capa (`docs/sync-yjs.js:1169, 1355`):** indexar el cursor de pull `{ rev, seq }` **por capa durable** (`sock.relayLayer`: Cloudflare vs Firebase vs Supabase) para que cambiar de proveedor con igual `(rev, seq)` o `rev` menor **jamás** omita `pedirPagina()` ni trabe el backfill histórico.
+   - **Pre-PIN `401` (`cf-relay.js`) + Diagnóstico de corte 2.0 (`docs/sync-yjs.js:3472-3479`):** no disparar socket CF autenticado sin PIN si ya se difiere a `oc-login` (evita pausa previa de 15 min antes de entrar), y registrar motivo cero-PII en el `.catch()` de `_intentarActivarCorte20SiElegible` cuando `activate20()` / `pausarParaArquitectura20` revierta `modoCorte20Activo` a `false`.
 3. **Recuperación de historial de `••••2J24`:** confirmar desde qué dispositivo o respaldo `.json` tiene JFC sus movimientos anteriores completos para inyectarlos vía `C225` (`ckpt`) / `/respaldo/importar` hacia Cloudflare DO + Firebase (cero relecturas en bucle a Supabase).
 
 ### Fase 1 — Desbloqueo de servidor 2.0 (`C232`) y verdad única de dinero en 2.0
