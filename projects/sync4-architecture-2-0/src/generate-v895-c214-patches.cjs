@@ -12,15 +12,17 @@ const {
   patchI18nSplitEs,
   patchSwAddI18nEs,
   patchAuthUiAdminVerifyAndLogoutWipe,
-  patchSyncYjsUnblockPilotAndRetry
+  patchSyncYjsUnblockPilotAndRetry,
+  patchPinWorkerAutoRegisterVerifiedInstance
 } = require('./sync4-v895-c214-patchers.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const BASE_COMMIT = 'bb684e1a'; // latest origin/fix/c217-emergency-recovery-efectivo (v0.8.97)
+const BASE_COMMIT = 'be33ccbf'; // merged origin/master = origin/estable (v0.8.97)
+const C218_WORKER_COMMIT = '94096dde'; // origin/fix/c218-pin-aparato-nuevo
 const OUT_DIR = path.join(__dirname, '..', 'patches-v895');
 
-function gitShow(relPath) {
-  return cp.execFileSync('git', ['-C', LIVE_REPO, 'show', `${BASE_COMMIT}:${relPath}`], { encoding: 'utf8' });
+function gitShow(relPath, rev = BASE_COMMIT) {
+  return cp.execFileSync('git', ['-C', LIVE_REPO, 'show', `${rev}:${relPath}`], { encoding: 'utf8' });
 }
 
 function makeUnifiedPatch(files) {
@@ -113,6 +115,14 @@ const specs = [
       const before = gitShow('docs/sync-yjs.js');
       const res = patchSyncYjsUnblockPilotAndRetry(before);
       return [{ relPath: 'docs/sync-yjs.js', before, after: res.source }];
+    }
+  },
+  {
+    name: '08-c218-pin-worker-auto-register-verified-instance.patch',
+    pairs: () => {
+      const before = gitShow('cloudflare-worker/pin-worker-api.mjs', C218_WORKER_COMMIT);
+      const res = patchPinWorkerAutoRegisterVerifiedInstance(before);
+      return [{ relPath: 'cloudflare-worker/pin-worker-api.mjs', before, after: res.source }];
     }
   }
 ];

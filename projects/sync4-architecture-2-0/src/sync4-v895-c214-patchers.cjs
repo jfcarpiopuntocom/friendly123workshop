@@ -375,6 +375,50 @@ function patchSyncYjsUnblockPilotAndRetry(source) {
   return { source: out, changed };
 }
 
+/**
+ * Patch 08 (targets 94096dde:cloudflare-worker/pin-worker-api.mjs):
+ * C218 allowed a brand-new device (not yet in inst:<id>) to pass /pin/verify via verify-unmatched,
+ * but stripped instanceId and never persisted inst:<id> in the DO — causing /ws/ticket to fail
+ * 1 second later with 403 license-instance-mismatch!
+ * Fix: pass instanceId to verify-unmatched; ONLY after p.verify() returns ok:true on a non-factory
+ * central Owner PIN, auto-register inst:<instanceId> if absent (never overwriting a bloqueada row).
+ */
+function patchPinWorkerAutoRegisterVerifiedInstance(source) {
+  let out = source;
+  let changed = false;
+
+  const t1 =
+    '    const fabrica=body.pin==="789"||body.pin==="456";\n' +
+    '    r=stored&&!fabrica?await p.verify(body.licenseCode,body.pin,body.pinTs)\n' +
+    '     :stored?{ok:false,reason:"license-instance-mismatch"}\n' +
+    '     :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};';
+  const r1 =
+    '    const fabrica=body.pin==="789"||body.pin==="456";\n' +
+    '    r=stored&&!fabrica?await p.verify(body.licenseCode,body.pin,body.pinTs)\n' +
+    '     :stored?{ok:false,reason:"license-instance-mismatch"}\n' +
+    '     :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};\n' +
+    '    if(r&&r.ok===true&&INSTANCE.test(body.instanceId||"")){\n' +
+    '     const instKey="inst:"+body.instanceId;\n' +
+    '     const prev=await storage.get(instKey);\n' +
+    '     if(!prev){await storage.put(instKey,{instanceId:body.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify",createdAt:Date.now()});}\n' +
+    '    }';
+  if (!out.includes('origen:"central-pin-verify"')) {
+    if (!out.includes(t1)) throw new Error('BUG-C218-8a verify-unmatched anchor not found in cloudflare-worker/pin-worker-api.mjs');
+    out = out.replace(t1, r1);
+    changed = true;
+  }
+
+  const t2 = ' if(unmatched)data={licenseCode,pin:String(data.pin||"")};';
+  const r2 = ' if(unmatched)data={licenseCode,instanceId,pin:String(data.pin||"")};';
+  if (!out.includes(r2)) {
+    if (!out.includes(t2)) throw new Error('BUG-C218-8b unmatched payload anchor not found in cloudflare-worker/pin-worker-api.mjs');
+    out = out.replace(t2, r2);
+    changed = true;
+  }
+
+  return { source: out, changed };
+}
+
 module.exports = {
   patchReadOnlyCatalogSalaVaciaEmptyRoots,
   patchSyncRealtimeAllowColdDevicePause,
@@ -384,5 +428,6 @@ module.exports = {
   patchI18nSplitEs,
   patchSwAddI18nEs,
   patchAuthUiAdminVerifyAndLogoutWipe,
-  patchSyncYjsUnblockPilotAndRetry
+  patchSyncYjsUnblockPilotAndRetry,
+  patchPinWorkerAutoRegisterVerifiedInstance
 };

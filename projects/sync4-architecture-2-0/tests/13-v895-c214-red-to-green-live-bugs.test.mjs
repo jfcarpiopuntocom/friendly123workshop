@@ -18,12 +18,14 @@ const {
   patchI18nSplitEs,
   patchSwAddI18nEs,
   patchAuthUiAdminVerifyAndLogoutWipe,
-  patchSyncYjsUnblockPilotAndRetry
+  patchSyncYjsUnblockPilotAndRetry,
+  patchPinWorkerAutoRegisterVerifiedInstance
 } = require('../src/sync4-v895-c214-patchers.cjs');
 const { BASELINE_22NOV_BYTES, TARGET_40PCT_BYTES } = require('../src/audit-js-budget.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const V895 = 'bb684e1a';
+const V895 = 'be33ccbf';
+const C218_PIN = '94096dde';
 const HAS_V895 = (() => {
   try {
     cp.execFileSync('git', ['-C', LIVE_REPO, 'cat-file', '-e', `${V895}^{commit}`]);
@@ -186,7 +188,7 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
         fs.mkdirSync(path.dirname(out), { recursive: true });
         fs.writeFileSync(out, gitShowV895(rel), 'utf8');
       }
-      for (const p of fs.readdirSync(patchDir).filter(f => f.endsWith('.patch')).sort()) {
+      for (const p of fs.readdirSync(patchDir).filter(f => f.endsWith('.patch') && !f.startsWith('08-')).sort()) {
         cp.execFileSync('git', ['apply', '--check', path.join(patchDir, p)], { cwd: tmp });
       }
     } finally {
@@ -290,4 +292,31 @@ test('RED on live v0.8.97 (bb684e1a) -> GREEN C218 Patch 07: sync-yjs unblocks y
   assert.match(patched.source, /API\.rollout\.yparty === true \|\| API\.rollout\.sync4 === true/);
   assert.match(patched.source, /if \(API\.modoCorte20Activo !== true\) \{\n\s*_intentarActivarCorte20SiElegible\(\);/);
   assert.match(patched.source, /window\.addEventListener\("online", _intentarActivarCorte20SiElegible\);/);
+});
+
+test('RED on C218 pin-aparato-nuevo (94096dde) -> GREEN Patch 08: verified new device auto-registers inst:<id> so /ws/ticket succeeds immediately (never overwrites bloqueada)', () => {
+  if (!HAS_V895) return;
+  const raw = cp.execFileSync('git', ['-C', LIVE_REPO, 'show', `${C218_PIN}:cloudflare-worker/pin-worker-api.mjs`], { encoding: 'utf8' });
+
+  // RED: C218 94096dde strips instanceId on unmatched verify and NEVER writes inst:<id> to DO storage!
+  assert.match(raw, /if\(unmatched\)data=\{licenseCode,pin:String\(data\.pin\|\|""\)\};/);
+  assert.equal(raw.includes('origen:"central-pin-verify"'), false);
+
+  const patched = patchPinWorkerAutoRegisterVerifiedInstance(raw);
+  assert.equal(patched.changed, true);
+  assert.match(patched.source, /if\(unmatched\)data=\{licenseCode,instanceId,pin:String\(data\.pin\|\|""\)\};/);
+  assert.match(patched.source, /if\(!prev\)\{await storage\.put\(instKey,\{instanceId:body\.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify"/);
+
+  // Also verify git apply --check of patch 08 directly on 94096dde!
+  const patch08 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'patches-v895', '08-c218-pin-worker-auto-register-verified-instance.patch');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-c218-p08-'));
+  try {
+    cp.execFileSync('git', ['init', '-q'], { cwd: tmp });
+    const out = path.join(tmp, 'cloudflare-worker', 'pin-worker-api.mjs');
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, raw, 'utf8');
+    cp.execFileSync('git', ['apply', '--check', patch08], { cwd: tmp });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
