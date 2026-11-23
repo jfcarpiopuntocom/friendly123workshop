@@ -1,0 +1,22 @@
+diff --git a/docs/sync-yjs.js b/docs/sync-yjs.js
+index 6c21ad5..f50d764 100644
+--- a/docs/sync-yjs.js
++++ b/docs/sync-yjs.js
+@@ -3439,7 +3439,7 @@
+         var authQa = typeof window !== "undefined" ? window.OCAuth : null;
+         var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
+         var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
+-        if (demoQa || (rolQa !== "dueno" && rolQa !== "admin")) return;
++        if (demoQa || (rolQa !== "dueno" && rolQa !== "admin" && rolQa !== "empleado")) return;
+         var released = !!(API.rollout && API.rollout.yparty === true);
+         // Do not sever an existing device's live relay while local Yjs
+         // ancestry or the durable ops notebook is still being hydrated.
+@@ -3457,7 +3457,7 @@
+             if (!paused || paused.ok !== true) return null;
+             API.__transporteLegado20Pausado = licencia;
+           }
+-          return API.activarCorte20Runtime({ cortarComercio: true });
++          return API.activarCorte20Runtime({ cortarComercio: true, rol: rolQa, permitirDespachoEquipo: rolQa === "admin" || rolQa === "empleado" });
+         }).then(function (resultado) {
+           if (!released || (resultado && resultado.modoCorte20Activo === true)) return;
+           var previous = API.__transporteLegado20Pausado;
