@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -173,9 +174,9 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
   assert.equal(sandbox.OCI18n.getLang(), 'es');
   assert.notEqual(sandbox.t('rec.title'), 'Restore points');
 
-  // Verify ALL 5 generated C214 patches apply cleanly on LIVE v0.8.95 (17131947)!
-  const patchDir = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), '..', 'patches-v895');
-  if (fs.existsSync(patchDir)) {
+  // Verify ALL 6 generated C214 patches apply cleanly on LIVE v0.8.95 (17131947)!
+  const patchDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'patches-v895');
+  assert.ok(fs.existsSync(patchDir), 'patches-v895 directory MUST exist');
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-v895-apply-'));
     try {
       cp.execFileSync('git', ['init', '-q'], { cwd: tmp });
@@ -190,7 +191,6 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
-  }
 });
 
 test('C214 Patch 05 on live v0.8.95 (17131947): real i18n-es lazy split saves >80 KB raw with 100% Spanish key-for-key parity', () => {
