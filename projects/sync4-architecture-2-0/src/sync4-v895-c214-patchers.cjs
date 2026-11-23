@@ -336,6 +336,45 @@ function patchAuthUiAdminVerifyAndLogoutWipe(source) {
   return { source: out, changed };
 }
 
+function patchSyncYjsUnblockPilotAndRetry(source) {
+  let out = source;
+  let changed = false;
+
+  const t1 = 'var sync4Direct = !!(API.rollout && (API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));';
+  const r1 = 'var sync4Direct = !!(API.rollout && (API.rollout.yparty === true || API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));';
+  if (!out.includes(r1)) {
+    if (!out.includes(t1)) throw new Error('BUG-V897-7a sync4Direct anchor not found in docs/sync-yjs.js');
+    out = out.replace(t1, r1);
+    changed = true;
+  }
+
+  const t2 =
+    '        if (API.modoCorte20Activo !== true && API.coordinadorCorte20) {\n' +
+    '          _intentarActivarCorte20SiElegible();\n' +
+    '        }';
+  const r2 =
+    '        if (API.modoCorte20Activo !== true) {\n' +
+    '          _intentarActivarCorte20SiElegible();\n' +
+    '        }';
+  if (!out.includes(r2)) {
+    if (!out.includes(t2)) throw new Error('BUG-V897-7b visibility retry anchor not found in docs/sync-yjs.js');
+    out = out.replace(t2, r2);
+    changed = true;
+  }
+
+  const t3 = '    window.addEventListener("oc-login", _intentarActivarCorte20SiElegible);';
+  const r3 =
+    '    window.addEventListener("oc-login", _intentarActivarCorte20SiElegible);\n' +
+    '    window.addEventListener("online", _intentarActivarCorte20SiElegible);';
+  if (!out.includes('window.addEventListener("online", _intentarActivarCorte20SiElegible);')) {
+    if (!out.includes(t3)) throw new Error('BUG-V897-7c online retry anchor not found in docs/sync-yjs.js');
+    out = out.replace(t3, r3);
+    changed = true;
+  }
+
+  return { source: out, changed };
+}
+
 module.exports = {
   patchReadOnlyCatalogSalaVaciaEmptyRoots,
   patchSyncRealtimeAllowColdDevicePause,
@@ -344,5 +383,6 @@ module.exports = {
   buildCargaTardiaV2Source,
   patchI18nSplitEs,
   patchSwAddI18nEs,
-  patchAuthUiAdminVerifyAndLogoutWipe
+  patchAuthUiAdminVerifyAndLogoutWipe,
+  patchSyncYjsUnblockPilotAndRetry
 };

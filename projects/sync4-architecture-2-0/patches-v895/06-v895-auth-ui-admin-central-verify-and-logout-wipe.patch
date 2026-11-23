@@ -1,8 +1,8 @@
 diff --git a/docs/auth-ui.js b/docs/auth-ui.js
-index 137981b..20bf12c 100644
+index 37d4ffa..35c3d05 100644
 --- a/docs/auth-ui.js
 +++ b/docs/auth-ui.js
-@@ -1359,7 +1359,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
+@@ -1366,7 +1366,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      }
      // Sync4 C17: resolve Admin/Employee PIN centrally via JFC panel (/team/verify) so
      // brand-new or linked devices unlock immediately without waiting on legacy Sync3.
@@ -12,7 +12,7 @@ index 137981b..20bf12c 100644
          !/^localhost$|^127.0.0.1$|^fixture.invalid$/.test(location.hostname) &&
          !(typeof navigator !== "undefined" && navigator.onLine === false) && !_cbBloqueado()) {
        try {
-@@ -1377,7 +1378,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
+@@ -1384,7 +1385,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
                body: JSON.stringify({ licenseCode: licC17, instanceId: instC17, pin: String(code) })
              });
              if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }
@@ -26,7 +26,7 @@ index 137981b..20bf12c 100644
              if (dTeam && dTeam.ok === true && dTeam.principal &&
                  (dTeam.principal.role === "admin" || dTeam.principal.role === "empleado")) {
                window.__f123CentralTeamPrincipal = Object.freeze({
-@@ -2035,6 +2041,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
+@@ -2042,6 +2048,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      demoSesion = false;
      window.OCCurrentUser = null; // borrar sesion de encargado nombrado
      window.OCCurrentArtista = null; // benchmark #6

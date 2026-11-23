@@ -1,0 +1,30 @@
+diff --git a/docs/sync-yjs.js b/docs/sync-yjs.js
+index c00873f..13f2cd2 100644
+--- a/docs/sync-yjs.js
++++ b/docs/sync-yjs.js
+@@ -3443,7 +3443,7 @@
+         var released = !!(API.rollout && API.rollout.yparty === true);
+         // Do not sever an existing device's live relay while local Yjs
+         // ancestry or the durable ops notebook is still being hydrated.
+-        var sync4Direct = !!(API.rollout && (API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));
++        var sync4Direct = !!(API.rollout && (API.rollout.yparty === true || API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));
+         if (released && (document.hidden || !API.idb || API.idb.synced !== true ||
+             !API.opsIdb || API.opsIdb.synced !== true ||
+             !API.doc || API.doc.isDestroyed ||
+@@ -3483,7 +3483,7 @@
+       if (activo) {
+         programarRetorno();
+         if (API.catalogoPublicoLector) API.catalogoPublicoLector.intentar();
+-        if (API.modoCorte20Activo !== true && API.coordinadorCorte20) {
++        if (API.modoCorte20Activo !== true) {
+           _intentarActivarCorte20SiElegible();
+         }
+       } else {
+@@ -3549,6 +3549,7 @@
+     }
+     // Only a real authenticated Owner/Admin session can trigger this helper.
+     window.addEventListener("oc-login", _intentarActivarCorte20SiElegible);
++    window.addEventListener("online", _intentarActivarCorte20SiElegible);
+     API.corte20QaHabilitado = function () {
+       // Explicit per-license release is sufficient to attempt a certified
+       // activation. C38 still refuses two active writers or pending old ops.

@@ -21,12 +21,13 @@ test('Scope Lock C214: patches 01, 02, 03, 06 pass cleanly; mixing C215 boot/i18
     ...extractPatchTargets(path.join(patchDir, '02-v895-sync-realtime-allow-cold-device-pause.patch')),
     ...extractPatchTargets(path.join(patchDir, '03-v895-yparty-piloto-ruta-efectiva-diagnostico.patch')),
     ...extractPatchTargets(path.join(patchDir, '06-v895-auth-ui-admin-central-verify-and-logout-wipe.patch')),
+    ...extractPatchTargets(path.join(patchDir, '07-v897-sync-yjs-unblock-pilot-and-online-retry.patch')),
     'docs/version.json',
     'docs/sw.js',
     'test/p0-c214-sync4.test.mjs'
   ];
-  const passRes = validateScopeLock({ cut: 'C214', files: c214Files });
-  assert.equal(passRes.ok, true, `C214 valid files rejected: ${JSON.stringify(passRes.violations)}`);
+  const passRes = validateScopeLock({ cut: 'C218', files: c214Files });
+  assert.equal(passRes.ok, true, `C218 valid files rejected: ${JSON.stringify(passRes.violations)}`);
 
   // Scope creep checks: mixing C215 i18n/carga-tardia, Sync3, CSS, or score files MUST FAIL!
   const creepRes = validateScopeLock({

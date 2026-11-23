@@ -17,12 +17,13 @@ const {
   buildCargaTardiaV2Source,
   patchI18nSplitEs,
   patchSwAddI18nEs,
-  patchAuthUiAdminVerifyAndLogoutWipe
+  patchAuthUiAdminVerifyAndLogoutWipe,
+  patchSyncYjsUnblockPilotAndRetry
 } = require('../src/sync4-v895-c214-patchers.cjs');
 const { BASELINE_22NOV_BYTES, TARGET_40PCT_BYTES } = require('../src/audit-js-budget.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const V895 = '17131947';
+const V895 = 'bb684e1a';
 const HAS_V895 = (() => {
   try {
     cp.execFileSync('git', ['-C', LIVE_REPO, 'cat-file', '-e', `${V895}^{commit}`]);
@@ -180,7 +181,7 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-v895-apply-'));
     try {
       cp.execFileSync('git', ['init', '-q'], { cwd: tmp });
-      for (const rel of ['src/port2-readonly-catalog-session.mjs', 'docs/sync-realtime.js', 'src/yparty-piloto.js', 'docs/index.html', 'docs/carga-tardia.js', 'docs/i18n.js', 'docs/sw.js', 'docs/auth-ui.js']) {
+      for (const rel of ['src/port2-readonly-catalog-session.mjs', 'docs/sync-realtime.js', 'docs/sync-yjs.js', 'src/yparty-piloto.js', 'docs/index.html', 'docs/carga-tardia.js', 'docs/i18n.js', 'docs/sw.js', 'docs/auth-ui.js']) {
         const out = path.join(tmp, rel);
         fs.mkdirSync(path.dirname(out), { recursive: true });
         fs.writeFileSync(out, gitShowV895(rel), 'utf8');
@@ -272,4 +273,21 @@ test('RED on live v0.8.95 (17131947) -> GREEN C214 Patch 06: Admin central /team
   assert.match(patched.source, /rolHash === "empleado" \|\| rolHash === "admin"/);
   assert.match(patched.source, /rTeam\.status === 403 && dTeam && dTeam\.reason === "team-not-verified"/);
   assert.match(patched.source, /window\.__f123CentralTeamPrincipal = null; \/\/ C214: wipe central team principal on logout/);
+});
+
+test('RED on live v0.8.97 (bb684e1a) -> GREEN C218 Patch 07: sync-yjs unblocks yparty:true pilot with legacy pendingStructs + retries on visibilitychange & online', () => {
+  if (!HAS_V895) return;
+  const raw = gitShowV895('docs/sync-yjs.js');
+
+  // RED: live v0.8.97 only sets sync4Direct for sync4:true or sala-vacia (deadlocking pilot store e048094f which has yparty:true + fb-... frozenHead!),
+  // blocks visibility retry when coordinadorCorte20 is null, and lacks online retry listener!
+  assert.match(raw, /var sync4Direct = !!\(API\.rollout && \(API\.rollout\.sync4 === true \|\| API\.rollout\.frozenHead === "sala-vacia"\)\);/);
+  assert.match(raw, /if \(API\.modoCorte20Activo !== true && API\.coordinadorCorte20\)/);
+  assert.equal(raw.includes('window.addEventListener("online", _intentarActivarCorte20SiElegible);'), false);
+
+  const patched = patchSyncYjsUnblockPilotAndRetry(raw);
+  assert.equal(patched.changed, true);
+  assert.match(patched.source, /API\.rollout\.yparty === true \|\| API\.rollout\.sync4 === true/);
+  assert.match(patched.source, /if \(API\.modoCorte20Activo !== true\) \{\n\s*_intentarActivarCorte20SiElegible\(\);/);
+  assert.match(patched.source, /window\.addEventListener\("online", _intentarActivarCorte20SiElegible\);/);
 });

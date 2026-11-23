@@ -36,11 +36,13 @@ const CUT_ALLOWLISTS = Object.freeze({
     ]
   },
   C214: {
-    title: 'v0.8.96 Sync4 correctness only (patches 01, 02, 03, 06) — zero boot/i18n/rollout mixing',
+    title: 'v0.8.98 (C218/C214) Sync4 correctness only (patches 01, 02, 03, 06, 07) — zero boot/i18n/rollout mixing',
     exact: new Set([
       'src/port2-readonly-catalog-session.mjs',
       'docs/sync-realtime.js',
       'docs/sync-realtime.min.js',
+      'docs/sync-yjs.js',
+      'docs/sync-yjs.min.js',
       'src/yparty-piloto.js',
       'docs/vendor/yparty-piloto.min.js',
       'docs/auth-ui.js',
@@ -50,11 +52,11 @@ const CUT_ALLOWLISTS = Object.freeze({
     ]),
     prefixes: ['test/'],
     forbiddenExplicit: [
-      { re: /^docs\/(carga-tardia|i18n|i18n-es|sync-rollout)/i, reason: 'Belongs strictly to C215 — do NOT mix boot/i18n/rollout into C214 Sync4 correctness' }
+      { re: /^docs\/(carga-tardia|i18n|i18n-es|sync-rollout)/i, reason: 'Belongs strictly to C219/C215 — do NOT mix boot/i18n/rollout into Sync4 correctness cut' }
     ]
   },
   C215: {
-    title: 'v0.8.97 Client store rollout + <=40% JS boot (patches 04, 05) — zero Sync4 auth/runtime edits',
+    title: 'v0.8.99 (C219/C215) Client store rollout + <=40% JS boot (patches 04, 05) — zero Sync4 auth/runtime edits',
     exact: new Set([
       'docs/index.html',
       'docs/carga-tardia.js',
@@ -68,10 +70,17 @@ const CUT_ALLOWLISTS = Object.freeze({
     ]),
     prefixes: ['test/'],
     forbiddenExplicit: [
-      { re: /^docs\/(auth-ui|sync-yjs|sync-realtime)/i, reason: 'Sync4 runtime frozen in C215 — auth/sync edits belong only to C214' },
-      { re: /^(src|cloudflare-worker|cloudflare-yparty-worker)\//i, reason: 'Runtime/Worker code frozen in C215' }
+      { re: /^docs\/(auth-ui|sync-yjs|sync-realtime)/i, reason: 'Sync4 runtime frozen in C219/C215 — auth/sync edits belong only to C218/C214' },
+      { re: /^(src|cloudflare-worker|cloudflare-yparty-worker)\//i, reason: 'Runtime/Worker code frozen in C219/C215' }
     ]
   }
+});
+
+// Live release-number aliases (C216=v0.8.96 merged, C217=v0.8.97 open, C218=Sync4 correctness, C219=Rollout+40% boot)
+const CUT_ALIASES = Object.freeze({
+  C217: 'C213',
+  C218: 'C214',
+  C219: 'C215'
 });
 
 function normalizePath(p) {
@@ -79,10 +88,11 @@ function normalizePath(p) {
 }
 
 function validateScopeLock({ cut, files }) {
-  const cutKey = String(cut || '').trim().toUpperCase();
+  const rawCutKey = String(cut || '').trim().toUpperCase();
+  const cutKey = CUT_ALIASES[rawCutKey] || rawCutKey;
   const spec = CUT_ALLOWLISTS[cutKey];
   if (!spec) {
-    return { ok: false, cut: cutKey, violations: [{ file: '*', reason: `Unknown cut "${cut}". Allowed: C213, C214, C215` }] };
+    return { ok: false, cut: rawCutKey, violations: [{ file: '*', reason: `Unknown cut "${cut}". Allowed: C213/C217, C214/C218, C215/C219` }] };
   }
   const normalized = (files || []).map(normalizePath).filter(Boolean);
   const violations = [];

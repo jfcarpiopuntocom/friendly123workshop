@@ -11,11 +11,12 @@ const {
   buildCargaTardiaV2Source,
   patchI18nSplitEs,
   patchSwAddI18nEs,
-  patchAuthUiAdminVerifyAndLogoutWipe
+  patchAuthUiAdminVerifyAndLogoutWipe,
+  patchSyncYjsUnblockPilotAndRetry
 } = require('./sync4-v895-c214-patchers.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const BASE_COMMIT = '17131947'; // latest origin/feat/c213-sync4-todos-roles-pin-panel (v0.8.95)
+const BASE_COMMIT = 'bb684e1a'; // latest origin/fix/c217-emergency-recovery-efectivo (v0.8.97)
 const OUT_DIR = path.join(__dirname, '..', 'patches-v895');
 
 function gitShow(relPath) {
@@ -104,6 +105,14 @@ const specs = [
       const before = gitShow('docs/auth-ui.js');
       const res = patchAuthUiAdminVerifyAndLogoutWipe(before);
       return [{ relPath: 'docs/auth-ui.js', before, after: res.source }];
+    }
+  },
+  {
+    name: '07-v897-sync-yjs-unblock-pilot-and-online-retry.patch',
+    pairs: () => {
+      const before = gitShow('docs/sync-yjs.js');
+      const res = patchSyncYjsUnblockPilotAndRetry(before);
+      return [{ relPath: 'docs/sync-yjs.js', before, after: res.source }];
     }
   }
 ];
