@@ -15,7 +15,8 @@ const {
   patchSyncYjsUnblockPilotAndRetry,
   patchPinWorkerAutoRegisterVerifiedInstance,
   patchSyncYjsAutoFailbackReturnToA,
-  patchYpartyPilotoWakeupDrain
+  patchYpartyPilotoWakeupDrain,
+  patchHelpUiSync4StatusPill
 } = require('./sync4-v895-c214-patchers.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
@@ -141,6 +142,14 @@ const specs = [
       const before = gitShow('src/yparty-piloto.js');
       const res = patchYpartyPilotoWakeupDrain(before);
       return [{ relPath: 'src/yparty-piloto.js', before, after: res.source }];
+    }
+  },
+  {
+    name: '11-v898-help-ui-sync4-header-status-pill.patch',
+    pairs: () => {
+      const before = gitShow('docs/help-ui.js');
+      const res = patchHelpUiSync4StatusPill(before);
+      return [{ relPath: 'docs/help-ui.js', before, after: res.source }];
     }
   }
 ];

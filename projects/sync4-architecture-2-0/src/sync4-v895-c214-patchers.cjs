@@ -537,6 +537,51 @@ function patchYpartyPilotoWakeupDrain(source) {
   return { source: source.replace(target, replacement), changed: true };
 }
 
+/**
+ * Patch 11 (on v0.8.98 8d1519df:docs/help-ui.js):
+ * Keeps the header sync pill accurate once Sync4 activates (modoCorte20Activo === true)
+ * and pauses legacy Sync3 (OCSyncControl.estado() === "apagado"): shows "Synchronized"
+ * when Sync4-A is active with 0 pending ops, or "Sync pending" only when Sync4 actually
+ * has unconfirmed ops, and refreshes immediately on oc-op-20-recibo / oc-login.
+ */
+function patchHelpUiSync4StatusPill(source) {
+  const target =
+    '      const C = window.OCSyncControl;\n' +
+    '      const conectado = estado || (C && C.estado ? C.estado() : "apagado");\n' +
+    '      const e = C && C.durabilidadPendiente && C.durabilidadPendiente() ? "pendiente" : conectado;';
+
+  const replacement =
+    '      const C = window.OCSyncControl;\n' +
+    '      const Y = window.OCYjs;\n' +
+    '      const sync4Activo = !!(Y && Y.modoCorte20Activo === true);\n' +
+    '      const sync4Pend = sync4Activo && Y.recibosComerciales20 && typeof Y.recibosComerciales20.values === "function"\n' +
+    '        ? Array.from(Y.recibosComerciales20.values()).some(function (r) { return r && r.reconcileRequired === true && r.committed !== true; })\n' +
+    '        : false;\n' +
+    '      const conectado = sync4Activo\n' +
+    '        ? ((typeof navigator !== "undefined" && navigator.onLine === false) ? "apagado" : "conectado")\n' +
+    '        : (estado || (C && C.estado ? C.estado() : "apagado"));\n' +
+    '      const e = sync4Activo\n' +
+    '        ? (sync4Pend ? "pendiente" : conectado)\n' +
+    '        : (C && C.durabilidadPendiente && C.durabilidadPendiente() ? "pendiente" : conectado);';
+
+  if (source.includes('const sync4Activo = !!(Y && Y.modoCorte20Activo === true);')) {
+    return { source, changed: false };
+  }
+  if (!source.includes(target)) {
+    throw new Error('BUG-V898-11 header sync pill anchor not found in docs/help-ui.js');
+  }
+  let out = source.replace(target, replacement);
+  const listenTarget = '  window.addEventListener("oc-lang-change", function () { pintarMini(); });';
+  const listenReplacement =
+    '  window.addEventListener("oc-lang-change", function () { pintarMini(); });\n' +
+    '  window.addEventListener("oc-op-20-recibo", function () { pintarMini(); });\n' +
+    '  window.addEventListener("oc-login", function () { setTimeout(function () { pintarMini(); }, 250); });';
+  if (out.includes(listenTarget)) {
+    out = out.replace(listenTarget, listenReplacement);
+  }
+  return { source: out, changed: true };
+}
+
 module.exports = {
   patchReadOnlyCatalogSalaVaciaEmptyRoots,
   patchSyncRealtimeAllowColdDevicePause,
@@ -549,5 +594,6 @@ module.exports = {
   patchSyncYjsUnblockPilotAndRetry,
   patchPinWorkerAutoRegisterVerifiedInstance,
   patchSyncYjsAutoFailbackReturnToA,
-  patchYpartyPilotoWakeupDrain
+  patchYpartyPilotoWakeupDrain,
+  patchHelpUiSync4StatusPill
 };

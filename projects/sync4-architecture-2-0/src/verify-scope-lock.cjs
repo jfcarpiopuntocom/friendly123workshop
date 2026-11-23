@@ -47,6 +47,8 @@ const CUT_ALLOWLISTS = Object.freeze({
       'docs/vendor/yparty-piloto.min.js',
       'docs/auth-ui.js',
       'docs/auth-ui.min.js',
+      'docs/help-ui.js',
+      'docs/help-ui.min.js',
       'docs/index.html',
       ...SEAL_FILES
     ]),
