@@ -2187,6 +2187,12 @@
           if (!f.ubicacionId) return "<td style='padding:8px;'>—</td>";
           return "<td style='padding:4px;'><a href='index.html#editar=comisionpercha:" + esc(encodeURIComponent(f.ubicacionId)) + "' aria-label='" + (localStorage.getItem("f123_lang") === "es" ? "Editar comisión de percha" : "Edit shelf commission") + "' style='display:inline-block;padding:8px;min-width:44px;min-height:44px;box-sizing:border-box;'>✎</a></td>";
         }
+        if (vista === "clientes" && window.OCCustomerProfile) {
+          var esDeg = localStorage.getItem("f123_lang") === "es";
+          if (c.field === "resideCuenca") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + esc(window.OCCustomerProfile.residentLabel(f[c.field], esDeg)) + "</td>";
+          if (c.field === "genero") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + esc(window.OCCustomerProfile.genderLabel(f[c.field], esDeg)) + "</td>";
+          if (c.field === "telefono" && f[c.field]) return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + esc(window.OCCustomerProfile.whatsapp(f[c.field])) + "</td>";
+        }
         var val = f[c.field];
         if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + (c.field === 'stockActual' ? 'Stock pending' : '—') + "</td>";
         if (/^(precio|costo|margen|precioUnit|costoUnit|monto)$/.test(c.field)) val = money(val);
@@ -2629,8 +2635,8 @@
     var cli = {};
     clientesArr.forEach(function (c) { cli[c.id] = c.nombre; });
 
-    var productos = (e.productos || []).map(function (p) {
-      prods[p.id] = p;
+    (e.productos || []).forEach(function (p) { if (p && p.id) prods[p.id] = p; });
+    var productos = (e.productos || []).filter(function (p) { return p && !p.borrado; }).map(function (p) {
       var precio = window.OCBusinessReadModel.number(p.precio), costo = window.OCBusinessReadModel.number(p.costo);
       return {
         id: p.id, nombre: p.nombre, sku: p.sku || "", categoria: p.categoria || "",
@@ -2690,7 +2696,7 @@
       r.ganadoC += Number(o.signedAmountCents || 0); r.dueC += Number(o.dueCents || 0);
     });
     var entra = 0, sale = 0, nHoy = 0;
-    var ventas = (e.ventas || []).filter(function (v) { return v && !v.anulada; }).map(function (v) {
+    var ventas = (e.ventas || []).filter(function (v) { return v && !v.anulada && !v.borrado; }).map(function (v) {
       var p = prods[v.productoId] || {};
       var cant = Number(v.cantidad) || 0;
       var pu = window.OCBusinessReadModel.number(v.precioUnit), cu = window.OCBusinessReadModel.number(v.costoUnit);
@@ -2792,7 +2798,7 @@
 
     return {
       productos: productos,
-      clientes: clientesArr.filter(function (c) { return !c.despedido; }),
+      clientes: clientesArr.filter(function (c) { return c && !c.despedido && !c.borrado; }),
       ventas: ventas,
       liquidaciones: liquidaciones,
       payouts: e.payouts || [],
@@ -3033,7 +3039,7 @@
       datos.gastosMensuales = { porUbicacion: e.gastosMensuales || {},
         gastosMensuales: Object.values(e.gastosMensuales || {}).reduce(function (a, v) { return a + (Number(v) || 0); }, 0) };
       datos.movimientos = e.movimientos || [];
-      datos.promotoras = e.promotoras || [];
+      datos.promotoras = (e.promotoras || []).filter(function (p) { return p && !p.borrado; });
       /* No previous shop / revision finance facts may survive until IDB replies. */
       datos.hechosFinancieros = [];
       datos.cobertura = {ajustesComision:Array.isArray(e.ajustesComision),finanzasCoherentes:true,productos:Array.isArray(e.productos),ventas:Array.isArray(e.ventas),clientes:Array.isArray(e.clientes),gastos:Array.isArray(e.gastos),hechosFinancieros:false,motivoHechos:"cargando",resumen:!!d.resumen,timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone};

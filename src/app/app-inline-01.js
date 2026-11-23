@@ -1324,8 +1324,9 @@ function tarjetaCliente(c, esDueno){
       <label style="font-size:14px;">${escHtml(t("cust.gender"))} <select id="oc-edit-genero-${c.id}" data-original="${window.OCCustomerProfile.gender(c.genero)}" style="padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesGenero(c.genero)}</select></label>` : ""}
       <button onclick="guardarContactoCliente(${argHtml(c.id)})" class="ir" style="font-size:13px;padding:6px 12px;">Save</button>
     </div>`;
-  // Controles de evaluación: visibles a dueño y encargados (no en demo si no hay sesión).
-  const puedeEvaluar = window.OCAuth && window.OCAuth.rolActual && (window.OCAuth.rolActual() === "dueno" || window.OCAuth.rolActual() === "empleado");
+  // Controles de evaluación: visibles a dueño, admin y encargados (no en demo si no hay sesión).
+  const _rolEv = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : "";
+  const puedeEvaluar = _rolEv === "dueno" || _rolEv === "admin" || _rolEv === "empleado";
   // CALIFICADOR 1-5 (JFC 2026-08-06, portado tal cual de amigable-123 — es el
   // UNICO sistema de calificar en todas las apps, fin de manitos/upvotes/tri-
   // estado). Tap acumulativo: tocar N enciende 1..N; tocar el mismo N otra vez
@@ -4191,8 +4192,6 @@ function mostrarFormNuevoProducto(codigoEscaneado){
             <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>`}
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="np-nombre" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
-        <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
         <select id="np-tipo-producto" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;">
           <option value="normal">Normal</option>
@@ -4270,8 +4269,6 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   });
   /* Comisionista (JFC 2026-08-27): poblar el dropdown con las promotoras. */
   poblarSelectComisionistas("np-comisionista", null);
-  /* Categoria como combo mixto: se elige de la lista o se escribe otra. */
-  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
   /* Nada tecleado se pierde: si se va la luz, se toca "atras" o el telefono
      manda la app al fondo, lo escrito sigue aqui al volver. Ver borradores.js. */
   try {
@@ -4612,8 +4609,6 @@ async function abrirAltaProducto(){
         <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="np-nombre" type="text" ${inp}></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
-        <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
         <select id="np-tipo-producto" ${inp}>
           <option value="normal">Normal</option>
@@ -4703,7 +4698,6 @@ async function abrirAltaProducto(){
     const wt = document.getElementById("np-ticket-wrap");
     if (wt) wt.style.display = e.target.value === "ticket" ? "block" : "none";
   });
-  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
   /* Mismo borrador que el formulario de Escanear: son el MISMO alta con dos
      puertas de entrada, asi que comparten clave y lo empezado en una se
      recupera en la otra. */
@@ -5031,6 +5025,8 @@ async function abrirPanelVentaInfo(id, esTicket){
           </div>
         </div>
       </div>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblSaleDate">${escHtml(t("sale.lblSaleDate"))}</span><br>
+        <input id="vi-fecha-venta" type="date" value="${escHtml(_fechaYmdEcuador())}" ${inp}></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;cursor:pointer;">
         <input id="vi-add-factura" type="checkbox" style="width:auto;margin:0;"><span data-i18n="sale.lblAddInvoice">${escHtml(t("sale.lblAddInvoice"))}</span></label>
       <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;"><span data-i18n="sale.lblInvoiceNo">${escHtml(t("sale.lblInvoiceNo"))}</span><br>
@@ -5241,6 +5237,13 @@ async function abrirPanelVentaInfo(id, esTicket){
 }
 let _viBarActualizar = null;
 let _viPintarImpuesto = null;
+function _fechaYmdEcuador(d){
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guayaquil", year: "numeric", month: "2-digit", day: "2-digit" }).format(d ? new Date(d) : new Date());
+  } catch (_) {
+    try { return (d ? new Date(d) : new Date()).toISOString().slice(0, 10); } catch (__) { return ""; }
+  }
+}
 window.addEventListener("oc-lang-change", () => { if (window._viRefrescarTextos) window._viRefrescarTextos(); });
 function cancelarPanelVentaInfo(){
   const overlay = document.getElementById("oc-ventainfo-overlay");
@@ -5357,7 +5360,10 @@ async function confirmarVentaConInfo(id, esTicket){
   try {
     let res, data;
     try {
+      const _fvRaw = g("vi-fecha-venta");
+      const _fvHoy = _fechaYmdEcuador();
       const ventaDatos = { cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modalidadVenta: g("vi-modalidad") || undefined, modoComision: _modoComisionVenta,
+        ...(_fvRaw && _fvRaw !== _fvHoy ? { fechaVenta: _fvRaw } : {}),
         promotoraId: (_modoComisionVenta === "associate" && document.getElementById("vi-comisionista")) ? (document.getElementById("vi-comisionista").value || null) : null,
         asistenteId: (_modoComisionVenta === "associate" && document.getElementById("vi-asistente")) ? (document.getElementById("vi-asistente").value || null) : null,
         asistentePct: (document.getElementById("vi-asistente-pct") || {}).value,
@@ -5564,6 +5570,7 @@ async function cargarVentasSold(){
               <option value="other"${v.formaPago === "other" ? " selected" : ""}>${_tx("Other","Otro")}</option>
             </select></label>
         </div>
+        <label style="display:block;font-size:13px;margin-top:8px;">${_tx("Sale date","Fecha de la venta")}<br><input class="vs-fecha" type="date" value="${escHtml(_fechaYmdEcuador(v.fecha))}" data-orig="${escHtml(_fechaYmdEcuador(v.fecha))}" ${bloqueada ? "disabled" : ""} style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
         <label style="display:block;font-size:13px;margin-top:8px;">${_tx("Invoice number (optional)","Número de factura (opcional)")}<br><input class="vs-factura" type="text" value="${escHtml(v.factura || "")}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
         <label style="display:block;font-size:13px;margin-top:8px;">${_tx("Notes","Notas")}<br><input class="vs-notas" type="text" value="${escHtml(v.notas || "")}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
         <div style="display:flex;gap:8px;margin-top:10px;">
@@ -5624,6 +5631,8 @@ async function cargarVentasSold(){
           notas: row.querySelector(".vs-notas").value.trim(),
         }
       };
+      const _fInp = row.querySelector(".vs-fecha");
+      if (_fInp && !_fInp.disabled && _fInp.value && _fInp.value !== (_fInp.getAttribute("data-orig") || "")) payload.fecha = _fInp.value;
       // v489: send the customer only when it changed, so an untouched editor
       // never trips the backend's receipt/settlement guards.
       const _ventaVS = rows.find(v => v.id === id) || {};

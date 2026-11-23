@@ -177,10 +177,19 @@ test('RED->GREEN (WebKit): Path (a) Owner one-time encrypted migration pushes hi
       // Reset any pre-PIN CF pause via genuine oc-login and reconnect
       window.dispatchEvent(new CustomEvent('oc-login', { detail: { rol: 'dueno', demo: false } }));
       if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar();
-      await new Promise(r => setTimeout(r, 3200));
+      await new Promise(r => setTimeout(r, 2400));
     });
-    const baseRoom = [...relay.cfRooms.keys()].find(k => /^[a-f0-9]{40}$/.test(k));
-    const uploadedCountA = baseRoom ? relay.cfRooms.get(baseRoom).ops.length : 0;
+    const deadlineA = Date.now() + 5000;
+    let baseRoom = null;
+    let uploadedCountA = 0;
+    while (Date.now() < deadlineA) {
+      baseRoom = [...relay.cfRooms.keys()].find(k => /^[a-f0-9]{40}$/.test(k));
+      uploadedCountA = baseRoom ? relay.cfRooms.get(baseRoom).ops.length : 0;
+      if (uploadedCountA >= 1) break;
+      await new Promise(r => setTimeout(r, 150));
+    }
+    await new Promise(r => setTimeout(r, 300));
+    uploadedCountA = baseRoom ? relay.cfRooms.get(baseRoom).ops.length : 0;
     assert.ok(uploadedCountA >= 1, `Path (a): expected encrypted fichas ops in Cloudflare room, got ${uploadedCountA}`);
 
     // Verify one-time idempotency: second pass uploads ZERO new ops

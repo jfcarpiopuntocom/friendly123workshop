@@ -76,6 +76,16 @@
       return String(fechaISO || "").slice(0, 10);
     }
   }
+  function _parseFechaCalendarISO(raw) {
+    if (raw === undefined || raw === null || String(raw).trim() === "") return { vacia: true };
+    const s = String(raw).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return { invalida: true };
+    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    const dt = new Date(Date.UTC(y, mo - 1, d, 17, 0, 0, 0));
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return { invalida: true };
+    return { ymd: s, iso: dt.toISOString() };
+  }
   function ahoraRelayComun() {
     try {
       const n = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? Number(window.OCLatencia.ahoraRelay()) : NaN;
@@ -4990,7 +5000,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), ...(Array.isArray(v.direccionCambios) ? { direccionCambios: v.direccionCambios.slice(-20) } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit == null || String(v.costoUnit).trim() === "" || !Number.isFinite(Number(v.costoUnit)) || Number(v.costoUnit) < 0 ? null : Number(v.costoUnit), fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), ...(Array.isArray(v.direccionCambios) ? { direccionCambios: v.direccionCambios.slice(-20) } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit == null || String(v.costoUnit).trim() === "" || !Number.isFinite(Number(v.costoUnit)) || Number(v.costoUnit) < 0 ? null : Number(v.costoUnit), fecha: v.fecha || new Date().toISOString(), ...(v.creadaEn ? { creadaEn: v.creadaEn } : {}), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -6718,6 +6728,7 @@
           // Shell 371: el mes local de la venta, para que Commissions filtre por el mes elegido.
           mes: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7) : "",
           fechaLocal: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs) : "",
+          ...(v.creadaEn ? { creadaEn: v.creadaEn } : {}),
           ubicacionTipo: u ? (u.tipo || "propio") : "",
           // COUNTER SALE no se atribuye a la persona permanente de la percha:
           // el nombre acompaña solo a ventas que realmente tienen reparto.
@@ -7899,6 +7910,10 @@
           if (!clienteVenta) return J({ error: "Customer not found." }, 404);
           if (clienteVenta.despedido) return J({ error: `"${clienteVenta.nombre}" is fired — no new sales allowed. Reactivate them from Customers if this was a mistake.` }, 400);
         }
+        const _fechaVentaReq = _parseFechaCalendarISO(body && (body.fechaVenta !== undefined ? body.fechaVenta : body.fecha));
+        if (_fechaVentaReq.invalida) return J({ error: "Enter a valid sale date (YYYY-MM-DD)." }, 400);
+        const _esFechaManual = !!(_fechaVentaReq.ymd && _fechaVentaReq.ymd !== hoyISO());
+        const _ahoraVentaISO = new Date().toISOString();
         /* B1 (corrida Hugo/Paco/Luis, 2026-09-24): el stock bajaba ANTES de
            validar el cliente. Una venta rechazada (cliente borrado en otro
            aparato, o despedido) devolvia error pero el stock ya habia bajado y
@@ -7951,7 +7966,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: _esFechaManual ? _fechaVentaReq.iso : _ahoraVentaISO, ...(_esFechaManual ? { creadaEn: _ahoraVentaISO } : ((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {})), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { opId: opIdVenta, producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
         const _opVenta = { productoId: p.id, delta: -cant };
         // C34 PORT2: The old stock fact carries ONLY delta. C31's certified
@@ -7963,7 +7978,7 @@
         const _metodo20 = String(infoVenta.formaPago || "").trim().toLowerCase();
         const _unit20 = Math.round(precioEfectivo * 100);
         const _total20 = Math.round(montoBruto * 100);
-        if ((_metodo20 === "cash" || _metodo20 === "efectivo") &&
+        if (!_esFechaManual && (_metodo20 === "cash" || _metodo20 === "efectivo") &&
             !_esCortesia && infoVenta.fiadoAtomico !== true &&
             (infoVenta.montoPagado === null ||
               (Number.isFinite(infoVenta.montoPagado) && Math.round(infoVenta.montoPagado * 100) === _total20)) &&
@@ -8248,14 +8263,17 @@
            la cantidad ya habian cambiado y se guardaban. */
         const _hayCant = body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "";
         const _hayPrecio = body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "";
-        if (venta.devuelta && (_hayCant || _hayPrecio || body.clienteId !== undefined || (body.info && body.info.formaPago !== undefined))) {
+        const _hayFecha = body.fecha !== undefined && body.fecha !== null && String(body.fecha).trim() !== "";
+        const _fechaEdit = _hayFecha ? _parseFechaCalendarISO(body.fecha) : { vacia: true };
+        if (venta.devuelta && (_hayCant || _hayPrecio || _hayFecha || body.clienteId !== undefined || (body.info && body.info.formaPago !== undefined))) {
           return J({ error: "This sale was returned. Its financial history cannot be edited." }, 409);
         }
         // A partial payout is sealed money too. Reject financial edits before
         // stock or the split changes; notes and contact corrections remain usable.
-        if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit)) && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
+        if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit) || (_hayFecha && _fechaEdit.ymd !== fechaLocalDe(venta.fecha, venta.relojDesfaseMs))) && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
           return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
         }
+        if (_fechaEdit.invalida) return J({ error: "Enter a valid sale date (YYYY-MM-DD)." }, 400);
         if (_hayCant && !(Number.isInteger(Number(body.cantidad)) && Number(body.cantidad) >= 1)) return J({ error: "The quantity must be a whole number, 1 or more." }, 400);
         if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
         if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);
@@ -8375,6 +8393,13 @@
           }
         }
         if (_hayCant || _hayPrecio) venta.impuesto = impuestoCorregido;
+        if (_hayFecha && _fechaEdit.ymd && _fechaEdit.ymd !== fechaLocalDe(venta.fecha, venta.relojDesfaseMs)) {
+          cambios.fecha = { antes: venta.fecha, ahora: _fechaEdit.iso };
+          if (!venta.creadaEn) venta.creadaEn = venta.fecha;
+          venta.fecha = _fechaEdit.iso;
+          delete venta.relojDesfaseMs;
+          delete venta.relojMargenMs;
+        }
         if (body.clienteId !== undefined) {
           if (body.clienteId) { const c = clientes.find((x) => x.id === body.clienteId); if (!c) return J({ error: "Customer not found." }, 404); venta.clienteId = c.id; }
           else venta.clienteId = null;
