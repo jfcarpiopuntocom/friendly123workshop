@@ -20,44 +20,42 @@
 
 ---
 
-## CORTE 1 — C213 (`v0.8.95`, base `17131947`) · PUBLICAR Y DESPLEGAR
+## CORTE 1 — C217 (`v0.8.97`, base `bb684e1a`; aliases `C213`/`C217`) · PUBLICAR Y DESPLEGAR
 
-- **Problema único definido:** `master`/`estable` siguen en `v0.8.94` (`9fe50b58`) y la rama `feat/c213-sync4-todos-roles-pin-panel` (`17131947`) aún no está publicada ni los Workers desplegados con `team-authority.mjs` (PIN-only), `ws-worker-api.mjs` (grants por defecto) y `ws-authority-client.js` (`cat:read`).
-- **Archivos permitidos:** **NINGUNO nuevo** (solo corrección mínima si un check rojo de CI de C213 falla en `test/`).
-- **Acciones permitidas (en este orden exacto):**
-  1. Verificar checks verdes de `feat/c213-sync4-todos-roles-pin-panel` (`17131947`).
-  2. Fusionar a `master`, promover `estable` y confirmar workflow `publicar` SUCCESS en GitHub Pages.
-  3. Desplegar `cloudflare-worker` (`friendly123-licencias`) y `cloudflare-yparty-worker` (`friendly123-yparty-port2-canary-qa`).
+- **Estado real:** `C213` (`v0.8.95`, `83377f83`) y `C216` (`v0.8.96`, `1a8bc875`) ya fusionados en `master`/`estable`. `C217` (`v0.8.97`, `bb684e1a`) repara `Emergency recovery` -> `reenganchar.html` sin tocar datos locales.
+- **Archivos permitidos:** **NINGUNO nuevo** (solo merge de `bb684e1a` -> `master`/`estable` + deploy de los 2 Workers Cloudflare).
 - **Criterio binario `DONE` (Corte 1):**
-  - `GET https://jfcarpiopuntocom.github.io/friendly-123/version.json` responde `v0.8.95`.
-  - Ambos Workers desplegados y respondiendo 200.
+  - `GET https://jfcarpiopuntocom.github.io/friendly-123/version.json` responde `v0.8.97`.
+  - `friendly123-licencias` y `friendly123-yparty-port2-canary-qa` desplegados y respondiendo 200.
   - 1 login Dueño + 1 login Empleado en tienda piloto sin error 500/403.
 
 ---
 
-## CORTE 2 — C214 (`v0.8.96`) · SOLO CORRECTITUD Y ACTIVACIÓN SYNC4 EN APARATOS NUEVOS/COMPARTIDOS
+## CORTE 2 — C218 (`v0.8.98`, aliases `C214`/`C218`) · SOLO CORRECTITUD Y ACTIVACIÓN SYNC4
 
-- **Problema único definido:** En `v0.8.95` (`17131947`) siguen existiendo 4 defectos concretos que impiden activar Sync4 en aparatos nuevos o compartidos:
-  1. `admin`/`empleado` en `sala-vacia` nueva falla al no existir todavía las raíces `productos`/`ubicaciones`.
-  2. `pausarParaArquitectura20()` devuelve `{ ok: false }` cuando el aparato nunca tuvo sala Sync3 (`!leerSala()`).
-  3. `auth-ui.js` omite `/team/verify` para `admin` con hash local, no bloquea `403 team-not-verified` y no borra `window.__f123CentralTeamPrincipal` al cerrar sesión.
-  4. Falta `window.OCSync4Diagnostico()` para comprobar `rutaEfectiva` en 1 línea en Safari/Opera.
-- **Parches ya construidos y verificados (`patches-v895/`):** `01`, `02`, `03`, `06`.
+- **Problema único definido:** En `v0.8.97` (`bb684e1a`) siguen existiendo 5 defectos concretos de activación/seguridad Sync4:
+  1. `admin`/`empleado` en `sala-vacia` nueva falla al no existir todavía las raíces `productos`/`ubicaciones` (`01`).
+  2. `pausarParaArquitectura20()` devuelve `{ ok: false }` cuando el aparato nunca tuvo sala Sync3 (`!leerSala()`) (`02`).
+  3. Falta `window.OCSync4Diagnostico()` para comprobar `rutaEfectiva` en 1 línea en Safari/Opera (`03`).
+  4. `auth-ui.js` omite `/team/verify` para `admin` con hash local, no bloquea `403 team-not-verified` y no borra `window.__f123CentralTeamPrincipal` al cerrar sesión (`06`).
+  5. `docs/sync-yjs.js` (línea 3446 y 3486): la tienda piloto (`yparty: true`, `frozenHead: "fb-..."`) queda bloqueada si hay `pendingStructs` de Sync3, `sincronizarVisibilidad()` no reintenta cuando `coordinadorCorte20` es `null` y falta listener `online` (`07`).
+- **Parches ya construidos y verificados (`patches-v895/`):** `01`, `02`, `03`, `06`, `07`.
 - **Lista blanca CERRADA de archivos en `friendly-123`:**
   - `src/port2-readonly-catalog-session.mjs`
   - `docs/sync-realtime.js` (+ `docs/sync-realtime.min.js`)
+  - `docs/sync-yjs.js` (+ `docs/sync-yjs.min.js`)
   - `src/yparty-piloto.js` (+ `docs/vendor/yparty-piloto.min.js`)
   - `docs/auth-ui.js` (+ `docs/auth-ui.min.js`)
-  - Tests nuevos de regresión en `test/` para C214
+  - Tests nuevos de regresión en `test/` para C218
   - Sello de versión: `docs/version.json`, `docs/sw.js`, `docs/dashboard.html`, `docs/index.html` (solo versión/meta), `docs/version-manifest.json`
 - **PROHIBIDO en Corte 2:** tocar `docs/carga-tardia.js`, `docs/i18n.js`, `docs/sync-rollout.json`, CSS o Sync3.
 - **Criterio binario `DONE` (Corte 2):**
-  - CI verde + `v0.8.96` publicada en GitHub Pages (`version.json` = `v0.8.96`).
+  - CI verde + `v0.8.98` publicada en GitHub Pages (`version.json` = `v0.8.98`).
   - Ciclo real **A→B→A × 2** (Dueño + Admin/Empleado) en tienda piloto: `window.OCSync4Diagnostico().rutaEfectiva === "sync4-a-2.0"`, stock y dinero idénticos en ambos aparatos, y `window.__f123CentralTeamPrincipal === null` tras cerrar sesión.
 
 ---
 
-## CORTE 3 — C215 (`v0.8.97`) · ENCENDIDO DE TIENDAS CLIENTES + ARRANQUE JS ≤ 40 %
+## CORTE 3 — C219 (`v0.8.99`, aliases `C215`/`C219`) · ENCENDIDO DE TIENDAS CLIENTES + ARRANQUE JS ≤ 40 %
 
 - **Problema único definido:** (A) Habilitar Sync4 en las tiendas clientes autorizadas (lista de licencias + `SALAS_PILOTO` + `docs/sync-rollout.json` con `WS_ABRIR_SIN_HISTORIA=1`); (B) bajar el JS síncrono pre-PIN de `2,522,894 B` (`68.07 %`) a `≤ 1,482,506 B` (`≤ 40.00 %`).
 - **Parches ya construidos y verificados (`patches-v895/`):** `04`, `05`.
