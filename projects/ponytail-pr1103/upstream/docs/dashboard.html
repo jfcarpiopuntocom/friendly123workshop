@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="dashboard-shell" content="f123-shell-v922">
+<meta name="dashboard-release" content="v0.9.22">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
+
+<!-- iOS and the WhatsApp in-app browser reinterpret colors in dark mode.
+     Without this block the text becomes invisible. -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#F8F9FB">
+<meta name="robots" content="noindex,nofollow">
+
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/f123-color-v577-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/f123-color-v577-32.png">
+<link rel="icon" type="image/x-icon" href="./favicon-v577.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/f123-color-v577-180.png">
+<link rel="manifest" href="./dashboard-manifest.json">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="friendly-123">
+<meta property="og:title" content="Dashboard">
+<meta property="og:description" content="Your entire business on one big screen. The data stays on your devices.">
+<meta property="og:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
+
+<!-- v510 (Oct14fixes 6, JFC 2026-10-14: "en la splash cambia la tipografia un par de veces, A-B-A-B").
+     Causa medida: las letras venian de Google con display=swap; el splash pintaba la letra de
+     reemplazo y ~1,2 s despues cambiaba a la de marca, y al pasar al PIN otra vez. Ahora las
+     letras viven en ./fonts (licencia OFL), se precargan y el service worker las guarda.
+     font-display: optional = si la letra no esta lista al primer pintado, se queda UNA sola
+     letra en esa vista; nunca cambia a mitad. Desde la segunda visita sale del telefono. -->
+<link rel="preload" href="./fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+
+<!-- Tabulator: tabla, busqueda, agrupacion y los cinco exports en una sola
+     libreria. SheetJS y jsPDF se cargan al pedir su exportacion.
+     El CDN aqui SI corresponde: este archivo necesita conexion por definicion,
+     al reves que la app, que tiene que arrancar sin ella. Si un CDN no carga,
+     ver degradarSinTabulator(): la tabla se sigue viendo en HTML plano. -->
+<link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator_simple.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js" defer></script>
+<!-- Export dependencies load on demand; local PDF assets stay in the offline shell. -->
+
+<link rel="stylesheet" href="./dashboard-main.min.css">
+
+</head>
+<body>
+
+<!-- ══════════════════════════ PUERTA ══════════════════════════ -->
+
+<div id="puerta">
+  <div class="card">
+    <img id="logo-puerta" alt="friendly-123">
+    <h1>Dashboard</h1>
+    <p class="sub">Your whole business, on one big screen.</p>
+
+    <!-- Legacy remote-photo guidance; independent local access hides this. -->
+    <div id="aviso-app-abierta" role="note">
+      <span class="icon">!</span>
+      <span>
+        <strong>Open the friendly-123 app on your phone or tablet BEFORE you sign in here.</strong>
+        <span class="paso">1. On your phone, open the app and log in with your PIN.</span>
+        <span class="paso">2. Keep that tab open (do not close it).</span>
+        <span class="paso">3. Then come back here and enter your code + PIN below.</span>
+        <span class="paso" style="color:#7a5510;">This board has no data of its own — it reads live from your device.</span>
+      </span>
+    </div>
+
+    <!-- 2026-10-13: this viewer authenticates the business owner/admin.
+         The app's demo PIN does not open a dashboard demo. -->
+    <input id="codigo" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
+           placeholder="F123-XXXX-XXXX-XXXX-XXXXX" aria-label="Your business code">
+    <!-- EL PIN NO ES OPCIONAL (JFC, 2026-08-15). El codigo abre la sala; el PIN
+         dice quien eres. Un enlace reenviado sin PIN no muestra nada. Se
+         verifica en el dispositivo del duenio, no aqui: este lienzo nunca sabe
+         si un PIN existe, solo recibe un si o un no. -->
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off"
+           maxlength="6" placeholder="Your PIN" aria-label="Your owner or admin PIN">
+    <p class="hint-boton">To see your real business data here, friendly-123 must be open in another tab or on another device.</p>
+    <p style="font-size:14px;text-align:center;margin:8px 0;"><a href="./pwa-rescue.html" style="font-weight:700;color:#24496A;">Duplicate dashboard or app on iPhone? PWA rescue</a></p>
+    <button type="button" class="btn" id="entrar">See my business</button>
+    <p class="msg" id="msg"></p>
+
+    <p class="nota">
+      This board is a canvas: it stores nothing. What you see arrives encrypted from
+      your team's devices and disappears when you close this tab.
+      <button type="button" class="enlace" id="ver-politica-2">How we handle your data</button>
+    </p>
+  </div>
+</div>
+
+<!-- Politica de datos. Corta a proposito: si hace falta una pagina entera
+     para explicar que no guardamos nada, algo se esta guardando. -->
+<div id="pol" role="dialog" aria-modal="true" aria-labelledby="pol-t">
+  <div class="card">
+    <h2 id="pol-t">How we handle your data</h2>
+    <p><strong>We do not handle them. We do not have them.</strong></p>
+    <ul>
+      <li>Your products, sales and customers are stored on your team's devices. On no server of ours.</li>
+      <li>For them to appear here, they travel encrypted with a key derived from your license code — the key never leaves your devices.</li>
+      <li>The server they pass through only bounces bytes it cannot read, and does not store them.</li>
+      <li>Reports stay on your device. A temporary session keeps automatic updates from asking for your PIN again; the PIN is not stored by the dashboard.</li>
+      <li>No analytics, no trackers, no ads.</li>
+    </ul>
+    <p>The only things we do keep, in our license panel: your code, your name and contact email, and the technical failures the app self-reports so we can fix them. Nothing about your business.</p>
+    <button type="button" class="btn" id="pol-x">Got it</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ TABLERO ══════════════════════════ -->
+<header class="top" id="cabecera" style="display:none;">
+  <div class="wrap">
+    <img id="logo-top" alt="friendly-123">
+    <span class="neg" id="neg-nombre">Tu negocio</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v0.9.22</span>
+    <div class="tools" aria-label="Report tools">
+      <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
+      <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
+    </div>
+    <span class="pulso"><span class="punto" id="punto"></span><span id="pulso-txt">conectando…</span></span>
+  </div>
+</header>
+
+<!-- ISLA VIVA (hub v462, JFC 2026-10-07). Reposo = punto de sync + lo que entro hoy.
+     Una venta nueva se anuncia 4 s; las alertas quedan hasta que se toca; al tocar se
+     expande a Sync, Last sale, Payments y Alerts, y cada fila lleva a su tarjeta.
+     Se pinta desde el MISMO evento que repinta el tablero (mostrar), sin reloj propio.
+     Sin JS queda como pastilla estatica con el dinero de hoy. -->
+<div class="isla-caja" id="isla-caja">
+  <div class="isla" id="isla" data-estado="reposo" data-sync="">
+    <button type="button" class="isla-cab" id="isla-cab" aria-expanded="false" aria-controls="isla-filas">
+      <span class="isla-punto" id="isla-punto"></span>
+      <span class="isla-txt" id="isla-txt"></span>
+      <span class="isla-dinero" id="isla-dinero">$0.00</span>
+    </button>
+    <ul class="isla-filas" id="isla-filas" hidden>
+      <li><a href="#/equipo" data-fila="sync"><span class="isla-et" data-copy="nuevo">Sync</span><span class="isla-v" id="isla-v-sync">&mdash;</span></a></li>
+      <li><a href="#/hoy" data-fila="venta"><span class="isla-et" data-copy="nuevo">Last sale</span><span class="isla-v" id="isla-v-venta">&mdash;</span></a></li>
+      <li><a href="#/comisiones" data-fila="pagos"><span class="isla-et" data-copy="nuevo">Payments</span><span class="isla-v" id="isla-v-pagos">&mdash;</span></a></li>
+      <li><a href="#/alertas" data-fila="alertas"><span class="isla-et" data-copy="nuevo">Alerts</span><span class="isla-v" id="isla-v-alertas">&mdash;</span></a></li>
+    </ul>
+  </div>
+  <span class="sr" id="isla-vivo" role="status" aria-live="polite"></span>
+</div>
+
+<!-- NAVEGACION (hub v462). Movil: barra inferior con 5 destinos. Escritorio: barra lateral
+     con los 8 (los marcados solo-lado se alcanzan en movil desde las tarjetas del inicio).
+     Son enlaces #/ruta normales: el boton Atras del navegador funciona sin codigo extra. -->
+<nav class="nav-hub" id="nav-hub" aria-label="Dashboard">
+  <a href="#/" data-ruta="inicio" aria-current="page"><span data-copy="nuevo">Home</span></a>
+  <a href="#/hoy" data-ruta="hoy"><span data-copy="nuevo">Today</span></a>
+  <a href="#/comisiones" data-ruta="comisiones"><span>Commissions</span></a>
+  <a href="#/inventario" data-ruta="inventario"><span data-copy="nuevo">Inventory</span></a>
+  <a href="#/clientes" data-ruta="clientes" class="solo-lado"><span>Customers</span></a>
+  <a href="#/equipo" data-ruta="equipo"><span data-copy="nuevo">Team</span></a>
+  <a href="#/alertas" data-ruta="alertas" class="solo-lado"><span data-copy="nuevo">Alerts</span></a>
+  <a href="#/herramientas" data-ruta="herramientas" class="solo-lado"><span data-copy="nuevo">Tools</span></a>
+</nav>
+
+<main id="tablero"><div class="wrap">
+  <!-- INICIO DEL HUB (v462): una tarjeta por area; cada una abre su vista (#/ruta). -->
+  <section id="hub" data-vista="inicio" aria-label="Home">
+    <div class="tiles">
+      <a class="tile" href="#/hoy" data-tile="hoy" data-color="verde"><span class="tile-et" data-copy="nuevo">Today</span><span class="tile-n" id="t-hoy-n">$0.00</span><span class="tile-pie" id="t-hoy-p"></span><span class="tile-pie" id="t-hoy-p2"></span></a>
+      <a class="tile" href="#/comisiones" data-tile="comisiones"><span class="tile-et">Commissions</span><span class="tile-n" id="t-comisiones-n">$0.00</span><span class="tile-pie">Still to pay</span></a>
+      <a class="tile" href="#/inventario" data-tile="inventario"><span class="tile-et" data-copy="nuevo">Inventory</span><span class="tile-n" id="t-inventario-n"></span><span class="tile-chips" id="t-inventario-chips"></span></a>
+      <a class="tile" href="#/clientes" data-tile="clientes"><span class="tile-et">Customers</span><span class="tile-n" id="t-clientes-n">0</span><span class="tile-pie" id="t-clientes-p"></span></a>
+      <a class="tile" href="#/equipo" data-tile="equipo" data-color="verde"><span class="tile-et" data-copy="nuevo">Team</span><span class="tile-n" id="t-equipo-n">0</span><span class="tile-pie" id="t-equipo-p"></span></a>
+      <a class="tile" href="#/alertas" data-tile="alertas" data-color="verde"><span class="tile-et" data-copy="nuevo">Alerts</span><span class="tile-n" id="t-alertas-n">0</span><span class="tile-pie" id="t-alertas-p"></span></a>
+      <a class="tile" href="#/herramientas" data-tile="herramientas"><span class="tile-et" data-copy="nuevo">Tools</span><span class="tile-n">&nbsp;</span><span class="tile-pie">Real unit cost &middot; Support &middot; My log</span></a>
+    </div>
+  </section>
+
+  <!-- Cabecera de las vistas: Atras + nombre. Se muestra en todas menos el inicio. -->
+  <div class="vista-cab" id="vista-cab" data-vista="hoy comisiones inventario clientes equipo alertas herramientas">
+    <a class="atras" href="#/"><span data-copy="nuevo">Home</span></a>
+    <h2 id="vista-tit" data-copy="nuevo"></h2>
+  </div>
+
+  <!-- ALERTAS (v462): lista unica de pendientes; cada una lleva a su origen. -->
+  <section id="alertas" data-vista="alertas"><div id="alertas-lista"></div></section>
+
+  <div class="kpis" id="kpis" data-vista="hoy"></div>
+
+  <!-- COMMISSIONS, LA ESTRELLA DEL TABLERO (JFC 2026-09-24, Bloque 6b).
+       Se calcula aqui, en el lienzo, a partir de la foto que manda la app
+       (datos.ventas ya trae comisionPct/comisionAsociado/liquidada/mes por venta;
+       datos.liquidaciones trae el mes en curso por percha con meta, tramos,
+       devoluciones y reparto por persona). El tablero NO escribe dinero: pagar,
+       corregir y devolver se hacen en la app via deep-link #editar=comisiones:<id>.
+       Solo datos del propio dueno (la foto llega de sus aparatos). -->
+  <section id="cm" data-vista="comisiones" aria-labelledby="cm-titulo"></section>
+
+  <!-- Un solo bloque de tabla para las 11 vistas; el router muestra solo las pestanas de la tarjeta abierta. -->
+  <div id="datos" data-vista="hoy comisiones inventario clientes">
+  <div class="barra">
+    <div class="tabsel" id="tabsel"></div>
+    <input id="buscar" type="search" placeholder="Search everything: a product, a customer, an amount…" aria-label="Search">
+    <div class="exp" id="exp"></div>
+  </div>
+
+  <div id="tabla"></div>
+  <div class="cierre" id="cierre"></div>
+  </div>
+
+  <!-- CALCULADORA DE COSTO UNITARIO (JFC 2026-08-18).
+       "Queremos permitirles calcular costo unitario (en el tablero!,
+       recordemos que la app es de combate para la accion y el tablero es para
+       revisar con calma)".
+       Eso es exactamente por que vive AQUI y no en la app: sacar el costo real
+       de una unidad es una cuenta de sentarse, con la factura del proveedor
+       delante — no algo que se hace con el cliente esperando en el mostrador.
+       No guarda nada: el tablero es un lienzo. Da el numero para que el dueno
+       lo escriba en la ficha del producto desde la app. -->
+  <section id="costo-unit" data-vista="herramientas" style="margin:26px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Real unit cost</h2>
+    <p style="font-size:14px;color:#2C3E50;margin:0 0 12px;max-width:640px;">
+      Lo que de verdad te cuesta UNA unidad, con el flete, la aduana y lo que se
+      rompe en el camino repartido encima. Casi siempre es más que el precio de
+      la factura, y es el número con el que se decide un precio de venta.
+    </p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="font-size:13px;font-weight:700;">You paid in total<br>
+        <input id="cu-total" type="number" min="0" step="any" placeholder="0.00"
+          style="width:150px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Freight & shipping<br>
+        <input id="cu-flete" type="number" min="0" step="any" placeholder="0.00"
+          style="width:130px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Taxes & customs<br>
+        <input id="cu-imp" type="number" min="0" step="any" placeholder="0.00"
+          style="width:150px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Other costs<br>
+        <input id="cu-otros" type="number" min="0" step="any" placeholder="0.00"
+          style="width:130px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Units received<br>
+        <input id="cu-unid" type="number" min="1" step="1" placeholder="1"
+          style="width:150px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Broken or lost (%)<br>
+        <input id="cu-merma" type="number" min="0" max="99" step="0.5" placeholder="0"
+          style="width:180px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+      <label style="font-size:13px;font-weight:700;">Your selling price<br>
+        <input id="cu-precio" type="number" min="0" step="any" placeholder="0.00"
+          style="width:160px;padding:9px;margin-top:4px;border:2px solid #C7D3DD;border-radius:6px;font-size:16px;"></label>
+    </div>
+    <div id="cu-out" style="margin-top:14px;font-size:15px;line-height:1.6;"></div>
+  </section>
+
+  <!-- QUIEN ESTA EN EL LOOP. Va al PIE a proposito: no es lo primero que se
+       mira cada manana, pero es lo que hay que revisar antes de creerse los
+       numeros de arriba. Si un dispositivo lleva horas a ciegas, las cifras
+       de esta pantalla estan incompletas y hay que decirlo. -->
+  <section id="micelio" data-vista="equipo" style="margin:26px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Your team right now</h2>
+    <p id="micelio-resumen" style="font-size:15px;line-height:1.55;margin:0 0 12px;"></p>
+    <div id="micelio-lista" class="card" style="padding:6px 16px;"></div>
+    <p id="micelio-nota" style="font-size:14px;line-height:1.55;margin:10px 0 0;"></p>
+  </section>
+  <section id="finanzas-foto" data-vista="hoy" class="card" style="margin:24px 0;padding:18px;">
+    <h2 style="font-size:19px;margin:0 0 8px;">Finance snapshot</h2>
+    <div id="finanzas-foto-contenido" style="font-size:14px;line-height:1.5;">Waiting for a verified snapshot…</div>
+  </section>
+  <section id="sales-audit" data-vista="hoy" class="card" style="margin:24px 0;padding:18px;"></section>
+
+  <!-- AVANZADO, calcado (JFC 2026-08-15). La app del dia a dia mete todo esto
+       en una columna de telefono; aqui hay pantalla de sobra para usarlo bien.
+       Lo que se ve y lo que se hace NO se reimplementa: se le pide al
+       dispositivo del duenio por el canal cifrado y el ejecuta. Ver
+       ORDENES_PERMITIDAS en sync-realtime.js (lista blanca estricta). -->
+  <section id="avz" data-vista="equipo" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Avanzado</h2>
+    <div class="tabsel" id="avz-sel" style="margin:0 0 12px;"></div>
+    <div id="avz-cuerpo" class="card"></div>
+    <p id="avz-msg" style="font-size:15px;font-weight:700;margin:10px 0 0;min-height:22px;"></p>
+  </section>
+
+  <!-- QUIEN TIENE ACCESO (JFC 2026-08-28). El directorio de acceso: qué PIN
+       corresponde a qué persona (nombre, correo, notas). Es la base para el
+       control real de quién puede entrar a tu cuaderno. Se pide al dispositivo
+       del dueño por el canal cifrado (GET /api/directorio). -->
+  <section id="acceso" data-vista="equipo" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Who has access</h2>
+    <p style="font-size:14px;color:#2C3E50;margin:0 0 12px;max-width:640px;">
+      Cada PIN de tu cuaderno, con la persona que lo usa. Si un PIN no tiene
+      nombre, edítalo en la app (Acceso y recuperación) y asígnale quién es.
+    </p>
+    <div id="acceso-cuerpo" class="card" style="padding:6px 16px;">
+      <p style="font-size:14px;color:#2C3E50;margin:8px 0;">Cargando…</p>
+    </div>
+  </section>
+
+  <!-- SOPORTE (JFC 2026-08-28). Botones de auxilio según el tipo de problema,
+       todo amigable. El dueño pide una acción y el dispositivo la ejecuta. -->
+  <section id="soporte" data-vista="herramientas" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Support</h2>
+    <p style="font-size:14px;color:#2C3E50;margin:0 0 12px;max-width:640px;">
+      ¿Algo se atascó? Elige lo que te pasa y te ayudamos a desatascarlo. Nada
+      de esto borra tus datos.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button type="button" id="sop-fixlic" style="padding:12px 16px;border:2px solid #00805A;border-radius:8px;background:#fff;color:#00805A;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
+        🔑 My license is broken or too short<br>
+        <span style="font-weight:400;font-size:13px;color:#2C3E50;">Get a fresh full license for this device</span>
+      </button>
+      <button type="button" id="sop-resync" style="padding:12px 16px;border:2px solid #2C4A68;border-radius:8px;background:#fff;color:#2C4A68;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
+        🔄 My devices aren't talking to each other<br>
+        <span style="font-weight:400;font-size:13px;color:#2C3E50;">Reconnect this device to your team</span>
+      </button>
+    </div>
+    <p id="sop-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;min-height:22px;"></p>
+  </section>
+
+  <p class="pie-lienzo">
+    Este tablero es un lienzo: no guarda nada. Lo que ves llega cifrado desde los dispositivos
+    de tu equipo y desaparece al cerrar esta pesta&ntilde;a.
+    <button type="button" id="ver-politica">C&oacute;mo tratamos tus datos</button>
+  </p>
+
+  <!-- PERISCOPIO DE DATOS (JFC 2026-08-27). Al fondo del tablero, el log de
+       movimientos y el estado de sync/accesos, como termómetro del manejo de
+       datos. Solo pinta la foto que llega del dispositivo; no guarda nada. -->
+  <details id="oc-log-tablero" data-vista="herramientas" style="margin-top:28px;border-top:1px solid #2a3a4a;padding-top:14px;">
+    <summary style="cursor:pointer;font-weight:700;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;min-height:44px;">My log · data &amp; sync control (periscope)</summary>
+    <div id="oc-log-sync" style="font-family:monospace;font-size:12px;margin:10px 0;"></div>
+    <table id="oc-log-tabla" style="width:100%;font-size:13px;border-collapse:collapse;"></table>
+  </details>
+</div></main>
+
+<!-- MODO LOCAL. aislamiento.js es OBLIGATORIO y va PRIMERO: sin el, este
+     archivo lee localStorage sin el prefijo amig:: y no encuentra los datos de
+     la app aunque esten a dos centimetros. crypto-store.js da OCSecure, que es
+     quien puede juzgar el PIN aqui mismo sin preguntarle a nadie.
+     Los dos son del mismo origen: no son CDN y no pueden fallar por red. -->
+<script src="./aislamiento.js"></script>
+<script src="./crypto-store.js"></script>
+<script src="./core/payout-ledger.js"></script>
+<script src="./core/sales-audit.js"></script>
+<script src="./core/business-read-model.js"></script>
+<script src="./core/commission-history.js"></script>
+<script src="./core/report-period.js"></script>
+<script src="./dashboard-finance.js"></script>
+<script src="./customer-profile.js"></script>
+<script src="./sales-audit-ui.js"></script>
+<script src="./core/demo-huellas.js"></script>
+<script src="./estado-ab.js"></script>
+<script src="./estado-idb.js"></script>
+<script src="./canarios.js"></script>
+<script src="./salud-app.js"></script>
+<script src="./peer-sync.js"></script>
+<!-- SUPABASE — DORMANT (C240, 23 nov 2026, JFC: no saturar cuentas de plataformas; proyecto restringido hasta diciembre). NO BORRAR.
+     dashboard-broadcast.js cae solo a F123Peer. PARA REACTIVAR (solo con orden de JFC): quitar este comentario.
+<script src="./vendor/supabase-relay.min.js"></script> -->
+<script src="./dashboard-broadcast.js" data-f123-dashboard></script>
+<script src="./core/hechos-chain-readonly.js"></script>
+<script src="./dashboard-main.min.js"></script>
+<!-- Avanzado, aparte: si este archivo no carga, el resto del tablero
+     sigue funcionando igual. -->
+<!-- IDIOMA DEL TABLERO (Oct14fixes 6b, JFC 2026-10-14). El tablero mezclaba espanol e ingles
+     ("Entró hoy" junto a "Stock / cost pending", "Still to pay", "Restock"...). Ahora sigue el
+     idioma elegido en la app (localStorage f123_lang, el mismo que escribe i18n.js), EN o ES.
+     COMO FUNCIONA: el tablero sigue pintando como siempre; esta capa recorre el texto visible
+     (nodos de texto + placeholder/title/aria-label) y cambia cada frase conocida a su par del
+     otro idioma. Un MutationObserver repasa lo que se pinta despues (vistas, tablas, isla,
+     pulso), asi que no hubo que tocar ni una cuenta del tablero: NO toca dinero ni datos.
+     No se cargo i18n.js aqui: es el diccionario completo de la app (2.300 lineas, aplica sus
+     propios data-i18n al cargar) y el tablero ya leia f123_lang directo. Las palabras SI son las
+     de i18n.js (Comisiones, Percha, Lista de comisionistas, Inventario valorizado, Sano/Urgente/
+     Dormido, Avanzado, Acceso y recuperacion...). No inventar nombres nuevos.
+     PARA AGREGAR UN TEXTO: sumar el par [ingles, espanol] en PARES (frase entera) o, si lleva
+     numeros o nombres, una fila en PATRONES. Lo prueba test/dashboard-idioma-es-en.test.js
+     (Chromium y WebKit): falla si queda una palabra del otro idioma a la vista.
+     Exentos a proposito: la etiqueta "Dashboard vNNN" (identidad del shell) y el log tecnico
+     del periscopio (#oc-log-tabla, #oc-log-sync: codigos crudos del registro). -->
+
+
+<script src="./tablero-avanzado.js"></script>
+<script defer src="./dashboard-updates.js"></script>
+</body>
+</html>

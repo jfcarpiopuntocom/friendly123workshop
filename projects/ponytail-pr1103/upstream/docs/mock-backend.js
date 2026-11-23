@@ -1,0 +1,10086 @@
+// mock-backend.js — Backend simulado dentro del navegador, para la demo
+// pública en GitHub Pages (que no puede correr Node). Intercepta fetch a
+// /api/* y responde con la misma lógica que server.js, usando datos de
+//
+// NO CLOUD (JFC, regla dura, ver PRIVACY.md): TODO lo que este archivo
+// maneja (productos, ventas, clientes, movimientos, comisiones, fotos) vive
+// y muere en localStorage de ESTE navegador. Este archivo NUNCA debe hacer
+// fetch() hacia un dominio externo — cero excepciones. El unico feature con
+// permiso de tocar red es el ping de licencia en auth-ui.js (instanceId +
+// datos de contacto opcionales), y ese vive en otro archivo a proposito.
+// Antes de agregar cualquier fetch() aqui: parar y preguntar a JFC.
+// ejemplo en memoria. En el servidor real este archivo NO se carga.
+(function () {
+  // Local-first: si pocketbase-client.js ya activó una conexión remota
+  // (OC_PB_URL guardado en Avanzado), el mock NO debe pisar ese fetch.
+  // Por defecto (sin URL guardada) todo corre local con este mock/servidor.
+  if (window.OC_PB_CONNECTED) return;
+  // Marca global para que index.html sepa que corre sin backend real y NUNCA
+  // muestre un mensaje de "el servidor no responde" en la demo pública.
+  window.OC_DEMO = true;
+  // Timezone: reads from localStorage (set by store owner in Avanzado) or falls back to browser local.
+  const ZONA = (() => {
+    const tz = localStorage.getItem("f123_timezone");
+    if (!tz) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; }
+    catch (_) { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
+  })();
+  // Perf (JFC 2026-11-02, approved plan item 3): build the formatter once; ZONA never changes after load.
+  const _fmtHoyISO = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" });
+  function hoyISO() {
+    return _fmtHoyISO.format(new Date());
+  }
+  /* BUG DE DINERO (arreglado en amigable-123 el 2026-08-06, portado aqui el
+     2026-08-18 en la caza Hugo/Paco/Luis).
+
+     Las ventas se guardan con `new Date().toISOString()`, que es UTC. Comparar
+     ese texto crudo contra el dia o el mes LOCAL —con .slice(0,10) o
+     .slice(0,7)— es correcto solo en UTC+0. En Ecuador (UTC-5) toda venta
+     hecha despues de las 19:00 ya tiene la fecha del dia siguiente en UTC:
+
+       - desaparecia del "hoy" y reaparecia manana (el cierre de caja no cuadra)
+       - la del ultimo dia del mes caia en la liquidacion del mes SIGUIENTE,
+         o sea la comision se le pagaba a alguien un mes tarde
+
+     Esta funcion traduce un ISO cualquiera al dia LOCAL del negocio. Toda
+     comparacion de fechas tiene que pasar por aqui; ver el guard
+     .claude/guards.sh, que falla si vuelve a aparecer un .slice() sobre una
+     fecha cruda. */
+  /* RELOJ FORENSE (v447). Desde v438 cada venta puede guardar el desfase
+     medido contra el relay: relojDesfaseMs = relay - aparato. La fecha cruda
+     NO se reescribe (evidencia/auditoria); para reportes se deriva el instante
+     corregido. Ventas viejas sin sello conservan exactamente el comportamiento
+     anterior. */
+  function instanteCorregidoMs(fechaISO, relojDesfaseMs) {
+    const base = Date.parse(fechaISO);
+    if (!Number.isFinite(base)) return NaN;
+    const d = Number(relojDesfaseMs);
+    return base + (Number.isFinite(d) ? d : 0);
+  }
+  /* v609 perf: el Intl.DateTimeFormat se construye UNA vez por zona (antes se creaba en cada llamada,
+     y fechaLocalDe corre por cada venta en cada filtro). Mismo resultado; si ZONA cambia se reconstruye. */
+  let _fmtFechaZona = null, _fmtFechaObj = null;
+  function _fmtFechaLocal() {
+    if (_fmtFechaObj && _fmtFechaZona === ZONA) return _fmtFechaObj;
+    _fmtFechaObj = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" });
+    _fmtFechaZona = ZONA;
+    return _fmtFechaObj;
+  }
+  function fechaLocalDe(fechaISO, relojDesfaseMs) {
+    try {
+      const ms = instanteCorregidoMs(fechaISO, relojDesfaseMs);
+      return _fmtFechaLocal().format(new Date(Number.isFinite(ms) ? ms : fechaISO));
+    } catch (_) {
+      /* Fecha ilegible: se devuelve el prefijo crudo. Peor que exacto, pero
+         mucho mejor que romper el filtro entero por un dato malo. */
+      return String(fechaISO || "").slice(0, 10);
+    }
+  }
+  function ahoraRelayComun() {
+    try {
+      const n = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? Number(window.OCLatencia.ahoraRelay()) : NaN;
+      return Number.isFinite(n) ? n : null;
+    } catch (_) { return null; }
+  }
+  // Días reales del mes actual (28/29/30/31) — espejo de diasEnMesActual() en server.js.
+  function diasEnMesActual() {
+    const [anio, mes] = hoyISO().split("-").map(Number);
+    return new Date(anio, mes, 0).getDate();
+  }
+
+  // Perchas (unidades operativas). sucursalId -> agrupador backend.
+  const ubicaciones = [
+    { "id": "galeria",  "nombre": "Sample Gallery",        "activa": true, "tipo": "propio",        "sucursalId": "suc01" },
+    { "id": "consigna", "nombre": "Artist consignment", "activa": true, "tipo": "consignacion",  "sucursalId": "suc01", "promotoraId": "pr01", "comisionSocio": 85, "metaMensual": 800, "lecturaPreferida": "asociado", "escalasComision": [ {"hasta":80,"comision":85}, {"hasta":120,"comision":88}, {"hasta":999,"comision":90} ] },
+    { "id": "bar",      "nombre": "Bar & Café",               "activa": true, "tipo": "propio",        "sucursalId": "suc02" },
+    { "id": "eventos",  "nombre": "Cultural events",       "activa": true, "tipo": "socio",         "sucursalId": "suc03", "promotoraId": "pr02", "comisionSocio": 10, "metaMensual": 500, "escalasComision": [] }
+  ];
+  // Sucursales: agrupadores backend de perchas (encabezados de sección en Inventario).
+  // Asociados/as: artistas en consignación (modalidad artista 85/15) y quien trae público.
+  const promotoras = [
+    // JFC 2026-09-24 (shell 372): la artista demo lleva su meta y sus tramos 85/88/90. Su trato manda sobre el
+    // de la percha (motor unico), asi que sin esto los tramos de la percha nunca se veian en el demo.
+    { id: "pr01", nombre: "Consignment Artist (sample)",  comisionBase: 85, comision: 85, metaMensual: 800, escalasComision: [ {"hasta":80,"comision":85}, {"hasta":120,"comision":88}, {"hasta":999,"comision":90} ] },
+    { id: "pr02", nombre: "Event Partner (sample)",  comisionBase: 10, comision: 10 },
+  ];
+  const sucursales = [
+    { id: "suc01", nombre: "Gallery",    activa: true },
+    { id: "suc02", nombre: "Bar & Café", activa: true },
+    { id: "suc03", nombre: "Events",    activa: true },
+  ];
+
+  const productos = [
+    {"id":"p01","nombre":"Original oil — City rooftops","categoria":"Paintings","sku":"ART-OIL-001","barcode":"7862000010011","ubicacionId":"galeria","precio":420,"costo":180,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"In-house studio"},
+    {"id":"p02","nombre":"Original watercolor — River bend","categoria":"Paintings","sku":"ART-WAT-002","estrella":true,"barcode":"7862000010028","ubicacionId":"galeria","precio":260,"costo":110,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"In-house studio"},
+    {"id":"p03","nombre":"Print — Mountain series I","categoria":"Art & prints","sku":"ART-PRN-003","barcode":"7862000010035","ubicacionId":"galeria","precio":45,"costo":16,"stockActual":24,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Fine Art Press"},
+    {"id":"p04","nombre":"Print — Old doors","categoria":"Art & prints","sku":"ART-PRN-004","barcode":"7862000010042","ubicacionId":"galeria","precio":38,"costo":14,"stockActual":30,"umbralRojo":8,"umbralAmarillo":15,"proveedor":"Fine Art Press"},
+    {"id":"p05","nombre":"Consignment — The weaver (oil)","categoria":"Paintings","sku":"CON-OIL-005","barcode":"7862000010059","ubicacionId":"consigna","precio":520,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Consignment Artist (sample)"},
+    {"id":"p06","nombre":"Consignment — Market morning","categoria":"Paintings","sku":"CON-OIL-006","estrella":true,"barcode":"7862000010066","ubicacionId":"consigna","precio":380,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Consignment Artist (sample)"},
+    {"id":"p07","nombre":"Consignment — Mountain lake print","categoria":"Art & prints","sku":"CON-PRN-007","barcode":"7862000010073","ubicacionId":"consigna","precio":60,"costo":0,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Consignment Artist (sample)"},
+    {"id":"p08","nombre":"Antique brass compass","categoria":"Antiques","sku":"ANT-BRS-008","barcode":"7862000010080","ubicacionId":"galeria","precio":145,"costo":70,"stockActual":3,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Downtown Antiques"},
+    {"id":"p09","nombre":"Vintage typewriter","categoria":"Antiques","sku":"ANT-TYP-009","estrella":true,"barcode":"7862000010097","ubicacionId":"galeria","precio":320,"costo":160,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Downtown Antiques"},
+    {"id":"p10","nombre":"Antique wall clock","categoria":"Antiques","sku":"ANT-CLK-010","barcode":"7862000010103","ubicacionId":"galeria","precio":180,"costo":90,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"dormidoDesde":"2026-06-10","proveedor":"Downtown Antiques"},
+    {"id":"p11","nombre":"Aged Manchego 200g","categoria":"Cheese & deli","sku":"CHE-MAN-011","barcode":"7862000010110","ubicacionId":"bar","precio":14,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-09-24","proveedor":"Valley Cheese Co."},
+    {"id":"p12","nombre":"Brie wheel","categoria":"Cheese & deli","sku":"CHE-BRI-012","barcode":"7862000010127","ubicacionId":"bar","precio":12,"costo":6,"stockActual":12,"umbralRojo":4,"umbralAmarillo":8,"perecible":true,"fechaCaducidad":"2026-09-18","proveedor":"Valley Cheese Co."},
+    {"id":"p13","nombre":"Blue cheese 150g","categoria":"Cheese & deli","sku":"CHE-BLU-013","estrella":true,"barcode":"7862000010134","ubicacionId":"bar","precio":16,"costo":8.5,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-09-16","proveedor":"Valley Cheese Co."},
+    {"id":"p14","nombre":"Cheese & charcuterie board","categoria":"Cheese & deli","sku":"CHE-BRD-014","barcode":"7862000010141","ubicacionId":"bar","precio":18,"costo":8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-09-14","proveedor":"In-house kitchen"},
+    {"id":"p15","nombre":"Local fresh cheese 250g","categoria":"Cheese & deli","sku":"CHE-FRE-015","barcode":"7862000010158","ubicacionId":"bar","precio":6,"costo":3,"stockActual":24,"umbralRojo":6,"umbralAmarillo":12,"perecible":true,"fechaCaducidad":"2026-09-12","proveedor":"Valley Farm"},
+    {"id":"p16","nombre":"Malbec Reserve (bottle)","categoria":"Wine","sku":"WIN-MAL-016","estrella":true,"barcode":"7862000010165","ubicacionId":"bar","precio":28,"costo":14,"stockActual":48,"umbralRojo":12,"umbralAmarillo":24,"proveedor":"Andes Wine Distributors"},
+    {"id":"p17","nombre":"Cabernet Sauvignon (bottle)","categoria":"Wine","sku":"WIN-CAB-017","barcode":"7862000010172","ubicacionId":"bar","precio":24,"costo":12,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Andes Wine Distributors"},
+    {"id":"p18","nombre":"Sauvignon Blanc (bottle)","categoria":"Wine","sku":"WIN-SAU-018","barcode":"7862000010189","ubicacionId":"bar","precio":22,"costo":11,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Andes Wine Distributors"},
+    {"id":"p19","nombre":"Sparkling Brut (bottle)","categoria":"Wine","sku":"WIN-BRU-019","barcode":"7862000010196","ubicacionId":"bar","precio":32,"costo":17,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Andes Wine Distributors"},
+    {"id":"p20","nombre":"House wine (glass)","categoria":"Bar","sku":"BAR-HRE-020","barcode":"7862000010202","ubicacionId":"bar","precio":6,"costo":2.2,"stockActual":90,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Andes Wine Distributors"},
+    {"id":"p21","nombre":"Rosé (bottle)","categoria":"Wine","sku":"WIN-ROS-021","barcode":"7862000010219","ubicacionId":"bar","precio":19,"costo":9,"stockActual":36,"umbralRojo":9,"umbralAmarillo":18,"proveedor":"Andes Wine Distributors"},
+    {"id":"p22","nombre":"Espresso","categoria":"Bar","sku":"BAR-ESP-022","barcode":"7862000010226","ubicacionId":"bar","precio":2.5,"costo":0.6,"stockActual":200,"umbralRojo":40,"umbralAmarillo":80,"proveedor":"Mountain Coffee Roasters"},
+    {"id":"p23","nombre":"Cappuccino","categoria":"Bar","sku":"BAR-CAP-023","estrella":true,"barcode":"7862000010233","ubicacionId":"bar","precio":3.5,"costo":0.9,"stockActual":200,"umbralRojo":40,"umbralAmarillo":80,"proveedor":"Mountain Coffee Roasters"},
+    {"id":"p24","nombre":"Craft beer (pint)","categoria":"Bar","sku":"BAR-BEE-024","barcode":"7862000010240","ubicacionId":"bar","precio":6,"costo":2.5,"stockActual":80,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Local Brewery"},
+    {"id":"p25","nombre":"Aperitif spritz","categoria":"Bar","sku":"BAR-SPR-025","barcode":"7862000010257","ubicacionId":"bar","precio":8,"costo":3,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"In-house bar"},
+    {"id":"p26","nombre":"Sparkling water","categoria":"Bar","sku":"BAR-WAT-026","barcode":"7862000010264","ubicacionId":"bar","precio":2.5,"costo":0.8,"stockActual":120,"umbralRojo":24,"umbralAmarillo":48,"proveedor":"City Distributors"},
+    {"id":"p27","nombre":"Tapas plate","categoria":"Kitchen","sku":"KIT-TAP-027","estrella":true,"barcode":"7862000010271","ubicacionId":"bar","precio":9,"costo":3.5,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"perecible":true,"fechaCaducidad":"2026-09-05","proveedor":"In-house kitchen"},
+    {"id":"p28","nombre":"Toasted sandwich","categoria":"Kitchen","sku":"KIT-SAN-028","barcode":"7862000010288","ubicacionId":"bar","precio":7,"costo":2.8,"stockActual":50,"umbralRojo":12,"umbralAmarillo":24,"perecible":true,"fechaCaducidad":"2026-09-04","proveedor":"In-house kitchen"},
+    {"id":"p29","nombre":"Empanadas (2 pcs)","categoria":"Kitchen","sku":"KIT-EMP-029","barcode":"7862000010295","ubicacionId":"bar","precio":5,"costo":1.8,"stockActual":70,"umbralRojo":18,"umbralAmarillo":36,"perecible":true,"fechaCaducidad":"2026-09-03","proveedor":"In-house kitchen"},
+    {"id":"p30","nombre":"Olives & nuts bowl","categoria":"Kitchen","sku":"KIT-OLV-030","barcode":"7862000010301","ubicacionId":"bar","precio":4.5,"costo":1.5,"stockActual":80,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"In-house kitchen"},
+    {"id":"p31","nombre":"Poetry anthology","categoria":"Books","sku":"LIB-POE-031","barcode":"7862000010318","ubicacionId":"galeria","precio":18,"costo":8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Independent Press"},
+    {"id":"p32","nombre":"Local art history (book)","categoria":"Books","sku":"LIB-ART-032","estrella":true,"barcode":"7862000010325","ubicacionId":"galeria","precio":24,"costo":11,"stockActual":15,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Independent Press"},
+    {"id":"p33","nombre":"Wine & cheese tasting (ticket)","categoria":"Tickets & events","sku":"EVT-CAT-033","estrella":true,"barcode":"7862000010332","ubicacionId":"eventos","precio":22,"costo":6,"stockActual":40,"umbralRojo":8,"umbralAmarillo":20,"proveedor":"In-house event"},
+    {"id":"p34","nombre":"Live jazz night (ticket)","categoria":"Tickets & events","sku":"EVT-JAZ-034","barcode":"7862000010349","ubicacionId":"eventos","precio":18,"costo":5,"stockActual":60,"umbralRojo":12,"umbralAmarillo":30,"proveedor":"In-house event"},
+    {"id":"p35","nombre":"Watercolor workshop (seat)","categoria":"Tickets & events","sku":"EVT-ACU-035","barcode":"7862000010356","ubicacionId":"eventos","precio":25,"costo":9,"stockActual":20,"umbralRojo":4,"umbralAmarillo":10,"proveedor":"In-house event"},
+    {"id":"p36","nombre":"Tango night (ticket)","categoria":"Tickets & events","sku":"EVT-TAN-036","barcode":"7862000010363","ubicacionId":"eventos","precio":15,"costo":4,"stockActual":50,"umbralRojo":10,"umbralAmarillo":25,"proveedor":"In-house event"},
+    {"id":"p37","nombre":"Photo exhibition (ticket)","categoria":"Tickets & events","sku":"EVT-FOT-037","barcode":"7862000010370","ubicacionId":"eventos","precio":8,"costo":2,"stockActual":80,"umbralRojo":16,"umbralAmarillo":40,"proveedor":"In-house event"},
+    {"id":"p38","nombre":"Poetry reading (ticket)","categoria":"Tickets & events","sku":"EVT-POE-038","barcode":"7862000010387","ubicacionId":"eventos","precio":12,"costo":3,"stockActual":40,"umbralRojo":8,"umbralAmarillo":20,"dormidoDesde":"2026-07-01","proveedor":"In-house event"}
+  ];
+
+  const ventas = [];
+  /* Claude 2026-10-07: AMG.Cartera lee el valor ACTUAL de las ventas fiadas por aqui (la deuda de
+     una venta fiada sigue a la venta). Los endpoints de cartera ademas pasan `ventas` explicito. */
+  try { window.AMG = window.AMG || {}; window.AMG.ventasActuales = function () { return ventas; }; } catch (_) {}
+  const movimientos = [];
+  let actividadCompartida = []; // Original remote envelopes; never part of the local seal chain.
+  const transferencias = [];
+  // GASTOS (2026-08-27): gastos individuales registrados por el dueño. Cada
+  // gasto es un movimiento tipo "gasto" con concepto, monto, fecha y ubicación.
+  // Se guardan en su propio array para listarlos y sumarlos sin mezclarlos con
+  // la actividad operativa. Viajan por el sync como el resto del estado.
+  const gastos = [];
+  /* AJUSTES DE COMISION (JFC 2026-09-24, Bloque 4, aprobado). Append-only.
+     Devolver una venta YA PAGADA al asociado no toca lo pagado (esa plata ya
+     cambio de manos y el papel ya se firmo): se agrega un registro NEGATIVO
+     fechado hoy, con quien/motivo, que se descuenta del proximo pago. Nunca
+     se edita ni se borra un ajuste; si hubo error, se agrega otro. */
+  const ajustesComision = [];
+  /* PAYOUT LEDGER v1 (2026-10-05). Append-only financial facts. Historical
+     venta.liquidada remains as a compatibility projection; every NEW commission
+     payment gets its own payout record with exact covered sources. */
+  const payouts = [];
+  // Originals remain recoverable even when two devices disagree on one intention.
+  const payoutConflicts = [], payoutQuarantine = [];
+
+  // ==========================================================================
+  // CLIENTES (JFC 2026-07-07) — cada cliente tiene un CODIGO UNICO (C-####) y
+  // vive una ESTACION segun su comportamiento de compra (metodo RFM vestido
+  // de ciclo de siembra, para que el dueno lo lea como lee el semaforo):
+  //   Primavera 🌱 = compra reciente, todavia poco valor (recien germina)
+  //   Verano   ☀️ = compra reciente Y valor alto (plena cosecha)
+  //   Otoño    🍂 = valor alto pero ya no viene (se esta enfriando: recuperalo)
+  //   Invierno ❄️ = frio y sin valor reciente, o nunca ha comprado
+  // R = recencia (dias desde la ultima compra), F = frecuencia (compras en 90
+  // dias), M = monto ($ en 90 dias). "Valor alto" = monto >= mediana de los
+  // clientes con compras — umbral honesto que se adapta al negocio.
+  // ==========================================================================
+  // evaluacion: { trato: -1|0|1, confiabilidad: -1|0|1, historial: [], despedido: false }
+  // Valores demo pre-sembrados para mostrar las 4 categorias de la matriz.
+  // trato:      -1=Difícil  0=Neutro  +1=Agradable
+  // confiabilidad: -1=Precaución  0=Neutro  +1=Confiable
+  const clientes = [
+    {"id":"c01","codigo":"C-1001","nombre":"Ashley Rivera",      "telefono":"3055550101","evaluacion":{"trato":1,"confiabilidad":1,"historial":[]}},
+    {"id":"c02","codigo":"C-1002","nombre":"Marcus Bennett",  "telefono":"3055550102","evaluacion":{"trato":-1,"confiabilidad":-1,"historial":[]}},
+    {"id":"c03","codigo":"C-1003","nombre":"Lucy Tran",     "telefono":"3055550103","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
+    {"id":"c04","codigo":"C-1004","nombre":"Evan Cross",     "telefono":"3055550104","evaluacion":{"trato":-1,"confiabilidad":1,"historial":[]}},
+    {"id":"c05","codigo":"C-1005","nombre":"Maribel Santos","telefono":"3055550105","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
+    {"id":"c06","codigo":"C-1006","nombre":"Pete Gorman",     "telefono":"3055550106","evaluacion":{"trato":1,"confiabilidad":-1,"historial":[]}},
+    {"id":"c07","codigo":"C-1007","nombre":"Carmen Ulloa",     "telefono":"3055550107","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
+    {"id":"c08","codigo":"C-1008","nombre":"Andre Vinson","telefono":"3055550108","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}}
+  ];
+
+  // ---- VENTAS SEMILLA (historial de ~120 dias) ----
+  // Alimentan las dos matrices (estaciones de clientes y BCG de inventario)
+  // y los estados negro/BCG con datos creibles. REGLA: jamas darle ventas
+  // "solo viejas" a un producto que deba verse verde/amarillo (se volveria
+  // negro por dias-sin-venta), ni tocar los productos con dormidoDesde.
+  // Nombres originales de la semilla, antes de cargar nada guardado (ver FOTOS DEL DEMO).
+  const _DEMO_NOMBRES = new Map(productos.map((p) => [p.id, p.nombre]));
+  /* v448 GOLDEN — huellas EXACTAS de la semilla. No basta con el id: un cliente
+     real puede usar ids cortos. La semilla solo se reconoce si coinciden varios
+     campos que nacieron juntos en el demo. */
+  const _DEMO_PRODUCTOS_EXACTOS = new Map(productos.map((p) => [String(p.id), {
+    nombre: String(p.nombre || ""), sku: String(p.sku || ""), barcode: String(p.barcode || "")
+  }]));
+  const _DEMO_CLIENTES_EXACTOS = new Map(clientes.map((x) => [String(x.id), {
+    codigo: String(x.codigo || ""), nombre: String(x.nombre || ""), telefono: String(x.telefono || "")
+  }]));
+  const _DEMO_UBICACIONES_EXACTAS = new Map(ubicaciones.map((u) => [String(u.id), {
+    nombre: String(u.nombre || ""), tipo: String(u.tipo || ""), sucursalId: String(u.sucursalId || ""), promotoraId: String(u.promotoraId || "")
+  }]));
+  const _DEMO_PROMOTORAS_EXACTAS = new Map(promotoras.map((p) => [String(p.id), {
+    nombre: String(p.nombre || ""), comisionBase: Number(p.comisionBase != null ? p.comisionBase : p.comision) || 0
+  }]));
+  const _DEMO_SUCURSALES_EXACTAS = new Map(sucursales.map((s) => [String(s.id), {
+    nombre: String(s.nombre || "")
+  }]));
+  function _esProductoDemoExacto(p) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esProducto(p)) return true;
+    if (!p || p.id == null) return false;
+    const d = _DEMO_PRODUCTOS_EXACTOS.get(String(p.id));
+    return !!d && String(p.nombre || "") === d.nombre && String(p.sku || "") === d.sku && String(p.barcode || "") === d.barcode;
+  }
+  function _esClienteDemoExacto(x) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esCliente(x)) return true;
+    if (!x || x.id == null) return false;
+    const d = _DEMO_CLIENTES_EXACTOS.get(String(x.id));
+    return !!d && String(x.codigo || "") === d.codigo && String(x.nombre || "") === d.nombre && String(x.telefono || "") === d.telefono;
+  }
+  function _esUbicacionDemoExacta(u) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esUbicacion(u)) return true;
+    if (!u || u.id == null) return false;
+    const d = _DEMO_UBICACIONES_EXACTAS.get(String(u.id));
+    return !!d && String(u.nombre || "") === d.nombre && String(u.tipo || "") === d.tipo &&
+      String(u.sucursalId || "") === d.sucursalId && String(u.promotoraId || "") === d.promotoraId;
+  }
+  function _esPromotoraDemoExacta(p) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esPromotora(p)) return true;
+    if (!p || p.id == null) return false;
+    const d = _DEMO_PROMOTORAS_EXACTAS.get(String(p.id));
+    return !!d && String(p.nombre || "") === d.nombre &&
+      (Number(p.comisionBase != null ? p.comisionBase : p.comision) || 0) === d.comisionBase;
+  }
+  function _esSucursalDemoExacta(s) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esSucursal(s)) return true;
+    if (!s || s.id == null) return false;
+    const d = _DEMO_SUCURSALES_EXACTAS.get(String(s.id));
+    return !!d && String(s.nombre || "") === d.nombre;
+  }
+  function _esVentaDemoExacta(v) {
+    return !!(v && /^vs-/.test(String(v.id || "")));
+  }
+
+  /* v448 GOLDEN golden14 — contaminación de prueba confirmada por JFC en la
+     licencia real de idiomARTE (2026-10-05). No es la semilla canónica: son dos
+     productos/eventos creados durante pruebas manuales y por eso golden13 no
+     podía reconocerlos. Se limita ESTRICTAMENTE a la familia de licencia
+     F123-K7M2- y a estos nombres exactos. No se toca ningún otro cliente,
+     producto, percha, asociado ni venta. La cuarentena reversible común de
+     _limpiarSemillaExactaEnTiendaReal conserva copia antes de retirar. */
+  const _IDIOMARTE_PRUEBA_NOMBRES = new Set([
+    "Butter dish workshop - Candy S.",
+    "Mural mentoring (Leslie)"
+  ]);
+  function _esLicenciaIdiomarte() {
+    try {
+      const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      const lic = String(o.licenseCode || o.syncCode || "").trim().toUpperCase().replace(/\s+/g, "");
+      return lic.indexOf("F123-K7M2-") === 0;
+    } catch (_) { return false; }
+  }
+  function _esProductoPruebaIdiomarte(p) {
+    return !!(p && _esLicenciaIdiomarte() && _IDIOMARTE_PRUEBA_NOMBRES.has(String(p.nombre || "").trim()));
+  }
+  function _seleccionarSemillaDemoPura(estado, sinEvidencia) {
+    const ps = Array.isArray(estado && estado.productos) ? estado.productos : [];
+    const cs = Array.isArray(estado && estado.clientes) ? estado.clientes : [];
+    const vs = Array.isArray(estado && estado.ventas) ? estado.ventas : [];
+    const us = Array.isArray(estado && estado.ubicaciones) ? estado.ubicaciones : [];
+    const prs = Array.isArray(estado && estado.promotoras) ? estado.promotoras : [];
+    const sus = Array.isArray(estado && estado.sucursales) ? estado.sucursales : [];
+    const rp0 = ps.filter((p) => _esProductoDemoExacto(p) || _esProductoPruebaIdiomarte(p));
+    const rc0 = cs.filter(_esClienteDemoExacto);
+    const idsPruebaIdiomarte = new Set(ps.filter(_esProductoPruebaIdiomarte).map((p) => String(p.id)));
+    const esVentaContaminante = (v) => _esVentaDemoExacta(v) ||
+      (_esLicenciaIdiomarte() && idsPruebaIdiomarte.has(String(v && v.productoId || "")));
+    const rv = vs.filter(esVentaContaminante);
+    const hayPruebaIdiomarte = idsPruebaIdiomarte.size > 0;
+    const evidencia = hayPruebaIdiomarte || rv.length > 0 || rp0.length >= 2 || rc0.length >= 2 || (rp0.length > 0 && rc0.length > 0);
+    /* JFC: lecturas y catalogo de un negocio activado no exigen una semilla completa.
+       La evidencia corroborada se devuelve por separado; no habilita una purga por el mero hecho de activar. */
+    if (!evidencia && !sinEvidencia && !_esNegocioConLicencia()) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
+
+    const ventasReales = vs.filter((v) => !esVentaContaminante(v));
+    const prodConActividadReal = new Set(ventasReales.map((v) => String(v && v.productoId || "")).filter(Boolean));
+    const cliConActividadReal = new Set(ventasReales.map((v) => String(v && v.clienteId || "")).filter(Boolean));
+    const rp = rp0.filter((p) => !prodConActividadReal.has(String(p.id)));
+    const rc = rc0.filter((x) => !cliConActividadReal.has(String(x.id)));
+    const borrarP = new Set(rp.map((p) => String(p.id)));
+    const productosQueQuedan = ps.filter((p) => !borrarP.has(String(p && p.id)));
+    const ubicUsadas = new Set(productosQueQuedan.map((p) => String(p && p.ubicacionId || "")).filter(Boolean));
+    const ru = us.filter((u) => _esUbicacionDemoExacta(u) && !ubicUsadas.has(String(u.id)));
+    const borrarU = new Set(ru.map((u) => String(u.id)));
+    const ubicQueQuedan = us.filter((u) => !borrarU.has(String(u && u.id)));
+    const promUsadas = new Set();
+    ubicQueQuedan.forEach((u) => { if (u && u.promotoraId) promUsadas.add(String(u.promotoraId)); });
+    productosQueQuedan.forEach((p) => { if (p && p.comisionistaId) promUsadas.add(String(p.comisionistaId)); });
+    const rpr = prs.filter((p) => _esPromotoraDemoExacta(p) && !promUsadas.has(String(p.id)));
+    const sucUsadas = new Set(ubicQueQuedan.map((u) => String(u && u.sucursalId || "")).filter(Boolean));
+    const rsu = sus.filter((s) => _esSucursalDemoExacta(s) && !sucUsadas.has(String(s.id)));
+    return { evidencia, productos: rp, clientes: rc, ventas: rv, ubicaciones: ru, promotoras: rpr, sucursales: rsu };
+  }
+  function _estaEnSemillaDemoSeleccionada(sel, tipo, obj) {
+    if (!sel || !obj || obj.id == null || !Array.isArray(sel[tipo])) return false;
+    const id = String(obj.id);
+    return sel[tipo].some((x) => x && String(x.id) === id);
+  }
+  function _haySemillaCorroboradaEn(estado) {
+    return !!_seleccionarSemillaDemoPura(estado).evidencia;
+  }
+  function _haySemillaCorroboradaLocal() {
+    return _haySemillaCorroboradaEn({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+  }
+  /* v457 (LEY de JFC 2026-10-07): EL DEMO NUNCA SE MEZCLA CON UN NEGOCIO CON LICENCIA, para TODOS los clientes
+     ("toda la info, no solo inventario sino clientes y comisionistas y todo del demo"). A la LECTURA se excluyen los
+     registros con huella EXACTA de la semilla (reusa _es*DemoExacto de arriba) SIN exigir evidencia previa. NUNCA se
+     borra nada: el estado guardado queda intacto y las listas solo "no ven" esos registros. Un registro demo que tiene
+     ventas REALES (no "vs-") que lo referencian se queda visible, y con el sus perchas/asociados dependientes
+     (misma cadena de _seleccionarSemillaDemoPura). Sin licencia (el demo puro) no se oculta nada.
+     No depende de ninguna licencia concreta ni de nombres de cliente. */
+  let _licMemoRaw = null, _licMemoVal = false;
+  function _esNegocioConLicencia() {
+    try {
+      const raw = localStorage.getItem("f123_owned") || "";
+      if (raw !== _licMemoRaw) {
+        _licMemoRaw = raw;
+        const o = raw ? (JSON.parse(raw) || {}) : {};
+        _licMemoVal = !!(String(o.instanceId || "").trim() || String(o.licenseCode || "").trim() || String(o.syncCode || "").trim());
+      }
+      return _licMemoVal || !!OC_STATE_SUFIJO;
+    } catch (_) { return false; }
+  }
+  let _ocultoMemo = { k: null, sel: null };
+  function _demoOcultoSel() {
+    try {
+      if (!_esNegocioConLicencia()) return null;
+      const k = [_localRev, productos.length, clientes.length, ventas.length, ubicaciones.length, promotoras.length, sucursales.length].join("|");
+      if (_ocultoMemo.k !== k) {
+        const sel = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales }, true);
+        const ids = {};
+        ["productos", "clientes", "ventas", "ubicaciones", "promotoras", "sucursales"].forEach((t) => { ids[t] = new Set((sel[t] || []).map((x) => String(x.id))); });
+        _ocultoMemo = { k, sel: ids };
+      }
+      return _ocultoMemo.sel;
+    } catch (_) { return null; }
+  }
+  /* true si el registro es semilla demo y debe quedar fuera de las vistas de este negocio. */
+  function _demoOculto(tipo, obj) {
+    const sel = _demoOcultoSel();
+    return !!(sel && obj && obj.id != null && sel[tipo] && sel[tipo].has(String(obj.id)));
+  }
+  /* v507 (JFC 2026-10-14): gastos fijos mensuales SIN los de perchas demo ocultas. Bug real: v457 ocultaba las perchas
+     demo pero su gasto fijo (galeria 900, bar 1500, eventos 350) seguia sumando al total y al P&L de un negocio real.
+     Solo lectura: la tabla guardada gastosMensuales no se toca. Sin licencia (la demo pura, PIN 456) devuelve todo. */
+  function _gastosMensualesVisibles() {
+    const out = {};
+    Object.keys(gastosMensuales).forEach((k) => { if (!_demoOculto("ubicaciones", { id: k })) out[k] = gastosMensuales[k]; });
+    return out;
+  }
+  function _esTiendaReal() {
+    try {
+      const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return !!o.instanceId || !!OC_STATE_SUFIJO;
+    } catch (_) { return !!OC_STATE_SUFIJO; }
+  }
+  function _huboLimpiezaDemo(r) {
+    return !!(r && (r.productos || r.clientes || r.ventas || r.ubicaciones || r.promotoras || r.sucursales));
+  }
+  function _limpiarSemillaExactaEnTiendaReal(origen) {
+    const cero = { productos: 0, clientes: 0, ventas: 0, ubicaciones: 0, promotoras: 0, sucursales: 0 };
+    if (!_esTiendaReal()) return cero;
+    const sel = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+    if (!sel.evidencia) return Object.assign({}, cero, { omitida: "sin-evidencia-corroborada" });
+    if (!sel.productos.length && !sel.clientes.length && !sel.ventas.length &&
+        !sel.ubicaciones.length && !sel.promotoras.length && !sel.sucursales.length) return cero;
+
+    const cuarentena = {
+      ts: Date.now(), origen: String(origen || ""),
+      productos: clonar(sel.productos), clientes: clonar(sel.clientes), ventas: clonar(sel.ventas),
+      ubicaciones: clonar(sel.ubicaciones), promotoras: clonar(sel.promotoras), sucursales: clonar(sel.sucursales)
+    };
+    try {
+      const key = "f123_cuarentena_demo_exacta_v448";
+      const raw = JSON.stringify(cuarentena);
+      localStorage.setItem(key, raw);
+      if (localStorage.getItem(key) !== raw) return Object.assign({}, cero, { bloqueada: "cuarentena-no-verificada" });
+    } catch (_) {
+      return Object.assign({}, cero, { bloqueada: "cuarentena-no-disponible" });
+    }
+
+    const idsP = new Set(sel.productos.map((x) => String(x.id)));
+    const idsC = new Set(sel.clientes.map((x) => String(x.id)));
+    const idsV = new Set(sel.ventas.map((x) => String(x.id)));
+    const idsU = new Set(sel.ubicaciones.map((x) => String(x.id)));
+    const idsPr = new Set(sel.promotoras.map((x) => String(x.id)));
+    const idsSu = new Set(sel.sucursales.map((x) => String(x.id)));
+    for (let i = productos.length - 1; i >= 0; i--) if (idsP.has(String(productos[i] && productos[i].id))) productos.splice(i, 1);
+    for (let i = clientes.length - 1; i >= 0; i--) if (idsC.has(String(clientes[i] && clientes[i].id))) clientes.splice(i, 1);
+    for (let i = ventas.length - 1; i >= 0; i--) if (idsV.has(String(ventas[i] && ventas[i].id))) ventas.splice(i, 1);
+    for (let i = ubicaciones.length - 1; i >= 0; i--) if (idsU.has(String(ubicaciones[i] && ubicaciones[i].id))) {
+      delete gastosMensuales[ubicaciones[i].id]; ubicaciones.splice(i, 1);
+    }
+    for (let i = promotoras.length - 1; i >= 0; i--) if (idsPr.has(String(promotoras[i] && promotoras[i].id))) promotoras.splice(i, 1);
+    for (let i = sucursales.length - 1; i >= 0; i--) if (idsSu.has(String(sucursales[i] && sucursales[i].id))) sucursales.splice(i, 1);
+    return {
+      productos: idsP.size, clientes: idsC.size, ventas: idsV.size,
+      ubicaciones: idsU.size, promotoras: idsPr.size, sucursales: idsSu.size
+    };
+  }
+
+  /* v457 (JFC 2026-10-07, decision (b) "Recalcular al % del producto"): las ventas VIEJAS de un producto que hoy trae
+     su % (pctAsociado) y su asociado (comisionistaId), pero que se guardaron SIN reparto, se recalculan al % del producto,
+     INCLUYENDO meses anteriores y ventas ya liquidadas, SIN editar ni borrar la venta original.
+     Como: un AJUSTE de comision append-only por venta (el mismo hecho que ya entienden payout-ledger.js
+     obligationsForAdjustment y ledger.js entriesForAdjustment). Id determinista "adj-retro-<ventaId>": correrlo dos
+     veces no crea nada nuevo, y dos aparatos generan el MISMO id (el sync de ajustes une por id). El importe va en
+     centavos enteros dentro de reparto[] (el cobrador es el asociado del PRODUCTO). La fecha del ajuste es la de la
+     venta: el efecto cae en el mes de la venta y la plata ya pagada pasa a ser nuevo "Still due" (efecto buscado).
+     SOLO ventas sin reparto y sin comision guardada: nunca se suma sobre un split existente (sin doble conteo).
+     Producto con % pero SIN asociado: no se crea nada; reporteRecalculoRetro() lista esas ventas.
+     Una venta recalculada que luego se anula/devuelve recibe su reverso "adj-retro-rev-<ventaId>" (tambien append-only).
+     Corre al arrancar, tras el rescate de IndexedDB y cuando cambia el % o el asociado de un producto. Sin red.
+     Las ventas semilla del demo (vs-) no se tocan. */
+  const RETRO_MOTIVO = "recalculo retroactivo al % del producto";
+  function _retroCentavos(v, pct) {
+    const brutoC = Math.round(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) * 100);
+    return Math.round(brutoC * Math.round(pct * 100) / 10000);
+  }
+  function _retroSinComisionGuardada(v) {
+    if (!v.split) return true;
+    const rep = Array.isArray(v.split.reparto) ? v.split.reparto.filter(Boolean) : [];
+    return !rep.length && Math.round((Number(v.split.montoComisionSocio) || 0) * 100) === 0;
+  }
+  function _retroEvaluar() {
+    const prodMap = new Map(productos.filter(Boolean).map((p) => [String(p.id), p]));
+    const vivas = new Set(promotoras.filter((x) => x && !x.borrado).map((x) => String(x.id)));
+    const nuevas = [], sinAsociado = [], cancelables = [];
+    ventas.forEach((v) => {
+      if (!v || !v.id || /^vs-/.test(String(v.id))) return;
+      if (v.anulada || v.devuelta) { cancelables.push(v); return; }
+      const p = prodMap.get(String(v.productoId));
+      const pct = p ? normPctAsociado(p.pctAsociado) : null;
+      if (!p || !pct || pct <= 0 || !_retroSinComisionGuardada(v)) return;
+      const asociado = p.comisionistaId && vivas.has(String(p.comisionistaId)) ? String(p.comisionistaId) : null;
+      if (!asociado) { sinAsociado.push({ ventaId: String(v.id), productoId: String(p.id), pct }); return; }
+      nuevas.push({ v, p, pct, asociado });
+    });
+    return { nuevas, sinAsociado, cancelables };
+  }
+  function recalcularAlPctDelProducto(guardar = true) {
+    const ev = _retroEvaluar();
+    const ids = new Set(ajustesComision.map((a) => String(a && a.id)));
+    let creados = 0, reversos = 0;
+    ev.nuevas.forEach(({ v, p, pct, asociado }) => {
+      const id = "adj-retro-" + String(v.id);
+      if (ids.has(id)) return;
+      const c = _retroCentavos(v, pct);
+      if (c <= 0) return;
+      const monto = +(c / 100).toFixed(2);
+      ajustesComision.push({
+        id, tipo: "recalculo-retroactivo", ventaId: v.id, ubicacionId: v.ubicacionId, productoId: p.id,
+        cantidad: Number(v.cantidad) || 0, fecha: v.fecha,
+        montoBruto: 0, montoComisionSocio: monto, montoNetoDueno: -monto,
+        reparto: [{ promotoraId: asociado, monto }], comisionPct: pct,
+        quien: "sistema", motivo: RETRO_MOTIVO, liquidada: false, rev: _revNueva()
+      });
+      ids.add(id); creados++;
+    });
+    /* Reverso de una venta ya recalculada que despues se anulo o devolvio. */
+    ev.cancelables.forEach((v) => {
+      const orig = ajustesComision.find((a) => a && String(a.id) === "adj-retro-" + String(v.id));
+      const idRev = "adj-retro-rev-" + String(v.id);
+      if (!orig || ids.has(idRev)) return;
+      ajustesComision.push(Object.assign({}, orig, {
+        id: idRev, montoComisionSocio: -orig.montoComisionSocio, montoNetoDueno: -orig.montoNetoDueno,
+        reparto: orig.reparto.map((r) => Object.assign({}, r, { monto: -r.monto })),
+        motivo: RETRO_MOTIVO + " (reverso: venta anulada o devuelta)", liquidada: false, rev: _revNueva()
+      }));
+      ids.add(idRev); reversos++;
+    });
+    if (guardar && (creados || reversos)) { try { guardarEstadoLocal(); } catch (_) {} }
+    return { creados, reversos, sinAsociado: ev.sinAsociado };
+  }
+  function reporteRecalculoRetro() { return _retroEvaluar().sinAsociado; }
+  try { window.OCComisionRetro = { aplicar: recalcularAlPctDelProducto, reporte: reporteRecalculoRetro }; } catch (_) {}
+  /* Ver FOTOS DEL DEMO (tras cargarEstadoLocal). Tambien corre al final de
+     aplicarRespaldo(): el estado del demo puede volver desde IndexedDB o de un
+     respaldo DESPUES del arranque, y ahi entra por esa puerta. */
+  /* REFRESCO DEL DEMO (JFC 2026-09-24, shell 375). Un visitante que ya habia
+     abierto el demo guarda su copia; sin esto seguiria viendo la semilla VIEJA
+     (sin comisiones de 3 meses, sin fotos) para siempre. Si la version de la
+     semilla subio, el demo vuelve a la semilla nueva UNA vez.
+     GUARDAS (las tres, para no tocar jamas un negocio real):
+       1) aparato NO activado (sin f123_owned) y SIN cuaderno unido (sufijo);
+       2) lo guardado contiene ventas semilla del demo (ids "vs-"): un negocio
+          real las purga al activarse, asi que su estado nunca las tiene;
+       3) version de semilla guardada < DEMO_SEED_VERSION.
+     Para forzar otro refresco en el futuro: subir DEMO_SEED_VERSION. */
+  const DEMO_SEED_VERSION = 375;
+  // Version con la que ARRANCO este aparato (antes de marcarla): la usa tambien el
+  // rescate asincrono de IndexedDB para no resucitar un demo de semilla vieja.
+  let _demoSeedVAlArrancar = 0;
+  try { _demoSeedVAlArrancar = Number(localStorage.getItem("f123_demo_seed_v") || 0); } catch (_) {}
+  function _esAparatoDemo() {
+    try { return !OC_STATE_SUFIJO && !localStorage.getItem("f123_owned"); } catch (_) { return false; }
+  }
+  function refrescarDemoSiViejo() {
+    try {
+      if (OC_STATE_SUFIJO) return;
+      if (localStorage.getItem("f123_owned")) return;
+      if (Number(localStorage.getItem("f123_demo_seed_v") || 0) >= DEMO_SEED_VERSION) return;
+      if (_cargoBufferReal && !ventas.some((v) => /^vs-/.test(String(v && v.id)))) return; // no parece demo: no se toca
+      localStorage.setItem("f123_demo_seed_v", String(DEMO_SEED_VERSION));
+      if (!_cargoBufferReal || !_semillaDemo) return; // nada guardado: ya es la semilla nueva
+      aplicarRespaldo(JSON.parse(JSON.stringify(_semillaDemo)));
+      _demoRefrescado = true;
+      guardarEstadoLocal();
+      try { console.warn("[demo] semilla del demo actualizada a v" + DEMO_SEED_VERSION); } catch (_) {}
+    } catch (_) {}
+  }
+  function ponerFotosDemo() {
+    try {
+      productos.forEach((p) => {
+        if (p && !p.foto && _DEMO_NOMBRES.get(p.id) === p.nombre) p.foto = "./demo/" + p.id + ".webp";
+      });
+    } catch (_) {}
+  }
+  function sembrarVentasDemo() {
+    /* opts (JFC 2026-09-24, shell 372 "rellenar el demo para mostrar de lo que es
+       capaz"): { impaga: true } deja la venta sin pagar al asociado aunque sea del
+       mes pasado (asi el demo muestra el aviso rojo de meses con saldo);
+       { counter: true } = COUNTER SALE, la casa vende sin comision. El reparto
+       (split) se calcula DESPUES, en comisionarVentasDemo(), con el MISMO motor
+       que usa una venta real; aqui nunca se inventa un porcentaje. */
+    const gen = (pid, dias, cli, cant, opts) => {
+      const p = productos.find((x) => x.id === pid);
+      if (!p) return;
+      dias.forEach((d0, i) => {
+        /* FIX 2026-10-01: { mesActual: true } = venta del MES EN CURSO. Antes se fechaba "hace d
+           dias" y el dia 1 del mes caia toda en el mes anterior: el demo abria Commissions sin
+           nada por pagar este mes. Ahora se acota a los dias ya corridos del mes. */
+        const d = (opts && opts.mesActual) ? Math.min(d0, new Date().getDate() - 1) : d0;
+        ventas.push({ id: "vs-" + pid + "-" + d0 + "-" + i, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant || 1, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date(Date.now() - d * 86400000).toISOString(), split: null, liquidada: true, clienteId: cli || null,
+          ...(opts && opts.counter ? { modoComision: "counter" } : {}), ...(opts && opts.impaga ? { _demoImpaga: true } : {}) });
+      });
+    };
+    // Bar & café: alto volumen, tickets chicos (lo que sostiene el día a día).
+    gen("p22", [0,0,1,1,2,3,4,6,8,11,14], null, 1);      // espressos
+    gen("p23", [0,1,1,2,3,5,7,9,12], "c01", 1);           // cappuccinos (c01 cliente frecuente reciente)
+    gen("p24", [0,1,2,4,6,9], "c02", 1);                  // cervezas (c02 muy frecuente)
+    gen("p20", [0,2,3,5,8], null, 2);                     // copas de vino de la casa
+    gen("p27", [1,3,6,10], "c02", 1);                     // tapas
+    gen("p29", [0,2,4,7], null, 2);                       // empanadas
+    // Vinos y quesos por botella/tabla: ticket medio, menos frecuente.
+    gen("p16", [3,12,20], "c01", 1);                      // Malbec (c01 valioso)
+    gen("p11", [5,15], "c04", 1);                         // Manchego (c04 primavera)
+    gen("p14", [7], "c03", 1);                            // tabla de quesos (c03 recién germina)
+    // Galería y antigüedades: raro, ticket alto.
+    gen("p02", [22], "c05", 1);                           // acuarela (c05 otoño, valía mucho)
+    gen("p09", [30], "c06", 1);                           // máquina de escribir (c06 otoño)
+    gen("p32", [40], "c06", 1);                           // libro de arte
+    // Consignación de artista (comisión 85/15): dispara el cálculo de comisiones.
+    gen("p06", [10], "c04", 1, { mesActual: true });      // óleo en consignación (mes en curso: sube el tramo)
+    gen("p07", [6], null, 1, { mesActual: true });        // láminas en consignación
+    gen("p07", [18], null, 1);
+    // Eventos culturales: por tandas.
+    gen("p33", [4, 32], "c01", 2);                        // cata de vinos y quesos
+    gen("p34", [11], null, 3);                            // jazz
+    gen("p35", [8], "c03", 1);                            // taller de acuarela
+    // c07 invierno (última compra vieja), c08 nunca compró.
+    gen("p16", [95, 110], "c07", 1);
+    // COMMISSIONS en el demo (JFC 2026-09-24, shell 372). Tres meses de historia
+    // para que se vea todo lo que hace la vista: mes en curso por pagar, mes
+    // pasado con saldo pendiente (aviso rojo + pagar desde el selector de mes),
+    // meses viejos ya pagados, tramos por meta de la artista (85/88/90) y una
+    // COUNTER SALE de la casa en eventos.
+    gen("p07", [2, 9, 15], "c01", 1, { mesActual: true }); // mes en curso: laminas de la artista
+    gen("p07", [5], null, 3, { mesActual: true });        // una tanda de 3 laminas (sube el tramo)
+    gen("p35", [3], "c04", 2, { mesActual: true });       // taller: lo trae el partner de eventos
+    gen("p34", [1], null, 2, { counter: true, mesActual: true });          // COUNTER SALE: la casa vende el jazz sin comision
+    gen("p07", [28, 36], "c02", 2, { impaga: true });     // mes pasado, aun sin pagar a la artista
+    gen("p33", [30], "c03", 2, { impaga: true });         // mes pasado, aun sin pagar al partner
+    gen("p06", [44], "c05", 1);                           // mes pasado, ya pagado
+    gen("p07", [62, 75], null, 2);                        // hace dos meses, pagado
+    gen("p34", [66], "c01", 4);                           // hace dos meses, pagado
+    comisionarVentasDemo();
+  }
+  /* Reparto de las ventas demo en perchas que comparten comision, con el motor
+     unico (resolverTrato + repartir), en orden de fecha y acumulando por percha
+     y mes, igual que una venta real (asi los tramos por meta salen verdaderos).
+     Pagado: meses anteriores al pasado siempre; mes pasado salvo _demoImpaga;
+     mes en curso nunca. COUNTER SALE y perchas propias quedan sin split.
+     Si algo falla, el demo arranca igual sin comisiones (nunca tumba el boot). */
+  function comisionarVentasDemo() {
+    try {
+      const mesDe = (f) => fechaLocalDe(f).slice(0, 7);
+      const actual = mesActualISO();
+      const [ay, am] = actual.split("-").map(Number);
+      const pasado = am === 1 ? (ay - 1) + "-12" : ay + "-" + String(am - 1).padStart(2, "0");
+      const acum = {};
+      ventas.filter((v) => String(v.id).startsWith("vs-")).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)).forEach((v) => {
+        const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+        const impaga = !!v._demoImpaga; delete v._demoImpaga;
+        if (!u || !u.tipo || u.tipo === "propio" || v.modoComision === "counter") return;
+        const mes = mesDe(v.fecha), k = u.id + "|" + mes;
+        const bruto = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+        const split = repartir(resolverTrato(u), bruto, acum[k] || 0, (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 1));
+        acum[k] = (acum[k] || 0) + bruto;
+        if (!split) return;
+        v.split = split; v.modoComision = "acuerdo";
+        v.liquidada = mes < pasado || (mes === pasado && !impaga);
+      });
+    } catch (e) { try { console.error("Demo: comisiones de ejemplo no calculadas:", e); } catch (_) {} }
+  }
+  // Microcirugia 1 (2026-07-07): el arranque JAMAS puede tumbar el
+  // interceptor — sin el, la app abre sin backend (pantallas vacias). Si la
+  // siembra falla, se arranca sin historial; el error queda en consola.
+  try { sembrarVentasDemo(); } catch (e) { console.error("Seed de ventas fallo (la app arranca sin historial):", e); }
+  const gastosMensuales = {"galeria":900,"consigna":0,"bar":1500,"eventos":350};
+  /* CONFIGURACIÓN DE CATEGORÍAS QUE VIAJA (JFC 2026-09-22, hallazgo #2 de Codex).
+     borradores.js guarda en localStorage las categorías PROPIAS (aunque estén
+     vacías) y las OCULTAS. Eso no viajaba ni por sync ni en el respaldo: un
+     aparato nuevo no las veía. (Los productos sí viajan con su categoría; lo que
+     se perdía era la configuración.)
+     Mapa id(nombre en minúsculas) -> { id, nombre, estado, rev }, con estado:
+       custom  = categoría propia (en la lista aunque esté vacía)
+       borrada = se quitó de las propias (LÁPIDA: no resucita)
+       oculta  = categoría semilla escondida
+       visible = dejó de estar oculta
+     Se fusiona como el resto del catálogo: gana la revisión mayor. NO se unen
+     listas a ciegas: eso resucitaría el nombre viejo de una categoría renombrada
+     (el "se aumenta en vez de reemplazar" que reportó Belén).
+     Las dos listas de localStorage siguen siendo lo que lee la pantalla; este
+     mapa solo las AJUSTA para las categorías que tienen registro. Una categoría
+     sin registro jamás se toca. */
+  const categoriasMeta = {};
+  const _CAT_ESTADOS = ["custom", "borrada", "oculta", "visible"];
+  /* v347 (auditoría Codex #2): las listas de categorías llevan el sufijo del
+     cuaderno activo (OC_STATE_SUFIJO), igual que el estado. En el cuaderno
+     propio el sufijo es "" y la clave es la de siempre: nada se mueve ni se
+     borra. Antes, un aparato que se unía a OTRA tienda (sufijo "::<licencia>")
+     leía las listas globales y _sembrarCategoriasLegado metía sus categorías
+     en el catálogo de esa tienda. Se evalúa al usarse (no al cargar): esta
+     línea corre antes de que exista OC_STATE_SUFIJO. */
+  const _CAT_BASE_CUSTOM = "f123_categorias_custom";
+  const _CAT_BASE_OCULTAS = "f123_categorias_ocultas";
+  function _catKey(base) { try { return base + (OC_STATE_SUFIJO || ""); } catch (_) { return base; } }
+  /* IMPUESTO CONFIGURABLE (JFC 2026-09-23): "no puede ser un given ni
+     inmutable... somos ante todo un SHARED digital NOTEBOOK". Es un ajuste DEL
+     CUADERNO: viaja a todos los aparatos de la licencia (colección "ajustes"
+     del sync, con rev) y en el respaldo. Por defecto APAGADO = precios netos
+     (estándar EE. UU.), que es lo que el P&G ya hacía desde 2026-07-15: nadie
+     ve cambiar sus números hasta que el dueño lo encienda. Encendido = el
+     precio INCLUYE el impuesto (IVA, VAT, GST…) y el P&G lo separa. */
+  let ajusteImpuesto = null; // { id: "impuesto", activo, tasa, nombre, rev }
+  function _normImpuesto(r) {
+    if (!r || r.id !== "impuesto") return null;
+    const t = Number(r.tasa);
+    if (!Number.isFinite(t) || t < 0 || t > 100) return null;
+    return { id: "impuesto", activo: !!r.activo, tasa: +t.toFixed(3), nombre: String(r.nombre || "Tax").trim().slice(0, 30) || "Tax",
+      // v361: "incluido" = el precio ya trae el impuesto (IVA/VAT); "agregado" =
+      // se suma al cobrar (sales tax de EE. UU./Canadá).
+      modo: r.modo === "agregado" ? "agregado" : "incluido", rev: r.rev || null };
+  }
+  /* MONEDA DEL CUADERNO (v361, JFC 2026-09-23: app global). Código ISO 4217;
+     por defecto USD (lo que la app mostraba siempre). Viaja como "ajustes". */
+  let ajusteMoneda = null; // { id: "moneda", codigo, rev }
+  /* LEALTAD (JFC 2026-09-25, benchmark #5): regla global, apagada por defecto.
+     Las compras NO se guardan en un contador: se cuentan de las ventas del cliente
+     (lealtadDe), asi dos aparatos siempre dan el mismo numero tras sincronizar. */
+  let ajusteLealtad = null; // { id: "lealtad", activa, cada, pct, rev }
+  function _normLealtad(r) {
+    if (!r || r.id !== "lealtad") return null;
+    const cada = Math.min(50, Math.max(2, Math.floor(Number(r.cada) || 10)));
+    const pct = Math.min(50, Math.max(1, Math.round(Number(r.pct) || 10)));
+    return { id: "lealtad", activa: !!r.activa, cada, pct, rev: r.rev || null };
+  }
+  /* RETENCION ANTES DE PAGAR COMISIONES (JFC 2026-10-07: "dale choices al usuario sin arruinar
+     nada mas"). Regla del cuaderno, como lealtad: viaja en "ajustes", gana la revision mayor.
+     Apagada (0 dias) por defecto = todo igual que antes. Solo 0/7/14/30: un valor raro de un
+     aparato futuro se ignora en vez de inventar una regla. Una app vieja ignora este id. */
+  let ajusteRetencion = null; // { id: "retencion", dias, rev }
+  const RETENCION_DIAS = [0, 7, 14, 30];
+  function _normRetencion(r) {
+    if (!r || r.id !== "retencion") return null;
+    const d = Math.floor(Number(r.dias) || 0);
+    if (RETENCION_DIAS.indexOf(d) === -1) return null;
+    return { id: "retencion", dias: d, rev: r.rev || null };
+  }
+  function _normMoneda(r) {
+    if (!r || r.id !== "moneda") return null;
+    const c = String(r.codigo || "").trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(c)) return null;
+    return { id: "moneda", codigo: c, rev: r.rev || null };
+  }
+  window.OCMoneda = {
+    codigo() { return (ajusteMoneda && ajusteMoneda.codigo) || "USD"; },
+    formato(n, loc) {
+      const v = Number(n);
+      const c = this.codigo();
+      try { return new Intl.NumberFormat(loc || (c === "USD" ? "en-US" : undefined), { style: "currency", currency: c }).format(isFinite(v) ? v : 0); }
+      catch (_) { return "$" + (isFinite(v) ? v : 0).toFixed(2); }
+    },
+  };
+  /* Impuesto de UNA línea de venta (v361). En centavos enteros y redondeado por
+     línea (como un ticket), y se GUARDA en la venta: cambiar la tasa después
+     no reescribe el pasado. Producto exento o impuesto apagado = null. */
+  function _impuestoDeVenta(p, precioUnit, cant) {
+    const imp = _impuestoVigente();
+    if (!imp || (p && p.exentoImpuesto)) return null;
+    const baseC = Math.round((Number(precioUnit) || 0) * (Number(cant) || 0) * 100);
+    if (baseC <= 0) return null;
+    const montoC = imp.modo === "agregado"
+      ? Math.round(baseC * imp.tasa / 100)
+      : baseC - Math.round(baseC / (1 + imp.tasa / 100));
+    return { tasa: imp.tasa, nombre: imp.nombre, modo: imp.modo, monto: montoC / 100 };
+  }
+  function _impuestoVigente() { return ajusteImpuesto && ajusteImpuesto.activo && ajusteImpuesto.tasa > 0 ? ajusteImpuesto : null; }
+  // Usuarios nombrados (encargados): hasta 49.
+  // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
+  // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }
+  // NOTA DE SEGURIDAD: en la demo el PIN se almacena en texto porque no hay
+  // servidor. En produccion (server.js) usar PBKDF2 igual que el dueno.
+  const usuarios = [];
+  // Apropiación 789 (2026-07-08): ID único de esta instancia. null en la demo;
+  // se fija al activar con 789. Viaja en respaldos/sync para que los datos
+  // queden atados a un negocio y no se confundan entre compradores.
+  // instanceId se HIDRATA desde f123_owned en el arranque (JFC 2026-08-06):
+  // antes arrancaba null y solo se seteaba al llamar al endpoint de activacion,
+  // asi que tras CUALQUIER recarga de un dispositivo YA apropiado quedaba null y
+  // el gate del plan gratuito (!instanceId) volvia a capar a 25 productos a
+  // alguien que ya activo. (licenciaLimitada solo dispara con "limitada"
+  // deliberada desde el panel, no con el default del worker.)
+  /* FIX ONE-TIME: LICENCIA MAL TECLEADA S2324 -> S2J24 (JFC 2026-09-16, v296).
+     El observatorio (panel privado JFC) mostro DOS licencias del MISMO email que
+     difieren en UN caracter: el celular quedo activado bajo
+     F123-A6YK-(privada) (con "3") en vez de la canonica
+     F123-A6YK-(privada) (con "J"). Trampa clasica J/3. Son la misma persona
+     (el panel lo detecta: "same email on 2 licenses - claim/merge"). Como la sala
+     de sync se deriva de la licencia (v295), estar en S2324 = sala distinta = nunca
+     converge con el PC. Aqui, en el aparato que tiene la licencia mal tecleada, se
+     reescribe a la canonica para que se una solo a la misma sala. Gated a la cadena
+     EXACTA equivocada (ningun otro aparato/licencia se toca). One-time (flag).
+     DORMANT/removible una vez que el celular quede unificado. */
+  try {
+    /* El observatorio (KV de licencias en produccion) mostro VARIAS variantes con
+       errata de la MISMA licencia canonica, generadas por codigo mio (rescate/
+       reconcile) a lo largo de las semanas: BF2A<->B2FA y S2J24<->S2324. Cada
+       variante = otra sala = no converge. Aqui se pliegan TODAS las variantes
+       conocidas (coincidencia EXACTA, para no tocar la licencia de otro usuario) a
+       la canonica. Flag v2 para que re-corra en aparatos que ya corrieron el fix v1
+       (que solo cubria S2324). One-time. DORMANT/removible cuando ya no queden
+       aparatos en variantes. */
+    /* Huella (hash cyrb53) en vez del texto de la licencia (JFC 2026-09-22: el repo
+       es PÚBLICO; nunca escribir una licencia completa aquí). Mismo resultado. */
+    var _h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);}
+    var _H_BIEN = 6583453063440131;
+    var _H_VARIANTES = [7204376699570609, 5045741297197422, 3653161193443980];
+    if (localStorage.getItem("f123_fix_lic_v2") !== "1") {
+      var _o = JSON.parse(localStorage.getItem("f123_owned") || "null");
+      var _lc = _o && typeof _o.licenseCode === "string" ? _o.licenseCode.trim().toUpperCase().replace(/\s+/g, "") : "";
+      var _BIEN = _lc.replace("B2FA", "BF2A").replace("S2324", "S2J24"); // variante -> canónica
+      if (_o && _H_VARIANTES.indexOf(_h53(_lc)) !== -1 && _h53(_BIEN) === _H_BIEN) {
+        _o.licenseCode = _BIEN;
+        if (_o.syncCode) _o.syncCode = _BIEN;
+        localStorage.setItem("f123_owned", JSON.stringify(_o));
+        try { localStorage.setItem("f123_sync_room", JSON.stringify({ codigo: _BIEN })); } catch (_) {}
+        // Deja correr la purga de semilla en este aparato (ya en la canonica) para
+        // que no re-contamine la sala al unirse.
+        try { localStorage.removeItem("f123_limpieza_demo_jfc_v1"); } catch (_) {}
+        try { console.warn("[fix-lic] variante " + _lc + " reescrita a la canonica " + _BIEN + "."); } catch (_) {}
+      }
+      localStorage.setItem("f123_fix_lic_v2", "1");
+    }
+  } catch (_) {}
+  /* RETIRO DEL LORD (#14, orden de JFC 2026-09-23: "hazlo ya"). JFC es el
+     DUEÑO de la app; un aparato suyo es simplemente un aparato EN su licencia
+     principal. La marca f123_lord y su "licencia canónica" eran del sync viejo.
+     Una sola vez, en un aparato que tenía la marca: su licencia guardada se
+     alinea con la canónica (la que _licenciaPropia ya usaba como su casa), se
+     guarda copia de la anterior en f123_owned_pre_lord_v1 y se quita la marca.
+     Un aparato sin marca (todos los de clientes) no se toca. */
+  try {
+    if (localStorage.getItem("f123_lord_retirado_v1") !== "1") {
+      if (localStorage.getItem("f123_lord") === "1") {
+        const _can = String(localStorage.getItem("f123_lord_licencia_canonica") || "").trim().toUpperCase().replace(/\s+/g, "");
+        const _raw = localStorage.getItem("f123_owned");
+        const _o = _raw ? JSON.parse(_raw) : null;
+        if (_o && /^F123-/.test(_can) && (_o.licenseCode !== _can || (_o.syncCode && _o.syncCode !== _can))) {
+          localStorage.setItem("f123_owned_pre_lord_v1", _raw);
+          _o.licenseCode = _can;
+          if (_o.syncCode) _o.syncCode = _can;
+          localStorage.setItem("f123_owned", JSON.stringify(_o));
+        }
+        localStorage.removeItem("f123_lord");
+      }
+      localStorage.setItem("f123_lord_retirado_v1", "1");
+    }
+  } catch (_) {}
+  let instanceId = (function () { try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId || null; } catch (_) { return null; } })();
+  // Mejora #2 (JFC 2026-07-16): "limitada" = JFC bajo el estado desde el panel
+  // (ej. cliente moroso) sin bloquear del todo. Se comporta como si el
+  // dispositivo NUNCA se hubiera activado: vuelve a los topes free (25/100/1).
+  function licenciaLimitada() {
+    try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseEstado === "limitada"; } catch (_) { return false; }
+  }
+  /* PRIME DIRECTIVE 1A (JFC 2026-09-02): JAMÁS capar a un dueño de licencia ya
+     activado. A idiomARTE (primer cliente pagado) le salió el límite del plan
+     gratis por un `instanceId` transitoriamente null tras un reload. Este helper
+     falla ABIERTO: re-lee f123_owned EN VIVO en cada chequeo (no solo la
+     hidratación de arranque, que pudo correr antes que localStorage) y trata como
+     licenciado a cualquier dispositivo con instanceId o código de licencia, salvo
+     que JFC lo haya bajado a "limitada" a mano desde el panel. Solo AFLOJA topes;
+     nunca puede romperle a un cliente. La demo (sin f123_owned) sigue con su tope. */
+  function estaLicenciado() {
+    try {
+      const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (o.licenseEstado === "limitada") return false; // baja deliberada desde el panel
+      if (o.instanceId || o.licenseCode) {
+        if (!instanceId && o.instanceId) instanceId = o.instanceId; // re-hidrata si el arranque quedó null
+        return true;
+      }
+      /* SEÑALES DURABLES (JFC 2026-09-03, 1A — a idiomARTE le volvió a salir el
+         tope de 25 productos). Un dispositivo YA activado que perdió el instanceId
+         del f123_owned pelado (por un switch de tienda / reload) NO puede caer al
+         tope free. Se considera licenciado ante CUALQUIER evidencia durable de uso
+         real: está dentro de una tienda unida (f123_tienda_activa), conoce ≥1
+         tienda en el registro (f123_tiendas), o ya tiene datos reales (productos/
+         ventas que un demo recién abierto no tendría). Solo AFLOJA; nunca capa. */
+      try { if (localStorage.getItem("f123_tienda_activa")) return true; } catch (_) {}
+      try { var _reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; if (Object.keys(_reg).length) return true; } catch (_) {}
+      try { if ((productos && productos.length) || (ventas && ventas.length)) return true; } catch (_) {}
+    } catch (_) {}
+    return !!instanceId;
+  }
+  // Nombre editable del negocio (identidad de instancia, 2026-07-08). Viaja en
+  // respaldos/sync. El header lo muestra; vacío = usa el título por defecto.
+  let nombreNegocio = "";
+  /* SELLO DE TIEMPO DEL NOMBRE (JFC 2026-09-15, v283). Desempate determinista para
+     la convergencia entre dos aparatos DUEÑO: gana el rename de dueño MÁS RECIENTE.
+     Sin esto, cada aparato-dueño reescribía el nombre compartido con el suyo cada
+     vez que sembraba -> "guerra de nombres" y nunca convergía (Unificada vs Tienda
+     Consolidada). Se persiste en f123_owned.nombreNegocioTs y viaja en el catálogo. */
+  let nombreNegocioTs = 0;
+  /* CONTADOR MONOTONICO DEL NOMBRE (v290, #2). El desempate por timestamp falla si
+     dos aparatos-dueño tienen relojes desfasados (el de reloj adelantado gana aunque
+     renombrara ANTES). Un contador estilo Lamport (sube +1 por rename, y al adoptar
+     un rev mayor se sincroniza) desempata deterministamente: gana (rev, luego ts). */
+  let nombreNegocioRev = 0;
+  /* La revisión se carga del buffer namespaceado en aplicarRespaldo(). No leerla
+     de f123_owned: ese sidecar describe el aparato/negocio propio y contaminaba
+     el contador al abrir un cuaderno unido, pudiendo ganarle al nombre canónico
+     de esa otra licencia. */
+  // Cadena anti-tamper (2026-07-08): sello (hash) del último movimiento.
+  let selloUltimo = "";
+  // Item 1 (revisión JFC 2026-07-05): el estado vivía SOLO en memoria — al
+  // recargar la página se perdían ventas/productos nuevos. Ahora todo el
+  // estado se persiste en localStorage tras cada mutación (ver debePersistir
+  // en el interceptor de fetch) y se recarga al arrancar (cargarEstadoLocal).
+  // CRITICO (2026-07-17): la clave vieja "amigable_demo_state_v4" nunca tuvo
+  // prefijo f123_, y GitHub Pages sirve friendly-123 y AMIGABLE bajo el MISMO
+  // origen (jfcarpiopuntocom.github.io) — localStorage se comparte por origen,
+  // no por carpeta. Con la clave vieja, TODO el estado del negocio (productos,
+  // ventas, clientes) se mezclaba entre ambas apps en el mismo navegador.
+  const OC_STATE_KEY_VIEJA = "amigable_demo_state_v4";
+  const OC_STATE_KEY = "f123_estado_v4";
+  let _estadoLecturaBloqueada = false, _conflictoEstadoAB = null, _evidenciaEstadoAB = null;
+  var _avisoCatalogoPendiente = false; // (JFC 2026-10-28) aviso de catalogo bloqueado, se reintenta al recuperar el guardado (mismo ambito que avisarCatalogoCambiado)
+  var _errorBloqueoLectura = null; // (JFC 2026-10-28) causa de la lectura bloqueada, para clasificar el fallo de guardado
+  function _leerEstadoEstricto(clave) {
+    try {
+      const aislamiento = window.AMG && window.AMG.Aislamiento;
+      return aislamiento && aislamiento.leerEstadoEstricto ? aislamiento.leerEstadoEstricto(clave) : localStorage.getItem(clave);
+    } catch (error) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = error; throw error; }
+  }
+  // Migracion de un solo uso: si ya hay estado bajo la clave nueva, no tocar
+  // nada. Si NO hay nada bajo la nueva pero SI bajo la vieja compartida,
+  // copiarlo una vez para no perder datos de un cliente que ya venia usando
+  // la app antes de este fix (aunque ese estado pudo venir mezclado con
+  // AMIGABLE si el cliente tambien uso esa app en el mismo navegador).
+  (function migrarEstadoSiHaceFalta() {
+    try {
+      if (_leerEstadoEstricto(OC_STATE_KEY) != null) return;
+      const viejo = _leerEstadoEstricto(OC_STATE_KEY_VIEJA);
+      if (viejo != null) localStorage.setItem(OC_STATE_KEY, viejo);
+    } catch (_) {}
+  })();
+  // Severidad Simon (menor = mas grave). Usado para quedarse con la señal
+  // mas urgente entre stock y vencimiento, y para ordenar alertas.
+  const ORDEN = { rojo: 0, naranja: 1, amarillo: 2, negro: 3, verde: 5 };
+
+  // Item 23: IDs con Date.now()+Math.random() podían colisionar. UUID real
+  // (crypto.randomUUID) con fallback para navegadores viejos.
+  /* DINERO EN CENTAVOS (JFC 2026-09-29, DDIA 4). Todo precio/costo que entra al catalogo o a una venta
+     se guarda redondeado al centavo, mitad hacia arriba. Se usa notacion exponencial para que 10.005 sea
+     10.01 (con Math.round(x*100) daba 10.00 por el error binario de coma flotante). Valores ya limpios no
+     cambian. NO se migran productos historicos: solo lo que entra desde hoy. */
+  function aCent(n) { const x = Number(n); if (!Number.isFinite(x)) return 0; return Number(Math.round(x + "e2") + "e-2"); }
+  function uuid(prefijo) {
+    const c = globalThis.crypto;
+    const id = (c && c.randomUUID) ? c.randomUUID() : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+    return (prefijo || "") + id;
+  }
+  function clonar(obj) { return JSON.parse(JSON.stringify(obj)); }
+  const clonarProfundo = clonar;
+  // Foto completa del estado, con schemaVersion (item 18) para poder migrar
+  // formatos futuros sin romper respaldos viejos.
+  /* v609 perf: estadoActualExportable({ vivo: true }) NO copia las colecciones: devuelve referencias a los
+     arreglos vivos. SOLO para quien lo serializa de inmediato y de forma sincrona (guardado A/B), porque
+     una mutacion posterior lo alteraria. Todos los demas llamadores siguen recibiendo copias profundas. */
+  function estadoActualExportable(opc) {
+    const clonar = opc && opc.vivo ? (x => x) : clonarProfundo;
+    const payoutView = _payoutCore() && _payoutCore().compatiblePayouts;
+    return {
+      schemaVersion: 3,
+      _rev: _localRev,
+      ...(_evidenciaEstadoAB ? { recuperacionAB: clonar(_evidenciaEstadoAB) } : {}),
+      modo: "demo-estatico",
+      ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
+      movimientos: clonar(movimientos), actividadCompartida: _actividadExportable(), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
+      payoutConflicts:clonar(payoutConflicts), payoutQuarantine:clonar(payoutQuarantine),
+      sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
+      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, retencion: ajusteRetencion ? clonar(ajusteRetencion) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
+      usuarios: clonar(usuarios),
+      instanceId: instanceId,
+      nombreNegocio: nombreNegocio,
+      nombreNegocioTs: nombreNegocioTs,
+      nombreNegocioRev: nombreNegocioRev,
+      selloUltimo: selloUltimo,
+      // typeof: some tests evaluate this function alone, without the receipt vars in scope.
+      ...(typeof _opsAplicadas !== "undefined" && ((_opsAplicadas && _opsAplicadas.size) || _opsDelCuaderno)
+        ? { opsAplicadas: [...new Set([...(_opsAplicadas || []), ...(_opsDelCuaderno || [])])] } : {}),
+    };
+  }
+  // Item 19: validación profunda de respaldos antes de importar — ids únicos,
+  // números finitos y no negativos, referencias a perchas existentes. Antes
+  // solo se comprobaba que productos/ubicaciones fueran arrays.
+  function esTextoCorto(v, max) { return typeof v === "string" && v.trim().length > 0 && v.length <= max; }
+  function validarRespaldo(body) {
+    if (!body || typeof body !== "object") return "That file does not look like a valid backup.";
+    if (!Array.isArray(body.productos) || !Array.isArray(body.ubicaciones)) return "That file does not look like a valid backup.";
+    if (body.productos.length > 20000 || body.ubicaciones.length > 2000) return "The backup is too large for this local mode.";
+    const idsProd = new Set();
+    for (const p of body.productos) {
+      if (!p || typeof p !== "object") return "There is a corrupt product in the backup.";
+      if (!esTextoCorto(String(p.id || ""), 120) || idsProd.has(String(p.id))) return "There are empty or duplicated product IDs.";
+      idsProd.add(String(p.id));
+      if (!esTextoCorto(String(p.nombre || ""), 240)) return "There is a product without a valid name.";
+      if (!Number.isFinite(Number(p.precio)) || !Number.isFinite(Number(p.costo)) || !Number.isFinite(Number(p.stockActual))) return "There are invalid numeric values in products.";
+      if (p.stockEpochId != null && (typeof p.stockEpochId !== "string" || p.stockEpochId.length > 160))
+        return "There is an invalid physical inventory epoch in the backup.";
+      if (Number(p.precio) < 0 || Number(p.costo) < 0 || Number(p.stockActual) < 0) return "There are negative prices, costs or stock in products.";
+    }
+    const idsUbic = new Set();
+    for (const u of body.ubicaciones) {
+      if (!u || typeof u !== "object") return "There is a corrupt shelf in the backup.";
+      if (!esTextoCorto(String(u.id || ""), 120) || idsUbic.has(String(u.id))) return "There are empty or duplicated shelf IDs.";
+      idsUbic.add(String(u.id));
+      if (!esTextoCorto(String(u.nombre || ""), 240)) return "There is a shelf without a valid name.";
+    }
+    for (const p of body.productos) {
+      if (p.ubicacionId && p.ubicacionId !== "todas" && !idsUbic.has(String(p.ubicacionId))) return `The product "${p.nombre}" points to a shelf that does not exist.`;
+    }
+    if (body.ventas && !Array.isArray(body.ventas)) return "The sales section is corrupt.";
+    if (body.movimientos && !Array.isArray(body.movimientos)) return "The activity section is corrupt.";
+    try { if (body.actividadCompartida != null) _actividadUnir([], body.actividadCompartida); }
+    catch (_) { return "The shared activity evidence is corrupt."; }
+    if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
+    if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
+    if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
+    if (body.payouts && !Array.isArray(body.payouts)) return "The commission payments section is corrupt.";
+    if (body.payoutConflicts && (!Array.isArray(body.payoutConflicts) || body.payoutConflicts.some(c=>!c || typeof c.key!=='string' || !Array.isArray(c.records) || c.records.some(p=>_payoutCore().validatePayoutRecord(p))))) return 'The payment conflict evidence is corrupt.';
+    if (body.payoutQuarantine && (!Array.isArray(body.payoutQuarantine) || body.payoutQuarantine.some(q=>!q || !q.record || typeof q.reason!=='string'))) return 'The payment quarantine evidence is corrupt.';
+    if (Array.isArray(body.payouts)) {
+      const idsPay = new Set(), opsPay = new Set();
+      for (const p of body.payouts) {
+        if (!p || !esTextoCorto(String(p.id || ""), 160) || !esTextoCorto(String(p.opId || ""), 800)) return "There is a corrupt commission payment in the backup.";
+        if (idsPay.has(String(p.id)) || opsPay.has(String(p.opId))) return "There are duplicated commission payment IDs.";
+        idsPay.add(String(p.id)); opsPay.add(String(p.opId));
+        if (p.status !== "paid" || !Number.isInteger(Number(p.amountCents)) || Number(p.amountCents) < 0) return "There is an invalid commission payment amount or status.";
+        if (!Array.isArray(p.items) || !p.items.length) return "There is a commission payment without covered items.";
+        for (const it of p.items) if (!it || !["sale","adjustment","void"].includes(it.kind) /* void (2026-10-07): descuento de venta anulada tras pagarse */ || !it.sourceId || !Number.isInteger(Number(it.amountCents)) || Number(it.amountCents) <= 0) return "There is a corrupt covered item in a commission payment.";
+      }
+    }
+    if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
+    return "";
+  }
+  /* (JFC 2026-10-28) true si el Y.Doc LOCAL persistido ya tiene datos de negocio (cualquier coleccion salvo "dispositivos"),
+     o si "dispositivos" trae un id que no es el nuestro (sync-yjs.js:1383-1388, mock-backend.js ~4809-4818; add-only, vive en IndexedDB).
+     Ese doc gana al reabrir y desharia lo importado. Falla CERRADO: si hay sala/doc pero no se puede leer (inactivo, recuperacion
+     local pendiente o sin almacenamiento) se bloquea. Sin OCYjs (harness/VM) o sin sala nunca iniciada -> false. */
+  function _cuadernoConDatosEnDoc() {
+    try {
+      const y = window.OCYjs;
+      if (!y) return false;
+      if (y.estado !== "activo" || typeof y._diag !== "function") return !!y.roomId; // sala sin doc legible -> bloquear
+      const d = y._diag();
+      if (d.recuperacionLocalPendiente) return true;
+      const yo = (window.OCMicelio && window.OCMicelio.yo) ? window.OCMicelio.yo() : null;
+      const miId = yo && yo.id ? String(yo.id) : "";
+      const n = d.n || {};
+      if (Object.keys(n).some((k) => k !== "dispositivos" && Number(n[k]) > 0)) return true;
+      if (Number(d.ops) > 0) return true; // hechos/operaciones del doc de ops
+      return Object.keys(y.get("dispositivos") || {}).some((k) => k !== miId);
+    } catch (_) { return true; } // ante la duda, NO sobrescribir
+  }
+  // v651: while Yjs is still starting, a new device's own entry looked like another device's data and importing got a false 409.
+  // Waits at most 5 s for that to settle, then decides as always: in doubt, nothing is overwritten.
+  async function _cuadernoConDatosTrasArranque() {
+    const arrancando = () => {
+      try {
+        const y = window.OCYjs;
+        if (!y || !y.roomId) return false;
+        if (y.estado !== "activo" || typeof y._diag !== "function" || y._diag().recuperacionLocalPendiente) return true;
+        return !!window.OCMicelio && !(window.OCMicelio.yo && window.OCMicelio.yo() && window.OCMicelio.yo().id);
+      } catch (_) { return false; }
+    };
+    const t0 = Date.now();
+    while (arrancando() && Date.now() - t0 < 5000) await new Promise((listo) => setTimeout(listo, 200));
+    return _cuadernoConDatosEnDoc();
+  }
+  function aplicarRespaldo(body) {
+    _unirOpsAplicadas(body && body.opsAplicadas);
+    productos.length = 0; productos.push(...body.productos);
+    ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
+    ventas.length = 0; ventas.push(...(Array.isArray(body.ventas) ? body.ventas : []));
+    movimientos.length = 0; movimientos.push(...(Array.isArray(body.movimientos) ? body.movimientos : []));
+    actividadCompartida = _actividadUnir([], body.actividadCompartida || []);
+    transferencias.length = 0; transferencias.push(...(Array.isArray(body.transferencias) ? body.transferencias : []));
+    gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
+    ajustesComision.length = 0; ajustesComision.push(...(Array.isArray(body.ajustesComision) ? body.ajustesComision : []));
+    payouts.length = 0; payouts.push(...(Array.isArray(body.payouts) ? body.payouts.filter((p) => p && p.id && p.opId) : []));
+    payoutConflicts.splice(0,payoutConflicts.length,...(body.payoutConflicts || []));
+    payoutQuarantine.splice(0,payoutQuarantine.length,...(body.payoutQuarantine || []));
+    if (Array.isArray(body.sucursales)) { sucursales.length = 0; sucursales.push(...body.sucursales); }
+    if (Array.isArray(body.promotoras)) { promotoras.length = 0; promotoras.push(...body.promotoras); }
+    if (Array.isArray(body.clientes)) {
+      clientes.length = 0;
+      // Retrocompat v3→v4: si el backup no tiene evaluacion, poner neutro por defecto.
+      clientes.push(...body.clientes.map(c => c.evaluacion ? c : { ...c, evaluacion: { trato: 0, confiabilidad: 0, historial: [] } }));
+    }
+    if (Array.isArray(body.usuarios)) { usuarios.length = 0; usuarios.push(...body.usuarios); }
+    if (typeof body.instanceId === "string" && body.instanceId) instanceId = body.instanceId;
+    if (typeof body.nombreNegocio === "string") nombreNegocio = body.nombreNegocio;
+    if (Number(body.nombreNegocioTs)) nombreNegocioTs = Number(body.nombreNegocioTs);
+    if (Number(body.nombreNegocioRev)) nombreNegocioRev = Number(body.nombreNegocioRev);
+    // Cadena anti-tamper: cargar el sello persistido TAL CUAL (no recalcularlo del
+    // array). Así, si alguien recorta el final del log sin arreglar este valor, la
+    // verificación de cola lo detecta (prev !== selloUltimo). En respaldos viejos
+    // sin este campo, se recompone desde el último movimiento sellado (retrocompat).
+    if (typeof body.selloUltimo === "string") {
+      selloUltimo = body.selloUltimo;
+    } else {
+      selloUltimo = "";
+      for (let i = movimientos.length - 1; i >= 0; i--) { if (movimientos[i] && movimientos[i].sello) { selloUltimo = movimientos[i].sello; break; } }
+    }
+    Object.keys(gastosMensuales).forEach((k) => delete gastosMensuales[k]);
+    if (body.configuracion && body.configuracion.gastosMensuales && typeof body.configuracion.gastosMensuales === "object") Object.assign(gastosMensuales, body.configuracion.gastosMensuales);
+    // Toda percha debe existir en gastosMensuales (mismo bug fix 2026-07-03
+    // de las perchas creadas en runtime).
+    ubicaciones.forEach((u) => { if (!(u.id in gastosMensuales)) gastosMensuales[u.id] = 0; });
+    cacheUltimaVenta = { n: -1, map: null }; // el respaldo trae OTRAS ventas: cache fuera
+    /* Categorías: un respaldo viejo no trae categoriasMeta y entonces NO se toca
+       nada (las listas locales siguen como estaban). Si lo trae, se carga y se
+       reflejan sus registros en las listas: es lo que hace que restaurar un
+       respaldo devuelva también las categorías propias vacías y las ocultas. */
+    // Impuesto (v359): un respaldo viejo no lo trae y no se toca nada.
+    const _imp = body.configuracion && _normImpuesto(body.configuracion.impuesto);
+    if (_imp) ajusteImpuesto = _imp;
+    const _mon = body.configuracion && _normMoneda(body.configuracion.moneda);
+    if (_mon) ajusteMoneda = _mon;
+    const _leal = body.configuracion && _normLealtad(body.configuracion.lealtad);
+    if (_leal) ajusteLealtad = _leal;
+    const _ret = body.configuracion && _normRetencion(body.configuracion.retencion);
+    if (_ret) ajusteRetencion = _ret;
+    const _cm = body.configuracion && body.configuracion.categoriasMeta;
+    if (_cm && typeof _cm === "object") {
+      Object.keys(categoriasMeta).forEach((k) => delete categoriasMeta[k]);
+      const validas = [];
+      Object.keys(_cm).forEach((k) => {
+        const r = _cm[k];
+        if (!r || !r.id || _CAT_ESTADOS.indexOf(r.estado) === -1) return;
+        categoriasMeta[String(r.id)] = { id: String(r.id), nombre: String(r.nombre || r.id).slice(0, 120), estado: r.estado, rev: r.rev || null };
+        validas.push(categoriasMeta[String(r.id)]);
+      });
+      _reflejarCategoriasEnListas(validas);
+    }
+    ponerFotosDemo(); // fotos de ejemplo solo en semilla intacta (shell 374)
+  }
+  function _leerListaCat(clave) {
+    try { const a = JSON.parse(localStorage.getItem(clave) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; }
+  }
+  /* Aplica registros de categorías a las listas que lee la pantalla. SOLO toca
+     los nombres que vienen en `registros`: una categoría sin registro (creada
+     antes de este cambio, o de otro origen) nunca se quita. */
+  function _reflejarCategoriasEnListas(registros) {
+    try {
+      if (!registros || !registros.length) return;
+      let custom = _leerListaCat(_catKey(_CAT_BASE_CUSTOM)), ocultas = _leerListaCat(_catKey(_CAT_BASE_OCULTAS));
+      const esta = (arr, n) => arr.some((x) => String(x).trim().toLowerCase() === n);
+      const sin = (arr, n) => arr.filter((x) => String(x).trim().toLowerCase() !== n);
+      registros.forEach((r) => {
+        const n = String(r.nombre || r.id).trim();
+        const id = n.toLowerCase();
+        if (!id) return;
+        if (r.estado === "custom" && !esta(custom, id)) custom.push(n);
+        else if (r.estado === "borrada") custom = sin(custom, id);
+        else if (r.estado === "oculta" && !esta(ocultas, id)) ocultas.push(n);
+        else if (r.estado === "visible") ocultas = sin(ocultas, id);
+      });
+      localStorage.setItem(_catKey(_CAT_BASE_CUSTOM), JSON.stringify(custom));
+      localStorage.setItem(_catKey(_CAT_BASE_OCULTAS), JSON.stringify(ocultas));
+      try { window.dispatchEvent(new CustomEvent("oc-categorias-cambiadas")); } catch (_) {}
+    } catch (_) {}
+  }
+  /* Siembra registros para las categorías que ya existían antes de este cambio
+     (listas sin registro), para que un aparato nuevo también las reciba.
+     Revisión MÍNIMA a propósito ({c:0}): cualquier cambio explícito posterior
+     (una lápida, un renombre) gana siempre. Si se sembraran con una revisión
+     normal, un aparato que estuvo offline y se actualiza tarde podría
+     resucitar una categoría que otro aparato ya borró. */
+  function _sembrarCategoriasLegado() {
+    try {
+      let d = "";
+      try { d = String(localStorage.getItem("f123_device_id") || ""); } catch (_) {}
+      let n = 0;
+      const sembrar = (lista, estado) => lista.forEach((x) => {
+        const nom = String(x).trim(), id = nom.toLowerCase();
+        if (!id || categoriasMeta[id]) return;
+        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: { c: 0, d } };
+        n++;
+      });
+      sembrar(_leerListaCat(_catKey(_CAT_BASE_CUSTOM)), "custom");
+      sembrar(_leerListaCat(_catKey(_CAT_BASE_OCULTAS)), "oculta");
+      if (n) guardarEstadoLocal();
+    } catch (_) {}
+  }
+  // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba y un refresh le comia el dia.
+  // v608 (JFC 2026-10-28, orden del dueno): NADA encima de la UI. Antes habia una banda roja fija
+  // (#oc-quota-aviso, position:fixed). Ahora solo se levanta la bandera window.__ocMemoriaLlena y la linea
+  // de estado de Avanzado (#oc-sync-estado-min, avanzado-extra.js _pintarSyncMin) escribe el texto plano.
+  // NO volver a crear elementos fijos/overlay/modal/toast aqui. Solo se activa con error de cuota REAL
+  // (_esErrorDeCuota); un fallo no-cuota no toca esta bandera.
+  // Clear a prior full-storage warning ONLY after another write succeeded durably.
+  function despejarAvisoMemoriaLlena() {
+    try { if (window.__ocMemoriaLlena) { window.__ocMemoriaLlena = false; window.dispatchEvent(new CustomEvent("oc-memoria-llena", { detail: { llena: false } })); } } catch (_) {}
+  }
+  function avisoMemoriaLlena() {
+    try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "memoria-llena"); else (window.__ocFallos = window.__ocFallos || []).push(["", "memoria-llena"]); } catch (_) {} // canario 2026-10-01
+    try { window.__ocMemoriaLlena = true; window.dispatchEvent(new CustomEvent("oc-memoria-llena", { detail: { llena: true } })); } catch (_) {}
+  }
+  // Fase 2 (2026-08-04): si no cabe el estado completo, antes de darse por
+  // vencido se archivan los movimientos mas viejos en IndexedDB (idb-archivo.js
+  // — sin techo practico de espacio) y se reintenta con el log recortado. Nada
+  // se BORRA, solo se muda de almacen. Si IndexedDB tampoco esta disponible o
+  // falla, se cae al aviso rojo de siempre (nada nuevo se pierde silenciosamente).
+  function avisoArchivado(n) {
+    // SOLO CONSOLA (JFC 2026-08-26): banner no autorizado; todo se guardó, solo
+    // se archivó el log viejo. Sin romper la UI.
+    try { console.warn("[storage] log de actividad viejo (" + n + " registros) movido a archivo local; nada se borró (aviso solo en consola)"); } catch (_) {}
+  }
+  let _localRev = 0; // última revisión confirmada en almacenamiento duradero
+  let _localRevReservado = 0; // asignador monotónico: los fallos dejan huecos, nunca adelantan _localRev
+  // Fase 3 (2026-08-04): doble buffer A/B + puntero, en vez de una unica clave.
+  // Cada guardado escribe SIEMPRE en el buffer INACTIVO y recien al final mueve
+  // el puntero — asi una escritura interrumpida a medias (pestaña cerrada,
+  // navegador matado por el SO a mitad del setItem) nunca puede dañar la unica
+  // copia buena: el puntero sigue apuntando al buffer anterior, intacto.
+  // Al cargar, si el buffer activo no pasa validarRespaldo() (ya existente,
+  // detecta JSON truncado o con forma invalida), se prueba el otro buffer
+  // ANTES de caer al aviso de "datos corruptos" — con SHA-256 no habria hecho
+  // falta: JSON.parse() + validarRespaldo() ya detectan truncamiento igual de
+  // bien, sin el costo de un hash criptografico en cada venta.
+  /* MULTI-TIENDA LOCAL (JFC 2026-08-26). Cada licencia = una tienda aislada
+     en localStorage. La tienda activa se marca en f123_tienda_activa (vacío =
+     tienda propia, que sigue usando las claves legacy SIN sufijo → cero
+     migración y cero riesgo para quien ya venía usando la app). Cambiar de
+     licencia flushea la tienda actual, cambia este marcador y recarga; en el
+     boot se cargan los buffers de la tienda correcta.
+     El sufijo se calcula UNA sola vez al cargar el módulo: como cambiar de
+     tienda siempre dispara location.reload(), no hay caso donde cambie en
+     caliente. Propiedad de seguridad: si nadie escribió f123_tienda_activa,
+     el sufijo es "" y TODAS las claves quedan byte-idénticas a antes. */
+  /* f123_tienda_activa guarda el SUFIJO literal de la tienda activa:
+     "" para la tienda propia (claves legacy), o "::<licencia>" para una unida.
+     Se guarda el sufijo entero (no solo la licencia) para que el registro de
+     tiendas pueda mapear licencia->sufijo sin ambigüedad, incluyendo el caso
+     de la tienda propia cuyo sufijo es "". */
+  function _sufijoTiendaActiva() {
+    try { return _leerEstadoEstricto("f123_tienda_activa") || ""; } catch (_) { return ""; }
+  }
+  /* ═══ SHARED DIGITAL NOTEBOOK: UN SOLO CUADERNO POR LICENCIA (JFC 2026-09-15, v283) ═══
+     La app ES un cuaderno digital compartido: una licencia = UN cuaderno; los
+     aparatos son réplicas (se distinguen por instanceId), NO cuadernos aparte. El
+     split de namespaces por aparato ("" legacy vs "::<licencia>" unida) era el
+     vestigio de "salas" que fragmentaba al cliente: dos aparatos con la misma
+     licencia guardaban en cajones distintos y por eso mostraban nombre/inventario
+     distintos. Aquí se CONSOLIDA, UNA sola vez y sin destruir nada, todo el
+     cuaderno del dueño en el namespace canónico "" y de ahí en adelante el aparato
+     usa SIEMPRE "" (sufijo vacío). Ver memoria: arquitectura_shared_notebook_canonica.
+
+     Seguridad:
+       - Solo add-only: se UNEN por id las colecciones de catálogo/equipo (perchas,
+         productos, sucursales, promotoras, clientes, usuarios). El log financiero
+         (ventas/movimientos/transferencias/gastos) y su cadena anti-tamper
+         (selloUltimo) NO se fusionan a ciegas entre aparatos (rompería la cadena);
+         se conserva intacto el del cuaderno BASE (el que ya tiene el negocio real).
+       - Antes de escribir nada se guarda un snapshot de los buffers originales en
+         f123_premigra_notebook_v1 (y no se borran los buffers "::L": quedan como
+         red). Idempotente: corre una sola vez (flag f123_notebook_unificado_v1).
+     _normLic/_licenciaPropia son hoisted y solo leen localStorage: seguro aquí. */
+  try {
+    /* FLAG v2 (v284): la v283 tenía una trampa — solo miraba el buffer
+       "::<licenciaPropia>". Si en el aparato el buffer real estaba bajo OTRO sufijo
+       (la licencia con que se creó no coincidía byte a byte con _licenciaPropia()),
+       la migración NO lo encontraba pero IGUAL forzaba tienda_activa="" y marcaba
+       hecho -> el aparato quedaba apuntando al cuaderno VACÍO y la data huérfana.
+       v284 escanea TODOS los buffers del aparato (cualquier sufijo + legacy),
+       elige el que tiene el negocio real (más productos) y lo consolida en "".
+       El flag es NUEVO (v2) para que RE-CORRA en aparatos que ya sufrieron la v283. */
+    if (!_estadoLecturaBloqueada && _leerEstadoEstricto("f123_notebook_unificado_v2") !== "1" &&
+        _leerEstadoEstricto(OC_STATE_KEY + "_journal") === null) {
+      // Mejor buffer A/B válido de un sufijo dado.
+      var _leerBuf = function (suf) {
+        try {
+          var base = OC_STATE_KEY + suf;
+          if (!window.OCEstadoAB) throw new Error("A/B recovery unavailable");
+          var vista = window.OCEstadoAB.crear({ storage: localStorage, leer: _leerEstadoEstricto, claveBase: base }).leer();
+          var ptr = vista.activo;
+          var orden = ptr ? [ptr, ptr === "A" ? "B" : "A"] : ["A", "B"];
+          for (var i = 0; i < orden.length; i++) {
+            var raw = vista.buffers[orden[i]];
+            if (raw == null) continue;
+            var b; try { b = JSON.parse(raw); } catch (_) { continue; }
+            if (b && typeof b === "object") return { body: b, raw: raw, suf: suf };
+          }
+        } catch (_) { _estadoLecturaBloqueada = true; }
+        return null;
+      };
+      // Recolectar TODOS los sufijos presentes en claves de buffer del aparato.
+      var _sufs = { "": true };
+      try {
+        for (var _i = 0; _i < localStorage.length; _i++) {
+          var _k = localStorage.key(_i); if (!_k) continue;
+          var _m = _k.match(/^f123_estado_v4(::.+)?_(A|B)$/);
+          if (_m) _sufs[_m[1] || ""] = true;
+        }
+      } catch (_) {}
+      var _bufs = [];
+      Object.keys(_sufs).forEach(function (s) { var b = _leerBuf(s); if (b) _bufs.push(b); });
+      // Candidato legacy: la clave de un solo buffer (aparatos muy viejos).
+      try {
+        var _lg = _leerEstadoEstricto(OC_STATE_KEY);
+        if (_lg) { var _lb; try { _lb = JSON.parse(_lg); } catch (_) {} if (_lb && typeof _lb === "object") _bufs.push({ body: _lb, raw: _lg, suf: "" }); }
+      } catch (_) {}
+      var _nProd = function (r) { return (r && r.body && Array.isArray(r.body.productos)) ? r.body.productos.length : -1; };
+      var _nFin = function (r) { var b = (r && r.body) || {}; return (Array.isArray(b.ventas) ? b.ventas.length : 0) + (Array.isArray(b.movimientos) ? b.movimientos.length : 0); };
+      /* DESEMPATE DETERMINISTA DEL GANADOR (v288, #3). Antes en empate de #productos
+         se quedaba con el primer sufijo que enumeraba localStorage (no determinista)
+         y con él SU log financiero -> podía conservar las ventas equivocadas. Ahora:
+         más productos; empate -> más historial financiero (ventas+movimientos, para
+         no perder el log real); empate -> mayor _rev. */
+      var _gana = function (reta, campeon) {
+        if (_nProd(reta) !== _nProd(campeon)) return _nProd(reta) > _nProd(campeon);
+        if (_nFin(reta) !== _nFin(campeon)) return _nFin(reta) > _nFin(campeon);
+        return (Number(reta.body._rev) || 0) > (Number(campeon.body._rev) || 0);
+      };
+      if (!_estadoLecturaBloqueada && _bufs.length) {
+        // GANADOR = el cuaderno con el negocio real. Un aparato hospeda UN negocio,
+        // así que el resto solo aporta catálogo add-only.
+        var _win = _bufs[0];
+        _bufs.forEach(function (b) { if (_gana(b, _win)) _win = b; });
+        if (_nProd(_win) >= 0) {
+          // Snapshot de TODOS los buffers antes de tocar nada (no destructivo).
+          try {
+            localStorage.setItem("f123_premigra_notebook_v2", JSON.stringify({
+              ts: Date.now(), win: _win.suf,
+              bufs: _bufs.map(function (b) { return { suf: b.suf, raw: b.raw }; })
+            }));
+          } catch (_) {}
+          // Base = ganador COMPLETO (conserva su log financiero y su sello).
+          var _res = JSON.parse(JSON.stringify(_win.body));
+          var _ADD = ["ubicaciones", "productos", "sucursales", "promotoras", "clientes", "usuarios"];
+          var _maxRev = Number(_win.body._rev) || 0;
+          _bufs.forEach(function (b) {
+            if (b === _win || !b.body) return;
+            _maxRev = Math.max(_maxRev, Number(b.body._rev) || 0);
+            _ADD.forEach(function (col) {
+              var bArr = Array.isArray(_res[col]) ? _res[col] : (_res[col] = []);
+              var eArr = Array.isArray(b.body[col]) ? b.body[col] : [];
+              var vistos = {};
+              bArr.forEach(function (x) { if (x && x.id != null) vistos[String(x.id)] = true; });
+              eArr.forEach(function (x) { if (x && x.id != null && !vistos[String(x.id)]) { bArr.push(x); vistos[String(x.id)] = true; } });
+            });
+            if (!String(_res.nombreNegocio || "").trim() && b.body.nombreNegocio) _res.nombreNegocio = b.body.nombreNegocio;
+          });
+          _res._rev = _maxRev + 1;
+          // Escribir el cuaderno consolidado en AMBOS buffers "" (v288, #4). Antes
+          // solo se escribía _A + ptr A y quedaba un _B viejo con posible _rev
+          // MAYOR; si un flujo posterior leyera _B, ganaría estado viejo. Se
+          // sobrescriben los dos con el consolidado para que ninguno esté rancio.
+          try {
+            var _cs = JSON.stringify(_res);
+            var _abMigracion = window.OCEstadoAB.crear({ storage: localStorage, leer: _leerEstadoEstricto, claveBase: OC_STATE_KEY });
+            if (!_abMigracion.guardarAhora(_cs)) throw new Error("Notebook consolidation was not durable");
+          } catch (_) { _estadoLecturaBloqueada = true; }
+        }
+      }
+      // De aquí en adelante el aparato usa SIEMPRE el cuaderno único "".
+      if (!_estadoLecturaBloqueada) {
+        try { localStorage.setItem("f123_tienda_activa", ""); } catch (_) {}
+        try { localStorage.setItem("f123_notebook_unificado_v2", "1"); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+  const OC_STATE_SUFIJO = _sufijoTiendaActiva();
+  const OC_STATE_PTR = OC_STATE_KEY + OC_STATE_SUFIJO + "_ptr";
+  /* SELLO DE ESCRITURA (revision Linus 2026-09-25, bug real: dos pestanas vendian la ULTIMA
+     unidad, las dos decian "vendido" y una venta se perdia en silencio). Cada guardado
+     deja un sello unico; una pestana cuyo sello en memoria no coincide con el guardado
+     sabe que otra escribio despues y recarga ANTES de escribir (ver window.fetch). */
+  const OC_STATE_SELLO = OC_STATE_KEY + OC_STATE_SUFIJO + "_sello";
+  let _miSello = (function () { try { return localStorage.getItem(OC_STATE_SELLO); } catch (_) { return null; } })();
+  function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
+  let _estadoABLocal = null;
+  function _estadoAB() {
+    if (!_estadoABLocal && window.OCEstadoAB) _estadoABLocal = window.OCEstadoAB.crear({
+      storage: localStorage, leer: _leerEstadoEstricto, claveBase: OC_STATE_KEY + OC_STATE_SUFIJO });
+    return _estadoABLocal;
+  }
+  function _registrarConflictoAB(vista) {
+    if (!vista.conflictos.length && !vista.danados.length) return false;
+    const preparado = vista.registro && vista.registro.phase === "PREPARED";
+    _evidenciaEstadoAB = { base: OC_STATE_KEY + OC_STATE_SUFIJO, journal: vista.rawJournal, puntero: vista.puntero,
+      fase: vista.registro ? vista.registro.phase : "LEGACY", danados: vista.danados,
+      copias: [{ clave: "A", raw: vista.fisicos.A }, { clave: "B", raw: vista.fisicos.B }] };
+    if (vista.registro) _evidenciaEstadoAB.copias.push({ clave: preparado ? "candidata-no-confirmada" : "confirmada", raw: vista.registro.candidateRaw });
+    if (preparado) _evidenciaEstadoAB.copias.push({ clave: "preimagen", raw: vista.registro.anterior });
+    if (!vista.conflictos.length) return false;
+    _conflictoEstadoAB = _evidenciaEstadoAB;
+    _estadoLecturaBloqueada = true;
+    window.OCEstadoAB.avisarConflicto();
+    return true;
+  }
+  /* v761: conflicto A/B resoluble (práctica de journaling): entre las copias válidas gana la de
+     mayor revisión (empate: más ventas+movimientos, luego la confirmada por el journal); TODAS las
+     demás se conservan antes en _evidencia_ab. Sin copia válida, o sin poder guardar la evidencia,
+     no se toca nada y sigue el bloqueo (507). Nunca se fusionan contenidos. */
+  const OC_STATE_EVIDENCIA = OC_STATE_KEY + OC_STATE_SUFIJO + "_evidencia_ab";
+  function _resolverConflictoAB(ab, vista) {
+    if (!vista.conflictos.length || !ab.adoptar) return false;
+    try {
+      const vistos = new Set(), copias = [];
+      [["confirmada", vista.buffers[vista.activo]], ["A", vista.buffers.A], ["B", vista.buffers.B],
+       ["A-fisica", vista.fisicos.A], ["B-fisica", vista.fisicos.B],
+       // A never-confirmed PREPARED candidate only lives in the journal: kept as evidence, never eligible.
+       ["candidata-no-confirmada", vista.registro && vista.registro.phase === "PREPARED" ? vista.registro.candidateRaw : null]].forEach(([clave, raw]) => {
+        if (typeof raw !== "string" || vistos.has(raw)) return;
+        vistos.add(raw);
+        let body = null; try { body = JSON.parse(raw); } catch (_) {}
+        const rev = body && Number.isSafeInteger(body._rev) ? body._rev : 0;
+        const valida = clave !== "candidata-no-confirmada" && rev >= 1 && !validarRespaldo(body);
+        const ops = valida ? (Array.isArray(body.ventas) ? body.ventas.length : 0) + (Array.isArray(body.movimientos) ? body.movimientos.length : 0) : 0;
+        copias.push({ clave, raw, body, rev, valida, ops });
+      });
+      let ganadora = null;
+      copias.forEach((c) => { if (c.valida && (!ganadora || c.rev > ganadora.rev || (c.rev === ganadora.rev && c.ops > ganadora.ops))) ganadora = c; });
+      if (!ganadora) return false;
+      const ts = new Date().toISOString();
+      const evidencia = JSON.parse(_leerEstadoEstricto(OC_STATE_EVIDENCIA) || "[]");
+      if (!Array.isArray(evidencia)) return false;
+      copias.forEach((c) => {
+        if (c !== ganadora && !evidencia.some((e) => e && e.raw === c.raw))
+          evidencia.push({ ts, motivo: c.clave === "candidata-no-confirmada" ? "ab-conflict-unconfirmed-candidate" : c.valida ? "ab-conflict-lower-revision" : "ab-conflict-invalid-copy", clave: c.clave, revision: c.rev, ganadora: ganadora.rev, raw: c.raw });
+      });
+      const texto = JSON.stringify(evidencia);
+      localStorage.setItem(OC_STATE_EVIDENCIA, texto);
+      if (_leerEstadoEstricto(OC_STATE_EVIDENCIA) !== texto) return false;
+      const elegido = JSON.parse(ganadora.raw);
+      delete elegido._abCommit;
+      elegido._rev = Math.max(vista.revMax, ...copias.map((c) => c.rev)) + 1;
+      if (!ab.adoptar(JSON.stringify(elegido))) return false;
+      console.warn("[estado-ab] v761 conflicto resuelto: gana la revisión " + ganadora.rev + " (" + ganadora.clave + "); " + (copias.length - 1) + " copia(s) en " + OC_STATE_EVIDENCIA);
+      _conflictoEstadoAB = null;
+      try { const aviso = document.getElementById("oc-ab-conflicto"); if (aviso) aviso.remove(); } catch (_) {}
+      return true;
+    } catch (_) { return false; }
+  }
+  // Solo metadatos del conflicto, jamás el PIN remoto. El registro es por
+  // cuaderno y sobrevive a un refresh hasta que el miembro sí logra aplicarse.
+  const CONFLICTOS_EQUIPO_KEY = "f123_team_conflicts_v1" + OC_STATE_SUFIJO;
+  let conflictosEquipo = [];
+  try {
+    const guardados = JSON.parse(localStorage.getItem(CONFLICTOS_EQUIPO_KEY) || "[]");
+    if (Array.isArray(guardados)) conflictosEquipo = guardados.filter((x) => x && x.id && x.nombre).slice(-20);
+  } catch (_) {}
+  function _guardarConflictosEquipo() {
+    try { localStorage.setItem(CONFLICTOS_EQUIPO_KEY, JSON.stringify(conflictosEquipo)); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent("oc-equipo-conflictos")); } catch (_) {}
+  }
+  function _anotarConflictoEquipo(u) {
+    const id = String(u.id || "");
+    if (!id || conflictosEquipo.some((x) => x.id === id)) return;
+    conflictosEquipo = conflictosEquipo.concat([{ id, nombre: String(u.nombre || "Team member").slice(0, 60), fecha: new Date().toISOString() }]).slice(-20);
+    _guardarConflictosEquipo();
+  }
+  function _resolverConflictoEquipo(id) {
+    const n = conflictosEquipo.filter((x) => x.id !== String(id));
+    if (n.length !== conflictosEquipo.length) { conflictosEquipo = n; _guardarConflictosEquipo(); }
+  }
+  /* Espejo en IndexedDB. Se dispara SIEMPRE, sin esperarlo: es la red que hace
+     que "localStorage lleno" deje de significar "tus cambios se pierden".
+     Ver estado-idb.js (JFC 2026-08-17, portado desde amigable-123).
+
+     NO reemplaza el orden de sacrificio de abajo (Fase 7): son dos capas
+     distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
+     que aunque no quepa NADA en localStorage, el estado completo quede a salvo
+     igual en un almacen que si crece con el disco. */
+  let _espejoIDBPendiente = null;
+  function _espejarEnIDB(completo, exigirCompleto = false) {
+    try {
+      if (!window.OCEstadoIDB) return Promise.resolve(false);
+      const espejo = window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(e => { _ultimoErrorIDB = e; return false; });
+      _espejoIDBPendiente = espejo;
+      const fin = () => { if (_espejoIDBPendiente === espejo) _espejoIDBPendiente = null; };
+      espejo.then(fin, fin);
+      return espejo;
+    } catch (e) { _ultimoErrorIDB = e; return Promise.resolve(false); }
+  }
+  /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
+       Los admin cuentan como "empleado" a nivel cripto (mismo employeeHashes), así
+       que el dashboard (que juzga con OCSecure) no puede distinguirlos. Aquí la app
+       publica los PINs de admin ACTIVOS en una clave local del MISMO origen; el
+       dashboard la lee en su gate para dejarlos entrar. Se reescribe en cada
+       guardado, así queda fresca (alta/baja/cambio de rol). Cada dispositivo la
+       arma de sus propios usuarios (que ya sincronizan), sin sync extra.
+       Publicar SOLO después de confirmar el estado, para no dejar accesos
+       fantasma si fallan localStorage e IndexedDB. */
+  function _publicarAdminPins() {
+    try {
+      const _adminPins = usuarios
+        .filter((u) => u && !u.borrado && u.activo !== false && u.rol === "admin" && /^\d{3}$/.test(String(u.pin || "")))
+        .map((u) => String(u.pin));
+      localStorage.setItem("f123_admins_pins", JSON.stringify(_adminPins));
+    } catch (_) {}
+  }
+  let _guardadoEstrictoPendiente = null;
+  let _guardadoCatalogoPendiente = null, _ultimoGuardadoPublicable = true;
+  let _guardandoAB = false, _estadoPublicableConfirmado = null;
+  function _huellaPublicable(estado = estadoActualExportable()) {
+    const normalizado = typeof _estadoParaGuardarSinFotos === "function" ? _estadoParaGuardarSinFotos(estado) : estado;
+    const { _rev, _abCommit, ...datos } = normalizado;
+    return JSON.stringify(datos);
+  }
+  function _estadoPuedePublicarse() {
+    if (_estadoLecturaBloqueada) return false;
+    if (!_guardadoCatalogoPendiente && _ultimoGuardadoPublicable) return true;
+    // A repeated save may be pending while RAM still equals its exact accepted snapshot.
+    try {
+      if (_estadoPublicableConfirmado !== null && typeof _estadoPublicableConfirmado === "object")
+        _estadoPublicableConfirmado = _huellaPublicable(_estadoPublicableConfirmado); // v755: lazy, only when a save is pending
+      return _estadoPublicableConfirmado !== null && _huellaPublicable() === _estadoPublicableConfirmado;
+    }
+    catch (_) { return false; }
+  }
+  /* v599 SYNC "ENVIAR Y GUARDAR A LA VEZ" (JFC 2026-10-27, decision explicita por pregunta de opciones).
+     Antes (v~488..v598) cada cambio esperaba a que la libreta COMPLETA terminara de guardarse en IndexedDB
+     antes de salir al otro aparato: 20 ms con libreta chica, >300 ms con libreta grande, y hasta 2 s si
+     el aviso caia durante una venta (lo recogia la barrida de sync-yjs cada 2 s). Norte de JFC: < 500 ms
+     visible entre aparatos (ideal 150 ms, ver sync-latencia.js SLA_MS).
+     Ahora: mientras un guardado esta EN CURSO se permite enviar; el op igual queda en la bandeja durable
+     de sync-yjs (guardarSobres) en paralelo con el envio, asi que no se pierde.
+     QUE SIGUE BLOQUEADO (NO aflojar sin OK de JFC):
+       - _estadoLecturaBloqueada (estado no leido/bloqueado: jamas publicar).
+       - Si el ULTIMO guardado FALLO y RAM difiere de lo confirmado -> no se publica (igual que antes).
+       - _ventaConfirmando en catalogoPropio(): una venta provisional nunca sale antes de su ACK durable.
+     _estadoPuedePublicarse() queda INTACTA para los demas usos (409 "not saved yet", catalogoConfirmado). */
+  function _estadoPuedeEnviarse() {
+    if (_estadoLecturaBloqueada) return false;
+    // Solo guardados NORMALES salen sin esperar. Un guardado ESTRICTO (venta, pago, devolucion,
+    // retencion: dinero con rollback si falla) sigue esperando su ACK durable: un estado
+    // provisional que luego se revierte NUNCA debe llegar al otro aparato.
+    // Pruebas que lo protegen: commission-partial-balance.test.js (payout/devolucion fallidos).
+    // try: _payoutConfirmando se declara mas abajo (let); si algo llamara esto durante el arranque
+    // sincrono, la duda cae al lado seguro (esperar al guardado, como antes de v599).
+    try {
+      if (_guardadoCatalogoPendiente && !_guardadoEstrictoPendiente && !_ventaConfirmando &&
+          !_payoutConfirmando && !_retencionConfirmando) return true;
+    } catch (_) {}
+    return _estadoPuedePublicarse();
+  }
+  let _ventaConfirmando = false, _ventaPendiente = null;
+  const _ventaCatalogosPendientes = [];
+  let _retencionConfirmando = false, _retencionPendiente = null;
+  const _retencionCatalogosPendientes = [];
+  let _drenandoCatalogos = false;
+  function _registrarCatalogoPendiente(motivo) {
+    try { console.warn("[sync] catalog work remains pending: " + motivo); } catch (_) {}
+  }
+  function _avisarCatalogoConfirmado() {
+    try { avisarCatalogoCambiado(); }
+    catch (_) { _avisoCatalogoPendiente = true; _registrarCatalogoPendiente("postcommit-notice"); }
+  }
+  function _drenarCatalogosPendientes() {
+    if (_drenandoCatalogos) return true;
+    if (_ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return false;
+    _drenandoCatalogos = true;
+    try {
+      for (const cola of [_ventaCatalogosPendientes, _retencionCatalogosPendientes, _payoutCatalogosPendientes]) while (cola.length) {
+        const siguiente = cola[0];
+        let resultado;
+        try { resultado = aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs); }
+        catch (_) { _registrarCatalogoPendiente("apply-threw"); return false; }
+        if (!resultado || resultado.ok !== true || resultado.actividadCompleta === false) {
+          _registrarCatalogoPendiente("apply-not-accepted"); return false;
+        }
+        cola.shift();
+      }
+      return true;
+    } finally { _drenandoCatalogos = false; }
+  }
+  let _mergeSucio = false, _mergeGuardado = null;
+  function _programarGuardadoMerge() {
+    _mergeSucio = true;
+    if (_mergeGuardado) return _mergeGuardado;
+    _mergeGuardado = new Promise(function (res) {
+      const run = function () {
+        _mergeGuardado = null;
+        if (!_mergeSucio) return res(true); // un guardado estricto previo ya cubrió el merge
+        _mergeSucio = false;
+        try {
+          Promise.resolve(guardarEstadoLocal()).then(function (ok) {
+            if (ok !== true) _mergeSucio = true; // los fallos booleanos también dejan trabajo pendiente
+            res(ok === true);
+          }, function () { _mergeSucio = true; res(false); });
+        } catch (_) { _mergeSucio = true; res(false); }
+      };
+      // Dejar que el render de inventario se actualice antes del guardado voluminoso.
+      try {
+        if (typeof requestIdleCallback === "function" && document.visibilityState === "visible") requestIdleCallback(run, { timeout: 300 });
+        else setTimeout(run, 0);
+      } catch (_) { setTimeout(run, 0); }
+    });
+    return _mergeGuardado;
+  }
+  function _guardarMergePendienteYa() {
+    if (!_mergeSucio) return;
+    _mergeSucio = false;
+    try {
+      const r = guardarEstadoLocal();
+      if (r && typeof r.then === "function") r.then(function (ok) { if (ok !== true) _mergeSucio = true; },
+        function () { _mergeSucio = true; });
+      else if (r !== true) _mergeSucio = true;
+    } catch (_) { _mergeSucio = true; }
+  }
+  try {
+    window.addEventListener("pagehide", _guardarMergePendienteYa);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") _guardarMergePendienteYa(); });
+  } catch (_) {}
+  function _aplicarEstadoReciboDo20(detail) {
+    if (!detail || typeof detail !== "object") return false;
+    var opId = String(detail.opId || "").trim();
+    var receiptOpId = detail.receipt && detail.receipt.opId ? String(detail.receipt.opId).trim() : "";
+    if (!opId || !Array.isArray(ventas)) return false;
+    var venta = null;
+    for (var i = ventas.length - 1; i >= 0; i--) {
+      if (ventas[i] && (ventas[i].opId === opId || ventas[i].id === opId)) { venta = ventas[i]; break; }
+    }
+    if (!venta) return false;
+    var mismatch = Boolean(receiptOpId && receiptOpId !== opId);
+    var stage = mismatch ? "receipt-opid-mismatch" : ((detail.receipt && detail.receipt.stage) || detail.stage || null);
+    var confirmado = !mismatch && detail.committed === true && !!detail.receipt && detail.receipt.stage === "business-committed";
+    if (venta.reciboDo20 && venta.reciboDo20.committed === true &&
+        venta.reciboDo20.estado === "confirmado-do" && !confirmado) {
+      return false;
+    }
+    if (confirmado) {
+      venta.reciboDo20 = {
+        estado: "confirmado-do",
+        committed: true,
+        receiptId: detail.receipt.receiptId || null,
+        stage: stage,
+        acceptedAt: detail.receipt.acceptedAt || null
+      };
+    } else if (mismatch) {
+      venta.reciboDo20 = {
+        estado: "rechazado-sin-confirmar",
+        committed: false,
+        reconcileRequired: true,
+        stage: "receipt-opid-mismatch"
+      };
+    } else if (detail.quarantine === true) {
+      venta.reciboDo20 = {
+        estado: "cuarentena-do",
+        committed: false,
+        quarantine: true,
+        stage: stage || "conflict-quarantine"
+      };
+    } else if (stage === "stored-for-application" || (detail.reconcileRequired === true && stage !== "dispatch-rejected")) {
+      venta.reciboDo20 = {
+        estado: "pendiente-reconciliacion-do",
+        committed: false,
+        reconcileRequired: true,
+        receiptId: (detail.receipt && detail.receipt.receiptId) || null,
+        stage: stage || "stored-for-application"
+      };
+    } else if (detail.fallbackLegacy === true) {
+      venta.reciboDo20 = {
+        estado: "respaldo-local",
+        committed: false,
+        fallbackLegacy: true,
+        stage: stage || "fallback-legacy"
+      };
+    } else {
+      venta.reciboDo20 = {
+        estado: "rechazado-sin-confirmar",
+        committed: false,
+        reconcileRequired: true,
+        stage: stage || "dispatch-rejected"
+      };
+    }
+    _mergeSucio = true;
+    _guardarMergePendienteYa();
+    return true;
+  }
+  try {
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("oc-op-20-recibo", function (ev) {
+        try { _aplicarEstadoReciboDo20(ev && ev.detail); } catch (_) {}
+      });
+    }
+  } catch (_) {}
+  // C42_END
+  // Synchronous quota/storage exceptions cannot unwind a received merge.
+  // P0 Ponytail: opt-in, local-only timing of durable stock/money commits.
+  // Stores NO product, count, license, PIN, message, error string or device ID.
+  // Disabled by default; no external analytics and no change to durable ACK.
+  var _f123PerfLocalRegistros = [];
+  function _perfLocalInicio() {
+    try {
+      return sessionStorage.getItem("f123_perf_local") === "1" &&
+        typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now() : null;
+    } catch (_) { return null; }
+  }
+  function _perfLocalFin(etapa, inicio, ok) {
+    if (inicio === null || !Number.isFinite(inicio)) return;
+    if (!["prior_save_wait", "snapshot_serialize", "strict_idb", "strict_commit"].includes(etapa)) return;
+    try {
+      var ms = Math.max(0, performance.now() - inicio);
+      if (!Number.isFinite(ms)) return;
+      _f123PerfLocalRegistros.push({ etapa: etapa, ms: Math.round(ms), ok: ok === true });
+      if (_f123PerfLocalRegistros.length > 120)
+        _f123PerfLocalRegistros.splice(0, _f123PerfLocalRegistros.length - 120);
+    } catch (_) { /* diagnostic must never alter the save outcome */ }
+  }
+  if (typeof window !== "undefined") window.OCPerfLocal = {
+    leer: function () { return _f123PerfLocalRegistros.map(function (x) { return { etapa:x.etapa, ms:x.ms, ok:x.ok }; }); },
+    limpiar: function () { _f123PerfLocalRegistros.length = 0; }
+  };
+  function _guardarMergeInmediatoSeguro() {
+    let resultado;
+    try { resultado = guardarEstadoLocal(); }
+    catch (error) {
+      _mergeSucio = true;
+      try { _falloGuardadoLocal(error); } catch (_) {}
+      return false;
+    }
+    if (resultado && typeof resultado.then === "function") {
+      Promise.resolve(resultado).then(function (ok) {
+        if (ok !== true) _mergeSucio = true;
+      }, function (error) {
+        _mergeSucio = true;
+        try { _falloGuardadoLocal(error); } catch (_) {}
+      });
+    } else if (resultado !== true) _mergeSucio = true;
+    return resultado;
+  }
+  function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    const esperaVencida = arguments[2] === true;
+    // v649: this device's own save still in flight is not another tab. A strict save compares against the disk, so it
+    // waits for it instead of reporting a false "NOT saved". The guard against a real other tab stays untouched.
+    // The 4 s limit covers only this wait for the PREVIOUS save. shortcut: this save's own IndexedDB call has no limit,
+    // because answering "not saved" while it can still commit would be worse; upgrade with an abortable transaction.
+    const _espejoEnVuelo = typeof _espejoIDBPendiente !== "undefined" ? _espejoIDBPendiente : null;
+    const _catalogoEnVuelo = typeof _guardadoCatalogoPendiente !== "undefined" ? _guardadoCatalogoPendiente : null;
+    if (exigirCompleto && !esperaVencida && (_espejoEnVuelo || _catalogoEnVuelo)) {
+      const _tEsperaGuardado = _perfLocalInicio();
+      const espera = new Promise((listo) => {
+        const tope = setTimeout(() => listo(true), 4000);
+        Promise.all([_espejoEnVuelo, _catalogoEnVuelo]).then(() => { clearTimeout(tope); listo(false); }, () => { clearTimeout(tope); listo(false); });
+      }).then((vencida) => {
+        _perfLocalFin('prior_save_wait', _tEsperaGuardado, !vencida);
+        return guardarEstadoLocal(exigirCompleto, preservarFotos, vencida);
+      });
+      // Background saves wait too: one running now would persist a provisional sale that this save may still reject.
+      _guardadoEstrictoPendiente = espera;
+      const soltar = () => { if (_guardadoEstrictoPendiente === espera) _guardadoEstrictoPendiente = null; };
+      espera.then(soltar, soltar);
+      return espera;
+    }
+    // Retention rollback must finish before any background photo captures RAM.
+    if (!exigirCompleto && _retencionPendiente)
+      return _retencionPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
+    // Capture background snapshots only after the awaiting caller commits or rolls back.
+    if (!exigirCompleto && _guardadoEstrictoPendiente) {
+      return _guardadoEstrictoPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
+    }
+    const resultado = _guardarEstadoLocalAhora(exigirCompleto, preservarFotos);
+    if (resultado && typeof resultado.then === "function") {
+      const publicable = Promise.resolve(resultado);
+      _guardadoCatalogoPendiente = publicable;
+      const publicar = ok => {
+        if (_guardadoCatalogoPendiente === publicable) {
+          _guardadoCatalogoPendiente = null; _ultimoGuardadoPublicable = ok === true;
+          if (ok === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) _avisarCatalogoConfirmado();
+        }
+      };
+      publicable.then(publicar, () => publicar(false));
+    }
+    if (exigirCompleto && resultado && typeof resultado.then === "function") {
+      const pendiente = Promise.resolve(resultado);
+      _guardadoEstrictoPendiente = pendiente;
+      const terminar = () => { if (_guardadoEstrictoPendiente === pendiente) _guardadoEstrictoPendiente = null; };
+      pendiente.then(terminar, terminar);
+      return pendiente;
+    }
+    if (!resultado || typeof resultado.then !== "function") {
+      _ultimoGuardadoPublicable = resultado === true;
+      if (resultado === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) _avisarCatalogoConfirmado();
+    }
+    return resultado;
+  }
+  // Belén STK-H1: photos rehydrated for UI must not be redundantly written
+  // into every A/B commercial snapshot AFTER exact alternate IDB bytes have
+  // been committed/read back. Unknown, changed and legacy-only photos retain
+  // their full bytes. Portable backup/export keeps the original complete foto.
+  function _estadoParaGuardarSinFotos(vivo) {
+    const fotos = window.OCFotos;
+    if (!fotos || typeof fotos.tieneFotoHashConfirmadoEnIdb !== "function") return vivo;
+    let podadas = 0;
+    function proyeccion(items) {
+      if (!Array.isArray(items)) return items;
+      return items.map(function (item) {
+        if (!item || !item.fotoHash || typeof item.foto !== "string" ||
+            !/^data:image\//.test(item.foto)) return item;
+        // If the photo bridge fails, keep the original durable evidence.
+        let comprobada = false;
+        try { comprobada = fotos.tieneFotoHashConfirmadoEnIdb(item.fotoHash, item.foto) === true; }
+        catch (_) {}
+        if (!comprobada) return item;
+        const copia = Object.assign({}, item);
+        delete copia.foto; // only the redundant UI dataURL, never fotoHash/fotoRev
+        podadas++;
+        return copia;
+      });
+    }
+    const p = proyeccion(vivo.productos), u = proyeccion(vivo.ubicaciones);
+    return podadas ? Object.assign({}, vivo, {productos:p, ubicaciones:u}) : vivo;
+  }
+  function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
+    const ab = _estadoAB();
+    const ejecutar = () => {
+      const _tEstricto = exigirCompleto ? _perfLocalInicio() : null;
+      _ultimoErrorIDB = null;
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
+      let revisionDisco = 0;
+      try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
+      // P0: reject a stale local snapshot instead of overwriting another tab.
+      if (exigirCompleto && revisionDisco > _localRev) { try { window.OCCanarios.fallo("guardado", "revision-disco-mayor"); } catch (_) {} return false; }
+      const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
+      _localRevReservado = _revIntento;
+      /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
+         Ahora se serializa UNA vez el estado vivo y `completo` es el parse de ese mismo texto (identico a la
+         copia anterior: clonar() era justo ese viaje JSON). El texto sale en el mismo punto del flujo. */
+      const vivo = estadoActualExportable({ vivo: true });
+      vivo._rev = _revIntento;
+      let tokenOk = !!ab; // antes nuevoToken() corria dentro del try: si fallaba, no se intentaba el A/B pero el espejo seguia
+      if (ab) { try { vivo._abCommit = ab.nuevoToken(); } catch (_) { tokenOk = false; } }
+      const actividadVigente = vivo.actividadCompartida; // arreglo propio de _actividadExportable (identidad usada por _confirmarActividad)
+      const _tSerializar = exigirCompleto ? _perfLocalInicio() : null;
+      const crudo = JSON.stringify(_estadoParaGuardarSinFotos(vivo));
+      const completo = JSON.parse(crudo);
+      if (exigirCompleto) _perfLocalFin('snapshot_serialize', _tSerializar, true);
+      let local = false;
+      const idb = window.OCEstadoIDB;
+      // A method can exist on an unsupported IDB adapter. It is NOT a viable
+      // CAS store. Without this check, a truly IDB-less device gets a false
+      // 503 and never reaches its independently durable A/B journal.
+      const casDisponible = exigirCompleto && idb && idb.soportado !== false &&
+        typeof idb.guardarConRevision === "function";
+      if (!exigirCompleto) {
+        try {
+          if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
+        } catch (_) {} finally { _guardandoAB = false; }
+      }
+      const terminar = ok => {
+        if (exigirCompleto) _perfLocalFin('strict_commit', _tEstricto, ok === true);
+        if (ok) {
+          if (actividadVigente) _confirmarActividad(actividadVigente);
+          _localRev = Math.max(_localRev, _revIntento);
+          _estadoPublicableConfirmado = completo; // v755: fingerprint computed lazily (completo is never mutated)
+          _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+          try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
+          ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
+          if (!local) avisoEspacioJusto();
+        } else {
+          // Private operational counters only; observer MUST NOT change sales.
+          if (exigirCompleto) { try { window.OCSalud?.escritorEvento?.("strictFailure"); } catch (_) {} }
+          try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {}
+          _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto);
+        }
+        return ok;
+      };
+      // Strict financial commit: IDB is preferred, never a remote dependency.
+      // JFC 2026-11-11: an actual IDB failure MUST fall back to the complete
+      // local A/B journal, including money and stock. A revision FENCE (false
+      // with no storage error) is different: it must NOT overwrite another tab.
+      // A/B is an alternative durable COMMIT, not a second business operation.
+      const intentarABConfirmado = () => {
+        if (!ab || !tokenOk || _estadoLecturaBloqueada || _conflictoEstadoAB)
+          return false;
+        try {
+          _guardandoAB = true;
+          local = ab.guardarAhora(crudo) === true;
+          if (local) {
+            const vista = ab.leer();
+            const registro = vista && vista.registro;
+            local = !!(vista && registro && registro.phase === "COMMITTED" &&
+              registro.revision === _revIntento &&
+              registro.token === completo._abCommit &&
+              registro.candidateRaw === crudo &&
+              vista.buffers[vista.activo] === crudo &&
+              !vista.conflictos.length && !vista.danados.length);
+          }
+        } catch (_) { local = false; }
+        finally { _guardandoAB = false; }
+        if (local) {
+          // This is LOCAL durable, NEVER peer/global ACK; Sync3 may copy later.
+          try { window.OCSalud?.escritorEvento?.("fallbackLocal"); } catch (_) {}
+        }
+        return local === true;
+      };
+      const guardarABConfirmado = () => terminar(intentarABConfirmado());
+      if (exigirCompleto) {
+        // No native IDB, closed adapter or a previously working IDB currently
+        // unavailable: all use the same read-back-verified local journal.
+        if (!casDisponible) return guardarABConfirmado();
+        // v760: IDB already hung on an earlier sale. Confirm from the verified A/B journal now and
+        // retry IDB in the background with this full snapshot (it carries every A/B sale); the
+        // first answer from IDB that is not a timeout ends this mode.
+        if (_idbColgado && intentarABConfirmado()) {
+          Promise.resolve(idb.guardarConRevision(completo, _localRev)).then(ok => {
+            const e = typeof idb.ultimoError === "function" ? idb.ultimoError() : null;
+            if (ok === true || !(e && e.name === "TimeoutError")) _idbColgado = false;
+          }, () => {});
+          return terminar(true);
+        }
+        const _tIdbEstricto = _perfLocalInicio();
+        const cas = idb.guardarConRevision(completo, _localRev);
+        const trasIDB = ok => {
+          _perfLocalFin('strict_idb', _tIdbEstricto, ok === true);
+          if (ok !== true) {
+            // No error means strict CAS rejected a stale snapshot. Keep 403/
+            // 409/rebase protections, do NOT quietly downgrade that conflict.
+            const err = idb && typeof idb.ultimoError === "function"
+              ? idb.ultimoError() : null;
+            if (err && err.name === "TimeoutError") _idbColgado = true;
+            return err ? guardarABConfirmado() : terminar(false);
+          }
+          _idbColgado = false;
+          // An IDB commit has ALREADY applied the effects once. A/B is only
+          // the backup; it must not modify the economic ledger again.
+          if (ab && tokenOk) {
+            try { _guardandoAB = true; ab.guardarAhora(crudo); }
+            catch (_) {} finally { _guardandoAB = false; }
+          }
+          return terminar(true);
+        };
+        const falloIDB = () => {
+          _perfLocalFin('strict_idb', _tIdbEstricto, false);
+          return guardarABConfirmado();
+        };
+        // v755 (WebKit bug 315804): a hung IndexedDB never settles. After 8 s the SAME snapshot and
+        // revision go to the read-back-verified A/B journal. If A/B cannot confirm, wait for the CAS:
+        // v760 estado-idb settles it false (TimeoutError) at its own limit only when nothing can commit
+        // afterwards, so the answer is a truthful "not saved"; if the browser is already committing the
+        // put, its real result decides (never "not saved" for a sale IDB may still commit).
+        let tope = null;
+        const limite = new Promise(listo => { tope = setTimeout(() => listo("tope"), 8000); });
+        return Promise.race([cas, limite]).then(ok => {
+          if (ok !== "tope") { clearTimeout(tope); return trasIDB(ok); }
+          _idbColgado = true;
+          if (intentarABConfirmado()) { _perfLocalFin('strict_idb', _tIdbEstricto, false); return terminar(true); }
+          return cas.then(trasIDB, falloIDB);
+        }, () => { clearTimeout(tope); return falloIDB(); });
+      }
+      // Non-financial background state still uses existing A/B recovery.
+      if (local) { _espejarEnIDB(completo, true); return terminar(true); }
+      if (_estadoLecturaBloqueada || (ab && !ab.permiteEspejo())) return terminar(false);
+      return Promise.resolve(_espejarEnIDB(completo, true)).then(ok => terminar(ok === true), () => terminar(false));
+    };
+    try {
+      const resultado = ejecutar();
+      return resultado && typeof resultado.then === "function"
+        ? resultado.catch(_falloGuardadoLocal) : resultado;
+    } catch (e) { return _falloGuardadoLocal(e); }
+  }
+  /* v608 (JFC 2026-10-28): UN solo clasificador de fallos de guardado (_falloGuardadoLocal).
+     - Cuota REAL (QuotaExceededError / code 22 / 1014 / NS_ERROR_DOM_QUOTA_REACHED) -> cartel rojo "memoria llena".
+     - Cualquier otro (AbortError, candado vencido, SecurityError, IDB false...) -> NUNCA el cartel rojo: consola,
+       reintento acotado 3-6-12-24-48 s (max 5, nunca apilado). SIN aviso visible (orden del dueno, JFC 2026-10-28): solo consola.
+     - Todo guardado exitoso (_guardadoLocalExitoso) reinicia el conteo.
+     No hay ningun await de guardado dentro del candado de escrituras: el reintento corre fuera. */
+  var _reintentoGuardadoSilencioso = null, _intentosReintentoGuardado = 0, _fallosGuardadoSeguidos = 0;
+  var _ultimoErrorGuardado = null, _ultimoErrorIDB = null;
+  var _idbColgado = false; // v760: IndexedDB hit the 8 s limit; strict saves confirm via A/B until IDB answers again
+  var _ESPERAS_REINTENTO_GUARDADO = [3000, 6000, 12000, 24000, 48000];
+  function _esErrorDeCuota(e) {
+    try { return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014); }
+    catch (_) { return false; }
+  }
+  // Causa del fallo de un guardado que devolvio false: si alguna es de cuota gana (cartel rojo); si no, la primera conocida.
+  function _causaGuardado(ab) {
+    let a = null;
+    try { a = ab && ab.ultimoError ? ab.ultimoError() : null; } catch (_) {}
+    let b = _ultimoErrorIDB;
+    try { if (!b && window.OCEstadoIDB && window.OCEstadoIDB.ultimoError) b = window.OCEstadoIDB.ultimoError(); } catch (_) {}
+    if (_esErrorDeCuota(a)) return a;
+    if (_esErrorDeCuota(b)) return b;
+    return a || b || null;
+  }
+  // #607: an atomic IDB CAS has its OWN failure cause. A historical quota in
+  // the best-effort A/B backup must never override a non-quota CAS rejection.
+  // Browsers that really use only A/B retain the existing cause classifier.
+  function _causaGuardadoEstricto(idb, ab) {
+    if (idb && typeof idb.guardarConRevision === "function") {
+      try { return typeof idb.ultimoError === "function" ? idb.ultimoError() : null; }
+      catch (e) { return e; }
+    }
+    return _causaGuardado(ab);
+  }
+  function _guardadoLocalExitoso() {
+    _fallosGuardadoSeguidos = 0; _intentosReintentoGuardado = 0; _ultimoErrorGuardado = null;
+    if (_reintentoGuardadoSilencioso) { clearTimeout(_reintentoGuardadoSilencioso); _reintentoGuardadoSilencioso = null; }
+  }
+  function _falloGuardadoLocal(e, noReintentar) {
+    _ultimoErrorGuardado = e || null;
+    if (_esErrorDeCuota(e)) { avisoMemoriaLlena(); return false; }
+    try { console.warn("[storage] guardado local no completado (no es falta de memoria)", e && e.name ? e.name : e); } catch (_) {}
+    try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "guardado-fallido"); } catch (_) {}
+    _fallosGuardadoSeguidos++;
+    if (!noReintentar && !_reintentoGuardadoSilencioso && _intentosReintentoGuardado < _ESPERAS_REINTENTO_GUARDADO.length) {
+      const espera = _ESPERAS_REINTENTO_GUARDADO[_intentosReintentoGuardado++];
+      _reintentoGuardadoSilencioso = setTimeout(() => {
+        _reintentoGuardadoSilencioso = null;
+        try { const r = guardarEstadoLocal(); if (r && typeof r.then === "function") r.catch(() => {}); } catch (_) {}
+      }, espera);
+    }
+    return false;
+  }
+
+  /* SOLO CONSOLA (JFC 2026-08-26): este aviso ("todo se guardó, la memoria
+     rápida se llenó, ahora se usa la grande — no se perdió nada") NO fue
+     autorizado y rompe la UI sin necesidad — el guardado ya ocurrió igual. Se
+     conserva el dato en consola para diagnóstico; NUNCA se pinta un banner.
+     (El fallo REAL de guardado sí avisa: avisoMemoriaLlena, intacto.) */
+  function avisoEspacioJusto() {
+    try { console.warn("[storage] memoria rápida llena; se usó el almacén grande, nada se perdió (aviso solo en consola)"); } catch (_) {}
+  }
+  /* Atajos defensivos: si i18n.js no cargo, se usa el texto de reserva en vez
+     de dejar el cartel vacio justo cuando hace falta leerlo. */
+  function tSeguro(clave, reserva) {
+    try { return (window.OCI18n && window.OCI18n.t) ? (window.OCI18n.t(clave) || reserva) : reserva; }
+    catch (_) { return reserva; }
+  }
+  function escHtmlSeguro(x) {
+    return String(x == null ? "" : x).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function ocultarAvisoRecorte() { try { const d = document.getElementById("oc-recorte-aviso"); if (d) d.remove(); } catch (_) {} }
+  function avisarBufferRecuperado() {
+    // SOLO CONSOLA (JFC 2026-08-26): banner no autorizado; el guardado ya se
+    // recuperó solo. Diagnóstico en consola, sin romper la UI.
+    try { console.warn("[storage] guardado interrumpido recuperado desde la copia anterior; nada se perdió (aviso solo en consola)"); } catch (_) {}
+    return;
+  }
+  /* A2 — REPARADOR DE ESTADO (JFC 2026-08-19).
+     Patron de las librerias de validacion en runtime tipo Valibot: en vez de
+     un si/no, se poda lo que no cumple y se conserva el resto. Escrito a mano
+     porque el manifiesto de la app es sin dependencias.
+
+     Hoy hay doble buffer A/B con validarRespaldo(): si uno esta corrupto se usa
+     el otro, que ya salva casi todos los casos. El hueco es cuando fallan LOS
+     DOS: ahi el estado entero se descarta y el negocio arranca en blanco. Un
+     solo producto con el precio en NaN podia costar el inventario completo.
+
+     Este reparador es el ULTIMO RECURSO, solo cuando ningun buffer valida:
+     tira los registros rotos, se queda con los sanos, y devuelve cuantos se
+     perdieron para poder decirlo en pantalla. Nunca inventa datos: lo que no se
+     puede leer se descarta, no se rellena.
+
+     NO se usa en la restauracion de un respaldo del usuario: ahi un archivo
+     invalido tiene que ser rechazado de frente, porque el usuario puede ir a
+     buscar el archivo bueno. Aqui no hay archivo bueno al que ir. */
+  function repararRespaldo(body) {
+    if (!body || typeof body !== "object") return null;
+    if (!Array.isArray(body.productos) || !Array.isArray(body.ubicaciones)) return null;
+    const podados = { productos: 0, ubicaciones: 0, listas: 0 };
+
+    /* REPARAR, NO BORRAR (corregido el 2026-08-19 tras medirlo).
+       La primera version PODABA la percha con el nombre corrupto. Medido con
+       61 productos y 3 perchas: se perdian 2 perchas y 26 productos, porque
+       todo producto que apunta a una percha borrada se cae con ella. El
+       reparador estaba causando mas dano que el dano.
+
+       Una percha solo se descarta si le falta la IDENTIDAD (el id): sin id no
+       hay a que atar los productos. Un NOMBRE ilegible no es motivo para tirar
+       nada: se reemplaza por uno provisional y el dueno lo renombra en dos
+       toques, con su inventario intacto. */
+    const ubicVistas = new Set();
+    let ubicRenombradas = 0;
+    const ubicOk = [];
+    body.ubicaciones.forEach((u) => {
+      const id = u && typeof u === "object" ? String(u.id || "") : "";
+      if (!id || ubicVistas.has(id) || !esTextoCorto(id, 120)) { podados.ubicaciones++; return; }
+      ubicVistas.add(id);
+      const copia = Object.assign({}, u);
+      if (!esTextoCorto(String(copia.nombre || ""), 240)) {
+        copia.nombre = "Shelf " + (ubicOk.length + 1);   // provisional, renombrable
+        ubicRenombradas++;
+      }
+      ubicOk.push(copia);
+    });
+    podados.renombradas = ubicRenombradas;
+    if (!ubicOk.length) return null;   // sin una sola percha no hay negocio que salvar
+
+    const prodVistos = new Set();
+    const prodOk = body.productos.filter((p) => {
+      if (!p || typeof p !== "object") { podados.productos++; return false; }
+      const id = String(p.id || "");
+      const numsOk = Number.isFinite(Number(p.precio)) && Number.isFinite(Number(p.costo)) && Number.isFinite(Number(p.stockActual))
+        && Number(p.precio) >= 0 && Number(p.costo) >= 0 && Number(p.stockActual) >= 0;
+      const ubicOkRef = !p.ubicacionId || p.ubicacionId === "todas" || ubicVistas.has(String(p.ubicacionId));
+      const ok = !!id && !prodVistos.has(id) && esTextoCorto(id, 120)
+        && esTextoCorto(String(p.nombre || ""), 240) && numsOk && ubicOkRef;
+      if (ok) prodVistos.add(id); else podados.productos++;
+      return ok;
+    });
+
+    const limpio = Object.assign({}, body, { productos: prodOk, ubicaciones: ubicOk });
+    ["ventas", "movimientos", "transferencias", "clientes"].forEach((k) => {
+      if (limpio[k] && !Array.isArray(limpio[k])) { limpio[k] = []; podados.listas++; }
+    });
+    if (validarRespaldo(limpio)) return null;   // ni reparado cuadra: no se fuerza
+    return { limpio, podados };
+  }
+
+  function avisarEstadoReparado(podados) {
+    try {
+      const d = document.createElement("div");
+      d.setAttribute("role", "status");
+      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B54E0A;padding:10px 16px;text-align:center;cursor:pointer;";
+      const _es_r = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      const n = (podados.productos || 0) + (podados.ubicaciones || 0);
+      const ren = podados.renombradas || 0;
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
+        + (_es_r
+            ? "Se recupero tu negocio de una copia danada. " + n + " registro(s) ilegibles quedaron fuera" + (ren ? " y " + ren + " percha(s) perdieron su nombre; renombralas en Perchas" : "") + ". Revisa tu inventario y exporta un respaldo en AVANZADO."
+            : "Your business was recovered from a damaged copy. " + n + " unreadable record(s) were left out" + (ren ? ", and " + ren + " shelf(s) lost their name — rename them under Shelves" : "") + ". Check your inventory and export a backup in ADVANCED.")
+        + "</span>";
+      d.addEventListener("click", () => d.remove());
+      (document.body || document.documentElement).appendChild(d);
+    } catch (_) {}
+  }
+
+  /* Vacía las colecciones DEMO semilla cuando se entra a una tienda unida que
+     todavía no tiene datos propios. Así arranca limpia y solo se llena con lo
+     que llegue por sync — sin mezclar el catálogo real del equipo con los
+     productos/perchas de ejemplo. Muta en sitio porque son const.
+     NO toca instanceId (identidad de este aparato). (JFC 2026-08-26) */
+  function _vaciarTiendaFresca() {
+    if (_estadoLecturaBloqueada) return;
+    try {
+      ubicaciones.length = 0; productos.length = 0; sucursales.length = 0;
+      promotoras.length = 0; clientes.length = 0; usuarios.length = 0;
+      ventas.length = 0; movimientos.length = 0; transferencias.length = 0;
+      actividadCompartida = [];
+      Object.keys(gastosMensuales).forEach((k) => { delete gastosMensuales[k]; });
+      nombreNegocio = "";
+    } catch (_) {}
+  }
+  // GUARD DEMO (JFC 2026-09-11): se pone true en cuanto el arranque carga un
+  // buffer REAL persistido (A/B, reparado o legacy). Si al terminar sigue en
+  // false y el aparato NO es demo (está activado o entró con licencia), las
+  // arrays solo tienen la SEMILLA de ejemplo y hay que vaciarla antes de que el
+  // sync mezcle datos reales encima. Ver el guard tras cargarEstadoLocal().
+  let _cargoBufferReal = false;
+  function cargarEstadoLocal() {
+    try {
+      const ab = _estadoAB();
+      if (!ab) throw new Error("A/B recovery unavailable");
+      let vista = ab.leer();
+      if (_resolverConflictoAB(ab, vista)) vista = ab.leer();
+      _registrarConflictoAB(vista);
+      const activo = vista.activo;
+      const orden = activo ? [activo, activo === "A" ? "B" : "A"] : ["A", "B"];
+      for (const letra of orden) {
+        const raw = vista.buffers[letra];
+        if (raw == null) continue;
+        let body;
+        try { body = JSON.parse(raw); } catch (_) { continue; } // corrupto: probar el otro buffer
+        // Rechazar estados escritos por una pestaña más antigua (_rev más bajo) — solo en eventos onstorage
+        if (typeof body._rev === "number" && body._rev < _localRev) return;
+        const error = validarRespaldo(body);
+        if (error) continue; // invalido: probar el otro buffer
+        // Sincroniza el contador local con el _rev cargado — si no, una pestaña que
+        // nunca guardó (_localRev=0) sobreescribe con un _rev más bajo el estado más
+        // fresco que ya dejó otra pestaña, perdiendo silenciosamente sus cambios.
+        if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
+        aplicarRespaldo(body);
+        _estadoLecturaBloqueada = !!_conflictoEstadoAB;
+        _cargoBufferReal = true; // buffer A/B real cargado: no es semilla demo
+        if (letra !== activo) {
+          console.warn("[cargarEstadoLocal] el buffer activo estaba dañado, recuperado desde el buffer anterior");
+          try { if (!vista.registro || vista.registro.phase !== 'PREPARED') localStorage.setItem(OC_STATE_PTR, letra); } catch (_) {} // PREPARED exposes a virtual preimage, not the physical destination.
+          setTimeout(avisarBufferRecuperado, 800);
+        }
+        return;
+      }
+      /* A2: ningun buffer valido. ANTES de darse por vencido y arrancar en
+         blanco, se intenta reparar el mas fresco podando lo ilegible. */
+      try {
+        const _act = vista.activo;
+        const _orden = _act ? [_act, _act === "A" ? "B" : "A"] : ["A", "B"];
+        for (const _l of _orden) {
+          const _raw = vista.buffers[_l];
+          if (_raw == null) continue;
+          let _b; try { _b = JSON.parse(_raw); } catch (_) { continue; }
+          const _rep = repararRespaldo(_b);
+          if (!_rep) continue;
+          aplicarRespaldo(_rep.limpio);
+          _cargoBufferReal = true; // buffer reparado real cargado: no es semilla demo
+          try { if (!vista.registro || vista.registro.phase !== 'PREPARED') localStorage.setItem(OC_STATE_PTR, _l); } catch (_) {}
+          console.warn("[cargarEstadoLocal] estado reparado; registros podados:", _rep.podados);
+          setTimeout(function () { avisarEstadoReparado(_rep.podados); }, 800);
+          return;
+        }
+      } catch (_) { /* si el reparador falla, se sigue al camino de siempre */ }
+
+      // Ningun buffer A/B valido: migracion desde la clave de un solo buffer
+      // (dispositivos que aun no corrieron esta version) o corrupcion total.
+      // MULTI-TIENDA (2026-08-26): esta migracion legacy SOLO aplica a la tienda
+      // propia (sufijo vacio). Una tienda unida (sufijo con licencia) que aun no
+      // tiene buffers propios NO debe caer aqui, o cargaria los datos de la
+      // tienda propia (James Bond) dentro de la tienda ajena.
+      // Ademas: una tienda unida recien creada NO debe arrancar con los datos
+      // DEMO semilla — si lo hiciera, cuando el equipo sincronice (merge
+      // add-only) su catalogo real quedaria MEZCLADO con productos/perchas de
+      // ejemplo. Se vacia para que la tienda arranque limpia y solo se llene con
+      // lo que llegue por sync. (bug hallado en la revision pre-live 2026-08-26)
+      if (OC_STATE_SUFIJO) { _vaciarTiendaFresca(); return; }
+      const raw = _leerEstadoEstricto(OC_STATE_KEY);
+      if (!raw) return;
+      let body;
+      try { body = JSON.parse(raw); } catch (_) {
+        // JSON truncado (no solo "invalido pero parseable"): mismo rescate que
+        // la rama de abajo. Gap preexistente antes de Fase 3 — el parse vivia
+        // fuera de su propio try y un JSON cortado a la mitad se tragaba en
+        // silencio sin guardar el rescate ni avisar.
+        try { localStorage.setItem("f123_rescate_v4", raw); } catch (_) {}
+        setTimeout(() => {
+          try {
+            if (document.getElementById("oc-estado-corrupto-aviso")) return;
+            const d = document.createElement("div");
+            d.id = "oc-estado-corrupto-aviso";
+            d.setAttribute("role", "alert");
+            d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10003;background:#B0183E;padding:12px 16px;text-align:center;cursor:pointer;";
+            // B14 (JFC 2026-08-19): cartel critico hardcoded en espanol en la
+            // app cuyo idioma por defecto es ingles.
+            var _es_c = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">'
+              + (_es_c ? 'El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.'
+                       : 'Your saved inventory could not be loaded (example data is showing). Go to ADVANCED to recover or import your backup.')
+              + '</span>';
+            d.addEventListener("click", () => d.remove());
+            (document.body || document.documentElement).appendChild(d);
+          } catch (_) {}
+        }, 800);
+        return;
+      }
+      if (typeof body._rev === "number" && body._rev < _localRev) return;
+      if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
+      const error = validarRespaldo(body);
+      if (!error) {
+        aplicarRespaldo(body);
+        _cargoBufferReal = true; // buffer legacy real cargado: no es semilla demo
+      } else {
+        // Estado guardado no pasa validación — rescatar raw ANTES de sobrescribir con datos semilla.
+        // El dueño puede recuperar el archivo desde Avanzado > Exportar (busca oc_rescate_v4).
+        try { localStorage.setItem("f123_rescate_v4", raw); } catch (_) {}
+        // Banda roja: advertir inmediatamente, no fallar silencioso
+        setTimeout(() => {
+          try {
+            if (document.getElementById("oc-estado-corrupto-aviso")) return;
+            const d = document.createElement("div");
+            d.id = "oc-estado-corrupto-aviso";
+            d.setAttribute("role", "alert");
+            d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10003;background:#B0183E;padding:12px 16px;text-align:center;cursor:pointer;";
+            // B14 (JFC 2026-08-19): cartel critico hardcoded en espanol en la
+            // app cuyo idioma por defecto es ingles.
+            var _es_c = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">'
+              + (_es_c ? 'El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.'
+                       : 'Your saved inventory could not be loaded (example data is showing). Go to ADVANCED to recover or import your backup.')
+              + '</span>';
+            d.addEventListener("click", () => d.remove());
+            (document.body || document.documentElement).appendChild(d);
+          } catch (_) {}
+        }, 800);
+      }
+    } catch (_) { _estadoLecturaBloqueada = true; }
+  }
+  // Cuando otra pestaña guarda, recargar su estado si es más nuevo (evita last-writer-wins con estado viejo)
+  /* 2026-09-25: la clave nativa lleva el prefijo de aislamiento.js ("f123::..."), asi que
+     comparar con OC_STATE_PTR a secas NUNCA coincidia (hallazgo H1 del 2026-08-05): la otra
+     pestana no se enteraba jamas. Se acepta la clave con o sin prefijo. */
+  let _refrescoDiferidoPorCommit = false;
+  function _refrescarDesdeOtraPestana() {
+    if (_guardandoAB) return;
+    // Storage events from another tab must not replace RAM during a provisional
+    // sale/payout/retention: rollback would otherwise truncate fresh peer facts.
+    const barrera = _ventaPendiente || _payoutPendiente || _retencionPendiente;
+    if (barrera) {
+      if (!_refrescoDiferidoPorCommit) {
+        _refrescoDiferidoPorCommit = true;
+        Promise.resolve(barrera).then(() => {
+          _refrescoDiferidoPorCommit = false;
+          _refrescarDesdeOtraPestana();
+        }, () => {
+          _refrescoDiferidoPorCommit = false;
+          _refrescarDesdeOtraPestana();
+        });
+      }
+      return;
+    }
+    if (_guardadoCatalogoPendiente) { _guardadoCatalogoPendiente.then(() => _refrescarDesdeOtraPestana()); return; }
+    const antes=_localRev;
+    cargarEstadoLocal();try { _miSello=localStorage.getItem(OC_STATE_SELLO); } catch (_) {}
+    if(_localRev>antes)window.dispatchEvent(new CustomEvent("oc-sync-merge",{detail:{localTab:true,actualizados:1}}));
+  }
+  window.addEventListener("storage", (e) => {
+    const k = e && e.key ? String(e.key) : "";
+    const journal = OC_STATE_KEY + OC_STATE_SUFIJO + "_journal";
+    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR) || k === journal || k.endsWith("::" + journal)) _refrescarDesdeOtraPestana();
+  });
+  try { window.AMG?.Aislamiento?.onCambio(c=>{if(c && (c.clave===OC_STATE_PTR || c.clave===OC_STATE_KEY+OC_STATE_SUFIJO+"_journal"))_refrescarDesdeOtraPestana();}); } catch (_) {}
+  function _recargarSiOtraPestanaEscribio() {
+    try {
+      const guardado = localStorage.getItem(OC_STATE_SELLO);
+      if (guardado && guardado !== _miSello) { cargarEstadoLocal(); _miSello = guardado; }
+    } catch (_) {}
+  }
+
+  function nombreUbic(id) { const u = ubicaciones.find((x) => x.id === id); return u ? u.nombre : "Ubicación desconocida"; }
+
+  // ---- Reparto de comisiones (espejo de data.js) ----
+  function mesActualISO() { return hoyISO().slice(0, 7); }
+  function esDelMesActual(fechaISO, relojDesfaseMs) { return !!fechaISO && fechaLocalDe(fechaISO, relojDesfaseMs).slice(0, 7) === mesActualISO(); }
+  /* PERIODO DE COMMISSIONS (JFC 2026-09-24, shell 371). Antes todo lo de
+     comisiones miraba solo el mes en curso: al cambiar de mes, lo que no se
+     pago quedaba invisible e impagable. mesValido() acepta SOLO "YYYY-MM" con
+     mes 01-12; cualquier otra cosa (vacio, basura, "todo") cae al mes actual,
+     nunca a "todos los meses": un parametro malo no puede abrir otro periodo
+     ni liquidar ventas que nadie eligio. Decision: DECISIONES-JFC.md. */
+  function mesValido(mes) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(mes || "")) ? String(mes) : mesActualISO(); }
+  function esDelMes(fechaISO, mes, relojDesfaseMs) { return !!fechaISO && fechaLocalDe(fechaISO, relojDesfaseMs).slice(0, 7) === mesValido(mes); }
+  /* Meses con ventas comisionadas, del mas nuevo al mas viejo, con lo que aun
+     falta pagar al asociado. El mes actual va siempre, aunque este vacio. Solo
+     lectura: no cambia ninguna venta. */
+  function mesesConComision() {
+    const actual = mesActualISO();
+    const map = new Map([[actual, { mes: actual, actual: true, ventas: 0, comision: 0, pendiente: 0 }]]);
+    ventasActivas().forEach((v) => {
+      if (!v.fecha) return;
+      const mes = fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7);
+      if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(mes)) return;
+      const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
+      // Historic own-rack and counter sales have no split, but their month
+      // MUST remain selectable in Commissions > Summary by Product.
+      // Keep commission totals and the existing 'ventas' (split-sales) count
+      // unchanged: this is a read-only discovery fix, not a money migration.
+      if (v.split) {
+        const c = Number(v.split.montoComisionSocio) || 0;
+        d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
+      }
+      map.set(mes, d);
+    });
+    ajustesComision.forEach((a) => {
+      if (!a || !a.fecha) return;
+      const mes = fechaLocalDe(a.fecha).slice(0, 7);
+      const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
+      const c = Number(a.montoComisionSocio) || 0;
+      d.comision += c; if (!a.liquidada) d.pendiente += c;
+      map.set(mes, d);
+    });
+    const core = _payoutCore();
+    if (core) map.forEach((d, mes) => {
+      const rows = core.balancesByPayee(_payoutInput(null, mes));
+      d.pendiente = rows.reduce((a,r) => a + core.money(r.dueCents), 0);
+    });
+    return [...map.values()].sort((a, b) => (a.mes < b.mes ? 1 : -1))
+      .map((d) => ({ ...d, comision: +d.comision.toFixed(2), pendiente: +d.pendiente.toFixed(2) }));
+  }
+  // Conteo global de ventas del mes actual, TODAS las ubicaciones (free-tier
+  // gating, 2026-07-15) — distinto de ventasMesAcumuladas (suma montos por
+  // una sola ubicacion, para comisiones). Usado para el tope de 100/mes.
+  function ventasCountMesGlobal() { return ventasActivas().filter((v) => esDelMesActual(v.fecha, v.relojDesfaseMs)).length; }
+  function ventasMesAcumuladas(ubicacionId) {
+    return ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+  }
+  /* BUG FIX (JFC/Belén 2026-09-03): al EDITAR una venta, el split se recalculaba
+     con ventasMesAcumuladas(), que ya incluye a la propia venta editada (vive en
+     el array) → el umbral de escala se contaba a sí mismo y la comisión salía mal.
+     Este acumulado EXCLUYE la venta en curso, que es lo correcto para el "previo". */
+  function ventasMesAcumuladasExcl(ubicacionId, ventaId) {
+    return ventasActivas().filter((v) => v.id !== ventaId && v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+  }
+    /* ==========================================================================
+     MOTOR DE TRATOS — una sola cuenta para todas las formas de repartir
+     ==========================================================================
+     JFC, 2026-08-18: "lo de a quien se le cobra es lo que quiero que sea ductil
+     y flexible en cada negocio, une ambas formas".
+
+     EL PROBLEMA QUE RESUELVE. Habia dos maneras de decir lo mismo y cada app
+     entendia una: la promotora piensa "me llevo el 10", la galeria piensa
+     "retengo el 15 y el artista se lleva 85". Es el MISMO reparto leido al
+     reves, pero como cada negocio lo dice a su manera, forzar una sola forma
+     obliga a la mitad de la gente a restar de cabeza cada vez.
+
+     LA DECISION. Se guarda SIEMPRE un solo numero canonico —`comisionSocio`,
+     lo que se lleva el asociado— y la lectura preferida se guarda aparte, como
+     preferencia de presentacion. Asi:
+
+       - Ningun trato existente cambia de valor. Cero migracion, y nadie cobra
+         distinto maniana por este cambio.
+       - Cada negocio escribe y lee en su idioma: `lecturaPreferida` decide si
+         la UI muestra "se lleva" o "la casa retiene".
+       - Las dos lecturas son siempre coherentes porque una se deriva de la
+         otra: es imposible guardar un reparto que no sume 100.
+
+     DE DONDE SALE EL PORCENTAJE, en orden de prioridad:
+       1. El trato propio de la persona (promotora.comisionBase), salvo que la
+          percha diga explicitamente que manda el suyo (usarComisionPropia).
+       2. El de la percha (ubicacion.comisionSocio).
+     Esto es lo que permite que LA MISMA PERSONA sea vendedora al 10% en una
+     percha y artista al 85% en otra: el trato no vive en la persona ni en la
+     percha, vive en el cruce de las dos.
+
+     Y ENCIMA, opcionales y combinables:
+       - `contribFija`: aporte fijo que el asociado pone al evento ANTES del %.
+         Se descuenta del bruto y el % se aplica a lo que queda.
+       - `escalasComision`: el % sube al acercarse a la meta del mes.
+       - `minimoGarantizado`: piso en dinero para el asociado. Si el % da menos,
+         se le paga el piso — util para "te aseguro $50 por la feria, o el 20%,
+         lo que sea mayor".
+
+     GUARD: escalas y aporte fijo no se combinan. El modelo escalonado calcula
+     el % venta por venta con el acumulado del mes, y restar un fijo ahi
+     obligaria a recalcular retroactivamente cada venta ya registrada. Si estan
+     los dos, manda la escala y el fijo se ignora — se dice en `avisos`, no en
+     silencio.
+     ========================================================================== */
+  /* null = "esta percha no lo dice" (manda la persona, o bruto). "bruto" escrito
+     a proposito SI manda sobre la persona: lo explicito gana, como con el %. */
+  function _baseComisionValida(b) { return (b === "margen" || b === "bruto") ? b : null; }
+  /* REBAJA POR ANTIGUEDAD (JFC 2026-09-25, benchmark #3). Regla POR PERCHA, apagada
+     por defecto: {activa, pasos:[{dias,pct}]}. Maximo 3 pasos, dias 1-3650, pct 1-90.
+     El precio de LISTA nunca cambia: la rebaja se calcula al vender (rebajaDe) y cada
+     venta congela su precioUnit. La antiguedad sale de creadoEn del producto, que
+     viaja por sync y converge a la fecha mas antigua (ver aplicarCatalogo). */
+  function _rebajaValida(r) {
+    if (!r || typeof r !== "object") return null;
+    const pasos = (Array.isArray(r.pasos) ? r.pasos : []).map((x) => ({ dias: Math.floor(Number(x && x.dias)), pct: Math.round(Number(x && x.pct)) }))
+      .filter((x) => Number.isFinite(x.dias) && Number.isFinite(x.pct) && x.dias >= 1 && x.dias <= 3650 && x.pct >= 1 && x.pct <= 90)
+      .sort((a, b) => a.dias - b.dias).slice(0, 3);
+    return { activa: !!r.activa && pasos.length > 0, pasos };
+  }
+  function rebajaDe(p, ahora) {
+    const base = { pct: 0, dias: null, precio: Number(p && p.precio) || 0, proxima: null };
+    if (!p) return base;
+    const u = ubicaciones.find((x) => x.id === p.ubicacionId);
+    const r = u && u.rebajaEdad;
+    const t = Date.parse(p.creadoEn || "");
+    if (!r || !r.activa || !Array.isArray(r.pasos) || !r.pasos.length || !Number.isFinite(t)) return base;
+    const dias = Math.max(0, Math.floor(((ahora || Date.now()) - t) / 86400000));
+    let pct = 0, proxima = null;
+    r.pasos.forEach((st) => { if (dias >= st.dias) pct = st.pct; else if (!proxima) proxima = { pct: st.pct, enDias: st.dias - dias }; });
+    return { pct, dias, precio: +(base.precio * (1 - pct / 100)).toFixed(2), proxima };
+  }
+  function resolverTrato(u, opciones) {
+    opciones = opciones || {};
+    var avisos = [];
+    if (!u) return null;
+
+    /* Percha propia: no reparte con nadie. Devolver null y no un trato al 0%
+       es la diferencia entre "no aplica" y "le toca cero", que no es lo mismo
+       ni en la pantalla ni en un reporte. */
+    if (!u.tipo || u.tipo === "propio") return null;
+
+    /* 1. De donde sale el porcentaje */
+    var fuente = u, origen = "percha";
+    try {
+      if (u.promotoraId && !u.usarComisionPropia && typeof promotoras !== "undefined") {
+        var pr = promotoras.find(function (x) { return x.id === u.promotoraId; });
+        /* Solo se usa el trato de la persona si de verdad tiene uno definido.
+           Un comisionista recien creado sin % no puede dejar la percha en cero. */
+        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0 || Number(pr.comision) > 0 ||
+          (Number(pr.metaMensual) > 0 && Array.isArray(pr.escalasComision) &&
+           pr.escalasComision.some(function (t) { return Number(t.comision) > 0; })))) {
+          fuente = pr; origen = "comisionista";
+        }
+      }
+    } catch (_) {}
+
+    var pctBase = Number(fuente.comisionBase !== undefined ? fuente.comisionBase : (fuente.comisionSocio !== undefined ? fuente.comisionSocio : fuente.comision)) || 0;
+    if (pctBase < 0) pctBase = 0;
+    if (pctBase > 100) pctBase = 100;
+
+    /* 2. Escalas por meta, si las hay */
+    var escalas = Array.isArray(fuente.escalasComision) ? fuente.escalasComision : [];
+    var meta = Number(fuente.metaMensual) || 0;
+    var contrib = Math.max(0, Number(u.contribFija) || 0);
+    var tieneEscalas = escalas.length > 0 && meta > 0;
+
+    if (tieneEscalas && contrib > 0) {
+      avisos.push("The fixed contribution is ignored: this shelf uses goal-based tiers, and combining the two would force a recalculation of every sale already recorded.");
+      contrib = 0;
+    }
+
+    return {
+      /* CANONICO: lo que se lleva el asociado. Todo lo demas se deriva. */
+      pct: pctBase,
+      pctCasa: +(100 - pctBase).toFixed(2),
+      /* Como lo dice ESTE negocio. Solo afecta la presentacion. */
+      lectura: (u.lecturaPreferida === "casa") ? "casa" : "asociado",
+      modalidad: pctBase >= 50 ? "artista" : "vendedor",
+      origen: origen,
+      fuenteId: origen === "comisionista" ? (u.promotoraId || null) : u.id,
+      contribFija: contrib,
+      escalas: tieneEscalas ? escalas.slice() : [],
+      metaMensual: meta,
+      minimoGarantizado: Math.max(0, Number(u.minimoGarantizado) || 0),
+      /* BASE DE LA COMISION (JFC 2026-09-24, Bloque 3, aprobado): "bruto"
+         (precio x cantidad, lo de siempre) o "margen" (precio - costo). La
+         percha que lo declara manda; si no, la persona; si nadie, bruto.
+         Aditivo: un aparato viejo no manda el campo y todo sigue en bruto. */
+      base: _baseComisionValida(u.baseComision) || (origen === "comisionista" ? _baseComisionValida(fuente.baseComision) : null) || "bruto",
+      avisos: avisos
+    };
+  }
+
+  /* El % que toca a ESTA venta, ya con las escalas aplicadas si las hay. */
+  function pctDeLaVenta(trato, acumuladoConEsta) {
+    if (!trato) return 0;
+    if (!trato.escalas.length || !trato.metaMensual) return trato.pct;
+    var pctMeta = (acumuladoConEsta / trato.metaMensual) * 100;
+    var ordenadas = trato.escalas.slice().sort(function (a, b) { return a.hasta - b.hasta; });
+    var tramo = ordenadas.find(function (e) { return pctMeta <= e.hasta; }) || ordenadas[ordenadas.length - 1];
+    var p = Number(tramo.comision);
+    return Number.isFinite(p) ? Math.max(0, Math.min(100, p)) : trato.pct;
+  }
+
+  /* El reparto de UNA venta. Invariante que nunca se rompe:
+     comision + neto == bruto, siempre, hasta el centavo. */
+  function repartir(trato, montoBruto, acumuladoPrevio, costoTotal) {
+    if (!trato) return null;
+    var bruto = Math.max(0, Number(montoBruto) || 0);
+    var pct = pctDeLaVenta(trato, (Number(acumuladoPrevio) || 0) + bruto);
+
+    /* Bloque 3 (JFC 2026-09-24): sobre que plata se aplica el %. Con "margen"
+       y costo conocido, sobre (bruto - costo). Sin costo (0 o no informado) se
+       cae a bruto Y SE DICE (avisoBase): pagar sobre un margen inventado seria
+       peor que pagar sobre el bruto. El acumulado de metas sigue en bruto: la
+       meta del mes es de VENTAS, no de ganancia. */
+    var costo = Math.max(0, Number(costoTotal) || 0);
+    var baseTipo = "bruto", avisoBase = null;
+    if (trato.base === "margen") {
+      if (costo > 0) baseTipo = "margen";
+      else avisoBase = "Commission was set on margin, but this product has no cost recorded: the gross amount was used.";
+    }
+    var montoBase = baseTipo === "margen" ? Math.max(0, +(bruto - costo).toFixed(2)) : bruto;
+
+    /* El aporte fijo sale ANTES del %: es lo que el asociado pone para estar
+       ahi, no parte de lo que vendio. Si el aporte supera la venta, la base es
+       cero y no negativa — nadie le debe plata a la casa por vender poco. */
+    var base = trato.contribFija > 0 ? Math.max(0, montoBase - trato.contribFija) : montoBase;
+    var comision = +(base * (pct / 100)).toFixed(2);
+
+    if (trato.minimoGarantizado > 0 && comision < trato.minimoGarantizado) {
+      comision = Math.min(trato.minimoGarantizado, bruto);   /* nunca mas que lo vendido */
+    }
+    if (comision > bruto) comision = bruto;
+
+    return {
+      comisionPct: pct,
+      origenComision: trato.origen,
+      montoBruto: +bruto.toFixed(2),
+      baseComision: baseTipo,
+      montoBaseComision: +montoBase.toFixed(2),
+      avisoBase: avisoBase,
+      contribFijaAplicada: trato.contribFija > 0 ? +Math.min(trato.contribFija, bruto).toFixed(2) : 0,
+      montoComisionSocio: comision,
+      montoNetoDueno: +(bruto - comision).toFixed(2)
+    };
+  }
+
+  /* Se conservan los nombres viejos como puerta de entrada: todo el resto del
+     archivo los llama, y cambiarlos seria tocar decenas de sitios sin ganar
+     nada. Por dentro ya es el motor unico. */
+  function comisionVigente(u, acumuladoConEsta) {
+    const t = resolverTrato(u);
+    return t ? pctDeLaVenta(t, acumuladoConEsta) : 0;
+  }
+  /* SPLIT ENTRE DOS PERSONAS (JFC 2026-09-24, Bloque 4). La comision total de
+     la casa NO cambia: se parte entre quien vendio (el asociado de la percha) y
+     un asistente, con un % de la comision para el asistente. Las dos partes
+     suman EXACTO al centavo: el asistente se redondea y el vendedor recibe el
+     resto, nunca dos redondeos independientes. Sin asistente valido, no hay
+     reparto (y se quita uno viejo). */
+  function aplicarRepartoAsistente(split, u, asistenteId, asistentePct) {
+    if (!split) return split;
+    var pr = asistenteId ? promotoras.find(function (x) { return x.id === asistenteId && !x.borrado; }) : null;
+    if (!pr) { delete split.reparto; return split; }
+    var pct = Number(asistentePct);
+    if (!Number.isFinite(pct)) pct = 50;
+    pct = Math.max(0, Math.min(100, pct));
+    var total = Number(split.montoComisionSocio) || 0;
+    var asi = +(total * pct / 100).toFixed(2);
+    var ven = +(total - asi).toFixed(2);
+    split.reparto = [
+      { rol: "vendedor", promotoraId: (u && u.promotoraId) || null, monto: ven },
+      { rol: "asistente", promotoraId: pr.id, pct: pct, monto: asi }
+    ];
+    return split;
+  }
+  /* COMISION POR PRODUCTO (IdiomARTE/Belen 2026-09-29): "que el % pueda cambiar segun el producto".
+     El producto puede traer pctAsociado = lo que se lleva el ASOCIADO en SUS ventas (0-100). null/""/no numero =
+     sin % propio: manda el trato de la percha o de la persona, como siempre. 0 es un % real (el asociado no cobra).
+     Con % propio se anulan las escalas por meta (el producto manda), pero la base (bruto/margen), el aporte fijo y
+     el minimo garantizado siguen siendo los del trato. Como toda comision, se SELLA en la venta (comisionPct). */
+  /* FLECHA DE COMISION (JFC 2026-10-14, v521, pedido de Belen). Quien le paga a quien:
+     "casaPaga" (default; todo producto y venta sin el campo) = la casa cobro y le paga al asociado (gasto).
+     "asociadoPaga" = el asociado cobro y le paga a la casa su parte (ingreso de la casa).
+     Se elige en el producto, la venta la copia (y se puede cambiar al vender) y queda SELLADA en la venta.
+     Los montos del split NO cambian: solo cambia quien le debe a quien (payout-ledger.js). */
+  function _direccionValida(d) { return d === "asociadoPaga" || d === "casaPaga" ? d : null; }
+  function normPctAsociado(v) {
+    if (v === null || v === undefined || v === "") return null;
+    var n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(100, +n.toFixed(2)));
+  }
+  function calcularSplitVenta(u, montoBruto, acumuladoPrevio, costoTotal, pctProducto) {
+    var t = resolverTrato(u);
+    var pp = normPctAsociado(pctProducto);
+    if (t && pp !== null) t = Object.assign({}, t, { pct: pp, escalas: [], origen: "producto" });
+    /* v457 (JFC 2026-10-07, LEY: "TODO debe generar comision"; "que mande el porcentaje de cada producto"):
+       si el producto trae SU % pero la percha no reparte con nadie (percha propia, sin trato), la venta
+       comisiona igual con el % del producto, sin importar a quien se vendio ni si hubo cliente. Sin % propio
+       y sin trato de percha NO se inventa ningun % por defecto: sigue sin comision, como antes. El cobrador
+       es la propia percha (sin persona). Las ventas ya guardadas no se reescriben. */
+    else if (!t && u && pp !== null) {
+      t = { pct: pp, pctCasa: +(100 - pp).toFixed(2), lectura: "asociado", modalidad: pp >= 50 ? "artista" : "vendedor",
+        origen: "producto", fuenteId: u.id, contribFija: 0, escalas: [], metaMensual: 0, minimoGarantizado: 0, base: "bruto", avisos: [] };
+    }
+    return repartir(t, montoBruto, acumuladoPrevio, costoTotal);
+  }
+  /* B3 (corrida Hugo/Paco/Luis, 2026-09-24). REGLA DURA de JFC: la comision se
+     sella en la venta el dia que se hace; cambiar el trato despues NUNCA
+     recalcula ventas pasadas. Editar cantidad o precio de una venta recalculaba
+     con el trato ACTUAL de la percha (si el % habia subido de 30 a 50, la venta
+     vieja pasaba a 50 en silencio). Ahora se reparte con lo que la propia venta
+     guardo: su % (comisionPct), su base (bruto/margen) y su aporte fijo. Sin
+     campos nuevos: todo sale de venta.split. Minimo garantizado: si la comision
+     original quedo por encima del % (se aplico un minimo), ese monto se conserva
+     como minimo. */
+  function _splitConTratoSellado(venta, montoBruto, costoTotal) {
+    const s = venta.split || {};
+    const pct = Math.max(0, Math.min(100, Number(s.comisionPct) || 0));
+    const contrib = Math.max(0, Number(s.contribFijaAplicada) || 0);
+    const baseOrig = Math.max(0, (Number(s.montoBaseComision != null ? s.montoBaseComision : s.montoBruto) || 0) - contrib);
+    const calcOrig = +(baseOrig * pct / 100).toFixed(2);
+    const minimo = (Number(s.montoComisionSocio) || 0) > calcOrig + 0.005 ? Number(s.montoComisionSocio) : 0;
+    const trato = { pct, escalas: [], metaMensual: 0, contribFija: contrib, minimoGarantizado: minimo,
+      base: s.baseComision === "margen" ? "margen" : "bruto", origen: s.origenComision || null };
+    return repartir(trato, montoBruto, 0, costoTotal);
+  }
+  // #19: agrupa ventas pendientes por producto -> lineas del recibo de liquidacion.
+  function agruparPendientesPorProducto(pend) {
+    const map = new Map();
+    pend.forEach((v) => {
+      const p = productos.find((x) => x.id === v.productoId);
+      const cur = map.get(v.productoId) || { producto: p ? p.nombre : "Producto", sku: p ? p.sku : "", cantidad: 0, montoBruto: 0, comisionSocio: 0 };
+      cur.cantidad += v.cantidad || 1;
+      cur.montoBruto += v.split ? v.split.montoBruto : 0;
+      cur.comisionSocio += v.split ? v.split.montoComisionSocio : 0;
+      map.set(v.productoId, cur);
+    });
+    return [...map.values()].map((d) => ({ ...d, montoBruto: +d.montoBruto.toFixed(2), comisionSocio: +d.comisionSocio.toFixed(2) }));
+  }
+  function _payoutCore() {
+    return (typeof window !== "undefined" && window.OCPayoutLedger) ? window.OCPayoutLedger : null;
+  }
+  function _payeeName(id, ubicacion) {
+    const p = id ? promotoras.find((x) => String(x.id) === String(id)) : null;
+    return p ? p.nombre : (ubicacion ? ubicacion.nombre : "Associate");
+  }
+  function _payeeType(id) {
+    const p = id ? promotoras.find((x) => String(x.id) === String(id)) : null;
+    return p && p.tipo ? String(p.tipo) : "associate";
+  }
+  function _payoutInput(ubicacionId, mes, carryCredits = false) {
+    const periodo = mesValido(mes);
+    /* El core financiero no conoce reloj ni timezone. El shell SI: por eso
+       normalizamos el periodo aqui usando la misma regla forense que Commissions.
+       Evita que una venta cerca del cambio de mes desaparezca del ledger por usar
+       UTC crudo y, a la vez, mantiene payout-ledger.js puro/testeable. */
+    const sales = ventasActivas().filter((v) => esDelMes(v.fecha, periodo, v.relojDesfaseMs)
+      && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
+    // Reports retain their calendar period. Settlement additionally carries prior
+    // credits until receipts consume them, without moving prior positive earnings.
+    const creditOnlyAdjustmentIds = [];
+    const adjustments = ajustesComision.filter((a) => {
+      if (!a || (ubicacionId != null && String(a.ubicacionId) !== String(ubicacionId))) return false;
+      if (esDelMes(a.fecha, periodo)) return true;
+      const prior = fechaLocalDe(a.fecha).slice(0, 7);
+      if (!carryCredits || !prior || prior >= periodo) return false;
+      const negative = Array.isArray(a.reparto) && a.reparto.length
+        ? a.reparto.some((r) => r && Number(r.monto) < 0) : Number(a.montoComisionSocio) < 0;
+      if (!negative) return false;
+      creditOnlyAdjustmentIds.push(String(a.id));
+      return true;
+    });
+    /* 2026-10-07: las ventas anuladas tambien entran desde el mes de su anulacion, para que el
+       core devuelva lo que ya se habia pagado por ellas (descuento "void"). El core las salta
+       para todo lo demas. */
+    const voids = Array.prototype.filter.call(ventas, (v) => v && v.anulada && v.split && !_demoOculto("ventas", v)
+      && fechaLocalDe(v.anuladaEn || v.canceladaExPostEn || v.fecha).slice(0, 7) <= periodo
+      && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
+    return { sales: sales.concat(voids), saleContext: ventas, adjustments, creditOnlyAdjustmentIds, locations: ubicaciones, payouts, payoutConflicts,
+      month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId),
+      holdDays: ajusteRetencion ? ajusteRetencion.dias : 0, asOf: new Date().toISOString() };
+  }
+  function _fuentePayoutLiquidada(kind, id, ubicacionId, mes) {
+    const core = _payoutCore(); if (!core) return false;
+    const obs = core.buildObligations(_payoutInput(ubicacionId, mes, true)).filter((o) => o.kind === kind && String(o.sourceId) === String(id));
+    return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0 && !o.heldCents); // retenido = todavia no pagado
+  }
+  /* IDEMPOTENCIA ESTRICTA (auditoria 2026-10-07, punto 2; patron de Stripe "Idempotent requests").
+     Una clave (opId) ya usada solo devuelve el pago guardado si la peticion pide LO MISMO:
+     misma percha, mes, persona y monto. Antes devolvia el pago viejo sin comparar, asi que un
+     pago con otro monto parecia aceptado y no se registraba nada. Ahora responde 409. */
+  function _payoutMismaPeticion(prior, ubicacionId, mes, body) {
+    if (String(prior.locationId || "") !== String(ubicacionId)) return false;
+    if (String(prior.period || "") !== String(mes)) return false;
+    if (body && Object.prototype.hasOwnProperty.call(body, "payeeId")) {
+      const pid = body.payeeId == null || body.payeeId === "" ? null : String(body.payeeId);
+      if ((prior.payeeId || null) !== pid) return false;
+    }
+    if (body && body.amountCents != null && Number(body.amountCents) !== Number(prior.amountCents)) return false;
+    return true;
+  }
+  /* opts.dryRun (auditoria 2026-10-07, punto 4): valida y planea TODO sin escribir nada.
+     La ruta multipersona lo usa para planear a cada persona antes de guardar a la primera. */
+  function _registrarPayout(ubicacionId, body, qMes, opts) {
+    const dryRun = !!(opts && opts.dryRun);
+    const rolPago = _rolLocal();
+    if (rolPago && rolPago !== "dueno" && rolPago !== "admin" && rolPago !== "demo") return { error:"Only the owner or an admin can record commission payments.", status:403 };
+    const core = _payoutCore();
+    if (!core) return { error: "Payment ledger is not available. Nothing was recorded.", status: 503 };
+    if (payoutConflicts.some(c=>c.records.some(p=>String(p.locationId)===String(ubicacionId)))) {
+      return {error:'Conflicting payment receipts need owner review before another payment can be recorded here.',status:409};
+    }
+    const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
+    if (!u) return { error: "Location not found.", status: 404 };
+    const mes = mesValido((body && body.mes) || qMes);
+    const requestedOpId = String(body && body.opId || "").trim();
+    if (requestedOpId) {
+      const prior = payouts.find((p) => String(p.opId) === requestedOpId);
+      if (prior) {
+        if (!_payoutMismaPeticion(prior, ubicacionId, mes, body)) return { error:"This payment key was already used for a different payment. Nothing new was recorded.", status:409 };
+        return { ok:true, existing:true, payout:prior };
+      }
+    }
+    /* v454: body.sourceIds (ids de venta) limita el pago a esas ventas (ficha de producto). El core lo aplica. */
+    const _soloVentas = body && Array.isArray(body.sourceIds) && body.sourceIds.length ? body.sourceIds.map(String) : null;
+    const base = Object.assign(_payoutInput(ubicacionId, mes, true), _soloVentas ? { sourceIds: _soloVentas } : {});
+    if(core.balancesByPayee(base).some(r=>r.overpaidCents>0)) return {error:'Review the recorded overpayment before making another payment here.',status:409};
+    const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
+    if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
+    const hasExplicitPayee = !!(body && Object.prototype.hasOwnProperty.call(body, "payeeId"));
+    let payeeId = hasExplicitPayee ? (body.payeeId == null || body.payeeId === "" ? null : String(body.payeeId)) : null;
+    if (!hasExplicitPayee) {
+      if (rows.length !== 1) return { error: "More than one associate is owed money here. Choose the person you actually paid.", status: 409, payees: rows.map((r) => ({ payeeId:r.payeeId, due:core.money(r.dueCents) })) };
+      payeeId = rows[0].payeeId;
+    }
+    const row = rows.find((r) => (r.payeeId || null) === (payeeId || null));
+    if (!row) return { error: "That person has no positive amount due for this period.", status: 409 };
+    const sourceKey = row.obligations.filter((o) => Number(o.dueCents) !== 0).map((o) => o.kind + ":" + o.sourceId + ":" + (o.payeeId || "_")).sort().join(",");
+    const opId = String(requestedOpId || ("settle:" + mes + ":" + ubicacionId + ":" + (payeeId || "_") + ":" + sourceKey));
+    const already = payouts.find((p) => String(p.opId) === opId);
+    if (already) return { ok:true, existing:true, payout:already };
+    const now = new Date().toISOString();
+    const plan = core.planPayout(Object.assign({}, base, {
+      payeeId, opId, id:uuid("pay-"), method:body && body.medioPago,
+      amountCents:body && body.amountCents,
+      reference:body && body.reference, note:body && body.note,
+      paidAt:(body && body.paidAt) || now,
+      paidBy:(body && body.paidBy) || (_rolLocal() || "owner"),
+      payeeName:_payeeName(payeeId,u), payeeType:_payeeType(payeeId)
+    }));
+    if (plan.error) return plan;
+    if (plan.existing) return { ok:true, existing:true, payout:plan.payout };
+    /* Invariante del libro (punto 3): un pago nuevo nunca puede dejar el libro inconsistente. */
+    if (core.ledgerAnomalies && core.ledgerAnomalies(payouts.concat([plan.payout])).length > core.ledgerAnomalies(payouts).length) {
+      return { error:"This payment would make the ledger inconsistent. Nothing was recorded.", status:409 };
+    }
+    if (dryRun) return { ok:true, dryRun:true, plan:plan.payout };
+    const payout = Object.assign({}, plan.payout, { rev:_revNueva(), createdAt:now, authorRole:rolPago || 'dueno' });
+    payouts.push(payout);
+    /* Compatibility projection. Financial truth is the payout; these booleans
+       keep historical guards/reports safe until every caller reads the ledger. */
+    payout.items.forEach((it) => {
+      if (it.kind === "sale") {
+        const v = ventas.find((x) => String(x.id) === String(it.sourceId));
+        if (v && _fuentePayoutLiquidada("sale", v.id, ubicacionId, mes)) { v.liquidada = true; v.medioPagoComision = payout.method; v.rev = _revNueva(); }
+      } else if (it.kind === "adjustment") {
+        const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId));
+        if (a && _fuentePayoutLiquidada("adjustment", a.id, ubicacionId, mes)) { a.liquidada = true; a.medioPagoComision = payout.method; a.rev = _revNueva(); }
+      }
+    });
+    mov("payout", { payoutId:payout.id, opId:payout.opId, ubicacion:u.nombre, payeeId, payeeName:payout.payeeName,
+      amount:payout.amount, mes, medioPago:payout.method, covered:payout.items.length }, false);
+    return { ok:true, payout };
+  }
+
+  /* Compatibility for the historical rack-wide endpoint.
+     Old shells legitimately call it without a payee. We preserve that contract
+     WITHOUT creating one ambiguous financial fact: each person gets a separate
+     payout. A negative-only clawback becomes a zero-cash settlement fact, not a
+     fake payment. New UI/API callers should always select a payee explicitly. */
+  function _registrarPayoutLegacyRack(ubicacionId, body, qMes) {
+    body = body || {};
+    if (body.payeeId != null && body.payeeId !== "") return _registrarPayout(ubicacionId, body, qMes);
+    /* PAGO SIN PERSONA (auditoria 2026-10-07). Si la peticion trae la clave payeeId
+       (aunque sea null, que significa "sin persona asignada") con un monto, se paga
+       UNA sola fila. Antes, payeeId null caia en el bucle legacy y el mismo monto se
+       cobraba a cada persona con saldo. */
+    if (Object.prototype.hasOwnProperty.call(body, "payeeId") && body.amountCents != null) return _registrarPayout(ubicacionId, body, qMes);
+    const core = _payoutCore();
+    if (!core) return { error:"Payment ledger is not available. Nothing was recorded.", status:503 };
+    const mes = mesValido(body.mes || qMes);
+    const base = _payoutInput(ubicacionId, mes, true);
+    const rows = core.balancesByPayee(base);
+    const positivos = rows.filter((r) => Number(r.dueCents) > 0);
+    const negativos = rows.filter((r) => Number(r.dueCents) < 0);
+    /* Un monto no puede repartirse a varias personas a la vez (auditoria 2026-10-07).
+       Sin payeeId y con monto, la operacion es ambigua: se rechaza sin escribir nada. */
+    if (body.amountCents != null && positivos.length > 1) {
+      return { error:"Choose the person you actually paid. An amount cannot be applied to several people at once.", status:409,
+        payees: positivos.map((r) => ({ payeeId:r.payeeId, due:core.money(r.dueCents) })) };
+    }
+    const creados = [];
+    const _bodyDe = (row) => Object.assign({}, body, {
+      payeeId:row.payeeId,
+      opId: body.opId ? String(body.opId) + ":" + String(row.payeeId || "_") : undefined
+    });
+    /* TODO O NADA (auditoria 2026-10-07, punto 4). Antes cada persona se guardaba por
+       separado: si la segunda fallaba, la primera ya estaba guardada y la pantalla decia
+       "error" como si nada se hubiera registrado. Ahora se planea a TODAS primero (sin
+       escribir); si una falla, no se guarda ninguna. Las personas no comparten
+       obligaciones, asi que el plan de una no cambia el de otra. */
+    for (const row of positivos) {
+      const prueba = _registrarPayout(ubicacionId, _bodyDe(row), mes, { dryRun:true });
+      if (prueba.error) return prueba;
+    }
+    for (const row of positivos) {
+      const rr = _registrarPayout(ubicacionId, _bodyDe(row), mes);
+      if (rr.error) return rr;
+      if (rr.payout) creados.push(rr.payout);
+    }
+
+    /* A clawback can be the only remaining ledger item after a prior payment.
+       Recording it as applied moves no cash; it merely proves the credit was
+       consumed/acknowledged and prevents it from reappearing forever. */
+    for (const row of negativos) {
+      const obs = row.obligations.filter((o) => Number(o.dueCents) < 0);
+      if (!obs.length) continue;
+      const sourceKey = obs.map((o) => o.kind + ":" + o.sourceId + ":" + (o.payeeId || "_")).sort().join(",");
+      const opId = String(body.opId ? String(body.opId) + ":credit:" + String(row.payeeId || "_") : ("settle-credit:" + mes + ":" + ubicacionId + ":" + String(row.payeeId || "_") + ":" + sourceKey));
+      const prior = payouts.find((p) => String(p.opId) === opId);
+      if (prior) { creados.push(prior); continue; }
+      const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
+      const now = new Date().toISOString();
+      const settlement = {
+        id:uuid("pay-"), opId, status:"paid", type:"credit-settlement",
+        payeeId:row.payeeId || null, payeeName:_payeeName(row.payeeId,u), payeeType:_payeeType(row.payeeId),
+        locationId:String(ubicacionId), period:mes, amountCents:0, amount:0,
+        method:null, reference:"", note:String(body.note || "").trim().slice(0,240),
+        paidAt:body.paidAt || now, paidBy:body.paidBy || (_rolLocal() || "owner"),
+        items:obs.map((o) => ({ kind:o.kind, sourceId:o.sourceId, payeeId:o.payeeId, amountCents:Math.abs(Number(o.dueCents)), offset:true })),
+        rev:_revNueva(), createdAt:now
+      };
+      settlement.authorRole = _rolLocal() || 'dueno';
+      payouts.push(settlement);
+      settlement.items.forEach((it) => {
+        if (it.kind === "adjustment") {
+          const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId));
+          if (a) { a.liquidada = true; a.rev = _revNueva(); }
+        }
+      });
+      mov("payout-credit-settlement", { payoutId:settlement.id, ubicacion:u ? u.nombre : "", payeeId:settlement.payeeId, mes, covered:settlement.items.length }, false);
+      creados.push(settlement);
+    }
+
+    if (!creados.length) return { ok:true, noop:true, payouts:[], payout:null };
+    const cash = creados.reduce((a,p) => a + Number(p.amount || 0), 0);
+    return { ok:true, payouts:creados, payout:creados[0], amount:+cash.toFixed(2) };
+  }
+
+  // Financial changes have one durable boundary, including the legacy
+  // multi-person batch. Do not broadcast provisional facts or return success
+  // before a complete snapshot is stored. Incoming sync waits for this
+  // boundary; it must never be overwritten by rollback of a local attempt.
+  let _payoutConfirmando = false, _payoutPendiente = null;
+  const _payoutCatalogosPendientes = [];
+  async function _payoutDurable(accion, falloGuardado) {
+    const foto = { payouts: payouts.slice(), gastos: clonar(gastos), movimientosLen: movimientos.length, sello: selloUltimo,
+      flags: ventas.concat(ajustesComision).map((registro) => ({ registro,
+        campos: ["liquidada", "medioPagoComision", "rev"].map((campo) => ({ campo,
+          existe: Object.prototype.hasOwnProperty.call(registro, campo), valor: registro[campo] })) })) };
+    const restaurar = () => {
+      payouts.splice(0, payouts.length, ...foto.payouts);
+      gastos.splice(0, gastos.length, ...foto.gastos);
+      movimientos.length = foto.movimientosLen; selloUltimo = foto.sello;
+      foto.flags.forEach(({registro, campos}) => campos.forEach(({campo, existe, valor}) => {
+        if (existe) registro[campo] = valor; else delete registro[campo];
+      }));
+    };
+    let terminar;
+    _payoutConfirmando = true;
+    _payoutPendiente = new Promise((resolve) => { terminar = resolve; });
+    try {
+      const resultado = accion();
+      if (resultado.error) { restaurar(); return resultado; }
+      if (resultado.existing || resultado.noop) return resultado;
+      let guardado = false;
+      // A financial write cannot free quota by deleting photo evidence.
+      try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
+      if (!guardado) {
+        restaurar();
+        return { error:falloGuardado || "This payment change was NOT saved. Free up storage and retry the same payment.", status:507 };
+      }
+      _avisarCatalogoConfirmado();
+      return resultado;
+    } catch (error) { restaurar(); throw error; }
+    finally {
+      _payoutConfirmando = false; _payoutPendiente = null;
+      try {
+        _drenarCatalogosPendientes();
+      } finally { terminar(); }
+    }
+  }
+
+  /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
+  function getLiquidaciones(mes) {
+    const _mes = mesValido(mes);
+    /* v778 (JFC 13 nov 2026: Safari se cerraba al abrir Commissions en una tienda grande). Antes cada linea de
+       comision buscaba su venta/producto/ajuste recorriendo TODA la lista (.find): costo ventas x obligaciones,
+       medido 16 s en PC con 12.000 ventas. Indices armados UNA vez por lectura, con la misma regla que .find
+       (gana el primero que coincide). No cambia ninguna cifra; solo el tiempo. */
+    const _primero = (lista, clave) => { const m = new Map(); for (const x of lista) { if (!x) continue; const k = clave(x); if (!m.has(k)) m.set(k, x); } return m; };
+    const _ventaPorId = _primero(ventas, (v) => v.id), _ventaPorTexto = _primero(ventas, (v) => String(v.id));
+    const _ajustePorTexto = _primero(ajustesComision, (a) => String(a.id)), _productoPorId = _primero(productos, (q) => q.id);
+    /* IdiomARTE 2026-09-28: una percha propia con ventas de la casa tambien necesita
+       su tarjeta por percha. Las perchas borradas sin actividad del mes no deben
+       reaparecer como "sin ventas"; conservar las que tengan historia en el mes
+       elegido para no esconder pagos, devoluciones ni ventas anteriores al borrado. */
+    const _conComisionEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && v.split && esDelMes(v.fecha, _mes, v.relojDesfaseMs))
+      || ajustesComision.some((a) => a && a.ubicacionId === id && esDelMes(a.fecha, _mes));
+    const _conVentasEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && esDelMes(v.fecha, _mes, v.relojDesfaseMs));
+    return ubicaciones.filter((u) => !_demoOculto("ubicaciones", u)).filter((u) => {
+      const historia = _conVentasEnMes(u.id) || _conComisionEnMes(u.id);
+      return u.borrado ? historia : ((u.tipo && u.tipo !== "propio") || historia);
+    }).map((u) => {
+      const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes, v.relojDesfaseMs) && v.split);
+      /* Bloque 4: los ajustes (devoluciones de ventas ya pagadas) entran al mes
+         de SU fecha, no al de la venta original: lo pagado no se reescribe. */
+      const ajustesMes = ajustesComision.filter((a) => a && a.ubicacionId === u.id && esDelMes(a.fecha, _mes));
+      const ajPend = ajustesMes.filter((a) => !a.liquidada);
+      const ventasBrutas = ventasMes.reduce((a, v) => a + v.split.montoBruto, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoBruto) || 0), 0);
+      const comisionSocio = ventasMes.reduce((a, v) => a + v.split.montoComisionSocio, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoComisionSocio) || 0), 0);
+      const netoDueno = ventasMes.reduce((a, v) => a + v.split.montoNetoDueno, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoNetoDueno) || 0), 0);
+      const pendientes = ventasMes.filter((v) => !v.liquidada);
+      const _ledger = _payoutCore();
+      const _ledgerObs = _ledger ? _ledger.buildObligations(_payoutInput(u.id, _mes, true)) : [];
+      const payoutBalances = _ledger ? _ledger.balancesByPayee(_payoutInput(u.id, _mes, true)).map((r) => ({
+        payeeId:r.payeeId, nombre:_payeeName(r.payeeId,u), earned:+_ledger.money(r.earnedCents).toFixed(2),
+        paid:+_ledger.money(r.paidCents).toFixed(2), due:+_ledger.money(r.dueCents).toFixed(2), dueCents:r.dueCents,
+        held:+_ledger.money(r.heldCents || 0).toFixed(2), heldCents:r.heldCents || 0, heldUntil:r.heldUntil || null,
+        overpaid:r.overpaid || 0, overpaidCents:r.overpaidCents || 0
+      })) : [];
+      const stillDue = _ledger ? +(payoutBalances.reduce((a,r) => a + (Number(r.due) || 0), 0)).toFixed(2)
+        : +(pendientes.reduce((a,v) => a + (Number(v.split && v.split.montoComisionSocio) || 0), 0) + ajPend.reduce((a,x) => a + (Number(x.montoComisionSocio) || 0), 0)).toFixed(2);
+      const _ledgerAbierto = _ledger ? _ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0 || Number(o.heldCents) > 0) : !!(pendientes.length || ajPend.length); // retenido NO es pagado
+      const _ledgerPagoPositivo = _ledger ? _ledgerObs.some((o) => Number(o.signedAmountCents) > 0 && Number(o.paidCents) > 0)
+        : ventasMes.some((v) => !!v.liquidada);
+      const paymentConflicts = payoutConflicts.filter(c=>c.records.some(p=>String(p.locationId)===String(u.id) && p.period===_mes));
+      const paymentQuarantine = payoutQuarantine.filter(q=>String(q.record.locationId)===String(u.id) && q.record.period===_mes);
+      const overpaid = +payoutBalances.reduce((n,p)=>n+(p.overpaid || 0),0).toFixed(2);
+      const needsReview = paymentConflicts.length>0 || overpaid>0;
+      // v681: The ledger's dueCents records cash owed TO the associate. When
+      // an associate took the customer's cash, dueCents is rightly zero, but
+      // that is NOT evidence that the house received its share. No incoming
+      // settlement receipt exists in this ledger: never label it PAID.
+      const houseShareUnverified = ventasMes.some((v) => v.direccionComision === "asociadoPaga" &&
+        Number(v.split && v.split.montoNetoDueno) > 0);
+      const paymentStatus = needsReview ? 'review' : (ventasMes.length === 0 && ajustesMes.length === 0 && !_ledgerObs.some((o) => o.kind === "void")) ? "no-sales"
+        : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : houseShareUnverified ? "house-unverified" : "paid");
+      const conflictingIds = new Set(paymentConflicts.flatMap(c=>c.records.map(p=>p.id)));
+      const receiptEvidence = [...new Map(payouts.concat(paymentConflicts.flatMap(c=>c.records)).map(p=>[p.id+'|'+JSON.stringify([p.amountCents,p.items,p.reversalOf || null]),p])).values()];
+      const payoutHistory = receiptEvidence.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
+        .slice().sort((a,b) => String(b.paidAt || b.createdAt || "").localeCompare(String(a.paidAt || a.createdAt || "")))
+        .map((p) => ({ id:p.id, opId:p.opId, payeeId:p.payeeId || null, payeeName:p.payeeName || _payeeName(p.payeeId,u),
+          amount:+((p.reversalOf ? -1 : 1) * (Number(p.amount) || ((Number(p.amountCents) || 0) / 100))).toFixed(2), method:p.method || null,
+          paidAt:p.paidAt || p.createdAt || null, reference:p.reference || "", note:p.note || "", items:(p.items || []).length,
+          type:p.reversalOf ? "reversal" : "payment", reversalOf:p.reversalOf || null, conflicted:conflictingIds.has(p.id) }));
+      /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
+      const _porPersona = new Map();
+      const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
+      /* PERSONA DE CADA VENTA (JFC 2026-09-26, auditoria de Commissions). La venta guarda a
+         quien se eligio (v.promotoraId, v398) y el ranking ya la usaba, pero aqui todo lo que
+         no traia reparto de asistente se le sumaba a la persona FIJA de la percha: en la
+         percha de Ana, una venta con Beto elegido salia como "Ana: 60" en vez de Ana 40 /
+         Beto 20. Ahora cada venta va a su persona; una devolucion, a la persona de SU venta.
+         Sin mezcla de personas el reparto sigue vacio, como antes. */
+      const _personaVenta = (v) => (v && v.promotoraId) || u.promotoraId || null;
+      const _personaAjuste = (x) => _personaVenta(_ventaPorId.get(x.ventaId));
+      const _fija = u.promotoraId || null;
+      const _hayReparto = ventasMes.some((v) => (v.split && v.split.reparto) || _personaVenta(v) !== _fija)
+        || ajustesMes.some((x) => x.reparto || _personaAjuste(x) !== _fija);
+      if (_hayReparto) {
+        ventasMes.forEach((v) => { if (v.split.reparto) v.split.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(_personaVenta(v), v.split.montoComisionSocio); });
+        ajustesMes.forEach((x) => { if (x.reparto) x.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(_personaAjuste(x), x.montoComisionSocio); });
+      }
+      const repartoPersonas = [..._porPersona.entries()].map(([k, monto]) => { const pr = k !== "__percha__" ? promotoras.find((x) => x.id === k) : null; return { promotoraId: k === "__percha__" ? null : k, nombre: pr ? pr.nombre : (k === "__percha__" ? u.nombre : "(removed)"), monto: +monto.toFixed(2) }; });
+      // #19 Desglose de liquidacion: el socio necesita saber DE QUE ventas exactas
+      // es el "te debo $X". Agrupamos las ventas pendientes por producto para armar
+      // un recibo itemizado (producto, unidades, bruto, comision). Sin esto el pago
+      // es un numero suelto y genera desconfianza. Ver marcarComisionPagada() en index.html.
+      const detallePendientes = _ledger ? _ledgerObs.filter((o) => Number(o.dueCents) !== 0).map((o) => {
+        const v = (o.kind === "sale" || o.kind === "void") ? _ventaPorTexto.get(String(o.sourceId)) : null;
+        const aj = o.kind === "adjustment" ? _ajustePorTexto.get(String(o.sourceId)) : null;
+        const vv = v || (aj ? _ventaPorTexto.get(String(aj.ventaId)) : null);
+        const pp = vv ? _productoPorId.get(vv.productoId) : null;
+        const _esDev = !!(aj && aj.tipo === "devolucion"); // v457 (b): el ajuste retroactivo no es una devolucion
+        const _esVoid = o.kind === "void"; // 2026-10-07: venta anulada despues de pagarse
+        return { producto:(_esDev ? "Return: " : (_esVoid ? "Voided after payment: " : "")) + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
+          cantidad:(_esDev || _esVoid) ? -(Number((aj || vv) && (aj || vv).cantidad) || 0) : (Number(vv && vv.cantidad) || 0),
+          montoBruto:vv && vv.split ? +(Number(vv.split.montoBruto) || 0).toFixed(2) : 0,
+          comisionSocio:+_ledger.money(o.dueCents).toFixed(2), ajusteId:aj ? aj.id : undefined,
+          ventaId:vv ? vv.id : undefined, payeeId:o.payeeId, payeeNombre:_payeeName(o.payeeId,u) };
+      }) : agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = _productoPorId.get(x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
+      // Dias desde la ultima venta de esta percha (rec 05: asociado/a dormida).
+      const ultima = ventasActivas().filter((v) => v.ubicacionId === u.id).reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
+      const diasSinVenta = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
+      const prom = u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+      /* Trato resuelto por el motor unico (JFC 2026-08-27): la meta y las
+         escalas del comisionista mandan sobre las de la percha cuando aplica. */
+      const _trato = resolverTrato(u) || {};
+      const _meta = Number(_trato.metaMensual) || Number(u.metaMensual) || 0;
+      return {
+        ubicacionId: u.id, ubicacion: u.nombre, tipo: u.tipo, metaMensual: _meta,
+        mes: _mes, esMesActual: _mes === mesActualISO(),
+        cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
+        ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
+        /* Un saldo negativo pendiente es un clawback/credito por aplicar, NO "pagado".
+           Estado se resuelve por obligaciones abiertas; el signo solo dice quien
+           debe compensar a quien. */
+        estado: paymentStatus === "no-sales" ? "sin ventas" : (paymentStatus === "paid" ? "pagado" : "pendiente"),
+        paymentStatus,
+        /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
+        medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
+        ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
+        stillDue, held:_ledger ? _ledger.money(_ledgerObs.reduce((sum, o) => sum + (Number(o.heldCents) || 0), 0)) : 0, payoutBalances, payoutHistory, detallePendientes,
+        paymentConflicts, paymentQuarantine, overpaid, needsReview,
+        /* 2026-10-06: statements share the same obligations as settlement. A
+           partial payout is money paid even while the legacy sale flag is false.
+           Include each beneficiary, retroactive adjustment and reversal balance;
+           the browser must not reconstruct these amounts from sale flags. */
+        payoutStatementLines: _ledger ? _ledgerObs.map((o) => {
+          // Igual que antes: String(a.id) === o.sourceId solo coincide si sourceId ya es texto.
+          const aj = o.kind === "adjustment" && typeof o.sourceId === "string" ? _ajustePorTexto.get(o.sourceId) : null;
+          const v = _ventaPorTexto.get(String(aj ? aj.ventaId : o.sourceId));
+          const p = v ? _productoPorId.get(v.productoId) : null;
+          return { kind:o.kind, sourceId:o.sourceId, payeeId:o.payeeId,
+            fecha:aj ? aj.fecha : (v && v.fecha), producto:p ? p.nombre : "",
+            cantidad:Number(v && v.cantidad) || 0,
+            brutoCents:o.kind === "sale" && v ? _ledger.cents(Number(v.precioUnit) * Number(v.cantidad)) : 0,
+            earnedCents:o.signedAmountCents, paidCents:o.paidCents * (o.signedAmountCents < 0 ? -1 : 1),
+            dueCents:o.dueCents, heldCents:o.heldCents || 0, heldUntil:o.heldUntil || null, medio:v && v.medioPagoComision || null };
+        }) : null,
+        /* v457 (b): el recalculo retroactivo no es una devolucion; su plata ya viaja en la fila de su venta (ledger). */
+        ajustes: ajustesMes.filter((x) => x.tipo !== "recalculo-retroactivo").map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
+        repartoPersonas,
+        diasSinVenta, promotorNombre: prom ? prom.nombre : null,
+        promotoraId: u.promotoraId || null,
+        asociadoNombre: prom ? prom.nombre : null,
+        /* LAS DOS LECTURAS DEL MISMO REPARTO (JFC 2026-08-18). El asociado
+           piensa "me llevo el 85"; la casa piensa "retengo el 15". Es el mismo
+           numero y las dos frases son correctas, asi que se mandan las dos y
+           nadie tiene que restar de cabeza.
+
+           pctBase es lo CONFIGURADO; pctEfectivo es lo que de verdad se
+           aplico, derivado de la plata repartida. Pueden diferir por las
+           escalas por meta o porque alguien corrigio una comision en
+           retrospectiva — mostrar solo el configurado hacia que la liquidacion
+           dijera 10% al lado de una plata repartida al 85%. */
+        /* El trato resuelto por el motor unico, no recalculado a mano aqui:
+           asi la app, el tablero y el recibo dicen exactamente lo mismo. */
+        ...(function () {
+          const t = _trato;
+          return {
+            pctBase: t.pct || 0,
+            pctQuedaEnCasa: t.pctCasa != null ? t.pctCasa : 100,
+            lecturaPreferida: t.lectura || "asociado",
+            origenComision: t.origen || "percha",
+            contribFija: t.contribFija || 0,
+            minimoGarantizado: t.minimoGarantizado || 0,
+            baseComision: t.base || "bruto",
+            tieneEscalas: !!(t.escalas && t.escalas.length),
+            avisosTrato: t.avisos || [],
+            modalidad: (t.pct || 0) >= 50 ? "artista" : "vendedor",
+          };
+        })(),
+        /* NADA FUERA DE VISTA (JFC 2026-09-24, pedido de Belen). Las COUNTER SALES
+           de la percha (de la casa, sin comision) no entran al bruto con
+           comision, pero SI se muestran aparte: bruto con comision + casa =
+           total real de la percha, igual que en Sold. contribFijaMes es lo que
+           el motor DE VERDAD desconto este mes (se aplica por venta);
+           contribFija sigue siendo el valor configurado. Solo lectura. */
+        ...(function () {
+          const casa = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes, v.relojDesfaseMs) && !v.split);
+          const casaMonto = casa.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0);
+          return {
+            ventasCasa: { monto: +casaMonto.toFixed(2), ventas: casa.length },
+            totalPercha: +(ventasMes.reduce((a, v) => a + v.split.montoBruto, 0) + casaMonto).toFixed(2),
+            contribFijaMes: +ventasMes.reduce((a, v) => a + (Number(v.split.contribFijaAplicada) || 0), 0).toFixed(2),
+          };
+        })(),
+        pctEfectivo: ventasBrutas > 0 ? +((comisionSocio / ventasBrutas) * 100).toFixed(2) : (Number(u.comisionSocio) || 0),
+        /* Ventas de este mes cuyo % se corrigio despues: quien liquida tiene que
+           verlo, porque el papel que imprimio la semana pasada decia otra cosa. */
+        ventasCorregidas: ventasMes.filter((v) => v.split && v.split.corregida).length,
+      };
+    });
+  }
+  // ---- Inventario compartido (espejo de data.js) ----
+  /* =========================================================================
+     CORREGIR UNA COMISION YA REGISTRADA (portado de amigable-123, 2026-08-18)
+     =========================================================================
+     El % se congelaba al vender. Si estaba mal configurado —que pasa: es un
+     numero que se teclea una vez y se usa cien— la unica salida era anular
+     ventas reales para rehacerlas, o sea ensuciar el historial para arreglar un
+     dato. Aqui se recalcula el reparto y queda constancia de lo que decia
+     antes: ese historial es justo lo que evita las discusiones de fin de mes,
+     asi que una correccion se SUMA, no reemplaza.
+
+     Solo se toca el reparto. El monto, el producto, el stock y la fecha no se
+     mueven: eso seria otra cosa y tiene su propio camino (anular).
+     ========================================================================= */
+  function corregirComisionVenta(ventaId, pctNuevo, quien, motivo, opciones) {
+    opciones = opciones || {};
+    const v = ventas.find((x) => x.id === ventaId && !x.anulada);
+    if (!v) return { error: "That sale no longer exists.", status: 404 };
+    if (!v.split) return { error: "This sale doesn't split a commission with anyone: it was made on an owned shelf.", status: 400 };
+    /* PASADA HUGO/PACO/LUIS (JFC 2026-09-24, cazado por test/commissions-hugo-paco-luis.test.js):
+       esta ruta cambiaba el % de una venta YA PAGADA (liquidada) y reescribia
+       la comision sellada (13.33 -> 30.00). Rompe la regla del Bloque 4: lo
+       pagado jamas se edita; una devolucion va como ajuste negativo nuevo.
+       Tambien una venta ya devuelta: su clawback registro el monto viejo, y
+       corregirla dejaria el ajuste y la venta diciendo cosas distintas.
+       Ningun llamador real usa esta ruta con ventas pagadas: la UI corrige por
+       /comisiones-del-mes con soloPendientes=true. */
+    if (v.liquidada || _ventaTienePagoComision(v)) return { error: "This sale is already settled: what was paid is never edited. Record a return instead.", status: 409 };
+    if (v.devuelta) return { error: "This sale was returned: its commission was already clawed back and stays as recorded.", status: 409 };
+    /* null, undefined o "" NO son 0%: son "no mandaste el dato", y Number() los
+       convierte en 0 alegremente. Dejar pasar eso pondria la comision de
+       alguien en cero por un campo vacio. El 0% escrito a proposito si vale. */
+    if (pctNuevo === null || pctNuevo === undefined || pctNuevo === "") return { error: "The new percentage is missing.", status: 400 };
+    const pct = Number(pctNuevo);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return { error: "The percentage must be between 0 and 100.", status: 400 };
+
+    const bruto = Number(v.split.montoBruto) || 0;
+    /* Bloque 3: si la venta se repartio sobre el margen, la correccion del %
+       se aplica sobre ESA misma base; nunca se cambia de base al corregir. */
+    const baseCorr = Number.isFinite(Number(v.split.montoBaseComision)) && v.split.montoBaseComision !== null ? Number(v.split.montoBaseComision) : bruto;
+    const antes = { comisionPct: v.split.comisionPct, montoComisionSocio: v.split.montoComisionSocio, montoNetoDueno: v.split.montoNetoDueno };
+    const comision = Math.min(bruto, +(baseCorr * (pct / 100)).toFixed(2));
+
+    v.split.comisionPct = pct;
+    v.split.montoComisionSocio = comision;
+    v.split.montoNetoDueno = +(bruto - comision).toFixed(2);
+    /* Marca permanente: esta venta ya no dice lo que dijo el dia que se hizo, y
+       quien la mire dentro de seis meses tiene derecho a saberlo. */
+    v.split.corregida = true;
+    /* Bloque 4: si la venta se repartia entre dos personas, se re-parte con el
+       mismo % del asistente sobre la comision nueva (sigue sumando exacto). */
+    if (v.split.reparto) aplicarRepartoAsistente(v.split, ubicaciones.find((x) => x.id === v.ubicacionId), v.asistenteId || (v.split.reparto[1] || {}).promotoraId, v.asistentePct != null ? v.asistentePct : (v.split.reparto[1] || {}).pct);
+    v.split.correcciones = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
+    const _correccion = {
+      fecha: new Date().toISOString(),
+      quien: String(quien || "").trim().slice(0, 80) || "unidentified",
+      motivo: String(motivo || "").trim().slice(0, 200),
+      antes: antes,
+      despues: { comisionPct: pct, montoComisionSocio: comision, montoNetoDueno: v.split.montoNetoDueno },
+    };
+    if (opciones.tipoCorreccion) _correccion.tipo = String(opciones.tipoCorreccion).slice(0, 40);
+    v.split.correcciones.push(_correccion);
+    v.rev = _revNueva();
+
+    mov("comision-corregida", { ventaId: v.id, ubicacion: nombreUbic(v.ubicacionId), pctAntes: antes.comisionPct, pctAhora: pct, diferencia: +(comision - antes.montoComisionSocio).toFixed(2), motivo: String(motivo || "").slice(0, 200) });
+    if (!opciones.deferPersist) {
+      guardarEstadoLocal();
+      avisarCatalogoCambiado();
+    }
+    return { ok: true, venta: { id: v.id, fecha: v.fecha, split: v.split } };
+  }
+
+  /* Corregir de golpe TODAS las del mes en una percha. Cuando el % se configuro
+     mal, casi nunca esta mal una venta: estan mal las treinta del mes. */
+  function corregirComisionesDelMes(ubicacionId, pctNuevo, quien, motivo, soloPendientes) {
+    const objetivo = ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs) && v.split && (!soloPendientes || !v.liquidada));
+    if (!objetivo.length) return { error: "No commissioned sales this month on that shelf.", status: 400 };
+    const res = objetivo.map((v) => corregirComisionVenta(v.id, pctNuevo, quien, motivo));
+    const malas = res.filter((r) => r.error);
+    if (malas.length === res.length) return malas[0];
+    return { ok: true, corregidas: res.length - malas.length, fallidas: malas.length };
+  }
+
+  /* v458 HOTFIX — CAMBIO DE % DE LA PERSONA DEBE MOVER LO QUE AUN SE DEBE.
+     Un cambio en promotora.comisionBase antes solo cambiaba la ficha: las ventas
+     pendientes seguian con el % sellado y el ledger mostraba el importe viejo.
+     Este camino es deliberadamente conservador:
+       - SOLO ventas activas y no liquidadas;
+       - SOLO si el split demuestra que su fuente fue el comisionista;
+       - NO toca % propio del producto, percha con comision propia, devoluciones,
+         ventas pagadas ni correcciones manuales;
+       - NO toca contratos complejos (tramos/meta, aporte fijo o minimo garantizado);
+       - reutiliza corregirComisionVenta, asi conserva la auditoria y el reparto
+         de asistente, pero persiste UNA sola vez al final del lote.
+     La venta, producto, cantidad, precio y fecha no cambian. */
+  function _personaPrincipalVenta(v) {
+    if (!v || !v.split) return null;
+    if (v.promotoraId) return String(v.promotoraId);
+    const rep = Array.isArray(v.split.reparto) ? v.split.reparto : [];
+    const vendedor = rep.find((r) => r && r.promotoraId && (r.rol === "vendedor" || !r.rol));
+    if (vendedor) return String(vendedor.promotoraId);
+    const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+    return u && u.promotoraId ? String(u.promotoraId) : null;
+  }
+  function _tieneCorreccionManual(v) {
+    if (!v || !v.split || !v.split.corregida) return false;
+    const cs = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
+    if (!cs.length) return true;
+    return cs.some((x) => !x || x.tipo !== "persona-base");
+  }
+  function _ventaTienePagoComision(v) {
+    const ledger = _payoutCore();
+    return !!(ledger && ledger.buildObligations({ sales:[v], locations:ubicaciones, payouts }).some((o) => o.paidCents > 0));
+  }
+  function _ventaSimpleDePersona(v, promotoraId, pctAnterior) {
+    if (!v || !v.split || v.anulada || v.devuelta || v.liquidada || /^vs-/.test(String(v.id || ""))) return false;
+    /* 2026-10-06: partially paid is also paid history. Lowering the earning
+       below money already handed over makes the ledger clamp that money away.
+       Only wholly unpaid sales belong to this automatic base-percent hotfix. */
+    if (_ventaTienePagoComision(v)) return false;
+    if (String(_personaPrincipalVenta(v) || "") !== String(promotoraId || "")) return false;
+    const origen = String(v.split.origenComision || "");
+    if (origen && origen !== "comisionista") return false;
+    /* Una venta legacy sin origen solo se toca si ella misma congelo a la persona;
+       no inferimos identidad historica desde una percha que pudo cambiar de manos. */
+    if (!origen && String(v.promotoraId || "") !== String(promotoraId || "")) return false;
+    if (_tieneCorreccionManual(v)) return false;
+    /* Un reparto con asistente tiene dos beneficiarios. El corrector historico
+       reutiliza la percha actual para reconstruir ese reparto; no arriesgamos
+       reasignar centavos/personas por un hotfix de otra cosa. */
+    if (Array.isArray(v.split.reparto) && v.split.reparto.length > 1) return false;
+    const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+    if (!u || u.usarComisionPropia || Number(u.contribFija) > 0 || Number(u.minimoGarantizado) > 0) return false;
+    const p = productos.find((x) => x.id === v.productoId);
+    if (p && normPctAsociado(p.pctAsociado) !== null) return false;
+    const sellado = Number(v.split.comisionPct);
+    if (!Number.isFinite(sellado) || Math.abs(sellado - pctAnterior) > 0.0001) return false;
+    /* Si el monto no es exactamente el % viejo sobre la misma base, hubo otra
+       regla (piso, aporte u otra excepcion): no la adivinamos. */
+    const bruto = Math.max(0, Number(v.split.montoBruto) || ((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)));
+    const base = Number.isFinite(Number(v.split.montoBaseComision)) ? Number(v.split.montoBaseComision) : bruto;
+    const esperado = Math.min(bruto, +(base * (pctAnterior / 100)).toFixed(2));
+    return Math.abs((Number(v.split.montoComisionSocio) || 0) - esperado) <= 0.011;
+  }
+  function corregirPendientesPorCambioComisionista(pr, pctAnterior, pctNuevo, tratoComplejo) {
+    if (!pr || tratoComplejo || !Number.isFinite(pctAnterior) || !Number.isFinite(pctNuevo) || Math.abs(pctAnterior - pctNuevo) < 0.0001)
+      return { corregidas: 0 };
+    const objetivo = ventasActivas().filter((v) => _ventaSimpleDePersona(v, pr.id, pctAnterior));
+    let corregidas = 0;
+    objetivo.forEach((v) => {
+      const r = corregirComisionVenta(v.id, pctNuevo, "system",
+        "Base commission changed from " + pctAnterior + "% to " + pctNuevo + "%.",
+        { deferPersist: true, tipoCorreccion: "persona-base" });
+      if (r && !r.error) corregidas++;
+    });
+    if (corregidas) {
+      guardarEstadoLocal();
+      avisarCatalogoCambiado();
+    }
+    return { corregidas };
+  }
+
+  /* =========================================================================
+     PANORAMA DE UNA PERCHA — todo lo que cuelga de ella, en una llamada
+     =========================================================================
+     JFC: "somos la app cuya unidad basica es la percha a diferencia de otras
+     que solo permiten manejar locales". Abrir una percha mostraba su lista de
+     productos y poco mas: para saber cuanto vale lo que hay, cuanto vendio, a
+     quien se le debe o que viene en camino habia que recorrer cuatro pantallas
+     y sumar de cabeza.
+
+     Se arma aqui y no en la UI a proposito: es la misma cuenta que ya hacen
+     getLiquidaciones() y el dashboard, y tenerla en un solo lugar es lo que
+     evita que tres pantallas muestren tres numeros distintos del mismo negocio.
+     ========================================================================= */
+  function getPanoramaPercha(ubicacionId) {
+    const u = ubicaciones.find((x) => x.id === ubicacionId);
+    if (!u) return null;
+    const prods = productos.filter((p) => p.ubicacionId === ubicacionId);
+
+    let valorCosto = 0, valorVenta = 0, unidades = 0;
+    const porEstado = { rojo: 0, naranja: 0, amarillo: 0, verde: 0, negro: 0, azul: 0 };
+    prods.forEach((p) => {
+      const st = Number(p.stockActual) || 0;
+      unidades += st;
+      valorCosto += (Number(p.costo) || 0) * st;
+      valorVenta += (Number(p.precio) || 0) * st;
+      const e = estadoDe(p).estado;
+      if (porEstado[e] === undefined) porEstado[e] = 0;
+      porEstado[e]++;
+    });
+
+    const vMes = ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs));
+    const vTodas = ventasActivas().filter((v) => v.ubicacionId === ubicacionId);
+    const sumar = (arr) => arr.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1), 0);
+    const costoDe = (arr) => arr.reduce((a, v) => a + (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 1), 0);
+    const ventaMes = +sumar(vMes).toFixed(2);
+    const ultima = vTodas.reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
+
+    const porProducto = {};
+    vMes.forEach((v) => {
+      const k = v.productoId;
+      if (!porProducto[k]) porProducto[k] = { productoId: k, unidades: 0, monto: 0 };
+      porProducto[k].unidades += Number(v.cantidad) || 1;
+      porProducto[k].monto += (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+    });
+    const masVendidos = Object.values(porProducto).map((g) => {
+      const p = productos.find((x) => x.id === g.productoId);
+      return { nombre: p ? p.nombre : "(deleted product)", unidades: g.unidades, monto: +g.monto.toFixed(2) };
+    }).sort((a, b) => b.monto - a.monto).slice(0, 5);
+    /* Dormidos: hay stock y NO se vendio nada este mes. Es plata quieta, y es el
+       numero por el que se abre una percha mas veces que por ningun otro. */
+    const dormidos = prods.filter((p) => (Number(p.stockActual) || 0) > 0 && !porProducto[p.id])
+      .map((p) => ({ nombre: p.nombre, stock: p.stockActual, inmovilizado: +((Number(p.costo) || 0) * (Number(p.stockActual) || 0)).toFixed(2) }))
+      .sort((a, b) => b.inmovilizado - a.inmovilizado).slice(0, 5);
+
+    const liq = getLiquidaciones().find((l) => l.ubicacionId === ubicacionId) || null;
+    const prom = u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+
+    const enCamino = transferencias.filter((t) => (t.estado === "en_transito" || t.estado === "solicitada") && (t.ubicacionOrigenId === ubicacionId || t.ubicacionDestinoId === ubicacionId))
+      .map((t) => ({
+        id: t.id, estado: t.estado, cantidad: t.cantidad,
+        producto: (productos.find((p) => p.id === t.productoOrigenId) || productos.find((p) => p.id === t.productoDestinoId) || {}).nombre || "(product)",
+        sentido: t.ubicacionDestinoId === ubicacionId ? "entra" : "sale",
+        contraparte: nombreUbic(t.ubicacionDestinoId === ubicacionId ? t.ubicacionOrigenId : t.ubicacionDestinoId),
+      }));
+
+    return {
+      id: u.id, nombre: u.nombre, tipo: u.tipo || "propio", activa: u.activa !== false,
+      esEvento: !!u.esEvento, esFeria: !!u.esFeria,
+      sucursalId: u.sucursalId || null,
+      sucursalNombre: (sucursales.find((x) => x.id === u.sucursalId) || {}).nombre || null,
+      inventario: { productos: prods.length, unidades: unidades, valorCosto: +valorCosto.toFixed(2), valorVenta: +valorVenta.toFixed(2), gananciaLatente: +(valorVenta - valorCosto).toFixed(2), porEstado: porEstado },
+      mes: { venta: ventaMes, ganancia: +(ventaMes - costoDe(vMes)).toFixed(2), transacciones: vMes.length, meta: liq ? liq.metaMensual : (Number(u.metaMensual) || 0), cumplimiento: liq ? liq.cumplimientoMeta : null },
+      historico: { venta: +sumar(vTodas).toFixed(2), transacciones: vTodas.length, ultimaVenta: ultima || null, diasSinVender: ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 864e5) : null },
+      masVendidos: masVendidos, dormidos: dormidos,
+      comision: liq ? { pct: liq.pctBase, origen: liq.origenComision, seLlevaElAsociado: liq.comisionSocio, quedaEnCasa: liq.netoDueno, estado: liq.estado, ventasPendientes: liq.ventasPendientes } : null,
+      asociado: prom ? { id: prom.id, nombre: prom.nombre } : null,
+      gastoMensual: Number(gastosMensuales[u.id]) || 0,
+      enCamino: enCamino, reservasEvento: 0,
+    };
+  }
+
+  function estadoSimple(p) { if (p.stockActual <= 0) return "rojo"; if (p.stockActual <= p.umbralRojo) return "rojo"; if (p.stockActual <= p.umbralAmarillo) return "amarillo"; return "verde"; }
+  // Multi-percha real (homologado de AMIGABLE, 2026-07-23): el mismo SKU
+  // vive como filas separadas por percha; esto las hace visibles y da una
+  // forma rapida de agregar el producto a una percha nueva.
+  function getHermanosPercha(productoId) {
+    const p = productos.find((x) => x.id === productoId);
+    if (!p) return [];
+    return productos.filter((x) => x.sku === p.sku && x.id !== p.id).map((x) => ({ id: x.id, ubicacionId: x.ubicacionId, ubicacionNombre: nombreUbic(x.ubicacionId), stockActual: x.stockActual, estado: estadoDe(x).estado, precio: x.precio }));
+  }
+  function getSugerenciasTransferencia(productoId) {
+    const p = productos.find((x) => x.id === productoId);
+    // BUG FIX (2026-07-03): estadoSimple() ignoraba perecibles; un producto a
+    // punto de vencer (rojo por vencimiento) se sugeria como origen de
+    // transferencia aunque su stock fuera alto. Reemplazado por estadoDe().
+    if (!p || !["naranja", "rojo"].includes(estadoDe(p).estado)) return [];
+    const activasIds = new Set(ubicaciones.filter((u) => u.activa !== false).map((u) => u.id));
+    return productos.filter((x) => x.sku === p.sku && x.id !== p.id && activasIds.has(x.ubicacionId) && estadoDe(x).estado !== "rojo" && x.stockActual > x.umbralAmarillo)
+      .map((x) => ({ productoDestinoId: p.id, productoOrigenId: x.id, sku: p.sku, nombre: p.nombre, desde: x.ubicacionId, desdeNombre: nombreUbic(x.ubicacionId), hacia: p.ubicacionId, haciaNombre: nombreUbic(p.ubicacionId), stockOrigen: x.stockActual, cantidadSugerida: Math.min(Math.floor(x.stockActual / 2), x.stockActual - x.umbralAmarillo) }))
+      .filter((s) => s.cantidadSugerida > 0);
+  }
+  // FIX 2026-07-07: una fecha mal tecleada (2026-13-45) daba NaN y el
+  // semaforo IGNORABA el vencimiento en silencio. Ahora se valida al crear
+  // y al editar el producto.
+  function fechaValida(f) {
+    return typeof f === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f) && !isNaN(new Date(f + "T00:00:00").getTime());
+  }
+  // Días para vencer (negativo = ya venció). Espejo de diasParaVencer() en server.js.
+  function diasParaVencer(fecha) {
+    if (!fecha) return null;
+    const hoy = new Date(hoyISO() + "T00:00:00");
+    const venc = new Date(fecha + "T00:00:00");
+    return Math.round((venc - hoy) / 86400000);
+  }
+  // Días sin venta de un producto. Si nunca se vendió: usa p.dormidoDesde
+  // (fecha ISO opcional, para seed/vitrina o carga manual) o null — un
+  // producto recién creado sin historial NO se castiga con negro.
+  // FIX de rendimiento 2026-07-07: antes cada producto recorria TODAS las
+  // ventas en cada render (O(productos x ventas)); con meses de historial el
+  // inventario se arrastraria. Mapa "ultima venta por producto" cacheado e
+  // invalidado por cantidad de ventas (venta/anulacion la cambian siempre).
+  let cacheUltimaVenta = { n: -1, map: null };
+  function ultimaVentaMapa() {
+    if (cacheUltimaVenta.n !== ventas.length) {
+      const map = {};
+      for (const v of ventasActivas()) { if (!map[v.productoId] || v.fecha > map[v.productoId]) map[v.productoId] = v.fecha; }
+      cacheUltimaVenta = { n: ventas.length, map };
+    }
+    return cacheUltimaVenta.map;
+  }
+  function diasSinVentaDe(p) {
+    const ultima = ultimaVentaMapa()[p.id] || "";
+    if (ultima) return Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000);
+    if (p.dormidoDesde) {
+      const d = Math.floor((Date.now() - new Date(p.dormidoDesde + "T00:00:00").getTime()) / 86400000);
+      return d >= 0 ? d : null;
+    }
+    // FIX 2026-07-07: productos nuevos sin ventas ni dormidoDesde usaban null
+    // y nunca llegaban a negro aunque llevaran meses sin moverse. Ahora
+    // se usa creadoEn como referencia: un producto recien dado de alta
+    // empieza en 0 dias y sube con el tiempo igual que cualquier otro.
+    if (p.creadoEn) {
+      const d = Math.floor((Date.now() - new Date(p.creadoEn).getTime()) / 86400000);
+      return d >= 0 ? d : null;
+    }
+    return null;
+  }
+  // ---- RFM -> estacion del cliente (ver nota grande junto al seed) ----
+  function datosRFM(c) {
+    /* A sale with a stable clienteId belongs to that ID, never to an unrelated
+       customer with the same name. Legacy name-only sales can be attributed
+       only when exactly one active customer has that name. A partial or invalid
+       date cannot manufacture a recent purchase (Belén, 2026-10-14). */
+    const nombre = String(c.nombre || "").trim().toLocaleLowerCase();
+    const unico = !!nombre && clientes.filter((x) => !x.borrado && String(x.nombre || "").trim().toLocaleLowerCase() === nombre).length === 1;
+    const vc = ventasActivas().filter((v) =>
+      String(v.clienteId || "") === String(c.id) ||
+      (!v.clienteId && unico && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre));
+    const ahora = Date.now();
+    const fechas = vc.map((v) => Date.parse(v.fecha)).filter((t) => Number.isFinite(t) && t <= ahora + 300000);
+    const ultima = fechas.length ? fechas.reduce((a, b) => Math.max(a, b), 0) : null;
+    const recencia = ultima === null ? null : Math.max(0, Math.floor((ahora - ultima) / 86400000));
+    const v90 = vc.filter((v) => { const d = ahora - Date.parse(v.fecha); return Number.isFinite(d) && d >= -300000 && d <= 90 * 86400000; });
+    const monto = +v90.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0).toFixed(2);
+    return { recencia, frecuencia: v90.length, monto };
+  }
+  // Umbral de "valor alto": la MITAD del promedio de los clientes que si
+  // compran. (La mediana partia siempre en dos mitades exactas y dejaba a
+  // los clientes de otono justo debajo del corte — umbral inestable.)
+  function medianaMontos() {
+    const ms = clientes.map((c) => datosRFM(c).monto).filter((m) => m > 0);
+    if (!ms.length) return 0;
+    return ms.reduce((a, b) => a + b, 0) / ms.length / 2;
+  }
+  function estacionDe(rfm, mediana) {
+    const reciente = rfm.recencia != null && rfm.recencia <= 20;
+    const valorAlto = rfm.monto > 0 && rfm.monto >= mediana;
+    if (reciente && valorAlto) return "verano";
+    if (reciente) return "primavera";
+    if (valorAlto) return "otono";
+    return "invierno";
+  }
+  function categoriaCanonica(valor) {
+    const nombre = String(valor == null ? "" : valor).trim();
+    return /^(tickets\s*(?:&|and)\s*events|events)$/i.test(nombre) ? "Events" : nombre;
+  }
+  function precioOpcional(valor) {
+    return valor == null || (typeof valor === "string" && !valor.trim()) ? null : aCent(Number(valor));
+  }
+  function errorPreciosEntrada(body) {
+    return ["precioReserva", "precioWalkIn"].some((k) => Object.prototype.hasOwnProperty.call(body, k) && body[k] != null && body[k] !== "" &&
+      ((typeof body[k] !== "number" && typeof body[k] !== "string") || !Number.isFinite(Number(body[k])) || !Number.isSafeInteger(Math.round(Number(body[k]) * 100)) || Number(body[k]) < 0))
+      ? "Reservation and walk-in prices must be nonnegative amounts with safe cent precision, or empty." : null;
+  }
+  function perfilCliente(c) {
+    return {
+      resideCuenca: typeof c.resideCuenca === "boolean" ? c.resideCuenca : null,
+      genero: ["male", "female", "unknown"].includes(c.genero) ? c.genero : "unknown"
+    };
+  }
+  function errorPerfilCliente(body) {
+    if (Object.prototype.hasOwnProperty.call(body, "resideCuenca") && body.resideCuenca !== null && typeof body.resideCuenca !== "boolean") return "Cuenca residence must be true, false or unknown.";
+    if (Object.prototype.hasOwnProperty.call(body, "genero") && !["male", "female", "unknown"].includes(body.genero)) return "Choose male, female or unknown.";
+    return null;
+  }
+  function fichaCliente(c, mediana) {
+    const rfm = datosRFM(c);
+    // evaluacion: retrocompat con backups sin el campo (default neutro 0,0)
+    const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
+    return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "",
+      rangoEdad: c.rangoEdad || "", pais: c.pais || "", ...perfilCliente(c),
+      ...rfm, estacion: estacionDe(rfm, mediana == null ? medianaMontos() : mediana),
+      evaluacion: { trato: Number(ev.trato)||0, confiabilidad: Number(ev.confiabilidad)||0, historial: ev.historial||[] },
+      despedido: !!c.despedido };
+  }
+  function siguienteCodigoCliente() {
+    const max = clientes.reduce((mx, c) => Math.max(mx, Number(String(c.codigo || "").replace(/\D/g, "")) || 0), 1000);
+    return "C-" + (max + 1);
+  }
+
+  // ---- Matriz BCG del inventario (60 dias de ventas) ----
+  // Participacion = $ vendidos del producto sobre el total; "alta" = mayor o
+  // igual al promedio de los que SI vendieron. Crecimiento = ultimos 30 dias
+  // contra los 30 anteriores. Sin ventas en 60 dias -> peso muerto.
+  function matrizBCG(uid) {
+    const ps = filtrar(uid);
+    const ahora = Date.now();
+    const rev = (p, d1, d2) => ventasActivas().filter((v) => { if (v.productoId !== p.id) return false; const d = (ahora - new Date(v.fecha).getTime()) / 86400000; return d >= d1 && d < d2; }).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+    const items = ps.map((p) => { const r0 = rev(p, 0, 30), r1 = rev(p, 30, 60); return { nombre: p.nombre, total: +(r0 + r1).toFixed(2), tendencia: +(r0 - r1).toFixed(2) }; });
+    const conVentas = items.filter((i) => i.total > 0);
+    const promedio = conVentas.length ? conVentas.reduce((a, i) => a + i.total, 0) / conVentas.length : 0;
+    const q = { estrellas: [], vacas: [], promesas: [], pesosMuertos: [] };
+    items.forEach((i) => {
+      if (i.total <= 0) { q.pesosMuertos.push(i); return; }
+      const alta = i.total >= promedio;
+      if (alta && i.tendencia > 0) q.estrellas.push(i);
+      else if (alta) q.vacas.push(i);
+      else if (i.tendencia > 0) q.promesas.push(i);
+      else q.pesosMuertos.push(i);
+    });
+    Object.keys(q).forEach((k) => q[k].sort((a, b) => b.total - a.total));
+    return q;
+  }
+
+  // Espejo de calcularEstado() en server.js: combina stock + vencimiento,
+  // se queda con la señal más grave de las dos (ORDEN).
+  // =========================================================================
+  // SEMÁNTICA SIMON — CONGELADA (JFC 2026-07-04, motor alineado 2026-07-07):
+  //   Verde    = saludable ("todo marcha bien, sigue así")
+  //   Amarillo = OPORTUNIDAD ("hay dinero esperándote": margen >= 50%)
+  //   Naranja  = urgente-pronto ("se está acabando / véndelo primero")
+  //   Rojo     = emergencia (sin stock, umbral rojo, vencido o por vencer)
+  //   Azul     = DATO contable (la sabiduría del dinero: margen flaco, etc.)
+  //   Negro    = capital dormido (45+ días sin venta con stock sano)
+  // Antes este mock usaba amarillo="revisar pronto" y azul="buen margen":
+  // contradecía el manual y la Ayuda. NO volver a ese mapeo.
+  // Cada estado sale con su NIVEL de encendido 1-3 (semaforo de colores:
+  // tenue · medio · encendido); index.html lo prefiere sobre su heurística.
+  // =========================================================================
+  // Mensajes bilingues via window.t/tf (i18n.js carga antes que este script).
+  // Fallback a la clave misma si i18n.js no cargo por algun motivo — nunca
+  // debe tronar la app por falta de traduccion.
+  const _t = (k, v) => (window.tf ? window.tf(k, v) : k);
+  /* v557 (JFC/Belen): "Pieza unica / no se repone". Los avisos de reposicion de un producto NO perecedero
+     (obras, piezas unicas, coleccionables) van al panel plegable "Avisos". p.piezaUnica === true lo fuerza,
+     === false lo devuelve a las alertas normales; null/ausente = inferido (no perecedero => plegado).
+     Los perecederos (comida, bebida) conservan SIEMPRE la logica normal de reposicion y de vencimiento. */
+  function avisoPlegable(p) { return !p.perecible && p.piezaUnica !== false; }
+  function estadoDe(p) {
+    const margen = p.precio > 0 ? (p.precio - p.costo) / p.precio : 0;
+    const dias = p.perecible ? diasParaVencer(p.fechaCaducidad) : null;
+    let porStock;
+    if (!window.OCBusinessReadModel.stock(p).known) porStock = { estado: "naranja", nivel: 1, mensaje: _t("inv.stockPending") };
+    else if (p.stockActual <= 0) porStock = { estado: "rojo", nivel: 3, mensaje: _t("alert.noStock") };
+    else if (p.stockActual <= p.umbralRojo) {
+      porStock = { estado: "rojo", nivel: p.stockActual <= Math.ceil(p.umbralRojo / 2) ? 2 : 1, mensaje: _t("alert.lowRed", { n: p.stockActual }) };
+    } else if (p.stockActual <= p.umbralAmarillo) {
+      const diff = p.stockActual - p.umbralRojo;
+      porStock = { estado: "naranja", nivel: diff <= 1 ? 3 : diff <= 3 ? 2 : 1, mensaje: _t("alert.lowOrange", { n: p.stockActual }) };
+    } else {
+      const sinVenta = diasSinVentaDe(p);
+      if (sinVenta != null && sinVenta >= 45) {
+        porStock = { estado: "negro", nivel: sinVenta >= 120 ? 3 : sinVenta >= 60 ? 2 : 1, mensaje: _t("alert.dormant", { n: sinVenta }) };
+      } else if (margen >= 0.5) {
+        porStock = { estado: "amarillo", nivel: margen >= 0.70 ? 3 : margen >= 0.55 ? 2 : 1, mensaje: _t("alert.goodMargin") };
+      } else {
+        porStock = { estado: "verde", nivel: p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1, mensaje: _t("alert.healthy") };
+      }
+    }
+    if (dias == null) return { ...porStock, dias };
+    let porVenc = null;
+    const unidad = (n) => (n === 1 ? _t("unit.day") : _t("unit.days"));
+    if (dias < 0) porVenc = { estado: "rojo", nivel: 3, mensaje: _t("alert.expiredAgo", { n: Math.abs(dias), unit: unidad(Math.abs(dias)) }) };
+    else if (dias <= 3) porVenc = { estado: "rojo", nivel: dias <= 1 ? 3 : 2, mensaje: _t("alert.expiresSoon", { n: dias, unit: unidad(dias) }) };
+    else if (dias <= 7) porVenc = { estado: "naranja", nivel: dias <= 5 ? 2 : 1, mensaje: _t("alert.expiresWarn", { n: dias }) };
+    if (!porVenc) return { ...porStock, dias };
+    const masGrave = ORDEN[porVenc.estado] <= ORDEN[porStock.estado] ? porVenc : porStock;
+    return { ...masGrave, dias };
+  }
+  function ficha(p) {
+    const e = estadoDe(p);
+    const _rb = rebajaDe(p);
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, avisosPlegados: avisoPlegable(p), fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+  }
+  /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
+     archivados: dashboards, resumen histórico, BCG y reportes financieros deben
+     seguir viéndolos (world's best practice — archivar NO borra del historial,
+     JFC 2026-09-08). La exclusión de archivados vive SOLO en el grid de
+     Inventario (endpoint GET /productos), que es la vista operacional. */
+  function filtrar(uid) { return productos.filter((p) => !p.borrado && !_demoOculto("productos", p) && (!uid || uid === "todas" || p.ubicacionId === uid)); }
+  // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
+  // ubicacion; con historial de dias anteriores el resumen del dia mentia.
+  /* B6 (2026-09-24): una venta YA PAGADA que se devuelve queda en la lista
+     (devuelta:true) y Commissions la compensa con un ajuste negativo fechado el
+     dia de la devolucion. Today, P&L y balance la seguian contando como
+     ingreso: la pieza habia vuelto al stock y la plata seguia "entrando". La
+     devolucion resta el dia en que se devuelve (no reescribe el dia de la
+     venta), igual que Commissions. Devuelve las VENTAS originales devueltas hoy. */
+  function devolucionesHoyDe(uid) {
+    const hoy = hoyISO();
+    const ajustesHoy = ajustesComision.filter((a) => a && a.tipo === "devolucion" && fechaLocalDe(a.fecha) === hoy && (!uid || uid === "todas" || a.ubicacionId === uid));
+    if (!ajustesHoy.length) return [];
+    // First sale wins, exactly like ventas.find, but no O(returns × all sales).
+    const porId = new Map();
+    ventas.forEach((v) => { if (!porId.has(v.id)) porId.set(v.id, v); });
+    return ajustesHoy.map((a) => porId.get(a.ventaId)).filter(Boolean);
+  }
+  function ventasHoyDe(uid) { const hoy = hoyISO(); return ventasActivas().filter((v) => fechaLocalDe(v.fecha, v.relojDesfaseMs) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
+  // Multi-usuario (2026-07-07): cada movimiento captura automaticamente
+  // quien estaba logueado (window.OCCurrentUser). Si no hay usuario nombrado
+  // (dueno por PIN clasico, sistema) aparece como "Sistema".
+  // Cadena anti-tamper (2026-07-08): cada movimiento SELLA al anterior. Editar
+  // o borrar uno rompe la cadena y "Verificar integridad" lo detecta. Es
+  // tamper-EVIDENTE (un equipo local nunca es tamper-PROOF), suficiente contra
+  // el falseo casual del encargado. Hash rápido y síncrono, sembrado con el
+  // instanceId para que no se recalcule a ciegas.
+  function selloHash(str, origen = instanceId) {
+    // FNV-1a 32-bit -> hex. NO criptográfico: solo eleva el costo de forjar.
+    let h = 0x811c9dc5;
+    const semilla = String(str) + "|" + (origen || "amigable");
+    for (let i = 0; i < semilla.length; i++) { h ^= semilla.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, "0");
+  }
+  function movHuella(m) {
+    return (m.prevSello || "") + "|" + m.tipo + "|" + JSON.stringify(m.detalle) + "|" + m.fecha + "|" + (m.usuarioId || "sistema");
+  }
+  function _actividadClave(origen, clase, id) { return JSON.stringify([origen, clase, id]); }
+  /* v609 perf (indice incremental). Antes, CADA guardado re-validaba, re-serializaba (JSON.stringify de cada
+     version), re-clonaba y re-ordenaba (localeCompare) TODO el historial de actividad: ~100 ms por operacion
+     con historial de ventas. Ahora:
+       - _salidasActividad = arreglos que _actividadUnir devolvio. Si `antes` ES uno de ellos (misma
+         identidad; nadie lo muta, solo se reasigna) ya esta validado, deduplicado y ordenado: se parte de el sin revalidarlo,
+         y solo se revisan las entradas nuevas (indice Map por id). Cualquier otro `antes` (carga, merge
+         remoto, tests) hace la reconstruccion completa de siempre.
+       - Las versiones que ya son copias propias se registran en _claveVersion (WeakMap version -> su JSON)
+         y no se vuelven a serializar ni a clonar.
+       - Un id nuevo se inserta por mezcla de listas ordenadas; sin ids nuevos no se reordena nada.
+     Misma salida, mismo orden, misma semantica de dedup que la version v608 (ver test/v609-actividad-incremental). */
+  const _cmpActividad = new Intl.Collator().compare; // igual a String.prototype.localeCompare() sin argumentos
+  const _claveVersion = new WeakMap();
+  const _salidasActividad = new WeakSet(); // arreglos que _actividadUnir devolvio (confiables como `antes`)
+  function _actividadUnir(antes, entrantes) {
+    if (!Array.isArray(antes) || !Array.isArray(entrantes)) throw new Error("Invalid shared activity list");
+    const entradas = new Map();
+    const confiable = antes.length > 0 && _salidasActividad.has(antes);
+    if (confiable) for (const e of antes) entradas.set(e.id, e);
+    const idsNuevos = [];
+    let cambioIncremental = false;
+    for (const e of (confiable ? entrantes : antes.concat(entrantes))) {
+      if (!e || typeof e.origen !== "string" || !e.origen || e.origen.length > 160 ||
+          !["evento", "inicio", "cola"].includes(e.clase) || !Array.isArray(e.versiones) || !e.versiones.length)
+        throw new Error("Invalid shared activity envelope");
+      for (const v of e.versiones) {
+        if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("Invalid activity evidence");
+        if (e.clase === "evento" && (typeof v.id !== "string" || !v.id || v.id.length > 200 ||
+            typeof v.tipo !== "string" || typeof v.fecha !== "string" ||
+            (v.sello != null && !/^[a-f0-9]{8}$/.test(v.sello)) ||
+            (v.prevSello != null && v.prevSello !== "" && !/^[a-f0-9]{8}$/.test(v.prevSello))))
+          throw new Error("Invalid activity record");
+        if (e.clase !== "evento" && (typeof v.sello !== "string" || (v.sello !== "" && !/^[a-f0-9]{8}$/.test(v.sello))))
+          throw new Error("Invalid activity chain boundary");
+        const key = _actividadClave(e.origen, e.clase, e.clase === "evento" ? v.id : e.clase === "cola" ? v.sello : "");
+        if (e.id !== key) throw new Error("Activity identity mismatch");
+      }
+      const anterior = entradas.get(e.id), versiones = new Map();
+      if (anterior) for (const v of anterior.versiones) versiones.set(_claveVersion.get(v) || JSON.stringify(v), v);
+      const tenia = versiones.size;
+      for (const v of e.versiones) versiones.set(JSON.stringify(v), v);
+      if (anterior && versiones.size === tenia) continue; // nada nuevo: la entrada previa queda tal cual
+      cambioIncremental = true;
+      if (!anterior) idsNuevos.push(e.id);
+      entradas.set(e.id, { id: e.id, origen: e.origen, clase: e.clase,
+        versiones: [...versiones.keys()].sort().map(k => {
+          const v = versiones.get(k);
+          if (_claveVersion.has(v)) return v;
+          const c = clonar(v); _claveVersion.set(c, k); return c;
+        }) });
+    }
+    // A validated immutable prior result with no new versions is exactly
+    // identical. Keep its identity so the hot merge avoids serializing the
+    // entire activity history merely to prove that nothing changed.
+    if (confiable && !cambioIncremental) return antes;
+    let salida = [...entradas.values()];
+    if (idsNuevos.length) {
+      const nuevos = salida.splice(salida.length - idsNuevos.length).sort((a, b) => _cmpActividad(a.id, b.id));
+      const mezcla = []; let x = 0, y = 0;
+      while (x < salida.length && y < nuevos.length) mezcla.push(_cmpActividad(nuevos[y].id, salida[x].id) < 0 ? nuevos[y++] : salida[x++]);
+      while (x < salida.length) mezcla.push(salida[x++]);
+      while (y < nuevos.length) mezcla.push(nuevos[y++]);
+      salida = mezcla;
+    }
+    _salidasActividad.add(salida);
+    return salida;
+  }
+  // P0 v841 (JFC norte: "la app de hace 35 dias, ligera"): every save rebuilt the export of
+  // ALL movements (5k+ on a real store) and re-merged them, even when nothing changed, keeping
+  // the main thread busy while idle. Reuse the previous export when the shared activity, the
+  // movement list ends, the chain head and the device are identical. Replacements
+  // (aplicarRespaldo) and rollbacks (length = n) always change length or end references.
+  let _cacheExportable = null;
+  function _actividadExportable() {
+    const _pri = movimientos[0], _ult = movimientos[movimientos.length - 1], c = _cacheExportable;
+    // After _confirmarActividad adopts the export, actividadCompartida IS c.r: union(c.r, same propios) = c.r.
+    // shortcut: assumes past movements are not edited in place (they are appended or truncated); if
+    // that ever changes, bump a movement revision counter and add it to this key.
+    if (c && (c.desde === actividadCompartida || c.r === actividadCompartida) && c.len === movimientos.length &&
+        c.pri === _pri && c.ult === _ult && c.sello === selloUltimo && c.inst === instanceId) {
+      _exportadaDesde = actividadCompartida; _exportada = c.r; return c.r;
+    }
+    const origen = String(instanceId || "amigable"), propios = [];
+    const agregar = (clase, id, valor) => propios.push({ id: _actividadClave(origen, clase, id), origen, clase, versiones: [valor] });
+    const sellados = movimientos.filter(m => m && m.sello);
+    if (movimientos.length && !actividadCompartida.some(e => e.origen === origen && e.clase === "inicio"))
+      agregar("inicio", "", { sello: sellados.length ? sellados[0].prevSello || "" : "" });
+    for (const m of movimientos) if (m && m.id) agregar("evento", m.id, m);
+    if (selloUltimo) agregar("cola", selloUltimo, { sello: selloUltimo });
+    const desde = actividadCompartida, r = _actividadUnir(desde, propios);
+    _exportadaDesde = desde; _exportada = r;
+    _cacheExportable = { desde, len: movimientos.length, pri: _pri, ult: _ult, sello: selloUltimo, inst: instanceId, r };
+    return r;
+  }
+  /* v609 perf: _confirmarActividad(completo.actividadCompartida) volvia a unir el historial entero contra si
+     mismo. Si lo que se confirma ES la ultima exportacion y actividadCompartida no cambio desde entonces,
+     la union ya esta hecha (export = union(actividadCompartida, propios)): se adopta tal cual. */
+  let _exportadaDesde = null, _exportada = null;
+  function _confirmarActividad(entradas) {
+    if (entradas === _exportada && actividadCompartida === _exportadaDesde) { actividadCompartida = entradas; return; }
+    actividadCompartida = _actividadUnir(actividadCompartida, entradas);
+  }
+  function _actividadEstado(entradas) {
+    const grupos = new Map(), problemas = [], validos = new Set(); let historicos = 0;
+    const problema = (origen, tipo) => problemas.push({ origen, tipo });
+    for (const e of _actividadUnir([], entradas)) {
+      let g = grupos.get(e.origen);
+      if (!g) { g = { nodos: new Map(), filas: [], colas: new Set(), inicio: null }; grupos.set(e.origen, g); }
+      if (e.versiones.length !== 1) { problema(e.origen, "conflicto"); continue; }
+      const v = e.versiones[0];
+      if (e.clase === "inicio") g.inicio = v.sello;
+      else if (e.clase === "cola") g.colas.add(v.sello);
+      else if (!v.sello) { historicos++; validos.add(e.id); }
+      else if (selloHash(movHuella(v), e.origen) !== v.sello) problema(e.origen, "editado");
+      else {
+        if (g.nodos.has(v.sello) && movHuella(g.nodos.get(v.sello)) !== movHuella(v)) problema(e.origen, "sello-ambiguo");
+        g.nodos.set(v.sello, v); g.filas.push({ clave: e.id, sello: v.sello });
+      }
+    }
+    for (const [origen, g] of grupos) {
+      const resueltos = new Map();
+      const resolver = sello => {
+        const camino = [], vistos = new Set(); let actual = sello, estado = true;
+        while (actual !== g.inicio) {
+          if (resueltos.has(actual)) { estado = resueltos.get(actual); break; }
+          if (vistos.has(actual)) { problema(origen, "ciclo"); estado = false; break; }
+          const nodo = g.nodos.get(actual);
+          if (!nodo || g.inicio === null) { problema(origen, "padre-pendiente"); estado = false; break; }
+          vistos.add(actual); camino.push(actual); actual = nodo.prevSello || "";
+        }
+        camino.forEach(k => resueltos.set(k, estado)); return estado;
+      };
+      for (const fila of g.filas) if (resolver(fila.sello)) validos.add(fila.clave);
+      for (const cola of g.colas) if (!g.nodos.has(cola) || !resolver(cola)) problema(origen, "cola-pendiente");
+      if (g.filas.length && !g.colas.size) problema(origen, "cola-pendiente");
+    }
+    const completa = !problemas.some(p => /pendiente/.test(p.tipo));
+    return { ok: problemas.length === 0, completa, historicos, origenes: grupos.size, problemas, validos };
+  }
+  function _actividadVista() {
+    const entradas = _actividadExportable(), estado = _actividadEstado(entradas), filas = new Map();
+    for (const e of entradas) if (e.clase === "evento" && e.versiones.length === 1 && estado.validos.has(e.id))
+      filas.set(e.id, clonar(e.versiones[0]));
+    return [...filas.entries()].sort((a, b) => String(a[1].fecha).localeCompare(String(b[1].fecha)) || a[0].localeCompare(b[0])).map(e => e[1]);
+  }
+  /* Aviso de "el equipo cambio" (JFC 2026-08-25). Lo escucha sync-realtime.js
+     para EMPUJAR la lista de usuarios (roles/PINs) al resto del negocio en el
+     acto, sin esperar a que el otro aparato reconecte y pida el catalogo. Por
+     que aqui y no en la UI: TODA alta/edicion/baja pasa por estos endpoints, asi
+     que un solo punto cubre botones, tablero y cualquier via futura. Es solo un
+     evento del navegador; si nadie escucha (o no hay sync), no hace nada. */
+  function avisarEquipoCambiado() {
+    try { window.dispatchEvent(new CustomEvent("oc-equipo-cambiado")); } catch (_) {}
+  }
+  /* Aviso de "el catalogo cambio" (perchas/productos) — hermano del de equipo.
+     sync-realtime.js lo escucha y EMPUJA el catalogo al resto del negocio, para
+     que una percha nueva creada en un aparato aparezca en los demas sin merge
+     manual (JFC 2026-08-25: "no se sincronizaron las racks"). Solo estructura
+     (alta/edicion/baja de perchas y productos); el STOCK sigue viajando por sus
+     propias ops, no por aqui. */
+  function avisarCatalogoCambiado() {
+    // v599: sale de inmediato aunque haya un guardado en curso (ver _estadoPuedeEnviarse).
+    // Retry a blocked notification after durable recovery, without waiting for the periodic sweep.
+    // typeof guard: test harnesses extract this function without the flag declared (JFC 2026-10-28)
+    if (!_estadoPuedeEnviarse()) { if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = true; return; }
+    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = false; } catch (_) {}
+  }
+
+  function mov(tipo, detalle, avisar = true) {
+    // Una fusión entrante no fue ejecutada por quien tiene abierta esta sesión.
+    const usr = tipo === "merge-catalogo" ? null : window.OCCurrentUser;
+    const rolSesion = tipo === "merge-catalogo" ? "sistema" : _rolLocal();
+    const actorId = usr ? usr.id : (rolSesion || "sistema");
+    const actorNombre = usr ? usr.nombre : ({ dueno: "Owner", admin: "Admin", empleado: "Staff (general)", contador: "Accounting", demo: "Demo" }[rolSesion] || "Sistema");
+    // JFC 2026-09-02: cada acción va al log con el responsable (usuario que entró
+    // con su PIN — el PIN nunca se guarda en claro, REGLA 8) Y el dispositivo
+    // (apodo + id del micelio), para defender al negocio de quejas injustas.
+    let dispApodo = "", dispId = "";
+    try {
+      if (window.OCMicelio) {
+        dispApodo = window.OCMicelio.miApodo() || "";
+        const _yo = window.OCMicelio.yo && window.OCMicelio.yo();
+        dispId = (_yo && _yo.id) || "";
+      }
+    } catch (_) {}
+    const m = {
+      id: uuid("m"), tipo, detalle, fecha: new Date().toISOString(),
+      usuarioId:     actorId,
+      usuarioNombre: actorNombre,
+      usuarioRol:    usr ? (usr.rol || "") : rolSesion,
+      dispositivoApodo: dispApodo,
+      dispositivoId:    dispId,
+    };
+    m.prevSello = selloUltimo;
+    m.sello = selloHash(movHuella(m));
+    selloUltimo = m.sello;
+    movimientos.push(m);
+    // Toda acción registrada puede cambiar una ficha, venta o comisión. El
+    // puente Yjs compara el catálogo y solo envía los registros que cambiaron.
+    if (avisar) avisarCatalogoCambiado();
+  }
+  function _fotoAntesDeEquipo() {
+    let adminPinsRaw = null;
+    try { adminPinsRaw = localStorage.getItem("f123_admins_pins"); } catch (_) {}
+    return { usuarios: usuarios.map((u) => ({ ...u })), movimientosLen: movimientos.length, sello: selloUltimo, adminPinsRaw };
+  }
+  async function _confirmarEquipoORevertir(foto) {
+    let guardado = false;
+    try { guardado = await guardarEstadoLocal(true); } catch (_) {}
+    if (!guardado) {
+      // No afirmar éxito ni publicar un cambio de acceso que no sobrevivirá
+      // al reinicio. El historial también vuelve al punto anterior.
+      usuarios.splice(0, usuarios.length, ...foto.usuarios);
+      movimientos.length = foto.movimientosLen;
+      selloUltimo = foto.sello;
+      try {
+        if (foto.adminPinsRaw == null) localStorage.removeItem("f123_admins_pins");
+        else localStorage.setItem("f123_admins_pins", foto.adminPinsRaw);
+      } catch (_) {}
+      return false;
+    }
+    avisarEquipoCambiado();
+    return true;
+  }
+  /* Dos aparatos pueden crear la misma variante estando desconectados. Una
+     identidad determinista por familia+atributo+valor hace que al reconectar
+     converjan sobre el mismo registro en vez de dejar duplicados. Dos FNV con
+     semillas distintas reducen la posibilidad de colision accidental. */
+  function idVariante(familia, atributo, valor) {
+    const texto = [familia, atributo, valor].map((v) => String(v || "").trim().toLocaleLowerCase()).join("\u001f");
+    const fnv = (seed) => { let h = seed >>> 0; for (let i = 0; i < texto.length; i++) { h ^= texto.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16).padStart(8, "0"); };
+    return "pvar-" + fnv(2166136261) + fnv(3339675911);
+  }
+
+  // === PUENTE DE SYNC (homologado de AMIGABLE, 2026-07-23) ===================
+  // mock-backend.js NUNCA hace fetch externo — la red vive en sync-realtime.js.
+  // Este puente es 100% local: emite deltas de stock para que sync-realtime.js
+  // los cifre y transmita, y aplica los que lleguen de otros dispositivos.
+  // Idempotente por opId — un opId repetido (reintento de red, reconexion) es
+  // un no-op seguro. Solo DELTAS, nunca valores absolutos — dos ventas
+  // simultaneas de las mismas ultimas unidades se SUMAN, nunca se pisan.
+  const OPS_APLICADAS_KEY = "f123_sync_ops_aplicadas";
+  // var without initializer on purpose: aplicarRespaldo may run before this line (boot) and must
+  // neither hit a TDZ nor have its ids reset when this line executes.
+  var _opsAplicadas, _opsDelCuaderno;
+  // C118: all PN receipts and stock projections share one receiver-side commit lane.
+  // Both legacy relay and Yjs call the SAME OCSync entrypoint; IDB alone serializes
+  // disk transactions, not optimistic RAM mutation or provisional receipts.
+  const _pnReceiverToken = Symbol("f123-pn-remote-internal");
+  let _pnReceiverTail = Promise.resolve();
+  const _pnReceiverPending = new Map();
+  function _cargarOpsAplicadas() {
+    if (_opsAplicadas) return _opsAplicadas;
+    try { _opsAplicadas = new Set(JSON.parse(localStorage.getItem(OPS_APLICADAS_KEY) || "[]")); }
+    catch (_) { _opsAplicadas = new Set(); }
+    if (_opsDelCuaderno) { for (const x of _opsDelCuaderno) _opsAplicadas.add(x); _opsDelCuaderno = null; }
+    return _opsAplicadas;
+  }
+  // P0 v842: with localStorage full (sibling apps share the origin) the receipt set below never
+  // persisted, so every boot re-applied the same remote ops with one strict save each. The set now
+  // also rides inside the durable notebook; localStorage stays a best-effort mirror.
+  function _unirOpsAplicadas(lista) {
+    if (!Array.isArray(lista) || !lista.length) return;
+    const ok = lista.filter((x) => typeof x === "string" && x && x.length <= 200);
+    if (_opsAplicadas) { for (const x of ok) _opsAplicadas.add(x); return; }
+    _opsDelCuaderno = (_opsDelCuaderno || []).concat(ok); // merged on first _cargarOpsAplicadas
+  }
+  function _marcarOpAplicada(opId) {
+    const s = _cargarOpsAplicadas();
+    s.add(opId);
+    // C124: nunca expulsar recibos del conjunto canónico: el cuaderno durable
+    // debe retener opIds antiguos para impedir replays económicos tras catch-up.
+    // localStorage es solo un espejo best-effort acotado, no fuente de verdad.
+    try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s].slice(-2000))); } catch (_) {}
+  }
+  // The immutable opId is the receipt; counters are causal per actor, never wall-clock LWW.
+  // This projects a movement into the existing PN read model without replaying a sale.
+  function _fundirHechoStock(p, w) {
+    if (!p || !w || typeof w !== "object") return false;
+    const base = Number(w.base), actor = String(w.actor || ""), epoch = String(w.epoch || "");
+    const add = Number(w.add), sub = Number(w.sub);
+    if (!Number.isSafeInteger(base) || !actor || actor.length > 160 || epoch.length > 160 ||
+        !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return false;
+    const previo = p.stockBase == null ? null : Number(p.stockBase);
+    const epPrev = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+    if (previo !== null && (previo !== base || epPrev !== epoch)) return false;
+    if (previo === null && p.stockPN && Object.keys(p.stockPN).length) return false;
+    const pn = Object.assign({}, p.stockPN || {});
+    const old = pn[actor] || {add:0,sub:0};
+    pn[actor] = {add: Math.max(Number(old.add)||0, add), sub: Math.max(Number(old.sub)||0, sub)};
+    let physical = base;
+    for (const v of Object.values(pn)) {
+      if (!v || !Number.isSafeInteger(Number(v.add)) || !Number.isSafeInteger(Number(v.sub)) ||
+          Number(v.add) < 0 || Number(v.sub) < 0) return false;
+      physical += Number(v.add) - Number(v.sub);
+      if (!Number.isSafeInteger(physical)) return false;
+    }
+    p.stockBase = base; p.stockEpochId = epoch; p.stockPN = pn;
+    p.stockActual = Math.max(0, physical); p.stockDeficit = Math.max(0, -physical);
+    return true;
+  }
+  /* v515: quien gana cuando dos aparatos tienen distinta base de stock para un producto.
+     Gana el cambio de stock mas reciente (stockTs). Un sello >5 min en el futuro del reloj
+     comun no gana (mismo criterio que v447). Empate: compara una clave determinista, asi
+     los dos aparatos eligen lo mismo. COPIA EXACTA en docs/sync-yjs.js: cambiar ambas. */
+  function _claveEpocaStock(x) {
+    const pn = x && x.stockPN && typeof x.stockPN === "object" ? x.stockPN : {};
+    return JSON.stringify([Number(x && x.stockBase), Object.keys(pn).sort().map((k) => [k, Number(pn[k].add) || 0, Number(pn[k].sub) || 0])]);
+  }
+  function _ganaEpocaStockRemota(remoto, local) {
+    const tR = Number(remoto && remoto.stockTs) || 0, tL = Number(local && local.stockTs) || 0;
+    const ahora = typeof ahoraRelayComun === "function" ? ahoraRelayComun() : null;
+    const futuroRemoto = ahora !== null && tR > ahora + 5 * 60 * 1000;
+    const futuroLocal = ahora !== null && tL > ahora + 5 * 60 * 1000;
+    if (futuroRemoto !== futuroLocal) return !futuroRemoto;
+    if (tR !== tL) return tR > tL;
+    return _claveEpocaStock(remoto) > _claveEpocaStock(local);
+  }
+  /* P0 fork-preservation: two different physical baselines are NOT evidence
+     that all independent stock operations have been counted. Preserve both
+     existing per-device ledgers for later human/immutable-event reconciliation.
+     This NEVER changes the displayed stock or invents a common baseline. */
+  function _pruebasStockUnir(...fuentes) {
+    const out = {};
+    function guardar(base, pn, ts, epoch) {
+      if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      const ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+      // Distinct physical epochs may reuse the SAME numeric base.
+      // Keep legacy numeric keys for old backups; add epoch-scoped keys for new ones.
+      const key = ep ? JSON.stringify([Number(base),ep]) : String(Number(base));
+      const prev = out[key] || {};
+      const acc = Object.assign({}, prev.pn || {});
+      Object.keys(pn).sort().forEach((id) => {
+        if (!id || id.length > 120) return;
+        const v = pn[id] || {}, a = Number(v.add), b = Number(v.sub);
+        if (!Number.isSafeInteger(a) || !Number.isSafeInteger(b) || a < 0 || b < 0) return;
+        const old = acc[id] || {};
+        acc[id] = { add: Math.max(Number(old.add) || 0, a),
+                    sub: Math.max(Number(old.sub) || 0, b) };
+      });
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0),
+        ...(ep ? {epoch:ep} : {}) };
+    }
+    fuentes.forEach((x) => {
+      if (!x) return;
+      const e = x.stockEvidencias;
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        Object.keys(e).sort().forEach((key) => {
+          const v = e[key]; if (v) guardar(v.base, v.pn, v.ts, v.epoch);
+        });
+      }
+    });
+    fuentes.forEach((x) => { if (x) guardar(x.stockBase, x.stockPN, x.stockTs, x.stockEpochId); });
+    const sorted = {};
+    Object.keys(out).sort((a,b) => (Number(a)-Number(b)) || a.localeCompare(b)).forEach((key) => { sorted[key] = out[key]; });
+    return sorted;
+  }
+  // A physical recount only absorbs movement counters that the counting device
+  // had actually observed. Different numeric bases or wall clocks alone cannot
+  // distinguish a concurrent offline sale from a sale already counted physically.
+  function _conteoIncluyeHechos(recuento, anterior) {
+    const c = recuento && recuento.stockCountWitness;
+    if (!c || !anterior || c.base !== Number(anterior.stockBase) ||
+        String(c.epoch || "") !== String(anterior.stockEpochId || "")) return false;
+    const pn = anterior.stockPN && typeof anterior.stockPN === "object" ? anterior.stockPN : {};
+    return Object.keys(pn).every(actor => {
+      const v = pn[actor] || {}, seen = c.pn && c.pn[actor] || {};
+      return Number.isSafeInteger(Number(v.add)) && Number.isSafeInteger(Number(v.sub)) &&
+        (Number(seen.add) || 0) >= Number(v.add) && (Number(seen.sub) || 0) >= Number(v.sub);
+    });
+  }
+  function _stockHechosNoVacios(x) {
+    return !!(x && x.stockPN && Object.values(x.stockPN).some(v =>
+      v && (Number(v.add) > 0 || Number(v.sub) > 0)));
+  }
+  /* JFC 2026-11-12: UNA sola funcion para "percha en 0 y faltante" (antes copiada en venta,
+     recuperar cancelacion, corregir venta y cierre del dia). El contador compartido (stockPN)
+     ya lleva la salida completa; aqui solo se muestra la percha en 0 y el faltante aparte. */
+  function _perchaEnCeroYFaltante(p) {
+    if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+  }
+  /* Marcha atras de stock que comparten la venta y la anulacion: foto de la percha, de sus
+     contadores y del registro ANTES de mutar; devuelve la funcion que lo deja todo como estaba. */
+  function _marchaAtrasStock(p) {
+    const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
+      meta: ["stockBase","stockPN","stockTs","stockCountTs","stockDeficit","stockReconciliacionPendiente"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
+    return () => {
+      p.stockActual = foto.stock;
+      foto.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
+      movimientos.length = foto.movLen;
+      selloUltimo = foto.sello;
+    };
+  }
+  function _prepararOpStock(payload, idOperacion) {
+    /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
+       Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
+       distintos (creado por separado en cada uno). El receptor (aplicarOpRemota)
+       usa el nombre como respaldo para aplicar el delta aunque el id no coincida.
+       Se enriquece aquí, en el único punto por donde pasan todas las ops de stock. */
+    if (payload && payload.productoId && !payload.nombre) {
+      try { const _pp = productos.find((x) => x.id === payload.productoId); if (_pp) payload.nombre = _pp.nombre; } catch (_) {}
+    }
+    /* SELLO DE STOCK (JFC 2026-09-16). Punto UNICO por donde pasan TODAS las
+       mutaciones de stock (venta, ajuste, anulacion, transferencia...). Aqui se
+       sella stockTs para el LWW del sync nuevo: el cambio de stock viaja y gana el
+       mas reciente. Se dispara oc-catalogo-cambiado para que sembrar() publique ya. */
+    if (payload && payload.productoId) {
+      try {
+        const _sp = productos.find((x) => x.id === payload.productoId);
+        if (_sp) {
+          const delta = Number(payload.delta);
+          if (Number.isFinite(delta) && delta !== 0) {
+            // Base + hechos únicos: dos ventas sin red se SUMAN; un valor absoluto
+            // con timestamp descartaba una. La mutación local ya ocurrió antes.
+            // Fable 5.2 / JFC: an unwitnessed device has no authority to
+            // derive a physical baseline from its own display (stockActual-delta).
+            // Local sale is already durable; keep its immutable sale/movement
+            // and flag reconciliation rather than forging a shared PN base.
+            /* v750 fix (regresion de v747): sin base + contadores el stock viaja como numero
+               absoluto y gana el ultimo reloj: la venta de la ultima unidad no llegaba al otro
+               aparato (su 0 se descartaba como "cero legado") y dos ventas sin red perdian una.
+               El primer movimiento fija la base desde el stock CONOCIDO de este aparato; dos
+               aparatos que veian el mismo numero derivan la misma base y sus ventas se suman.
+               Con stock desconocido no se deriva nada (queda la marca de conciliacion).
+               Prueba: test/fable-v750-stock-abc.test.cjs. NO volver a quitar sin esa prueba verde. */
+            if ((_sp.stockBase == null || !Number.isSafeInteger(Number(_sp.stockBase))) &&
+                _sp.stockActual != null && Number.isSafeInteger(Number(_sp.stockActual) - delta)) {
+              _sp.stockBase = Number(_sp.stockActual) - delta; _sp.stockPN = {};
+            }
+            const baseProbada = _sp.stockBase != null &&
+              Number.isSafeInteger(Number(_sp.stockBase));
+            if (baseProbada) {
+              if (!_sp.stockPN || typeof _sp.stockPN !== "object" || Array.isArray(_sp.stockPN)) _sp.stockPN = {};
+              let idStock = idOperacion || "";
+              if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
+              if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
+              const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
+              if (delta > 0) contador.add += delta; else contador.sub += -delta;
+              _sp.stockPN[idStock] = contador;
+              // Do not mint stockPNHecho from an inferred baseline. Existing
+              // real physical epochs and historical explicit bases retain it.
+              if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+                payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
+                  actor: idStock, add: contador.add, sub: contador.sub };
+              }
+            } else {
+              _sp.stockReconciliacionPendiente = true;
+            }
+            /* Una reposicion paga primero el FALTANTE (JFC 2026-09-29): es la
+               misma cuenta que hara el contador compartido al fusionar, asi la
+               pantalla no salta de 3 a 2 en el siguiente sync. */
+            const _def = Number(_sp.stockDeficit) || 0;
+            if (delta > 0 && _def > 0) {
+              const pago = Math.min(_def, delta);
+              _sp.stockDeficit = _def - pago;
+              _sp.stockActual = Math.max(0, Number(_sp.stockActual) - pago);
+            }
+          }
+          /* v445: stockTs no debe depender del reloj civil del aparato cuando
+             ya tenemos una referencia comun. Un iPhone adelantado podia dejar un
+             cero legado con timestamp "del futuro" y ganar otra vez al recargar. */
+          const _stockAhoraRelay = (window.OCLatencia && window.OCLatencia.ahoraRelay)
+            ? window.OCLatencia.ahoraRelay() : null;
+          /* P0 ROOT CAUSE: Number(null) === 0 is finite! A not-yet-synced
+             relay clock was stamping a real sale as 0, so a second device
+             retained its old stock snapshot forever. A trusted relay instant
+             MUST be a numeric epoch-millisecond timestamp; otherwise use the
+             local clock, preserving the PN ledger as authoritative delta. */
+          const _instanteStock = typeof _stockAhoraRelay === "number" &&
+            Number.isFinite(_stockAhoraRelay) && _stockAhoraRelay >= 1000000000000 ?
+            _stockAhoraRelay : Date.now();
+          const _prevTs = Number(_sp.stockTs) || 0;
+          /* P0: two sales can happen within the same millisecond. A timestamp
+             TIED with the last publication can make the receiver discard a
+             valid stock change, even though its PN ledger advanced. Keep local
+             stockTs strictly monotonic when the previous stamp is plausible;
+             never perpetuate an impossible future timestamp from an old peer. */
+          _sp.stockTs = _prevTs > _instanteStock + 300000 ?
+            _instanteStock : Math.max(_instanteStock, _prevTs + 1);
+        }
+      } catch (_) {}
+    }
+  }
+  function emitirOpStock(tipo, payload, preparado = false) {
+    if (!preparado) _prepararOpStock(payload);
+    if (payload && payload.productoId) avisarCatalogoCambiado();
+    if (window.OCSyncEmit) {
+      try {
+        // false = la cola del sync viejo no pudo guardar la op (localStorage lleno).
+        // El estado ya esta guardado y el sync nuevo la reparte: solo consola.
+        if (window.OCSyncEmit(tipo, payload) === false) console.warn("[sync] cola llena: la op " + tipo + " no quedo en la cola del sync viejo; viaja por el sync nuevo desde el estado guardado");
+      } catch (_) {}
+    }
+    // MYCELIUM PHASE B (2026-07-28). This is the only place where the stock
+    // move has already happened AND the resulting stock is known. Emitting the
+    // fact from here rather than from a UI wrapper matters: a UI function may
+    // return nothing, which leaves the fact without its resulting number, and
+    // then reconciliacion.js cannot rebuild inventory at all. Wrapped in
+    // try/catch: a broken bus must NEVER break a sale.
+    try {
+      var _mp = productos.find(function (x) { return x.id === (payload && payload.productoId); });
+      if (window.AMG && window.AMG.EventBus) {
+        window.AMG.EventBus.emit("inventario_" + tipo + ":completado", {
+          payload: payload,
+          resultado: _mp ? { productoId: _mp.id, stockActual: _mp.stockActual, sku: _mp.sku } : null
+        });
+      }
+    } catch (_) {}
+  }
+  /* ==========================================================================
+     PASO 1 — HUELLA DEL CATALOGO (JFC 2026-08-19)
+
+     POR QUE EXISTE: hasta hoy el panel del equipo decia "Up to date" mirando
+     SOLO EL RELOJ — cuando llego el ultimo latido. Nunca comparaba un dato.
+     Por eso JFC vio "sincronizado" en su PC y en su celular mientras uno tenia
+     la percha "Rack1" y el otro "001". Decir "al dia" sin haber comparado nada
+     es peor que no decir nada.
+
+     La huella es un hash barato y DETERMINISTA del catalogo: dos dispositivos
+     con el mismo catalogo dan la misma huella siempre, sin importar en que
+     orden lo tengan guardado (por eso se ordena por id antes de sumar).
+
+     Entra SOLO lo que define el catalogo: perchas (id + nombre) y productos
+     (id + nombre + precio + costo). NO entra el stock: dos dispositivos del
+     mismo negocio pueden tener stock distinto por un instante y eso es normal,
+     no es estar desincronizado. Tampoco entran ventas ni clientes: se comparan
+     aparte, cuando toque.
+
+     Se muestra corta (#A7F3) para que una persona la pueda dictar por telefono
+     o pegar en WhatsApp sin entender una palabra de hashes.
+
+     NO viaja a ningun lado fuera del equipo. El nodo de licencias no la ve.
+     ========================================================================== */
+  function _huellaTexto() {
+    const u = ubicaciones.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .map((x) => String(x.id) + "|" + String(x.nombre || "")).join(";");
+    const p = productos.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .map((x) => String(x.id) + "|" + String(x.nombre || "") + "|" + Number(x.precio || 0) + "|" + Number(x.costo || 0)).join(";");
+    /* El equipo entra en la huella (2026-08-21): sin esto el panel decia "al
+       dia" cuando lo unico distinto entre dos dispositivos era quien es admin
+       o el PIN de alguien — justo el caso que dejo gente sin poder entrar.
+       El PIN NO se mezcla en claro: se usa su largo, que cambia la huella
+       cuando cambia el PIN sin exponerlo en un valor que se dicta por
+       telefono. */
+    const e = usuarios.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .map((x) => String(x.id) + "|" + String(x.nombre || "") + "|" + String(x.rol || "") + "|" + (x.activo !== false ? "1" : "0") + "|" + String(x.pin || "").length).join(";");
+    return "U:" + u + "#P:" + p + "#E:" + e;
+  }
+  /* FNV-1a de 32 bits. No es criptografico y no pretende serlo: aqui solo hace
+     falta que dos catalogos distintos den huellas distintas con altisima
+     probabilidad, y que sea instantaneo en un telefono viejo con 5000
+     productos. Un SHA-256 seria mas lento y no compraria nada. */
+  function _fnv1a(txt) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < txt.length; i++) {
+      h ^= txt.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function huellaCatalogo() {
+    try {
+      const h = _fnv1a(_huellaTexto());
+      return {
+        /* 4 caracteres en mayuscula: dictable por telefono sin ambiguedad. */
+        corta: "#" + h.toString(36).toUpperCase().slice(-4).padStart(4, "0"),
+        completa: h.toString(36).toUpperCase(),
+        productos: productos.length,
+        perchas: ubicaciones.length,
+      };
+    } catch (_) { return null; }
+  }
+
+  /*
+   * P0 READ-ONLY stock checksum for a physical PC–phone verification gate.
+   * Existing huellaCatalogo intentionally ignores stock. Never relabel that
+   * metadata-only checksum as proof of inventory equality. This method does
+   * not publish to the relay, rewrite the local notebook, or trigger a sync.
+   */
+  async function huellaInventario() {
+    const rows = productos.map((p) => {
+      const rawPN = p && p.stockPN && typeof p.stockPN === "object" && !Array.isArray(p.stockPN) ? p.stockPN : {};
+      return {
+        id: String(p && p.id || ""),
+        stock: Number(p && p.stockActual),
+        deficit: Number(p && p.stockDeficit || 0),
+        base: p && p.stockBase != null ? Number(p.stockBase) : null,
+        epoch: typeof (p && p.stockEpochId) === "string" ? p.stockEpochId : "",
+        pn: Object.keys(rawPN).sort().map((actor) => [
+          actor, Number(rawPN[actor] && rawPN[actor].add || 0), Number(rawPN[actor] && rawPN[actor].sub || 0)
+        ]),
+        conflict: !!(p && p.stockEvidencias && Object.keys(p.stockEvidencias).length)
+      };
+    }).sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    const idDuplicado = new Set();
+    const idsVistos = new Set();
+    rows.forEach((r) => { if (idsVistos.has(r.id)) idDuplicado.add(r.id); idsVistos.add(r.id); });
+    const invalidos = rows.filter((r) => {
+      if (!r.id || idDuplicado.has(r.id) || !Number.isSafeInteger(r.stock) || r.stock < 0 ||
+          !Number.isSafeInteger(r.deficit) || r.deficit < 0 ||
+          (r.base !== null && !Number.isSafeInteger(r.base)) || r.epoch.length > 160 ||
+          r.pn.some((v) => !v[0] || !Number.isSafeInteger(v[1]) ||
+            !Number.isSafeInteger(v[2]) || v[1] < 0 || v[2] < 0)) return true;
+      if (r.pn.length) {
+        // The movement ledger must derive the displayed physical stock.
+        // A partial or corrupted PN read model must NOT get a clean proof.
+        if (r.base === null) return true;
+        const expected = r.base + r.pn.reduce((sum,v) => sum + v[1] - v[2],0);
+        if (!Number.isSafeInteger(expected) || r.stock !== Math.max(0,expected) ||
+            r.deficit !== Math.max(0,-expected)) return true;
+      }
+      return false;
+    }).length;
+    const sinEpoca = rows.filter((r) => !r.epoch).length;
+    const conflictos = rows.filter((r) => r.conflict).length;
+    // Never issue a clean checksum for structurally corrupt data or a browser
+    // without SubtleCrypto: absence of proof is not evidence of equality.
+    if (invalidos || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-no-disponible-o-datos-invalidos" };
+    const digest = async (data) => {
+      const bytes = new TextEncoder().encode(JSON.stringify(data));
+      const hash = await window.crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(hash), (n) => n.toString(16).padStart(2,"0")).join("");
+    };
+    try {
+      const [existencias, movimientos] = await Promise.all([
+        digest(rows.map((r) => [r.id,r.stock,r.deficit])),
+        digest(rows.map((r) => [r.id,r.stock,r.deficit,r.base,r.epoch,r.pn,r.conflict]))
+      ]);
+      return { ok:true, comparable:sinEpoca === 0 && conflictos === 0,
+        certificado:false, // Not a cross-device confirmation: requires independent durable peer evidence.
+        productos:rows.length, sinEpoca, conflictos, invalidos:0,
+        algoritmo:"SHA-256", existencias, movimientos,
+        advertencia:"Solo huellas locales: la igualdad NO demuestra recepción duradera ni conciliación física" };
+    } catch (_) {
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-fallo" };
+    }
+  }
+
+  /* ==========================================================================
+     PASOS 4 y 5 — MERGE DE CATALOGO ENTRE DISPOSITIVOS DEL EQUIPO
+     (JFC 2026-08-19)
+
+     POR QUE HACIA FALTA: aplicarOpRemota() solo sabia aplicar deltas de stock
+     sobre productos que YA existian en los dos lados. El catalogo —productos,
+     perchas— nunca viajaba. Su propio mensaje de error lo decia ("sync the
+     catalog first") y ese paso no existia. Por eso la PC de JFC quedo con
+     "Rack1" y su celular con "001", conectados y sin juntarse nunca.
+
+     LAS DOS REGLAS DURAS, y no se negocian:
+
+     1. EL MERGE SUMA, NUNCA BORRA. Lo que existe solo de un lado se conserva.
+        Perder inventario por unirse a un equipo seria peor que no sincronizar
+        nunca. Por eso no hay ninguna rama que haga splice/delete.
+
+     2. NADA SE APLICA SIN MOSTRARLO ANTES. compararCatalogo() calcula el
+        cambio y la UI lo enseña; aplicarCatalogo() solo corre si una persona
+        dijo que si. Sobre datos de dinero no se adivina.
+
+     JERARQUIA para los choques (mismo id, datos distintos): dueño > admin >
+     encargado. Si el otro tiene un rol MAS ALTO, gana el suyo. Si es igual o
+     mas bajo, se conserva lo propio y el choque se REPORTA para que una
+     persona lo mire. El stock NUNCA se pisa por jerarquia: es un hecho fisico
+     de cada percha, no una opinion.
+     ========================================================================== */
+  const _RANGO = { dueno: 3, admin: 2, empleado: 1, contador: 1 };
+  function _rango(rol) { return _RANGO[String(rol || "").toLowerCase()] || 0; }
+
+  function compararCatalogo(remoto, rolRemoto) {
+    const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
+      /* BUG DE MI PROPIA PRIMERA VERSION, encontrado al probarlo (2026-08-19):
+       era `_rango(rolRemoto) > _rango(_rolLocal())`, y cuando el rol local no
+       se puede leer (demo, sesion recien abierta, contador) el rango local
+       daba 0 y CUALQUIERA le ganaba. Un encargado le pisaba los precios al
+       dueno. Medido: precio 22 pisado a 999 por un merge de un encargado.
+
+       La regla segura es al reves: solo se pisa cuando se conocen LOS DOS
+       roles y el de enfrente es estrictamente mayor. Ante la duda manda quien
+       tiene el dispositivo en la mano, porque es quien va a vivir con el dato.
+       Igual nada de esto se aplica sin que una persona lo confirme en
+       pantalla; esto solo decide que se le PROPONE. */
+  const _rl = _rango(_rolLocal()), _rr = _rango(rolRemoto);
+  const out = { nuevasPerchas: [], nuevosProductos: [], conflictos: [], nuevosMiembros: [], miembrosActualizados: [], soloMios: 0, ganaElOtro: _rr > 0 && _rl > 0 && _rr > _rl };
+    if (!remoto || !Array.isArray(remoto.ubicaciones) || !Array.isArray(remoto.productos)) return null;
+    const misU = new Map(ubicaciones.map((u) => [String(u.id), u]));
+    const misP = new Map(productos.map((p) => [String(p.id), p]));
+
+    remoto.ubicaciones.forEach((u) => {
+      if (!u || !u.id) return;
+      if (_estaEnSemillaDemoSeleccionada(_demoRemoto, "ubicaciones", u)) return;
+      const mia = misU.get(String(u.id));
+      if (!mia) { out.nuevasPerchas.push({ id: u.id, nombre: u.nombre || "" }); return; }
+      if (String(mia.nombre || "") !== String(u.nombre || "")) {
+        out.conflictos.push({ que: "shelf", id: u.id, mio: mia.nombre, suyo: u.nombre });
+      }
+    });
+    remoto.productos.forEach((p) => {
+      if (!p || !p.id) return;
+      const mio = misP.get(String(p.id));
+      if (!mio) { out.nuevosProductos.push({ id: p.id, nombre: p.nombre || "", precio: Number(p.precio) || 0 }); return; }
+      if (Number(mio.precio) !== Number(p.precio) || String(mio.nombre || "") !== String(p.nombre || "")) {
+        out.conflictos.push({ que: "product", id: p.id, mio: { nombre: mio.nombre, precio: mio.precio }, suyo: { nombre: p.nombre, precio: p.precio } });
+      }
+    });
+    /* EQUIPO (2026-08-21). Se cuenta aparte de productos y perchas porque en
+       pantalla se explica aparte: a nadie le sirve leer "3 cambios" sin saber
+       que uno de ellos le cambia el rol a una persona. */
+    if (Array.isArray(remoto.usuarios)) {
+      const misUsr = new Map(usuarios.map((u) => [String(u.id), u]));
+      remoto.usuarios.forEach((u) => {
+        if (!u || !u.id) return;
+        if (u.borrado) return; // un tombstone es una BAJA, no se anuncia como cambio en el preview
+        const mio = misUsr.get(String(u.id));
+        if (!mio || mio.borrado) { out.nuevosMiembros.push({ id: u.id, nombre: u.nombre || "", rol: u.rol || "empleado" }); return; }
+        /* Gana la edicion mas reciente, NO la jerarquia: si el dueno degrada a
+           alguien en su celular, esa es la ultima palabra aunque el merge lo
+           traiga un encargado. Sin `actualizadoEn` (registro viejo, de antes
+           de este cambio) se conserva lo propio y no se toca nada. */
+        const tMio = Date.parse(mio.actualizadoEn || mio.creadoEn || 0) || 0;
+        const tSuyo = Date.parse(u.actualizadoEn || u.creadoEn || 0) || 0;
+        const distinto = String(mio.rol) !== String(u.rol) || String(mio.pin) !== String(u.pin) ||
+                         String(mio.nombre || "") !== String(u.nombre || "") || (mio.activo !== false) !== (u.activo !== false);
+        if (distinto && tSuyo > tMio) {
+          out.miembrosActualizados.push({ id: u.id, nombre: u.nombre || mio.nombre, rolAntes: mio.rol, rolDespues: u.rol });
+        }
+      });
+    }
+    const idsRemotos = new Set(remoto.productos.map((x) => String(x && x.id)));
+    out.soloMios = productos.filter((x) => !idsRemotos.has(String(x.id))).length;
+    return out;
+  }
+
+  /* Claude 2026-10-07: vista de cartera + (solo dueno/admin) marca de cada cargo sin venta: `vinculables`
+     = cuantas ventas fiadas del cliente podria elegir la persona. Sin candidatas, la UI no ofrece el boton. */
+  async function _vistaCarteraConVinculos(clienteId, info, rol) {
+    const vista = window.AMG.Cartera.vistaCarteraSegunRol(info, rol);
+    // A historical credit receipt can reference a sale assigned to a different
+    // customer. Preserve its accounting history, but NEVER offer it for payment
+    // allocation under this customer; ownership requires manual investigation.
+    let enRevision = 0;
+    vista.consumosPendientes = (vista.consumosPendientes || []).filter((cargo) => {
+      const key = String(cargo && cargo.cargoKey || "");
+      if (!key.startsWith("venta:")) return true;
+      const v = ventas.find((x) => x && String(x.id) === key.slice(6));
+      const cruzado = v && v.clienteId && String(v.clienteId) !== String(clienteId);
+      if (cruzado) enRevision++;
+      return !cruzado;
+    });
+    if (enRevision) vista.consumosEnRevision = enRevision;
+    if ((rol === "dueno" || rol === "admin") && Array.isArray(vista.historial)) {
+      for (const m of vista.historial) {
+        if (m.tipo !== "cargo" || m.ventaId) continue;
+        const r = await window.AMG.Cartera.opcionesVinculo(clienteId, m.id, ventas);
+        m.vinculables = r ? r.opciones.length : 0;
+      }
+    }
+    return vista;
+  }
+  function _rolLocal() {
+    try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
+  }
+  /* PIN RESERVADO (JFC 2026-08-31). Esquema de PINs acordado:
+       456 = demo · 789 = dueño de fábrica Y activador de instancia propia
+       260 = empleado/encargado · 357 = contable/Accounting.
+       888 queda LIBRE (no es dueño de fábrica). Un encargado no puede fijar
+       como PIN suyo ninguno de los códigos de sistema. */
+  const PINS_RESERVADOS = ["456", "789", "260", "357"];
+  function _pinReservado(pin) { return PINS_RESERVADOS.indexOf(String(pin || "")) !== -1; }
+  // La UI no es una frontera de autorización. Estas rutas se validan también
+  // aquí; JS local no sustituye una autoridad verificable entre aparatos.
+  function _puedeGestionarEquipo() { const r = _rolLocal(); return r === "dueno" || r === "admin"; }
+  /* ACCESO DE ARTISTA (benchmark #6, JFC 2026-09-24; plan en
+     PLAN-ARTISTA-CARGA-SU-PERCHA-2026-09-24.md). El artista/comisionista entra
+     con su PIN a un aparato de la tienda y SOLO agrega piezas a SU percha, ve
+     sus piezas con stock e imprime sus etiquetas. Decision JFC: no edita ni
+     borra despues de crear; no ve ventas, plata ni clientes.
+     POR QUE NO VA EN `usuarios`: auth-ui hace entrar como "empleado" a toda
+     persona del equipo cuyo rol no sea "admin". Un aparato sin actualizar
+     dejaria entrar al artista como empleado. Por eso el PIN vive en un campo
+     NUEVO de su ficha de comisionista (promotoras[].accesoArtista = { pin,
+     activo, actualizadoEn }): un aparato viejo no lo conoce y el PIN no abre
+     nada (falla cerrado). Sin schemaVersion; el merge viejo (Object.assign)
+     conserva el campo.
+     SU percha = ubicaciones con promotoraId === id del artista. */
+  function _artistaSesion() {
+    try {
+      const a = window.OCCurrentArtista;
+      if (!a || !a.id) return null;
+      const pr = promotoras.find((x) => String(x.id) === String(a.id) && !x.borrado && x.activa !== false);
+      return (pr && pr.accesoArtista && pr.accesoArtista.activo) ? pr : null;
+    } catch (_) { return null; }
+  }
+  function _perchasDeArtista(prId) {
+    return ubicaciones.filter((u) => !u.borrado && u.activa !== false && String(u.promotoraId || "") === String(prId));
+  }
+  // PIN de 3 digitos ya usado como acceso de artista. excluirId = la ficha que se edita.
+  function _pinDeArtista(pin, excluirId) {
+    return promotoras.some((x) => !x.borrado && x.accesoArtista && x.accesoArtista.pin === pin && String(x.id) !== String(excluirId || ""));
+  }
+  // Lo que el artista ve de una pieza: sin costo, sin datos de proveedor ni de otras perchas.
+  function _piezaParaArtista(p) {
+    return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, barcode: p.barcode, precio: p.precio,
+      stockActual: p.stockActual, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId),
+      foto: p.foto || null, creadoEn: p.creadoEn || null };
+  }
+  async function _pinIntegradoEnUso(pin) {
+    try {
+      // Si no podemos comprobar, no asignar un PIN potencialmente ambiguo.
+      // null significa "no verificado", distinto de false (libre).
+      if (!window.OCSecure || !window.OCSecure.coincidePin) return null;
+      if (window.OCSecure.estadoSecreto && window.OCSecure.estadoSecreto() !== "ok") return null;
+      for (const rol of ["owner", "emp", "acct"]) {
+        if (await window.OCSecure.coincidePin(pin, rol)) return true; // hashes legados sin copia visible
+      }
+      const p = window.OCSecure && window.OCSecure.leerPinsVisibles && window.OCSecure.leerPinsVisibles();
+      return !!(p && [p.owner, p.acct].concat(p.empleados || []).some((x) => x === pin));
+    } catch (_) { return null; }
+  }
+
+  /* RELOJ LÓGICO DEL ROSTER (JFC 2026-08-26, Camino A "terminar bien lo nuestro").
+     Cada edición del equipo se sella con rev = { c: contador Lamport, d: deviceId }.
+     El contador viene del MISMO Lamport que ya sincroniza sync-realtime (version
+     vectors), así el orden es causal y global, no del reloj de pared del aparato
+     (dos celulares con la hora mal puesta se pisaban al promover/degradar/PIN).
+     Si sync-realtime no está cargado (tablero, pruebas), cae a un contador local
+     monótono + un deviceId estable: nunca lanza y nunca deja sin sellar. */
+  let _revLocalFallback = 0;
+  try { _revLocalFallback = Number(localStorage.getItem("f123_catalog_rev_counter")) || 0; } catch (_) {}
+  function _revNueva() {
+    let c = 0, d = "";
+    try {
+      if (window.OCSyncControl && typeof window.OCSyncControl.revTick === "function") {
+        c = Number(window.OCSyncControl.revTick()) || 0;
+        d = String(window.OCSyncControl.deviceIdActual() || "");
+      }
+    } catch (_) {}
+    if (!c || c <= _revLocalFallback) { c = _revLocalFallback + 1; }
+    if (c > _revLocalFallback) _revLocalFallback = c;
+    try { localStorage.setItem("f123_catalog_rev_counter", String(_revLocalFallback)); } catch (_) {}
+    if (!d) {
+      try {
+        d = String(localStorage.getItem("f123_device_id") || "");
+        if (!d) { d = uuid("device-"); localStorage.setItem("f123_device_id", d); }
+      } catch (_) { d = uuid("device-"); }
+    }
+    return { c: c, d: d };
+  }
+  function _observarRev(rev) {
+    if (!rev || !Number.isFinite(Number(rev.c))) return;
+    _revLocalFallback = Math.max(_revLocalFallback, Number(rev.c));
+    try { localStorage.setItem("f123_catalog_rev_counter", String(_revLocalFallback)); } catch (_) {}
+  }
+  /* ¿El rev A (remoto) le gana al rev B (local)? Gana el contador mayor; empate
+     de contador se rompe por deviceId (orden lexicográfico estable, determinista
+     en los dos aparatos). Un registro SIN rev (dato viejo, pre-upgrade) se trata
+     como rev {c:0} para no perder ante él por accidente: el que ya tiene rev es
+     el que pasó por el camino nuevo. Devuelve null si NINGUNO tiene rev, para que
+     el llamador caiga al reloj de pared (comportamiento idéntico a antes). */
+  function _revDomina(a, b) {
+    const tieneA = a && typeof a.c === "number";
+    const tieneB = b && typeof b.c === "number";
+    if (!tieneA && !tieneB) return null; // sin reloj lógico en ninguno: decide el llamador
+    const ca = tieneA ? a.c : 0, cb = tieneB ? b.c : 0;
+    if (ca !== cb) return ca > cb;
+    const da = tieneA ? String(a.d || "") : "", db = tieneB ? String(b.d || "") : "";
+    return da > db;
+  }
+
+  function ventasActivas() { return Array.prototype.filter.call(ventas, (v) => !v.anulada && !_demoOculto("ventas", v)); }
+
+  function _mergePayoutEvidence(remoto, rolRemoto) {
+    const core=_payoutCore(); if(!core || !core.mergePaymentEvidence) return false;
+    const before=JSON.stringify([payouts,payoutConflicts,payoutQuarantine]);
+    const incoming=(Array.isArray(remoto.payouts)?remoto.payouts:[]).concat(
+      (Array.isArray(remoto.payoutConflicts)?remoto.payoutConflicts:[]).flatMap(c=>Array.isArray(c && c.records)?c.records:[]));
+    const valid=[];
+    incoming.forEach(p=>{
+      const reason=core.validatePayoutRecord(p,rolRemoto);
+      if(reason){
+        const entry={reason,record:clonar(p)};
+        if(p && !payoutQuarantine.some(q=>JSON.stringify(q)===JSON.stringify(entry)))payoutQuarantine.push(entry);
+      }else{valid.push(clonar(p));_observarRev(p.rev);}
+    });
+    (Array.isArray(remoto.payoutQuarantine)?remoto.payoutQuarantine:[]).forEach(q=>{
+      if(q && q.record && typeof q.reason==='string' && !payoutQuarantine.some(x=>JSON.stringify(x)===JSON.stringify(q)))payoutQuarantine.push(clonar(q));
+    });
+    payoutQuarantine.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    const merged=core.mergePaymentEvidence(payouts.concat(valid),payoutConflicts);
+    payouts.splice(0,payouts.length,...merged.payouts);
+    payoutConflicts.splice(0,payoutConflicts.length,...merged.conflicts);
+    return before!==JSON.stringify([payouts,payoutConflicts,payoutQuarantine]);
+  }
+  function _serializarMergeCanonico(valor) {
+    if (Array.isArray(valor)) return "[" + valor.map(_serializarMergeCanonico).join(",") + "]";
+    if (valor && typeof valor === "object") return "{" + Object.keys(valor).sort().filter((k) => valor[k] !== undefined)
+      .map((k) => JSON.stringify(k) + ":" + _serializarMergeCanonico(valor[k])).join(",") + "}";
+    return JSON.stringify(valor);
+  }
+  function _huellaEstadoMerge() {
+    try {
+      // catalogoPropio incluye el PIN activo; el sidecar se guarda por OCsecure
+      // inmediatamente y no debe convertir una preparación local en un merge de negocio.
+      const catalogo = _catalogoInterno(false);
+      // stockDeficit is derived in applyCatalogo but intentionally omitted from wire catalog.
+      const deficits = new Map(productos.map((p) => [String(p.id), Number(p.stockDeficit) || 0]));
+      catalogo.productos.forEach((p) => { p.stockDeficit = deficits.get(String(p.id)) || 0; });
+      return _serializarMergeCanonico(catalogo);
+    } catch (_) { return null; }
+  }
+  const URGENCIA_MERGE = Object.freeze({ productos: "diferible", actividad: "diferible", resto: "inmediato" });
+  function _urgenciaPersistenciaMerge(remoto, esProyeccionIncremental, promesasPins, adoptaNombre) {
+    // Only a verified product-only Yjs projection can defer its backup.
+    // Unknown collections fail closed to the immediate durability class.
+    const colecciones = [];
+    if (esProyeccionIncremental !== true) colecciones.push("resto");
+    if (promesasPins.length) colecciones.push("pinsRol");
+    if (adoptaNombre) colecciones.push("nombreNegocio");
+    Object.keys(remoto || {}).forEach(function (nombre) {
+      if (Array.isArray(remoto[nombre]) && remoto[nombre].length) colecciones.push(nombre);
+    });
+    return colecciones.some(function (nombre) {
+      return (URGENCIA_MERGE[nombre] || URGENCIA_MERGE.resto) === URGENCIA_MERGE.resto;
+    }) ? URGENCIA_MERGE.resto : URGENCIA_MERGE.productos;
+  }
+  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+    const soloProductosSync = arguments.length > 3 && arguments[3] === true;
+    if (_conflictoEstadoAB) return {ok:false,error:"Conflicting saved copies; incoming state is retained for retry."};
+    if (_ventaConfirmando) {
+      _ventaCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
+      return false;
+    }
+    if (_retencionConfirmando) {
+      _retencionCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
+      return false;
+    }
+    if (_payoutConfirmando) {
+      _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
+      return false;
+    }
+    const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
+    const dif = compararCatalogo(remoto, rolRemoto);
+    if (!dif) return { ok: false, error: "The catalog received is not readable." };
+    const negocioAntes = _huellaEstadoMerge();
+    let actividadNueva;
+    try { actividadNueva = _actividadUnir(actividadCompartida, remoto.actividad || []); }
+    catch (_) { return { ok: false, error: "The shared activity evidence is not readable." }; }
+    const mandaElOtro = dif.ganaElOtro;
+    let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
+    const promesasPins = [];
+    const actividadCambio = actividadNueva !== actividadCompartida &&
+      _serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida);
+    if (actividadCambio) {
+      actividadCompartida = actividadNueva; actualizados++;
+    }
+
+    if (Array.isArray(remoto.gastos)) remoto.gastos.forEach((g) => {
+      if (!g || !g.id || (!g.borrado && (!g.concepto || !(Number(g.monto) > 0)))) return;
+      _observarRev(g.rev);
+      const local = gastos.find((x) => String(x.id) === String(g.id));
+      if (!local) { gastos.push(Object.assign({}, g)); actualizados++; }
+      else if (_revDomina(g.rev, local.rev) === true) { Object.assign(local, g); actualizados++; }
+    });
+    /* Bloque 4: ajustes de comision, add-only por id (nunca se borran). */
+    if (Array.isArray(remoto.ajustesComision)) remoto.ajustesComision.forEach((a) => {
+      if (!a || !a.id || !a.ventaId) return;
+      _observarRev(a.rev);
+      const local = ajustesComision.find((x) => String(x.id) === String(a.id));
+      if (!local) { ajustesComision.push(Object.assign({}, a)); actualizados++; }
+      else {
+        /* MONOTONO (JFC 2026-09-24, cazado por test/commissions-carreras-sync.test.js):
+           antes ganaba la copia con rev mas alto entera, y una copia rancia podia
+           volver a poner "pendiente" un ajuste ya descontado (se descontaria dos
+           veces). Mismo criterio que las ventas en v387: liquidada nunca se quita
+           y el medio de pago del lado que pago se conserva. */
+        const liqLocal = !!local.liquidada, medioLocal = local.medioPagoComision || null;
+        if (_revDomina(a.rev, local.rev) === true) { Object.assign(local, a); actualizados++; }
+        local.liquidada = liqLocal || !!a.liquidada;
+        if (medioLocal) local.medioPagoComision = medioLocal;
+      }
+    });
+    if (_mergePayoutEvidence(remoto, rolRemoto)) actualizados++;
+    if (Array.isArray(remoto.transferencias)) remoto.transferencias.forEach((t) => {
+      if (!t || !t.id || !t.productoOrigenId || !t.productoDestinoId) return;
+      _observarRev(t.rev);
+      const local = transferencias.find((x) => String(x.id) === String(t.id));
+      if (!local) { transferencias.push(Object.assign({}, t)); actualizados++; }
+      else if (_revDomina(t.rev, local.rev) === true) { Object.assign(local, t); actualizados++; }
+    });
+
+    remoto.ubicaciones.forEach((u) => {
+      if (!u || !u.id) return;
+      if (_estaEnSemillaDemoSeleccionada(_demoRemoto, "ubicaciones", u)) return;
+      const mia = ubicaciones.find((x) => String(x.id) === String(u.id));
+      /* v448-golden: el lifecycle de la percha (activa/borrado) tiene reloj propio.
+         Antes compartia `rev` con nombre/meta/foto: un peer viejo podia editar una
+         meta dos veces, ganar el rev general y REACTIVAR una percha que otro aparato
+         ya habia archivado/borrado. Es el mismo principio de v446/fotoRev: cambios
+         no relacionados no pueden tocar un estado destructivo.
+         Compatibilidad: una baja legacy (activa:false o borrado:true) puede usar su
+         rev general como evidencia; una copia legacy ACTIVA nunca puede resucitar
+         una baja ya conocida. Reactivar explicitamente exige estadoRev moderno. */
+      const estadoRevRemota = u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null);
+      if (!mia) {
+        ubicaciones.push(Object.assign({}, u, {
+          activa: !u.borrado && u.activa !== false,
+          estadoRev: estadoRevRemota || null
+        }));
+        if (Number.isFinite(Number(u.gastoMensual)) && Number(u.gastoMensual) >= 0) gastosMensuales[u.id] = Number(u.gastoMensual);
+        _observarRev(u.rev);
+        _observarRev(u.gastoMensualRev);
+        _observarRev(estadoRevRemota);
+        agregadasU++;
+      } else {
+        const estadoRevLocal = mia.estadoRev || ((mia.borrado || mia.activa === false) ? (mia.rev || null) : null);
+        if (estadoRevLocal && !mia.estadoRev) mia.estadoRev = estadoRevLocal; // materializa tombstone/archivo legacy
+        if (u.gastoMensualRev && _revDomina(u.gastoMensualRev, mia.gastoMensualRev) === true && Number.isFinite(Number(u.gastoMensual)) && Number(u.gastoMensual) >= 0) {
+          gastosMensuales[mia.id] = Number(u.gastoMensual);
+          mia.gastoMensualRev = u.gastoMensualRev; _observarRev(u.gastoMensualRev); actualizados++;
+        }
+        const ganaU = _revDomina(u.rev, mia.rev);
+        if (ganaU === true || (ganaU === null && mandaElOtro)) {
+          if (!u.borrado && !esTextoCorto(String(u.nombre || ""), 240)) return;
+          /* v446 + v448-golden: foto y lifecycle tienen revisiones propias.
+             Nombre/trato/meta pueden ganar el rev general SIN borrar foto ni
+             reactivar una percha archivada/borrada. */
+          Object.keys(u).forEach((k) => {
+            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" &&
+                k !== "fotoHash" && k !== "fotoRev" &&
+                k !== "activa" && k !== "borrado" && k !== "estadoRev") mia[k] = u[k];
+          });
+          _observarRev(u.rev); actualizados++;
+        }
+        if (estadoRevRemota) {
+          _observarRev(estadoRevRemota);
+          const ganaEstado = _revDomina(estadoRevRemota, estadoRevLocal);
+          if (!estadoRevLocal || ganaEstado === true || (ganaEstado === null && mandaElOtro)) {
+            mia.activa = !u.borrado && u.activa !== false;
+            mia.borrado = !!u.borrado;
+            mia.estadoRev = estadoRevRemota;
+            actualizados++;
+          }
+        }
+        /* v446 — merge independiente del puntero de foto.
+           - Peer nuevo: fotoRev decide set/reemplazo/borrado.
+           - Peer viejo (sin fotoRev): puede aportar/reemplazar un hash no vacio,
+             pero NUNCA borrar con null. Asi una edicion no relacionada no deja
+             la tarjeta en blanco. */
+        const fotoAnterior = mia.fotoHash || null;
+        const fotoRevLocal = mia.fotoRev || null;
+        const fotoRevRemota = u.fotoRev || null;
+        let aplicarFoto = false;
+        if (fotoRevRemota) {
+          _observarRev(fotoRevRemota);
+          const ganaFoto = _revDomina(fotoRevRemota, fotoRevLocal);
+          aplicarFoto = !fotoRevLocal || ganaFoto === true || (ganaFoto === null && mandaElOtro);
+        } else if (!fotoRevLocal && u.fotoHash) {
+          aplicarFoto = !mia.fotoHash || ganaU === true || (ganaU === null && mandaElOtro);
+        }
+        if (aplicarFoto) {
+          mia.fotoHash = u.fotoHash || null;
+          if (fotoRevRemota) mia.fotoRev = fotoRevRemota;
+          if (fotoAnterior !== mia.fotoHash) mia.foto = null;
+          actualizados++;
+        }
+      }
+    });
+    remoto.productos.forEach((p) => {
+      if (!p || !p.id) return;
+      // v448 GOLDEN: rechazar solo la huella exacta del producto demo. Un id pNN
+      // por sí solo no prueba nada y puede pertenecer a un negocio real.
+      if (_estaEnSemillaDemoSeleccionada(_demoRemoto, "productos", p)) return;
+      const mio = productos.find((x) => String(x.id) === String(p.id));
+      if (!mio) {
+        /* STOCK COMPARTIDO (JFC 2026-09-16, aprobado). Antes el producto entraba
+           con stock 0 (filosofia "el stock es fisico de cada percha"). En un
+           cuaderno COMPARTIDO el stock es dato del negocio y cruza: el articulo
+           entra CON el stock del otro aparato. */
+        productos.push(Object.assign({}, p, { stockActual: window.OCBusinessReadModel.stock(p).units, stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
+        _observarRev(p.rev);
+        agregadosP++;
+      } else {
+        // FOTO DE PRODUCTO por hash, ADD-ONLY (JFC 2026-09-16): si aca no hay foto
+        // y el otro aparato mando su fotoHash, se adopta; los bytes llegan por el
+        // canal de fotos y se hidratan en volcarFotosAlStore. No pisa una ya puesta.
+        const ganaP = _revDomina(p.rev, mio.rev);
+        /* Fecha de alta (2026-09-25, rebaja por antiguedad): converge a la MAS ANTIGUA,
+           gane quien gane el rev; asi dos aparatos calculan la misma antiguedad. */
+        if (p.creadoEn && Number.isFinite(Date.parse(p.creadoEn)) && (!mio.creadoEn || Date.parse(p.creadoEn) < Date.parse(mio.creadoEn))) { mio.creadoEn = p.creadoEn; actualizados++; }
+        if (p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; } // v664: add-only sin importar quien gana el rev
+        /* v665: misma revision (c y d iguales) con otro hash no vacio = el autor hasheo la foto NUEVA despues de editarla
+           (el hash no sube rev). Se adopta el puntero nuevo; los bytes viejos quedan en OCFotos y los nuevos se hidratan
+           al llegar por el canal -fotos. Una revision distinta nunca cambia el puntero aqui (rige ganaP mas abajo). */
+        else if (p.fotoHash && p.fotoHash !== mio.fotoHash && p.rev && mio.rev && Number(p.rev.c) > 0 &&
+                 Number(p.rev.c) === Number(mio.rev.c) && String(p.rev.d || "") === String(mio.rev.d || "")) {
+          mio.fotoHash = p.fotoHash; mio.foto = null; actualizados++;
+        }
+        /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
+           edicion de stock por su sello de tiempo, venga de quien venga. Asi
+           "subir a 3 en el celu" aparece en la PC en segundos. Trade-off aceptado:
+           2 ventas simultaneas del MISMO producto -> LWW pisa una (raro, 1 caja). */
+        const _tsR = Number(p.stockTs) || 0, _tsL = Number(mio.stockTs) || 0;
+        const _pnR = p.stockPN && typeof p.stockPN === "object" ? p.stockPN : null;
+        const _pnL = mio.stockPN && typeof mio.stockPN === "object" ? mio.stockPN : null;
+        const _stockRConocido = window.OCBusinessReadModel.stock(p).units;
+        const _stockLConocido = window.OCBusinessReadModel.stock(mio).units;
+        const _baseR = p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null;
+        const _baseL = mio.stockBase != null && Number.isFinite(Number(mio.stockBase)) ? Number(mio.stockBase) : null;
+        const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+        const epochLocal = typeof mio.stockEpochId === "string" ? mio.stockEpochId : "";
+        const epochConflict = (epochRemote || epochLocal) && epochRemote !== epochLocal;
+        if (epochConflict && epochLocal && epochRemote) {
+          // Two explicit recount identities conflict even when both numerical
+          // stock bases are identical. Report the conflict without fabricating
+          // an old-format, base-keyed stockEvidencias merge.
+          try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto",
+            {detail:{productoId:mio.id, epochConflict:true}})); } catch (_) {}
+        }
+        // Competing explicit owner/admin recounts must be ordered by the
+        // timestamp of the COUNT, never a later sale's stockTs. Preserve the
+        // losing epoch and its facts in stockEvidencias for reconciliation.
+        // Historic versions lack stockCountTs; retain their stockTs only as
+        // migration fallback, without creating an epoch from that number.
+        const _countR = Number(p.stockCountTs) > 0 ? Number(p.stockCountTs) : _tsR;
+        const _countL = Number(mio.stockCountTs) > 0 ? Number(mio.stockCountTs) : _tsL;
+        // Older releases recorded real physical counts without an epoch
+        // count timestamp. Preserve their one-time migration rule only until
+        // an authenticated count with stockCountTs has been established.
+        // A legacy stockTs can NEVER overrule a modern physical recount.
+        const _legacyCountMigration = !!(epochLocal && !epochRemote &&
+          _baseR !== null && _baseR !== _baseL &&
+          !(Number(mio.stockCountTs) > 0) && _tsR > _tsL);
+        /* v750 fix: orden CAUSAL antes que reloj. El testigo de un recuento nombra la epoca
+           sobre la que se conto: esa epoca es su antecesora y nunca le gana, aunque una venta
+           hecha sin red en la epoca vieja traiga un stockTs posterior (antes esa venta deshacia
+           el recuento del dueno en todos los aparatos). Prueba: test/fable-v750-stock-abc.test.cjs. */
+        const _sucede = (nuevo, viejo, epViejo) => { const w = nuevo && nuevo.stockCountWitness;
+          return !!(w && w.pn && typeof w.pn === "object" && !Array.isArray(w.pn) && String(w.epoch || "") === epViejo &&
+            (w.base == null || viejo.stockBase == null || Number(w.base) === Number(viejo.stockBase))); };
+        const _sucedeR = !!(epochLocal && epochRemote && epochConflict) && _sucede(p, mio, epochLocal);
+        const _sucedeL = !!(epochLocal && epochRemote && epochConflict) && _sucede(mio, p, epochRemote);
+        const _gana = _legacyCountMigration ||
+          !!(!_sucedeL && epochLocal && epochRemote && epochConflict && _baseR !== null &&
+          (_sucedeR || _countR > _countL || (_countR === _countL && epochRemote > epochLocal)));
+        const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
+        const protectedStock = _epochDoble
+          ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
+             actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs, countTs:mio.stockCountTs}
+          : null;
+        // Keep the losing baseline's independent operation IDs even after LWW.
+        // The effective stock remains unchanged until a proven common epoch exists.
+        if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+            _epochDoble || _gana || // the losing count is recorded as evidence before adopting the winner
+            (mio.stockEvidencias && Object.keys(mio.stockEvidencias).length) ||
+            (p.stockEvidencias && Object.keys(p.stockEvidencias).length)) {
+          const evidence = _pruebasStockUnir(mio, p);
+          if (JSON.stringify(mio.stockEvidencias || {}) !== JSON.stringify(evidence)) {
+            mio.stockEvidencias = evidence; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
+          }
+        }
+        // An unobserved actor movement across different recounts remains
+        // unresolved. Preserve both facts and expose a monotonic diagnostic;
+        // never silently count it twice or declare it absorbed by the clock.
+        const _forkFisico = (_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+          (epochLocal && epochRemote && epochLocal !== epochRemote);
+        if (p.stockReconciliacionPendiente === true || (_forkFisico &&
+            (_stockHechosNoVacios(p) || _stockHechosNoVacios(mio)) &&
+            !_conteoIncluyeHechos(p, mio) && !_conteoIncluyeHechos(mio, p))) {
+          if (mio.stockReconciliacionPendiente !== true) {
+            mio.stockReconciliacionPendiente = true; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-conciliacion-pendiente",
+              { detail: { productoId: mio.id } })); } catch (_) {}
+          }
+        }
+        // An epoch ID alone cannot make an older snapshot a physical recount.
+        /* v759: the witness must name THIS device's history (epoch and base), as in _sucede;
+           a witness of another history (9->0) or no witness at all (9->1) cannot replace
+           known units. A recount without witness (older releases) still proves itself by its
+           stockCountTs or by a product revision that dominates this one (every recount bumps rev).
+           Prueba: test/p0-v759-stock-testigo.test.cjs, fable-v750-recuento-legitimo y incident-v608 (E2). */
+        const _testigoR = p.stockCountWitness;
+        const _formaTestigoR = _testigoR && typeof _testigoR.epoch === "string" &&
+          _testigoR.pn && typeof _testigoR.pn === "object" && !Array.isArray(_testigoR.pn);
+        const _conteoR = !!(epochConflict && !epochLocal) && (_sucede(p, mio, epochLocal) ||
+          (_testigoR == null && _tsR > _tsL && (Number(p.stockCountTs) > 0 || ganaP === true)));
+        if ((epochConflict && !epochLocal && epochRemote && _baseR !== null &&
+            (_tsR > _tsL || _conteoR)) || _gana) {
+          const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
+          const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
+            sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
+          // A later clock cannot replace known units with a zero from an unproven baseline.
+          // Without a counted epoch (v759) it may only attach its epoch to the SAME units.
+          if (Number.isSafeInteger(net) && (_gana ? (net > 0 || !(_stockLConocido > 0) || _formaTestigoR)
+              : (_conteoR || !(_stockLConocido > 0) || net === _stockLConocido))) {
+            mio.stockEpochId = epochRemote;
+            mio.stockCountWitness = p.stockCountWitness ? clonar(p.stockCountWitness) : null;
+            mio.stockCountTs = Number(p.stockCountTs) || 0;
+            mio.stockBase = _baseR;
+            mio.stockPN = newCounters;
+            mio.stockActual = Math.max(0,net);
+            mio.stockDeficit = Math.max(0,-net);
+            mio.stockTs = _tsR;
+            actualizados++;
+          }
+        } else if (!epochConflict && _baseR !== null && (_baseL === _baseR || (_baseL === null &&
+            (_stockLConocido === null || _stockLConocido === _baseR || _stockLConocido === _stockRConocido)))) {
+          const pn = Object.assign({}, _pnL || {});
+          Object.keys(_pnR || {}).forEach((id) => {
+            const antes = pn[id] || {}, nuevo = _pnR[id] || {};
+            pn[id] = { add: Math.max(Number(antes.add) || 0, Number(nuevo.add) || 0),
+                       sub: Math.max(Number(antes.sub) || 0, Number(nuevo.sub) || 0) };
+          });
+          const _crudo = _baseR + Object.keys(pn).reduce((n, id) => n + (Number(pn[id].add) || 0) - (Number(pn[id].sub) || 0), 0);
+          const calculado = Math.max(0, _crudo);
+          /* FALTANTE VISIBLE (JFC 2026-09-29): el Math.max escondia como 0 la unidad
+             vendida dos veces sin red. Se guarda aparte, derivado del contador. */
+          const _deficit = _crudo < 0 ? -_crudo : 0;
+          if (calculado !== Number(mio.stockActual) || JSON.stringify(pn) !== JSON.stringify(_pnL) || _baseL === null || _deficit !== (Number(mio.stockDeficit) || 0)) actualizados++;
+          mio.stockBase = _baseR; mio.stockPN = pn; mio.stockActual = calculado; mio.stockDeficit = _deficit;
+          mio.stockTs = Math.max(_tsL, _tsR);
+          mio.stockCountTs = Math.max(Number(mio.stockCountTs) || 0, Number(p.stockCountTs) || 0);
+        } else if (!epochConflict && _baseL === null && _baseR === null && (_tsR > _tsL || (_stockLConocido === null && _tsR === _tsL)) && _stockRConocido !== null) {
+          /* Compatibilidad con aparatos anteriores al ledger de stock.
+             v445 bloqueo el cero legado destructivo. v447 agrega la otra mitad:
+             si YA existe un reloj comun, un stockTs legado que esta >5 min en el
+             futuro no demuestra recencia y no puede ganar, sea cero o positivo.
+             Se preserva el estado local y se emite diagnostico; no se inventa stock. */
+          const _stockR = _stockRConocido;
+          const _ahoraComun = ahoraRelayComun();
+          const _tsFuturoImposible = _ahoraComun !== null && _tsR > _ahoraComun + 5 * 60 * 1000;
+          const _ceroLegadoSospechoso = _stockR === 0 && Number(mio.stockActual) > 0;
+          if (_tsFuturoImposible) {
+            try { window.dispatchEvent(new CustomEvent("oc-stock-ts-futuro-ignorado", { detail: { productoId: mio.id, stockTs: _tsR, ahoraRelay: _ahoraComun } })); } catch (_) {}
+          } else if (!_ceroLegadoSospechoso) {
+            mio.stockActual = _stockR; mio.stockTs = _tsR; actualizados++;
+          } else {
+            try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
+          }
+        } else if (_baseL === null && _baseR === null && !_pnL && !_pnR && _tsR >= _tsL &&
+            (!epochLocal || !epochRemote || epochLocal === epochRemote) &&
+            Number(mio.stockActual) === 0 && Number(p.stockActual) > 0 &&
+            !(ahoraRelayComun() !== null && _tsR > ahoraRelayComun() + 5 * 60 * 1000)) {
+          /* v644: a joining device can get a product first from the old relay checkpoint, at stock 0 with no stamp.
+             The tie then kept 0 forever. With no base and no counters this device never moved this product
+             (every movement or count creates a base), so its 0 is not a fact and the shared value is adopted. */
+          mio.stockActual = Math.max(0, Number(p.stockActual)); mio.stockTs = _tsR;
+          if (epochRemote) mio.stockEpochId = epochRemote;
+          actualizados++;
+        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && !epochLocal && !epochRemote && _ganaEpocaStockRemota(p, mio)) {
+          /* v515 (Belen 2026-10-14: "Yo arregle manualmente... no afecto a lo de mi compu").
+             Antes, con bases distintas solo se avisaba y NADIE convergia nunca: cada aparato
+             quedaba con su numero y una correccion manual no cruzaba. Ahora gana el cambio de
+             stock MAS RECIENTE (stockTs); empate = misma regla determinista en los dos aparatos
+             (ver _ganaEpocaStockRemota, identica en sync-yjs.js). El que pierde adopta base y
+             contadores completos del ganador: desde ahi comparten base y las ventas se suman.
+             Prueba: test/stock-base-conflicto-v515.test.js */
+          const pnG = {};
+          Object.keys(_pnR || {}).forEach((id) => { pnG[id] = { add: Number(_pnR[id].add) || 0, sub: Number(_pnR[id].sub) || 0 }; });
+          const _crudoG = _baseR + Object.keys(pnG).reduce((n, id) => n + pnG[id].add - pnG[id].sub, 0);
+          if (_crudoG > 0 || !(_stockLConocido > 0) || _formaTestigoR ||(_baseR > 0 && _stockHechosNoVacios(p))) {
+            mio.stockBase = _baseR; mio.stockPN = pnG; mio.stockActual = Math.max(0, _crudoG);
+            mio.stockDeficit = _crudoG < 0 ? -_crudoG : 0; mio.stockTs = _tsR; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
+          }
+        } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
+          try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "local" } })); } catch (_) {}
+        }
+        // A conflicting explicit physical epoch is not proof of a recount.
+        // Preserve this device's active physical inventory, even if a legacy
+        // branch inadvertently tried to adopt a remote numeric base.
+        if (protectedStock) {
+          mio.stockBase = protectedStock.base;
+          mio.stockPN = protectedStock.pn;
+          mio.stockActual = protectedStock.actual;
+          mio.stockDeficit = protectedStock.deficit;
+          mio.stockTs = protectedStock.ts;
+          mio.stockCountTs = protectedStock.countTs;
+        }
+        if (ganaP === true) {
+          if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
+          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "piezaUnica", "fotoHash", "borrado", "rev"];
+          const fotoAnterior = mio.fotoHash;
+          // render-fotos: a winning revision with an empty hash (peer that has not hashed yet / pre-v664 shell) must not clear the local pointer or photo.
+          campos.forEach((k) => { if (k === "fotoHash" && !p.fotoHash) return; if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
+          if (fotoAnterior !== mio.fotoHash) mio.foto = null;
+          _observarRev(p.rev); actualizados++;
+        } else if (ganaP === null && mandaElOtro) {
+          if (esTextoCorto(String(p.nombre || ""), 240) && String(mio.nombre) !== String(p.nombre)) { mio.nombre = p.nombre; actualizados++; }
+          if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = aCent(p.precio); actualizados++; }
+          /* precioCasa (JFC/Belén 2026-09-15): converge entre aparatos. null lo
+             borra; un número >=0 lo fija. */
+          if (p.precioCasa === null && mio.precioCasa != null) { mio.precioCasa = null; actualizados++; }
+          else if (Number.isFinite(Number(p.precioCasa)) && Number(p.precioCasa) >= 0 && Number(mio.precioCasa) !== Number(p.precioCasa)) { mio.precioCasa = aCent(p.precioCasa); actualizados++; }
+        }
+      }
+    });
+
+    /* VENTAS / DINERO ADD-ONLY (JFC 2026-09-16, aprobado). Cada venta se SUMA una
+       sola vez por id; nunca se pisa ni se borra una venta existente. No hay doble
+       descuento de stock porque el stock es LWW ABSOLUTO aparte (v289), no se
+       re-deriva de estas ventas. Asi el dinero (ventas, reportes) converge entre
+       aparatos por el sync nuevo, sin depender del sync viejo. */
+    if (Array.isArray(remoto.ventas)) {
+      // FIX v293 (perf): Set de ids locales UNA vez, no ventas.some() por cada
+      // venta remota (era O(n*m); con historiales grandes trababa el merge).
+      const _idsVenta = new Map(ventas.map((x) => [String(x.id), x]));
+      remoto.ventas.forEach((v) => {
+        if (!v || v.id == null) return;
+        if (_estaEnSemillaDemoSeleccionada(_demoRemoto, "ventas", v) || _esVentaDemoExacta(v)) return;
+        _observarRev(v.rev);
+        const local = _idsVenta.get(String(v.id));
+        if (local) {
+          /* CARRERAS DE DINERO ENTRE APARATOS (JFC 2026-09-24, cazadas por
+             test/commissions-carreras-sync.test.js). Antes ganaba el registro
+             ENTERO con rev mas alto, y eso perdia plata en dos carreras reales:
+             (1) A paga y B, sin verlo, anula/devuelve la misma venta: segun el
+                 rev, A ignoraba la devolucion (socio cobra por algo que volvio)
+                 o A perdia "liquidada" (pagado que desaparece del registro).
+             (2) B corrige el % de una venta que A ya pago: la correccion
+                 "despagaba" la venta y cambiaba el monto sellado.
+             Ahora: las banderas liquidada/devuelta/anulada son MONOTONAS (una
+             vez puestas ningun merge las quita, gane quien gane el rev); el
+             split de una venta pagada se congela (manda el lado que la pago);
+             y si al converger la venta queda pagada Y anulada/devuelta sin su
+             clawback, se crea el ajuste negativo con id DETERMINISTA
+             (aj-dev-<ventaId>) para que los dos aparatos creen el mismo y el
+             merge add-only de ajustes lo deduplique. Aditivo: sin banderas en
+             juego, el comportamiento es el de siempre (rev manda). */
+          const domina = _revDomina(v.rev, local.rev) === true;
+          const pagadaLocal = !!local.liquidada, splitLocal = local.split;
+          const pagadaRemota = !!v.liquidada, splitRemoto = v.split;
+          const devueltaLocal = !!local.devuelta, anuladaLocal = !!local.anulada;
+          const retornoLocal = local.devolucionId || null, fechaRetornoLocal = local.fechaDevolucion || null;
+          // A return freezes the economic receipt it reverses. An offline edit
+          // must not replace that receipt while leaving its old negative amount.
+          const ventaRetornada = devueltaLocal && !v.devuelta ? clonar(local)
+            : (!devueltaLocal && v.devuelta ? v : null);
+          const medioLocal = local.medioPagoComision || null;
+          const canceladaExPostLocal = local.canceladaExPostEn || null;
+          if (domina) { Object.assign(local, v); actualizados++; }
+          if (ventaRetornada) {
+            ["cantidad", "precioUnit", "costoUnit", "modalidadVenta", "fecha", "split", "impuesto", "noCommission", "modoComision", "clienteId", "info", "promotoraId", "asistenteId", "asistentePct", "direccionComision"].forEach(campo => {
+              if (Object.prototype.hasOwnProperty.call(ventaRetornada, campo)) local[campo] = clonar(ventaRetornada[campo]);
+              else delete local[campo];
+            });
+          }
+          /* Medio de pago (2026-09-24): una vez sellado, manda el del lado que pago. */
+          local.medioPagoComision = medioLocal || v.medioPagoComision || local.medioPagoComision || undefined;
+          if (local.medioPagoComision === undefined) delete local.medioPagoComision;
+          local.liquidada = pagadaLocal || pagadaRemota;
+          local.devuelta = !!(devueltaLocal || v.devuelta);
+          local.anulada = !!(anuladaLocal || v.anulada);
+          local.canceladaExPostEn = canceladaExPostLocal || v.canceladaExPostEn || null;
+          local.devolucionId = retornoLocal || v.devolucionId || null;
+          const retorno = ajustesComision.find(a => a && a.tipo === "devolucion" && (a.id === local.devolucionId || a.ventaId === local.id));
+          local.fechaDevolucion = (retorno && retorno.fecha) || fechaRetornoLocal || v.fechaDevolucion || null;
+          if (pagadaLocal && splitLocal) local.split = splitLocal;
+          else if (pagadaRemota && splitRemoto) local.split = splitRemoto;
+          /* v597 (clawback doble): una venta ANULADA/cancelada que ya estaba pagada la descuenta
+             el libro de pagos (payout-ledger.js, fila "void" = lo realmente pagado, ver
+             test/payout-anulada-retencion-2026-10-07.test.js). Fabricar ademas un aj-dev hacia
+             que el mismo pago se descontara dos veces (-40 habiendo cobrado 20). El aj-dev
+             queda SOLO para la venta devuelta (no anulada). */
+          if (local.liquidada && local.split && local.devuelta && !local.anulada) {
+            const idAj = "aj-dev-" + String(local.id);
+            /* v597: yaHay solo cuenta una DEVOLUCION de esta venta. Antes cualquier ajuste con su
+               ventaId (p.ej. el adj-retro del recalculo retroactivo) daba el clawback por hecho
+               y la venta pagada y devuelta en otro aparato no descontaba nada. */
+            const yaHay = ajustesComision.some((a) => a && (String(a.id) === idAj || (a.tipo === "devolucion" && String(a.ventaId) === String(local.id))));
+            if (!yaHay) {
+              const sp = local.split;
+              ajustesComision.push({
+                id: idAj, tipo: "devolucion", ventaId: local.id, ubicacionId: local.ubicacionId, productoId: local.productoId,
+                cantidad: local.cantidad, fecha: new Date().toISOString(),
+                montoBruto: -(Number(sp.montoBruto) || 0),
+                montoComisionSocio: sp.montoComisionSocio == null ? null : -(Number(sp.montoComisionSocio) || 0),
+                montoNetoDueno: sp.montoNetoDueno == null ? null : -(Number(sp.montoNetoDueno) || 0),
+                reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
+                quien: "sync", motivo: "Return recorded on another device after this sale was paid", liquidada: false, rev: _revNueva()
+              });
+              local.devuelta = true; local.devolucionId = idAj; actualizados++;
+            }
+          }
+          return;
+        }
+        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), ...(Array.isArray(v.direccionCambios) ? { direccionCambios: v.direccionCambios.slice(-20) } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit == null || String(v.costoUnit).trim() === "" || !Number.isFinite(Number(v.costoUnit)) || Number(v.costoUnit) < 0 ? null : Number(v.costoUnit), fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
+        ventasAgregadas++;
+      });
+    }
+
+    /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Cada aparato publico su
+       entrada {id,apodo,rol}; aqui se alimenta la lista de micelio (misma que pinta
+       Advanced -> "Your team right now") para que el dueño vea SUS aparatos por el
+       sync nuevo, no por el viejo. No se cuenta como "agregado" (no dispara merge
+       de negocio); solo refresca la lista de dispositivos. */
+    if (Array.isArray(remoto.dispositivos) && window.OCMicelio && window.OCMicelio.recibir) {
+      remoto.dispositivos.forEach((d) => {
+        if (!d || !d.id) return;
+        try {
+          window.OCMicelio.recibir({
+            tipo: window.OCMicelio.TIPO_LATIDO,
+            payload: { id: String(d.id), apodo: String(d.apodo || "").slice(0, 28), rol: d.rol || "", visto: Date.now(), shell: "", huella: "" }
+          });
+        } catch (_) {}
+      });
+      try { window.dispatchEvent(new CustomEvent("oc-micelio-cambio")); } catch (_) {}
+    }
+
+    /* EL EQUIPO (2026-08-21). Misma regla dura que el catalogo: SUMA, NUNCA
+       BORRA. Un miembro que solo existe aqui se queda; nunca se elimina a
+       nadie por un merge, porque quedarse sin acceso al cuaderno por
+       sincronizar seria peor que no sincronizar nunca. Para sacar a alguien
+       de verdad esta el boton de borrar, que es una decision de una persona.
+       El PIN duplicado se resuelve conservando el propio: dos personas con el
+       mismo PIN dejaria entrar a la equivocada. */
+    /* LWW-Element-Set con reloj LÓGICO + tombstones (JFC 2026-08-26, Camino A).
+       ANTES esto era add-only y decidía por reloj de PARED (actualizadoEn):
+         - no podía sacar a nadie del equipo entre aparatos (add-only nunca borra
+           y el otro re-propagaba al borrado);
+         - dos celulares con la hora mal puesta se pisaban al promover/degradar/PIN.
+       AHORA cada registro trae rev = { c: Lamport, d: deviceId } y la baja es un
+       tombstone (borrado:true). El ganador se decide por rev (causal, global); si
+       NINGUNO de los dos tiene rev (dato viejo pre-upgrade) se cae al reloj de
+       pared, idéntico a como era. La baja gana al re-add rancio y propaga. */
+    let miembrosAgregados = 0, miembrosActualizados = 0, miembrosQuitados = 0;
+    if (Array.isArray(remoto.usuarios)) {
+      remoto.usuarios.forEach((u) => {
+        if (!u || !u.id) return;
+        const esTomb = !!u.borrado;
+        // Un registro vivo necesita nombre y PIN legible; un tombstone puede llegar
+        // sin ellos y aun así hay que respetarlo (es una BAJA, no un alta a medias).
+        if (!esTomb) {
+          if (!u.nombre) return;
+          if (!/^\d{3}$/.test(String(u.pin || ""))) return; // PIN ilegible: no se importa a medias
+        }
+        const rolU = (u.rol === "admin" || u.rol === "empleado") ? u.rol : "empleado";
+        const mio = usuarios.find((x) => String(x.id) === String(u.id));
+        if (!mio) {
+          if (esTomb) {
+            // Baja de alguien que aquí nunca existió: se registra el tombstone para
+            // que, si un tercer aparato lo re-agrega con rev menor, la baja gane.
+            usuarios.push({ id: u.id, nombre: String(u.nombre || "").slice(0, 60), pin: u.pin || "",
+                            rol: rolU, email: u.email || null, activo: false, borrado: true,
+                            creadoEn: u.creadoEn || new Date().toISOString(),
+                            actualizadoEn: u.actualizadoEn || null, rev: u.rev || null });
+            return;
+          }
+          if (usuarios.some((x) => !x.borrado && x.pin === u.pin)) {
+            /* AVISO DE COLISIÓN DE PIN (2026-08-26, code-review finding #4):
+               Antes, esta colisión se descartaba silenciosamente. El resultado era
+               que el operador no sabía por qué el miembro del equipo no llegó —
+               desde su punto de vista el sync "funcionó" pero la persona no aparecía.
+               Con el evento oc-pin-colision, la UI puede avisarle al dueño:
+               "El PIN de [nombre] choca con uno que ya tienes — cámbiaselo antes de sincronizar."
+               La política sigue siendo la misma: gana el PIN de casa (no se importa el remoto).
+               El evento es informativo, no bloquea nada. */
+            _anotarConflictoEquipo(u);
+            try { window.dispatchEvent(new CustomEvent("oc-pin-colision", { detail: { nombre: u.nombre, id: u.id } })); } catch (_) {}
+            return;
+          }
+          usuarios.push({ id: u.id, nombre: String(u.nombre).slice(0, 60), pin: u.pin, rol: rolU,
+                          email: u.email || null, activo: u.activo !== false, borrado: false,
+                          creadoEn: u.creadoEn || new Date().toISOString(),
+                          actualizadoEn: u.actualizadoEn || null, rev: u.rev || null });
+          miembrosAgregados++;
+          _resolverConflictoEquipo(u.id);
+          return;
+        }
+        // Ya existe aquí: decide el reloj lógico; si ninguno tiene rev, el de pared.
+        const dom = _revDomina(u.rev, mio.rev);
+        let ganaSuyo;
+        if (dom === null) {
+          const tMio = Date.parse(mio.actualizadoEn || mio.creadoEn || 0) || 0;
+          const tSuyo = Date.parse(u.actualizadoEn || u.creadoEn || 0) || 0;
+          ganaSuyo = tSuyo > tMio;
+        } else {
+          ganaSuyo = dom;
+        }
+        if (!ganaSuyo) return; // lo de aquí gana o empata: no se pisa
+        // El PIN entrante no debe chocar con OTRO miembro vivo (dejaría entrar a la
+        // persona equivocada). Un tombstone no trae PIN activo, así que no aplica.
+        if (!esTomb && usuarios.some((x) => x.id !== mio.id && !x.borrado && x.pin === u.pin)) { _anotarConflictoEquipo(u); return; }
+        const estabaVivo = !mio.borrado;
+        mio.nombre = String(u.nombre || mio.nombre).slice(0, 60);
+        if (u.pin) mio.pin = u.pin;
+        mio.rol = rolU;
+        mio.borrado = esTomb;
+        mio.activo = esTomb ? false : (u.activo !== false);
+        if (u.email !== undefined) mio.email = u.email || null;
+        mio.actualizadoEn = u.actualizadoEn || mio.actualizadoEn;
+        mio.rev = u.rev || mio.rev;
+        _resolverConflictoEquipo(u.id);
+        if (esTomb && estabaVivo) miembrosQuitados++;
+        else miembrosActualizados++;
+      });
+    }
+
+    /* CLIENTES — SUMA, NUNCA BORRA (JFC 2026-08-26). Add-only por id: si el
+       cliente ya existe aquí, NO se pisa (se respeta la evaluación local trato/
+       confiabilidad, que es criterio de cada operador). Solo se agregan los que
+       faltan. Así Belén ve los clientes REALES del negocio y no la semilla demo. */
+    let clientesAgregados = 0;
+    if (Array.isArray(remoto.clientes)) {
+      remoto.clientes.forEach((c) => {
+        if (!c || !c.id || (!c.borrado && !c.nombre)) return;
+        if (_estaEnSemillaDemoSeleccionada(_demoRemoto, "clientes", c)) return;
+        _observarRev(c.rev);
+        const mio = clientes.find((x) => String(x.id) === String(c.id));
+        if (mio) {
+          const yaBorrado = !!(mio.borrado || c.borrado);
+          if (_revDomina(c.rev, mio.rev) !== true) {
+            if (yaBorrado && !mio.borrado) { mio.borrado = true; actualizados++; }
+            return;
+          }
+          // Monotonic delete: a stale offline edit on another device cannot resurrect a deleted customer.
+          Object.assign(mio, c, yaBorrado ? { borrado: true } : {});
+          actualizados++;
+          return;
+        }
+        clientes.push({
+          id: c.id,
+          codigo: c.codigo || "",
+          nombre: String(c.nombre || "").slice(0, 80),
+          telefono: c.telefono || "",
+          email: c.email || "",
+          evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] },
+          notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", ...perfilCliente(c),
+          despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null,
+        });
+        clientesAgregados++;
+      });
+    }
+
+    /* COMISIONISTAS (promotoras) y SUCURSALES — SUMA, NUNCA PISA (JFC 2026-09-10,
+       "sync integral"). Add-only por id, igual que los clientes: si ya existe
+       aqui, NO se toca (se respeta su comision/datos locales — sobre plata no se
+       adivina). Solo entran los que faltan. Asi un comisionista dado de alta en un
+       aparato aparece en el otro sin arriesgar sus porcentajes. */
+    let promotorasAgregadas = 0;
+    if (Array.isArray(remoto.promotoras)) {
+      remoto.promotoras.forEach((p) => {
+        if (!p || !p.id || !p.nombre) return;
+        if (_estaEnSemillaDemoSeleccionada(_demoRemoto, "promotoras", p)) return;
+        _observarRev(p.rev);
+        const mio = promotoras.find((x) => String(x.id) === String(p.id));
+        if (mio) {
+          if (_revDomina(p.rev, mio.rev) !== true) return;
+          Object.assign(mio, p); actualizados++; return;
+        }
+        const base = Math.max(0, Number(p.comisionBase != null ? p.comisionBase : p.comision) || 0);
+        promotoras.push({ id: p.id, nombre: String(p.nombre).slice(0, 80), comisionBase: base, comision: base,
+          telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "",
+          direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false,
+          metaMensual: Math.max(0, Number(p.metaMensual) || 0),
+          escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [],
+          creadoEn: p.creadoEn || new Date().toISOString(), rev: p.rev || null, borrado: !!p.borrado,
+          // benchmark #6: el acceso de artista viaja cifrado igual que el PIN del equipo.
+          ...(p.accesoArtista && /^\d{3}$/.test(String(p.accesoArtista.pin || "")) ? { accesoArtista: { pin: String(p.accesoArtista.pin), activo: !!p.accesoArtista.activo, actualizadoEn: p.accesoArtista.actualizadoEn || null } } : {}) });
+        promotorasAgregadas++;
+      });
+    }
+    let sucursalesAgregadas = 0;
+    if (Array.isArray(remoto.sucursales)) {
+      remoto.sucursales.forEach((s) => {
+        if (!s || !s.id || !s.nombre) return;
+        if (_estaEnSemillaDemoSeleccionada(_demoRemoto, "sucursales", s)) return;
+        _observarRev(s.rev);
+        const mio = sucursales.find((x) => String(x.id) === String(s.id));
+        if (mio) {
+          if (_revDomina(s.rev, mio.rev) !== true) return;
+          Object.assign(mio, s); actualizados++; return;
+        }
+        sucursales.push({ id: s.id, nombre: String(s.nombre).slice(0, 80), activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado });
+        sucursalesAgregadas++;
+      });
+    }
+
+    /* NOMBRE DE LA TIENDA (JFC 2026-08-27 + 2026-08-28 + DESEMPATE v283 2026-09-15).
+       Al unirse a un equipo, el aparato adopta el nombre del negocio. Regla de
+       jerarquía (JFC 2026-08-28: "la jerarquía le pertenece al PIN, el nombre sale
+       del PIN de mayor jerarquía"): se adopta si el local está vacío O si el
+       remitente es el DUEÑO. DESEMPATE (v283): cuando AMBOS son dueño, ya no gana
+       "el último que sembró" (guerra de nombres, nunca convergía). Gana el rename
+       de dueño MÁS RECIENTE por su sello de tiempo: solo se adopta el nombre remoto
+       de un dueño si su nombreNegocioTs es MAYOR que el local (o si el local no
+       tiene sello). Así los dos aparatos convergen al mismo nombre de forma estable. */
+    /* DESEMPATE v290 (#2): PRIMARIO por rev monotónico (inmune a relojes
+       desfasados), SECUNDARIO por ts. Se adopta el nombre remoto de un dueño si su
+       rev es mayor, o si empatan en rev y su ts es mayor. */
+    var _tsRemoto = Number(remoto && remoto.nombreNegocioTs) || 0;
+    var _revRemoto = Number(remoto && remoto.nombreNegocioRev) || 0;
+    var _adoptaNombre = false;
+    if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim()) {
+      if (!String(nombreNegocio || "").trim()) _adoptaNombre = true;           // local vacío: adoptar
+      else if (rolRemoto === "dueno") {
+        // Equal owner revision from shared Yjs is canonical despite a future local clock.
+        var mismoRevYjs = nombreCanonicoYjs === true && remoto._nombreDesdeYjs === true &&
+          _revRemoto === nombreNegocioRev &&
+          remoto.nombreNegocio.trim() !== String(nombreNegocio || "").trim();
+        // E4: an old device's clock is never proof of a new owner revision.
+        // Only a higher revision or the explicitly canonical Yjs owner state wins.
+        _adoptaNombre = (_revRemoto > nombreNegocioRev) || mismoRevYjs;
+      }
+    }
+    if (_adoptaNombre) {
+      nombreNegocio = remoto.nombreNegocio.trim().slice(0, 80);
+      if (_tsRemoto) nombreNegocioTs = _tsRemoto;
+      if (_revRemoto > nombreNegocioRev) nombreNegocioRev = _revRemoto; // Lamport: sincroniza el contador
+      // v594: f123_owned describe el negocio PROPIO. Dentro de una tienda unida el
+      // nombre del equipo vive solo en el namespace activo; copiarlo al sidecar
+      // hacia que el candado/header mostraran el nombre ajeno al volver a casa.
+      if (_cuadernoPropio()) try {
+        const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        _ow.nombreNegocio = nombreNegocio;
+        if (_tsRemoto) _ow.nombreNegocioTs = _tsRemoto;
+        _ow.nombreNegocioRev = nombreNegocioRev;
+        localStorage.setItem("f123_owned", JSON.stringify(_ow));
+      } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
+      /* HEARTBEAT AL ADOPTAR NOMBRE POR SYNC (v301, #9). Antes el nombre convergia
+         en el aparato pero el panel privado seguia mostrando el viejo hasta el
+         proximo login (el panel lee el heartbeat, no el _meta del sync). Ahora, al
+         adoptar un nombre nuevo, se manda un heartbeat para que el panel muestre un
+         solo nombre por licencia de inmediato. */
+      try {
+        var _oh = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        // The panel row belongs to the own license, never to a joined notebook.
+        if (_cuadernoPropio() && _oh.instanceId && window.OCAuth && window.OCAuth.heartbeat) {
+          window.OCAuth.heartbeat({ instanceId: _oh.instanceId, licenseCode: _oh.licenseCode || "", email: _oh.email || "", whatsapp: _oh.whatsapp || "", nombre: _oh.nombre || "", nombreNegocio: nombreNegocio, accion: "sync-nombre" });
+        }
+      } catch (_) {}
+    }
+    try {
+      const pr = remoto && remoto.pinsRol;
+      if (pr && window.OCSecure) {
+        const fabrica = { owner: "789", emp: "260", acct: "357" };
+        const vis = (window.OCSecure.leerPinsVisibles && window.OCSecure.leerPinsVisibles()) || {};
+        const take = function (remotoPin, localPin, fijar, rolAbre) {
+          const p = String(remotoPin || "");
+          if (!/^\d{3}$/.test(p) || p === "456") return;
+          const fab = fabrica[rolAbre === "dueno" ? "owner" : (rolAbre === "empleado" ? "emp" : "acct")];
+          let abrePin = "";
+          try {
+            const abre = (window.OCSecure.leerPinQueAbre && window.OCSecure.leerPinQueAbre()) || {};
+            abrePin = rolAbre === "dueno" ? (abre.owner || "") : (rolAbre === "empleado" ? (abre.emp || "") : (abre.acct || ""));
+          } catch (_) {}
+          const local = String(localPin || abrePin || "");
+          /* FIX (JFC 2026-09-15): 888 es un PIN de dueño LIBRE y VÁLIDO (ver el
+             esquema en ~1621: 789=fábrica, 456=demo; 888 lo usan los usuarios,
+             p.ej. Sarah/idiomARTE). Antes se trataba 888 como PIN de fábrica, así
+             que NO se protegía como "custom" y un merge de otro aparato podía
+             SOBREESCRIBIR el 888 del dueño -> Sarah quedaba sin su PIN y le salía
+             demo. Ahora 888 cuenta como custom (se protege) y un 888 remoto SÍ se
+             adopta (es un PIN real, no fábrica). Solo 789 es fábrica. */
+          const localEsCustom = !!(local && local !== fab && local !== "456");
+          const remotoEsFabrica = (p === fab);
+          /* Sidecar: el PIN del cuaderno TAMBIEN abre, sin borrar el de este aparato.
+             FIX (JFC 2026-09-15): antes eq.owner = p PISABA el sidecar del dueño con
+             el PIN remoto; si el dueño local usaba 888 (Sarah/idiomARTE) y llegaba
+             un merge con otro PIN, se le borraba el 888. Ahora SOLO se rellena el
+             sidecar cuando está vacío o es un PIN de sistema (fábrica/demo): un PIN
+             custom real (p.ej. 888) NO se pisa. Así "no borra el de este aparato"
+             de verdad. */
+          try {
+            const eq = (window.OCSecure.leerPinsEquipo && window.OCSecure.leerPinsEquipo()) || {};
+            const _libre = function (v, fab) { return !v || v === fab || v === "456"; };
+            if (rolAbre === "dueno") { if (_libre(eq.owner, "789")) eq.owner = p; }
+            else if (rolAbre === "empleado") { if (_libre(eq.emp, "260")) eq.emp = p; }
+            else { if (_libre(eq.acct, "357")) eq.acct = p; }
+            if (window.OCSecure.guardarPinsEquipo) window.OCSecure.guardarPinsEquipo(eq);
+          } catch (_) {}
+          if (localEsCustom) return;
+          if (local === p) return;
+          if (remotoEsFabrica) return;
+          promesasPins.push(Promise.resolve(fijar(p)).then(function (ok) {
+            if (ok && window.OCSecure.recordarPinQueAbre) window.OCSecure.recordarPinQueAbre(p, rolAbre);
+            return !!ok;
+          }).catch(function () { return false; }));
+        };
+        // v616: an already licensed phone with NO f123_secure cannot use
+        // fijarOwnerPin (it requires a previous salt). Install exactly the
+        // encrypted room's PINs once; never fabricate or replace an owner PIN.
+        const estadoPinLocal = window.OCSecure.estadoSecreto && window.OCSecure.estadoSecreto();
+        let ingresoExplicito = false;
+        try {
+          const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          ingresoExplicito = !!(join.instanceId && join.instanceId === own.instanceId &&
+            join.licenseCode === own.licenseCode && pr.owner && pr.owner !== "789");
+        } catch (_) {}
+        const nuevoEquipoSinPIN = window.OCSecure.instalarCredencialesDesdeSala && pr.owner &&
+          (estadoPinLocal === "vacio" || (estadoPinLocal === "ok" && ingresoExplicito));
+        if (nuevoEquipoSinPIN) {
+          promesasPins.push(Promise.resolve().then(function () {
+            return window.OCSecure.instalarCredencialesDesdeSala(pr);
+          }).then(function (ok) {
+            if (ok === true) return true;
+            if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
+            const localEmp = (vis.empleados && vis.empleados[0]) || "";
+            if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
+            if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+            return false;
+          }, function () { return false; }));
+        } else {
+          if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
+          const localEmp = (vis.empleados && vis.empleados[0]) || "";
+          if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
+          if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+        }
+      }
+    } catch (_) {}
+    /* Categorías (ver categoriasMeta). Gana la revisión mayor; una entrada
+       nueva se agrega. Solo se reflejan en pantalla las que cambiaron. */
+    // Ajustes del cuaderno (v359): hoy solo "impuesto". Gana la revisión mayor.
+    if (Array.isArray(remoto.ajustes)) {
+      remoto.ajustes.forEach((r) => {
+        const rt = _normRetencion(r);
+        if (rt) {
+          _observarRev(rt.rev);
+          if (ajusteRetencion && _revDomina(rt.rev, ajusteRetencion.rev) !== true) return;
+          ajusteRetencion = rt; actualizados++; return;
+        }
+        const lz = _normLealtad(r);
+        if (lz) {
+          _observarRev(lz.rev);
+          if (ajusteLealtad && _revDomina(lz.rev, ajusteLealtad.rev) !== true) return;
+          ajusteLealtad = lz; actualizados++; return;
+        }
+        const m = _normMoneda(r);
+        if (m) {
+          _observarRev(m.rev);
+          if (ajusteMoneda && _revDomina(m.rev, ajusteMoneda.rev) !== true) return;
+          ajusteMoneda = m; actualizados++; return;
+        }
+        const n = _normImpuesto(r);
+        if (!n) return;
+        _observarRev(n.rev);
+        if (ajusteImpuesto && _revDomina(n.rev, ajusteImpuesto.rev) !== true) return;
+        ajusteImpuesto = n; actualizados++;
+      });
+    }
+    if (Array.isArray(remoto.categorias)) {
+      const cambiosCat = [];
+      remoto.categorias.forEach((r) => {
+        if (!r || !r.id || _CAT_ESTADOS.indexOf(r.estado) === -1) return;
+        const id = String(r.id).trim().toLowerCase();
+        if (!id) return;
+        _observarRev(r.rev);
+        const mia = categoriasMeta[id];
+        if (mia && _revDomina(r.rev, mia.rev) !== true) return;
+        categoriasMeta[id] = { id, nombre: String(r.nombre || id).slice(0, 120), estado: r.estado, rev: r.rev || null };
+        cambiosCat.push(categoriasMeta[id]);
+      });
+      if (cambiosCat.length) { _reflejarCategoriasEnListas(cambiosCat); actualizados += cambiosCat.length; }
+    }
+    const negocioDespues = _huellaEstadoMerge();
+    // History has its own additive comparison; do not rebuild it in every business fingerprint.
+    const cambioNegocio = negocioAntes === null || negocioDespues === null || negocioAntes !== negocioDespues;
+    const cambioPersistible = actividadCambio || cambioNegocio;
+    if (cambioPersistible) {
+      if (negocioAntes !== negocioDespues) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
+      // Solo una proyección incremental de productos puede esperar al tiempo ocioso.
+      // Los gastos, pagos, ventas, PIN y catálogos completos conservan el guardado inmediato.
+      const urgencia = _urgenciaPersistenciaMerge(remoto, soloProductosSync, promesasPins, _adoptaNombre);
+      if (urgencia === URGENCIA_MERGE.productos) _programarGuardadoMerge();
+      else _guardarMergeInmediatoSeguro();
+    }
+    if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
+      if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
+      var huboExito = resultados.some(Boolean);
+      var algunoPendiente = resultados.some(function (ok) { return ok !== true; });
+      if (algunoPendiente) {
+        // Never misreport a failed secure-store write as adopted. Retry only
+        // by rereading CURRENT Yjs metadata, never by retaining a previous
+        // three-digit PIN or a stale remote catalog in a timer.
+        try { window.dispatchEvent(new CustomEvent("oc-pins-sync-pendiente",
+          { detail: { pendiente: true } })); } catch (_) {}
+        try {
+          var y = window.OCYjs, room = y && y.roomId ? String(y.roomId) : "";
+          if (room && y && y._store && typeof y._store.aplicar === "function" &&
+              y.canal && y.canal.recuperando === false) {
+            var estado = window.__f123PinRetry || (window.__f123PinRetry =
+              { room: room, intentos: 0, timer: null });
+            if (estado.room !== room) {
+              if (estado.timer) clearTimeout(estado.timer);
+              estado.room = room; estado.intentos = 0; estado.timer = null;
+            }
+            if (!estado.timer && estado.intentos < 5) {
+              var demora = Math.min(30000, 1000 * Math.pow(2, estado.intentos++));
+              estado.timer = setTimeout(function () {
+                estado.timer = null;
+                var actual = window.OCYjs;
+                if (actual && actual.roomId === room && actual.canal &&
+                    actual.canal.recuperando === false && actual._store &&
+                    typeof actual._store.aplicar === "function") actual._store.aplicar();
+              }, demora);
+            }
+          }
+        } catch (_) {}
+      } else {
+        try {
+          var estadoOk = window.__f123PinRetry;
+          if (estadoOk) {
+            if (estadoOk.timer) clearTimeout(estadoOk.timer);
+            estadoOk.timer = null; estadoOk.intentos = 0;
+          }
+        } catch (_) {}
+      }
+      if (!huboExito) return;
+      if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
+      // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27). El aviso sale ya (se auto-filtra con
+      // _estadoPuedeEnviarse); si quedo bloqueado por un guardado estricto, se repite al terminar de guardar.
+      // El relay peer-only no es almacenamiento: el ACK del par exige un guardado estricto independiente.
+      const _persistiendo = Promise.resolve(_guardarMergeInmediatoSeguro()); // credential attempt before announcement
+      const _avisadoYa = _estadoPuedeEnviarse();
+      avisarCatalogoCambiado();
+      return _persistiendo.then(function (guardado) {
+        if (guardado && !_avisadoYa) avisarCatalogoCambiado();
+      });
+    }).catch(function () {});
+    // Ambos caminos de sync (Yjs y realtime) pasan por aquí. Una baja debe
+    // cerrar sesiones abiertas aunque no haya altas ni ediciones en el lote.
+    if (miembrosAgregados || miembrosActualizados || miembrosQuitados) {
+      try { window.dispatchEvent(new CustomEvent("oc-equipo-sync", { detail: { miembrosAgregados, miembrosActualizados, miembrosQuitados } })); } catch (_) {}
+    }
+    /* HIDRATAR FOTOS TRAS SINCRONIZAR EL CATALOGO (v305). Arregla la CARRERA: el
+       blob de la foto llega por el canal -fotos y el fotoHash del producto por el
+       -y; si el blob llega ANTES de que el producto tenga su fotoHash, la
+       hidratacion (en volcarFotosAlStore) no encuentra a quien ponersela y no se
+       reintenta -> la foto no aparecia en la PC. Ahora, cada vez que el catalogo
+       sincroniza (el producto ya tiene fotoHash), se intenta poner p.foto desde el
+       blob ya guardado en OCFotos. */
+    try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
+    const resultado = { ok: true, actividadCompleta: _actividadEstado(_actividadExportable()).ok, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
+    // A current Y.Doc projection may supply missing history required by a retained older batch.
+    if (!_drenandoCatalogos && !_drenarCatalogosPendientes()) return Object.assign(resultado, { ok:false, error:"An incoming catalog is still pending application." });
+    return resultado;
+  }
+
+  /* ===================================================================
+     CAMBIO DE TIENDA — multi-tienda local (JFC 2026-08-26).
+     Poner una licencia = volverse ESA tienda y quedarse ahí. Cada tienda
+     guarda su estado aparte (namespace por sufijo). Cambiar de tienda
+     flushea la actual, apunta el marcador a la otra y recarga. Nada se
+     borra: volver a una tienda anterior restaura sus datos intactos.
+     El registro f123_tiendas mapea licencia -> sufijo para poder regresar
+     a cualquiera con solo volver a poner su licencia (incluida la propia,
+     cuyo sufijo es ""). =============================================== */
+  function _normLic(c) { return String(c || "").trim().toUpperCase().replace(/\s+/g, ""); }
+  function _licenciaPropia() {
+    // v358 (#14): la licencia propia es SOLO la del aparato; el atajo de la
+    // "licencia canónica del lord" se retiró (ver RETIRO DEL LORD arriba).
+    try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
+  }
+  /* v594: ¿el cuaderno ACTIVO es el del negocio propio? Si (a) el sufijo es "" o
+     (b) apunta a la misma licencia que f123_owned.licenseCode (aparato reclamado a
+     su licencia canonica). Solo entonces f123_owned (sidecar propio) puede seguir
+     el nombre del cuaderno. En una tienda unida el nombre es del equipo, no del
+     sidecar: antes aplicarCatalogo/aplicarCheckpoint/renombrar lo copiaban igual. */
+  function _cuadernoPropio() {
+    try { return !OC_STATE_SUFIJO || _normLic(OC_STATE_SUFIJO.slice(2)) === _licenciaPropia(); } catch (_) { return true; }
+  }
+  /* v594: hash corto (4 hex, FNV-1a) para la traza de diagnostico: permite comparar
+     "la misma cosa" entre dos aparatos sin sacar nombres ni licencias de la pantalla. */
+  function _h4(x) {
+    var h = 0x811c9dc5, s = String(x || "");
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ("0000" + (h & 0xffff).toString(16)).slice(-4);
+  }
+  function _licenciaActual() {
+    // La licencia de la tienda activa: si hay sufijo "::L", es L; si no, la propia.
+    return OC_STATE_SUFIJO ? OC_STATE_SUFIJO.slice(2) : _licenciaPropia();
+  }
+  /* v598 (ultrareview 2, punto 1): identidad de la caja de puntos de recuperacion. La usan
+     OCTienda.cuadernoId() (cliente: avanzado-extra.js cajaOrigen, vista-perchas.js G08) Y
+     /api/respaldo/exportar (_recuperacion.notebookId): tienen que ser la MISMA funcion.
+     1) instanceId en memoria; 2) si quedo null tras un reload, re-lee f123_owned EN VIVO
+     (mismo criterio que estaLicenciado, sin hidratar nada); 3) sin instanceId (demo, plan
+     gratis, aparato sin activar o que lo perdio): un id local estable de ESTE aparato
+     (f123_caja_cuaderno_local), creado una sola vez. En v597 el paso 3 no existia y esos
+     cuadernos se quedaban sin puntos automaticos, sin aviso. El namespace (f123_tienda_activa)
+     sigue separando cuaderno propio y cuadernos unidos. Si el id cambia (activar, importar),
+     los puntos viejos NO se borran: Advanced los lista como "identidad anterior". */
+  function _cuadernoIdCaja() {
+    if (instanceId) return String(instanceId);
+    try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; if (o.instanceId) return String(o.instanceId); } catch (_) {}
+    try {
+      let local = localStorage.getItem("f123_caja_cuaderno_local");
+      if (!local) {
+        local = "local-" + ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+        localStorage.setItem("f123_caja_cuaderno_local", local);
+      }
+      return local;
+    } catch (_) { return ""; }
+  }
+  window.OCTienda = {
+    licenciaActual: _licenciaActual,
+    /* v597: identidad ESTABLE del cuaderno activo (instanceId). A diferencia de la licencia,
+       no cambia al rotar el codigo de sala; la usa la caja de puntos de recuperacion.
+       v598: sin instanceId cae a _cuadernoIdCaja() (ver arriba), nunca "" mientras haya localStorage. */
+    cuadernoId() { try { return _cuadernoIdCaja(); } catch (_) { return ""; } },
+    /* ¿La tienda activa es una UNIDA (sufijo con licencia) o la propia (sufijo "")?
+       Lo usa la pantalla de PIN para rotular a QUÉ tienda estás entrando sin
+       tocar el camino de la tienda propia (cliente en vivo). (JFC 2026-08-26) */
+    esUnida() { return !!OC_STATE_SUFIJO; },
+    /* Nombre de la tienda ACTIVA (namespaceado, en memoria). "" si aún no tiene
+       nombre (tienda unida recién creada que todavía no sincronizó). */
+    nombreActivo() { try { return nombreNegocio || ""; } catch (_) { return ""; } },
+    /* v594: UNICA regla de "nombre que se puede mostrar" para quien no quiere
+       esperar al cuaderno: el nombre del cuaderno activo; si aun esta vacio, el
+       ultimo nombre conocido del negocio PROPIO (sidecar) y NUNCA en tienda unida
+       (alli un nombre ajeno del sidecar rotularia el cuaderno equivocado). */
+    nombreConocido() {
+      try {
+        if (nombreNegocio) return nombreNegocio;
+        if (!_cuadernoPropio()) return "";
+        const o = JSON.parse(localStorage.getItem("f123_owned") || "null");
+        return (o && typeof o.nombreNegocio === "string") ? o.nombreNegocio.trim() : "";
+      } catch (_) { return ""; }
+    },
+    /* v594: TRAZA DE DIAGNOSTICO, SOLO LECTURA. Sin nombres, licencias ni datos de
+       clientes: solo hashes de 4 hex, la revision y que fuente ganaria. La pinta la
+       linea "Sync:" de Advanced para que se pueda copiar y comparar entre aparatos. */
+    trazaNombre() {
+      try {
+        let o = null; try { o = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) {}
+        const car = (o && typeof o.nombreNegocio === "string") ? o.nombreNegocio.trim() : "";
+        const fuente = nombreNegocio ? "ram" : (_cuadernoPropio() && car ? "sidecar" : "vacio");
+        return { unida: !!OC_STATE_SUFIJO, ns: _h4(OC_STATE_SUFIJO), rev: Number(nombreNegocioRev) || 0,
+          nombre: _h4(nombreNegocio), sidecar: _h4(car), sidecarRev: Number(o && o.nombreNegocioRev) || 0, fuente: fuente };
+      } catch (_) { return { fuente: "error" }; }
+    },
+    /* Cambia la app a la tienda de la licencia dada. Devuelve
+       { ok, cambiado, mismo } sin recargar si ya estás en esa tienda. */
+    cambiar(licencia, opts) {
+      const norm = _normLic(licencia);
+      if (!norm) return { ok: false, error: "Empty license." };
+      /* A5 (2026-08-27): opción sinRecargar para que reconciliar() (claim/merge)
+         pueda alinear el namespace de tienda SIN recargar — el merge add-only
+         ocurre en memoria al reconectar, y recargar aquí vaciaría el estado
+         local que el merge debe sumar. El resto del flujo es idéntico. */
+      const sinRecargar = !!(opts && opts.sinRecargar);
+      /* JFC 2026-08-28 (bug de join): la tienda de la que se sale. Si el caller
+         pasó `desde` (capturado ANTES de tocar licenseCode), se usa esa; si no,
+         la activa actual. Sin esto, unirse()/reconciliar() que escriben
+         licenseCode ANTES de cambiar() hacían que _licenciaPropia() devolviera
+         el código NUEVO y sufDest siempre cayera a "" (la propia) → el switch
+         de tienda NUNCA ocurría y el aparato mergeaba datos ajenos en su
+         tienda propia (contaminación cruzada). */
+      const desde = (opts && opts.desde) ? _normLic(opts.desde) : _licenciaActual();
+      // Registro licencia -> sufijo.
+      let reg = {};
+      try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      // Capture v614 alias collisions BEFORE pruning stale registry entries:
+      // pruning removes precisely the old-license witness needed for recovery.
+      var aliasActivoAntes = Object.keys(reg).some(function (k) {
+        return _normLic(k) !== norm && reg[k] === OC_STATE_SUFIJO;
+      });
+      /* Guest licenses must not map to the own-store suffix "". That was the
+         f123_tiendas corruption (P3W1D/JENF → ""). Own license MAY be "". */
+      try {
+        Object.keys(reg).forEach(function (k) {
+          if (reg[k] === "" && _normLic(k) !== _licenciaPropia()) delete reg[k];
+        });
+      } catch (_) {}
+      // Asegurar que la tienda ACTUAL esté registrada (para poder volver a ella).
+      const licAct = desde;
+      if (licAct && !(licAct in reg)) reg[licAct] = OC_STATE_SUFIJO;
+      /* SUFIJO DESTINO por NAMESPACE, no por comparación de licencias (JFC
+         2026-08-26). El bug: "misma tienda" se decidía con norm===_licenciaActual(),
+         que depende de f123_owned.licenseCode — un dato frágil que puede no
+         reflejar el namespace real. Resultado: aceptaba la licencia pero NO
+         cambiaba de tienda. Ahora:
+           - si la licencia es la de la tienda en la que YA estás (`desde`),
+             sufijo = el ACTIVO (mismo:true, no recarga);
+           - si no, y ya está registrada, se usa su sufijo;
+           - si no, una tienda nueva namespaceada "::<lic>".
+         Y "misma tienda" = el sufijo DESTINO es el MISMO que el ACTIVO. Así una
+         licencia distinta SIEMPRE cambia de tienda.
+
+         PRECEDENCIA DE LA LICENCIA PROPIA (JFC 2026-08-26, hallazgo del arnés de
+         dos aparatos). ANTES el registro se consultaba PRIMERO: si tu propia
+         licencia tenía una entrada vieja en f123_tiendas apuntando a una tienda
+         unida ("::L") —basura de un join anterior—, esa entrada GANABA y te
+         mandaba a la tienda namespaceada en vez de a TU CASA. Tu tienda propia
+         debe ser siempre alcanzable como propia, pase lo que pase con el registro.
+         Por eso "¿es mi licencia propia?" se evalúa ANTES que el registro.
+         JFC 2026-08-28 (bug de join): la comparación se hace contra `desde` (la
+         tienda de la que se sale, capturada antes de tocar licenseCode), NO
+         contra _licenciaPropia(). unirse()/reconciliar() escriben licenseCode
+         ANTES de cambiar(); si se comparara contra _licenciaPropia() (que ya
+         devuelve el código NUEVO), sufDest siempre caería a "" y el switch de
+         tienda nunca ocurriría. Con `desde`, unirse a una licencia distinta
+         cambia a "::<lic>" (namespace aparte, sin pisar la tienda propia). */
+      /* PRECEDENCIA DE LA LICENCIA PROPIA (JFC 2026-09-15, RESTAURADA). El
+         comentario de arriba dice que "¿es mi licencia propia?" debe evaluarse
+         ANTES que el registro, pero el CÓDIGO lo había perdido (quedó solo
+         norm===desde). Consecuencia: al entrar tu propia licencia canónica caías
+         a un namespace "::<lic>" VACÍO en vez de a TU cuaderno real (legacy ""),
+         y veías "entro y sale vacío". Regla dura: una licencia = un cuaderno; tu
+         casa es SIEMPRE "" y NO se mueve data. reconciliar()/unirse() escriben
+         ow.licenseCode=norm ANTES de llamar aquí, así que cuando norm es tu
+         licencia canónica _licenciaPropia() ya la devuelve y esta rama la ancla a
+         "" (mismo:true, sin switch ni movimiento de data). */
+      let sufDest;
+      // P0 v615: compare against the PRE-JOIN active license. unirse() has already
+      // written the requested license into f123_owned, so _licenciaPropia() is NOT
+      // evidence that the current notebook is the requested notebook.
+      // P0 v615 recovery: v614 may already have registered TWO licenses to one
+      // active namespace after the premature owned-license mutation. On an
+      // explicit pending join, that alias is not proof that the requested
+      // license's actual notebook was selected. Keep every old buffer intact.
+      var joinPendiente = false;
+      try {
+        var pedido = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+        joinPendiente = _normLic(pedido.licenseCode || "") === norm;
+      } catch (_) {}
+      var destinoRegistrado = Object.prototype.hasOwnProperty.call(reg, norm);
+      var colisionAnterior = joinPendiente && destinoRegistrado &&
+        reg[norm] === OC_STATE_SUFIJO && aliasActivoAntes;
+      // P0 v616: two saved licenses pointing at the same physical notebook
+      // have NO reliable owner. Do not invent an empty destination and conceal
+      // real shop data; refuse the join without moving its storage pointer.
+      if (colisionAnterior) return { ok: false, error: "Two licenses reference the same saved notebook. The existing business has been preserved; automatic switching is blocked until its identity can be verified." };
+      if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
+      else if (norm === desde) sufDest = OC_STATE_SUFIJO;
+      else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
+      else sufDest = "::" + norm;                                // tienda ajena nueva
+      reg[norm] = sufDest;
+      var registroPrevio = null;
+      try {
+        registroPrevio = localStorage.getItem("f123_tiendas");
+        localStorage.setItem("f123_tiendas", JSON.stringify(reg));
+        if (localStorage.getItem("f123_tiendas") !== JSON.stringify(reg)) throw new Error("registry not committed");
+      } catch (_) { return { ok: false, error: "Could not save the business registry. Your previous notebook was left unchanged." }; }
+      if (sufDest === OC_STATE_SUFIJO) {
+        return { ok: true, cambiado: false, mismo: true };
+      }
+      // Flush de la tienda actual bajo SUS claves antes de cambiar el marcador.
+      try { guardarEstadoLocal(); } catch (_) {}
+      // Do not reload or change the network room unless the active namespace
+      // has actually persisted. Quota errors are NOT a successful join.
+      var marcadorAnterior = null;
+      try {
+        marcadorAnterior = localStorage.getItem("f123_tienda_activa");
+        localStorage.setItem("f123_tienda_activa", sufDest);
+        if (localStorage.getItem("f123_tienda_activa") !== sufDest) throw new Error("active namespace not committed");
+      } catch (_) {
+        try { if (registroPrevio === null) localStorage.removeItem("f123_tiendas"); else localStorage.setItem("f123_tiendas", registroPrevio); } catch (_) {}
+        return { ok: false, error: "Could not save the active business. Nothing was deleted; this device remains on its previous notebook." };
+      }
+      /* FIJAR LA SALA DE LA TIENDA DESTINO (JFC 2026-08-26, NB-1). CRÍTICO:
+         cada tienda sincroniza en SU PROPIA sala (= su licencia). ROOM_KEY es
+         global; si no la re-apuntamos al cambiar, la tienda destino heredaría la
+         sala de la tienda anterior y sincronizaría en la sala equivocada
+         (contaminación cruzada entre negocios). fijarSala normaliza igual que
+         activar y NO conecta (el reload de abajo reconecta a la sala correcta).
+         Se hace SIEMPRE (también al volver a la tienda propia) para que ROOM_KEY
+         siga siempre a la tienda activa. Fail-safe: si el módulo de sync no está,
+         se deja ROOM_KEY como estaba (comportamiento previo). */
+      try {
+        if (!window.OCSyncControl || typeof window.OCSyncControl.fijarSala !== "function") {
+          throw new Error("sync module missing");
+        }
+        const resultadoSala = window.OCSyncControl.fijarSala(norm);
+        if (!resultadoSala || resultadoSala.ok !== true) throw new Error("room was not saved");
+      } catch (_) {
+        // Persisted active notebook and room must agree before any reload.
+        try {
+          if (marcadorAnterior === null) localStorage.removeItem("f123_tienda_activa");
+          else localStorage.setItem("f123_tienda_activa", marcadorAnterior);
+        } catch (_) {}
+        try {
+          if (registroPrevio === null) localStorage.removeItem("f123_tiendas");
+          else localStorage.setItem("f123_tiendas", registroPrevio);
+        } catch (_) {}
+        return { ok: false, error: "Could not save the synchronization room. Your previous notebook remains selected." };
+      }
+      // Recargar: en el boot el sufijo ya será el de la tienda destino.
+      if (!sinRecargar) { try { location.reload(); } catch (_) {} }
+      return { ok: true, cambiado: true };
+    },
+    /* CLAIM / MERGE DE DISPOSITIVOS PROPIOS (JFC 2026-08-27). Deja los TRES
+       campos de identidad (licenseCode, syncCode, sala de sync) en el MISMO
+       código, sin tocar los datos locales (NO vacía). Arregla el "mismatch"
+       (licenseCode vs syncCode vs sala) y es la base del claim: el aparato
+       queda como device de esa licencia canónica. El merge de datos ocurre
+       después, add-only, cuando ambos aparatos apuntan a la misma sala y
+       reconectan. */
+    reconciliar(licencia) {
+      const norm = _normLic(licencia);
+      if (!norm) return { ok: false, error: "Empty license." };
+      const desde = _licenciaActual();
+      if (norm !== desde) {
+        return { ok: false, error: "This is a different notebook. Claiming it without a verified data handoff is blocked; your current business remains unchanged." };
+      }
+      // A joined notebook is not the local device's own notebook.
+      // Reconcile its room only; never turn f123_owned into the joined license.
+      let oldOwned = null, touchedOwned = false;
+      try {
+        oldOwned = localStorage.getItem("f123_owned");
+        if (!OC_STATE_SUFIJO) {
+          const ow = JSON.parse(oldOwned || "null") || {};
+          ow.licenseCode = norm; ow.syncCode = norm;
+          const nextOwned = JSON.stringify(ow);
+          localStorage.setItem("f123_owned", nextOwned);
+          if (localStorage.getItem("f123_owned") !== nextOwned) throw new Error("identity not persisted");
+          touchedOwned = true;
+        }
+      } catch (_) {
+        try { if (oldOwned === null) localStorage.removeItem("f123_owned"); else localStorage.setItem("f123_owned", oldOwned); } catch (_) {}
+        return { ok: false, error: "Could not save this device identity. The notebook was not switched." };
+      }
+      try {
+        if (!window.OCSyncControl || typeof window.OCSyncControl.fijarSala !== "function") throw new Error("sync module missing");
+        const r = window.OCSyncControl.fijarSala(norm);
+        if (!r || r.ok !== true) throw new Error("sync room not persisted");
+      } catch (_) {
+        if (touchedOwned) {
+          try { if (oldOwned === null) localStorage.removeItem("f123_owned"); else localStorage.setItem("f123_owned", oldOwned); } catch (_) {}
+        }
+        return { ok: false, error: "Could not connect this notebook's synchronization room." };
+      }
+      try { if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar(); } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: {} })); } catch (_) {}
+      return { ok: true, licencia: norm };
+    },  };
+
+  function _catalogoInterno(incluirActividad = true) {
+      _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
+      const _demoLocal = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+      return {
+        actividad: incluirActividad ? _actividadExportable() : undefined,
+        ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
+        // v448 GOLDEN: bloquear la semilla por HUELLA EXACTA, no por forma del id.
+        // Un negocio real puede tener un id corto como p23; nombre+SKU+barcode
+        // distinguen ese registro real del Cappuccino demo sin adivinar.
+        productos: productos.filter((p) => p && !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad,
+          /* STOCK EN EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el stock NO
+             viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
+             COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
+             edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
+          stockActual: window.OCBusinessReadModel.stock(p).units, stockTs: Number(p.stockTs) || 0,
+          stockCountTs: Number(p.stockCountTs) || 0,
+          stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
+          stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
+          stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
+          stockEvidencias: p.stockEvidencias && typeof p.stockEvidencias === "object" ? JSON.parse(JSON.stringify(p.stockEvidencias)) : null,
+          stockCountWitness: p.stockCountWitness && typeof p.stockCountWitness === "object" ? JSON.parse(JSON.stringify(p.stockCountWitness)) : null,
+          stockReconciliacionPendiente: p.stockReconciliacionPendiente === true,
+          /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
+             (un dataURL de ~180KB reventaria el frame del catalogo al agrupar
+             varios). Viaja solo el puntero fotoHash; los bytes van por el canal de
+             fotos (mismo camino que las perchas). El receptor resuelve la foto
+             desde OCFotos por ese hash. Ver sembrarFotosAlRelay (productos) y la
+             hidratacion en volcarFotosAlStore. */
+          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
+        /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
+           BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
+           `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
+           dispositivo y NUNCA se propagaba. Consecuencias medidas:
+             - el PIN de admin creado en la PC no existia en el celular
+               ("no me deja actualizar con el PIN de admin desde otro
+               dispositivo");
+             - degradar a alguien parecia no funcionar: el PATCH si cambiaba
+               el rol, pero solo en el aparato donde se hacia;
+             - sincronizar con el codigo del negocio no lo arreglaba, porque
+               el merge solo llevaba perchas y productos.
+           El PIN viaja porque ES la credencial de acceso del equipo: sin el,
+           la persona no puede entrar en el segundo dispositivo, que es
+           justamente lo que se rompio. Va por el mismo canal cifrado que
+           todo lo demas y nunca sale de los dispositivos del negocio. */
+        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
+        /* CLIENTES (JFC 2026-08-26). Bug de Belén: "clientes default, no los reales".
+           Eran estado local que nunca se propagaba. Viajan por el mismo canal
+           cifrado device-to-device, merge add-only en aplicarCatalogo. */
+        clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", ...perfilCliente(c), despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null, evaluacion: c.evaluacion || null })),
+        /* COMISIONISTAS + SUCURSALES viajan con el catálogo (JFC 2026-09-10, "sync
+           integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
+        promotoras: promotoras.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "promotoras", p)).map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, baseComision: _baseComisionValida(p.baseComision) || "bruto", telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado, ...(p.accesoArtista ? { accesoArtista: { pin: String(p.accesoArtista.pin || ""), activo: !!p.accesoArtista.activo, actualizadoEn: p.accesoArtista.actualizadoEn || null } } : {}) })),
+        sucursales: sucursales.filter((s) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "sucursales", s)).map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado })),
+        // Configuración de categorías (propias vacías y ocultas). Ver categoriasMeta.
+        categorias: Object.keys(categoriasMeta).map((k) => Object.assign({}, categoriasMeta[k])),
+        ajustes: [ajusteImpuesto, ajusteMoneda, ajusteLealtad, ajusteRetencion].filter(Boolean).map((a) => Object.assign({}, a)),
+        /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Cada venta
+           viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
+           no en el batch, para no reventar el frame). El receptor la SUMA una sola
+           vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
+        ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, direccionComision: _direccionValida(v.direccionComision) || "casaPaga", direccionCambios: Array.isArray(v.direccionCambios) ? v.direccionCambios.slice(-20) : [], liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || null })),
+        gastos: gastos.map((g) => Object.assign({}, g)),
+        ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
+        payouts: _payoutCore() && _payoutCore().compatiblePayouts ? _payoutCore().compatiblePayouts(payouts) : payouts.map((p) => Object.assign({}, p)),
+        payoutConflicts:clonar(payoutConflicts), payoutQuarantine:clonar(payoutQuarantine),
+        transferencias: transferencias.map((t) => Object.assign({}, t)),
+        /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
+           propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
+           mergea en aplicarCatalogo alimentando la lista de micelio. Estable (no
+           cambia salvo que se renombre el aparato), así que no genera tráfico. */
+        dispositivos: (function () {
+          try {
+            // instanceId identifica el alta/licencia, no al nodo del micelio.
+            // Publicarlo como key hacía colisionar dos aparatos con la misma
+            // identidad restaurada y podía mostrar el apodo del PC en el móvil.
+            var _yo = (window.OCMicelio && window.OCMicelio.yo) ? window.OCMicelio.yo() : null;
+            if (!_yo || !_yo.id) return [];
+            var _ap = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : "";
+            var _rol = (window.OCAuth && window.OCAuth.rolActual) ? (window.OCAuth.rolActual() || "") : "";
+            return [{ id: String(_yo.id), apodo: String(_ap).slice(0, 28), rol: _rol }];
+          } catch (_) { return []; }
+        })(),
+        /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27 + 2026-08-28).
+           Era estado local (nombreNegocio) que nunca se propagaba. Ahora viaja; el
+           receptor lo adopta si el suyo está vacío o si el remitente es el dueño
+           (mayor jerarquía) — ver aplicarCatalogo. */
+        nombreNegocio: nombreNegocio || "",
+        nombreNegocioTs: nombreNegocioTs || 0, // desempate secundario
+        nombreNegocioRev: nombreNegocioRev || 0, // desempate PRIMARIO (monotónico, v290)
+        pinsRol: (function () {
+          try {
+            const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
+            const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
+            return {
+              // A stale login sidecar must never outrank the local credential.
+              owner: vis.owner || abre.owner || "",
+              emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""),
+              acct: abre.acct || vis.acct || ""
+            };
+          } catch (_) { return {}; }
+        })(),
+        huella: huellaCatalogo(),
+      };
+  }
+  // v651: a stuck device gets the store's PINs here too; without them it stayed on the factory PIN.
+  function _pinsParaFoto() {
+    try {
+      const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
+      const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
+      // A joined device's factory 789 is not the store's PIN: it reports 789 only when the store itself said so (flag keyed to this license).
+      let unido = false, tienda789 = false;
+      try {
+        const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+        unido = (!!lic && localStorage.getItem("f123_aparato_unido") === lic) || !!OC_STATE_SUFIJO;
+        tienda789 = !!lic && localStorage.getItem("f123_pin_tienda_789") === lic;
+      } catch (_) {}
+      const dueno = vis.owner || abre.owner || "";
+      return { pinsRol: { owner: unido && dueno === "789" && !tienda789 ? "" : dueno, emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""), acct: abre.acct || vis.acct || "" },
+        ownerPinTs: (window.OCSecure && window.OCSecure.ownerPinTs) ? window.OCSecure.ownerPinTs() : 0 };
+    } catch (_) { return {}; }
+  }
+  function _adoptarPinDeFoto(f) {
+    // Remembers, per license, whether the store's own Owner PIN is the factory 789 (read by the login guard in auth-ui.js).
+    try {
+      const o = f && f.pinsRol && String(f.pinsRol.owner || "");
+      const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+      if (o === "789" && lic) localStorage.setItem("f123_pin_tienda_789", lic); else if (o) localStorage.removeItem("f123_pin_tienda_789");
+    } catch (_) {}
+    try { if (f && f.pinsRol && f.ownerPinTs && window.OCSecure && window.OCSecure.adoptarPinOwnerDeFoto) Promise.resolve(window.OCSecure.adoptarPinOwnerDeFoto(f.pinsRol.owner, f.ownerPinTs)).catch(() => {}); } catch (_) {}
+  }
+  window.OCSync = {
+    conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
+    /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
+       sincronizaban foto (por hash). Los productos guardaban la foto INLINE
+       (p.foto), que no viajaba -> la foto de "Test sync unificado" salia en el
+       celu pero no en la PC. Estas dos funciones cierran el hueco reusando OCFotos:
+       - hashearFotosProductos(): para cada producto con foto inline y sin fotoHash,
+         calcula el hash, guarda los bytes en OCFotos y pone p.fotoHash. Asi la foto
+         viaja por el canal de fotos (como las perchas) y el catalogo solo lleva el
+         puntero. Corre al arrancar y cuando cambia una foto.
+       - hidratarFotosProductos(): en el receptor, cuando ya bajaron los bytes,
+         pone p.foto = OCFotos[fotoHash] para los productos que tienen puntero pero
+         no bytes inline, para que la UI (que pinta p.foto) los muestre. */
+    fotoInlineProductoPorHash(hash) {
+      const p = productos.find(p => p && !p.borrado && p.fotoHash === hash && p.foto);
+      return p ? p.foto : null;
+    },
+    async hashearFotosProductos() {
+      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.foto && String(p.foto).indexOf("data:") === 0 && !p.fotoHash) {
+            // Hash and bytes must describe the SAME snapshot. A user can replace
+            // or remove the photo while either asynchronous operation is pending.
+            const foto = p.foto;
+            const h = await window.OCFotos.hashDeDataUrl(foto);
+            if (h) {
+              // False is a rejected IDB commit, not an ACK. Never publish a
+              // hash pointer until the exact bytes are durable on this device.
+              // Keep the inline source photo so the next seed can retry safely.
+              const bytesDurables = await window.OCFotos.guardarPorHash(h, foto);
+              if (bytesDurables !== true) continue;
+              if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
+            }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
+      return n;
+    },
+    /* v664: perchas cuya foto vive solo por id (localStorage f123_foto_percha_* o IDB por id)
+       reciben su puntero fotoHash sin abrir la vista de perchas. Copy-only: no borra bytes.
+       Si la percha ya tiene fotoRev (alguien puso o quito la foto a proposito) no se toca. */
+    async hashearFotosPerchas() {
+      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl || !window.OCFotos.leerFoto) return 0;
+      let n = 0;
+      // Do not treat a fallback from a failed IDB read as proof of the current photo.
+      const leerFotoVigente = typeof window.OCFotos.leerFotoConfirmada === 'function'
+        ? window.OCFotos.leerFotoConfirmada : window.OCFotos.leerFoto;
+      for (const u of ubicaciones) {
+        try {
+          if (!u || u.id == null || u.fotoHash || u.fotoRev || u.borrado) continue;
+          const bytes = await leerFotoVigente(String(u.id));
+          if (!bytes || String(bytes).indexOf("data:") !== 0) continue;
+          const h = await window.OCFotos.hashDeDataUrl(bytes);
+          if (!h) continue;
+          // A rejected/throwing IDB write is not a durable photo ACK.
+          // Preserve the by-ID source bytes and retry on a later seed.
+          if ((await window.OCFotos.guardarPorHash(h, bytes)) !== true) continue;
+          // Photo may be replaced or removed while the hash write is awaited.
+          // Keep old bytes for recovery; never publish a stale active pointer.
+          if (await leerFotoVigente(String(u.id)) !== bytes) continue;
+          if (ubicaciones.includes(u) && !u.borrado && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
+      return n;
+    },
+    /* v667 REHIDRATAR PUNTEROS DE FOTO (aditivo). Un aparato dañado antes de v665 quedo con fotoHash=null
+       local aunque el catalogo compartido (Yjs) conserva el puntero; como nada vuelve a mezclar un producto
+       que no cambia, nunca lo readoptaba. Aqui: si el puntero local esta VACIO y el registro compartido trae
+       uno, se adopta. Jamas reemplaza un puntero local presente ni borra nada. Una baja explicita de foto viaja
+       al doc compartido enseguida (queda vacio alli), asi que no se readopta. Idempotente y barato (solo recorre
+       los registros sin puntero). Se llama desde hidratarFotosProductos (arranque, catalogo aplicado, bytes). */
+    adoptarPunterosFotoCompartidos() {
+      const Y = window.OCYjs;
+      if (!Y || !Y.mapas) return 0;
+      const compartido = (col, id) => { try { const m = Y.mapas[col]; return m ? m.get(String(id)) : null; } catch (_) { return null; } };
+      let n = 0;
+      for (const p of productos) {
+        if (!p || p.borrado || p.fotoHash || p.foto) continue;
+        const s = compartido("productos", p.id);
+        if (s && typeof s.fotoHash === "string" && s.fotoHash) { p.fotoHash = s.fotoHash; n++; }
+      }
+      for (const u of ubicaciones) {
+        if (!u || u.borrado || u.fotoHash) continue;
+        const s = compartido("ubicaciones", u.id);
+        if (!s || typeof s.fotoHash !== "string" || !s.fotoHash) continue;
+        u.fotoHash = s.fotoHash; if (s.fotoRev) u.fotoRev = s.fotoRev; n++;
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+      return n;
+    },
+    async hidratarFotosProductos() {
+      try { window.OCSync.adoptarPunterosFotoCompartidos(); } catch (_) {}
+      if (!window.OCFotos || !window.OCFotos.leerPorHash) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.fotoHash && !p.foto) {
+            const hash = p.fotoHash;
+            let d = await window.OCFotos.leerPorHash(hash);
+            // A standalone iPhone PWA may have the authenticated photo in its
+            // hydrated Yjs document while IndexedDB temporarily rejects saves.
+            // Show those exact bytes in memory instead of an empty product card.
+            if (!d) {
+              try {
+                const fotos = window.OCYjs && window.OCYjs.fotosMap;
+                if (fotos && typeof fotos.get === "function") d = fotos.get(hash) || null;
+              } catch (_) {}
+            }
+            // Do not restore a removed image, overwrite a newer edit, or write
+            // into a record belonging to the store before an import/shop change.
+            if (d && productos.includes(p) && p.fotoHash === hash && !p.foto) { p.foto = d; n++; }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+      return n;
+    },
+    /* borradores.js avisa cada cambio de categoría (alta, renombre, borrado,
+       ocultar, mostrar). Se sella con revisión y se publica al sync. */
+    /* Clave de localStorage de una lista de categorías para el cuaderno activo
+       (v347). borradores.js la usa para leer/guardar en el mismo lugar. */
+    claveCategorias(base) { return _catKey(base); },
+    marcarCategoria(nombre, estado) {
+      try {
+        const nom = String(nombre || "").trim();
+        if (!nom || _CAT_ESTADOS.indexOf(estado) === -1) return false;
+        const id = nom.toLowerCase();
+        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: _revNueva() };
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        return true;
+      } catch (_) { return false; }
+    },
+    /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
+       DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
+    async confirmarCatalogoDurable() {
+      if (_ventaPendiente) await _ventaPendiente;
+      if (_payoutPendiente) await _payoutPendiente;
+      if (_retencionPendiente) await _retencionPendiente;
+      if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
+      try { const ok = (await guardarEstadoLocal(true, true)) === true; if (ok) _mergeSucio = false; return ok; } catch (_) { return false; }
+    },
+    async catalogoConfirmado() {
+      while (_ventaPendiente) await _ventaPendiente;
+      // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27).
+      // Un guardado NORMAL ya no frena el difundido por el canal legacy (sync-realtime): sale de
+      // inmediato y la persistencia sigue en paralelo. Solo se espera si hay DINERO en curso
+      // (guardado estricto, venta, pago, retencion): ese estado provisional puede revertirse.
+      // catalogoPropio() sigue devolviendo null si la lectura esta bloqueada o el ultimo guardado fallo.
+      while (_guardadoCatalogoPendiente && (_guardadoEstrictoPendiente || _ventaConfirmando ||
+             _payoutConfirmando || _retencionConfirmando)) await _guardadoCatalogoPendiente;
+      return this.catalogoPropio();
+    },
+    unirActividad: _actividadUnir,
+    /* v609: revision durable local; la usa el barrido periodico de sync-yjs para saltarse ciclos sin cambios. */
+    revisionLocal() { return _localRev; },
+    catalogoPropio() {
+      if (!_estadoPuedeEnviarse()) return null; // v599: no espera al guardado en curso
+      if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
+      return _catalogoInterno();
+    },
+    /* CHECKPOINT PARA LA BITACORA CIFRADA (JFC 2026-08-25). A diferencia de
+       catalogoPropio(), el checkpoint SI lleva el stock absoluto: es la foto que
+       deja a un dispositivo NUEVO ver la tienda —con sus cantidades reales—
+       aunque no haya nadie en linea. Viaja cifrado; el relay solo guarda el
+       sobre cerrado. */
+    estadoParaCheckpoint() {
+      const _demoLocal = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+      return {
+        nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
+        ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: window.OCBusinessReadModel.stock(p).units, familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "",
+          stockCountWitness: p.stockCountWitness || null,
+          stockReconciliacionPendiente: p.stockReconciliacionPendiente === true, borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null, fotoHash: p.fotoHash || null })),
+        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
+        clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
+        huella: huellaCatalogo(),
+        ..._pinsParaFoto(),
+      };
+    },
+    /* v651+v0.9.17: full materialized business slice for durable fichas migration/fallback (reuses _catalogoInterno(true) + _pinsParaFoto, including sales, commissions, movimientos & activity logs). */
+    estadoParaFichas() {
+      return Object.assign(_catalogoInterno(true), _pinsParaFoto());
+    },
+    /* v651: changes that arrive by the durable op lane while Yjs is stuck or migrating. Same add-only/LWW merge rule as the catalog: nothing is wiped. */
+    aplicarFichas(f) {
+      if (!f || typeof f !== "object") return false;
+      const optArr = (k) => (Array.isArray(f[k]) ? f[k] : undefined);
+      const r = aplicarCatalogo({
+        actividad: optArr("actividad"),
+        ubicaciones: Array.isArray(f.ubicaciones) ? f.ubicaciones : [],
+        productos: Array.isArray(f.productos) ? f.productos : [],
+        usuarios: optArr("usuarios"),
+        clientes: optArr("clientes"),
+        promotoras: optArr("promotoras"),
+        sucursales: optArr("sucursales"),
+        categorias: optArr("categorias"),
+        ajustes: optArr("ajustes"),
+        ventas: optArr("ventas"),
+        gastos: optArr("gastos"),
+        ajustesComision: optArr("ajustesComision"),
+        payouts: optArr("payouts"),
+        payoutConflicts: optArr("payoutConflicts"),
+        payoutQuarantine: optArr("payoutQuarantine"),
+        transferencias: optArr("transferencias"),
+        pinsRol: f.pinsRol || null
+      }, null);
+      if (Array.isArray(f.hechos) && f.hechos.length && window.AMG && window.AMG.Hechos && window.AMG.Hechos.importarRemoto) {
+        Promise.allSettled(f.hechos.map((h) => Promise.resolve().then(() => window.AMG.Hechos.importarRemoto(h)))).catch(() => {});
+      }
+      _adoptarPinDeFoto(f);
+      guardarEstadoLocal();
+      return r;
+    },
+    /* Restaura un checkpoint — SOLO en un dispositivo FRESCO, definido como uno
+       que NUNCA registro una venta propia (ventas.length === 0). Asi es
+       imposible que pise el stock real de una caja activa: si ya hubo ventas
+       aqui, este dato manda y el checkpoint se ignora. En un dispositivo fresco
+       AGREGA perchas y productos CON su stock, y mergea el equipo (add-only).
+       Los productos que ya existan (p. ej. llegados con stock 0 por el catalogo
+       en vivo) reciben su stock real del checkpoint. */
+    aplicarCheckpoint(snap, intento) {
+      try {
+        if (!snap || !Array.isArray(snap.productos) || !Array.isArray(snap.ubicaciones)) return { ok: false, motivo: "ilegible" };
+        /* v644: while Yjs is still recovering this notebook, the old checkpoint waits. Arriving first it created products
+           at stock 0, that 0 reached the Y.Doc, and Yjs then broke the tie by device id: each device ended up different.
+           Fallback: after 60 s it applies anyway, so a device whose Yjs cannot finish still gets the store. */
+        const _yjs = window.OCYjs, _n = Number(intento) || 0;
+        if (_yjs && (!_yjs.canal || _yjs.canal.recuperando) && _n < 30) {
+          setTimeout(() => { try { window.OCSync.aplicarCheckpoint(snap, _n + 1); } catch (_) {} }, 2000);
+          return { ok: false, motivo: "esperando-recuperacion" };
+        }
+        const _demoSnap = _seleccionarSemillaDemoPura(snap);
+        /* B3 (2026-08-28): el nombre de la tienda también llega por checkpoint.
+           Se adopta si el local está vacío (un dispositivo nuevo no tiene nombre
+           propio). El checkpoint no lleva rol del remitente, así que aquí no se
+           aplica la regla "el dueño gana" — esa corre por el catálogo en vivo. */
+        if (snap && typeof snap.nombreNegocio === "string" && snap.nombreNegocio.trim() && !String(nombreNegocio || "").trim()) {
+          nombreNegocio = snap.nombreNegocio.trim().slice(0, 80);
+          // v594: igual que aplicarCatalogo, el sidecar solo sigue al cuaderno propio.
+          if (_cuadernoPropio()) try {
+            const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+            _ow.nombreNegocio = nombreNegocio;
+            localStorage.setItem("f123_owned", JSON.stringify(_ow));
+          } catch (_) {}
+          try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
+        }
+        /* MERGE ADD-ONLY EN CUALQUIER APARATO (JFC 2026-08-26). BUG RAÍZ del
+           "no sincroniza ni entre mi PC y mi cel": antes, si el aparato tenía UNA
+           sola venta propia, el checkpoint ENTERO se ignoraba (return no-fresco) —
+           así dos aparatos que ya tenían datos jamás se pasaban perchas/productos/
+           clientes. Ahora SIEMPRE se agrega lo que falta (add-only, nunca pisa lo
+           existente). Lo ÚNICO que se cuida por frescura es el STOCK: un aparato
+           con ventas propias NO adopta el stock del checkpoint (podría estar viejo);
+           su stock lo manda su propia caja. Add-only es seguro: nunca borra ni
+           sobrescribe un ítem que ya existe aquí. */
+        const fresco = ventas.length === 0;
+        let agP = 0, agPr = 0, agC = 0, agStock = 0;
+        snap.ubicaciones.forEach((u) => {
+          if (!u || !u.id) return;
+          if (_estaEnSemillaDemoSeleccionada(_demoSnap, "ubicaciones", u)) return;
+          if (!ubicaciones.some((x) => String(x.id) === String(u.id))) {
+            ubicaciones.push(Object.assign({}, u, { activa: !u.borrado && u.activa !== false, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null) }));
+            if (!(u.id in gastosMensuales)) gastosMensuales[u.id] = 0;
+            agP++;
+          }
+        });
+        snap.productos.forEach((p) => {
+          if (!p || !p.id) return;
+          if (_estaEnSemillaDemoSeleccionada(_demoSnap, "productos", p)) return;
+          const stk = window.OCBusinessReadModel.stock(p).units;
+          const mio = productos.find((x) => String(x.id) === String(p.id));
+          // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
+          // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: stk })); if (p.stockBase == null || !Number.isFinite(Number(p.stockBase))) delete productos[productos.length - 1].stockEpochId; agPr++; }
+          else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; agStock++; }
+        });
+        /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
+           aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */
+        if (Array.isArray(snap.clientes)) {
+          snap.clientes.forEach((c) => {
+            if (!c || !c.id || !c.nombre) return;
+            if (_estaEnSemillaDemoSeleccionada(_demoSnap, "clientes", c)) return;
+            if (!clientes.some((x) => String(x.id) === String(c.id))) {
+              clientes.push({ id: c.id, codigo: c.codigo || "", nombre: String(c.nombre).slice(0, 80), telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] } });
+              agC++;
+            }
+          });
+        }
+        if (Array.isArray(snap.usuarios)) {
+          try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios, pinsRol: snap.pinsRol || null }, null); } catch (_) {}
+        }
+        _adoptarPinDeFoto(snap);
+        // v648: quantities on a product with its own ledger go through the same rule as Yjs (the latest physical count wins).
+        // A deletion travels too: rev decides, as in Yjs, so a photo can neither resurrect a deleted product nor undo a newer edit.
+        const _conLedger = snap.productos.filter((p) => p && p.id && (p.stockBase != null || p.stockTs || p.rev));
+        if (_conLedger.length) { try { aplicarCatalogo({ ubicaciones: [], productos: _conLedger }, null); } catch (_) {} }
+        // v755: the two aplicarCatalogo calls above persist their own changes (PIN/users immediately).
+        // Only this photo's direct additions remain; with none, skip the full save; else join the merge timer.
+        if (agP || agPr || agC || agStock) _programarGuardadoMerge();
+        mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, fresco });
+        return { ok: true, productos: agPr, perchas: agP, clientes: agC };
+      } catch (_) { return { ok: false, motivo: "error" }; }
+    },
+    compararCatalogo,
+    aplicarCatalogo,
+    /* EL EQUIPO SE SINCRONIZA SOLO (JFC 2026-08-21).
+       Por que ESTO si se aplica sin preguntar, cuando el catalogo NO:
+       el catalogo son precios y costos —plata— y sobre plata no se adivina.
+       El equipo son las CREDENCIALES DE ACCESO, y el bug que llego de
+       produccion es que la gente quedaba FUERA de su propio cuaderno: el
+       admin creado en la PC no podia entrar desde el celular. Pedirle a
+       alguien que confirme un dialogo para poder entrar no sirve cuando el
+       problema es justamente que no puede entrar.
+       Es seguro porque este aplicador NUNCA borra ni degrada por su cuenta:
+       suma miembros y aplica ediciones mas recientes, con el mismo criterio
+       que el merge manual, y todo queda anotado en movimientos. */
+    aplicarEquipoRemoto(lista) {
+      if (!Array.isArray(lista) || !lista.length) return { ok: false };
+      return aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: lista }, null);
+    },
+    /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
+       del equipo y el codigo TEAM- al compartirse. */
+    huella: huellaCatalogo,
+    huellaInventario: huellaInventario,
+    // Llamado por sync-realtime.js al recibir un Op de otro dispositivo. Si
+    // el resultado queda negativo, se deja ver (mov "alerta-descuadre") en
+    // vez de esconderlo: eso es un sobrante real que ocurrio en el mundo
+    // fisico, no un bug. Si es una venta remota, TAMBIEN crea la fila en
+    // `ventas`; el delta legado no acredita el acuerdo de comisión, que queda
+    // pendiente hasta contar con la venta completa del catálogo.
+    aplicarOpRemota(op) {
+      if (_conflictoEstadoAB) return false;
+      if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
+      // Queue BEFORE consulting receipts or touching PN. A receipt staged for CAS
+      // is not durable and cannot ACK a duplicate arriving from another transport.
+      if (op.payload.stockPNHecho && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc &&
+          arguments[1] !== _pnReceiverToken) {
+        const owner = instanceId;
+        let notebook = "", shop = "";
+        try {
+          notebook = String(window.OCTienda?.cuadernoId?.() || "");
+          // C119: cuadernoId is a DEVICE id and stays fixed across joined shops.
+          // Use the active commercial LICENSE as the actual cross-shop fence.
+          shop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+        } catch (_) {}
+        const key = JSON.stringify([owner, notebook, shop, String(op.opId)]);
+        const already = _pnReceiverPending.get(key);
+        if (already) return already.then(r => r && r.ok ? { ok: true, repetida: true } : r);
+        const work = _pnReceiverTail.then(async () => {
+          // A local sale/physical count may already hold the commercial write.
+          // Never project a remote PN into that still-provisional transaction.
+          if (_ventaPendiente) await _ventaPendiente;
+          let current = "", currentShop = "";
+          try {
+            current = String(window.OCTienda?.cuadernoId?.() || "");
+            currentShop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+          } catch (_) {}
+          if (instanceId !== owner || (notebook && current !== notebook) || currentShop !== shop)
+            return { ok: false, error: "notebook-changed-while-pending" };
+          if (_conflictoEstadoAB) return { ok: false, error: "Conflicting saved copies" };
+          const saved = await window.OCSync.aplicarOpRemota(op, _pnReceiverToken);
+          // C119: the active shop might switch DURING the strict CAS itself.
+          // The original commit may be durable for A, but B must never ACK it.
+          let afterNotebook = "", afterShop = "";
+          try {
+            afterNotebook = String(window.OCTienda?.cuadernoId?.() || "");
+            afterShop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+          } catch (_) {}
+          if (instanceId !== owner || (notebook && afterNotebook !== notebook) || afterShop !== shop)
+            return { ok: false, error: "notebook-changed-during-commit" };
+          return saved;
+        });
+        _pnReceiverPending.set(key, work);
+        _pnReceiverTail = work.then(() => {}, () => {});
+        work.then(() => {
+          if (_pnReceiverPending.get(key) === work) _pnReceiverPending.delete(key);
+        }, () => {
+          if (_pnReceiverPending.get(key) === work) _pnReceiverPending.delete(key);
+        });
+        return work;
+      }
+      const vistos = _cargarOpsAplicadas();
+      if (vistos.has(op.opId)) return { ok: true, repetida: true };
+      // New operations carry immutable PN proof; derive the view from movement facts.
+      // Old events remain on their historical Yjs path, avoiding double subtraction.
+      const witness = op.payload && op.payload.stockPNHecho;
+      // P0 JFC: without a causal witness the legacy neutralized bridge would
+      // permanently mark a stock movement applied while changing nothing.
+      // Keep it pending instead; never invent a base, replay a delta, or ACK.
+      // Non-pilot licences retain the historical neutralized Yjs catalog path.
+      if (!witness && op.tipo !== "abono" && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        return { ok: false, error: "stock-proof-missing" };
+      }
+      if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        const p = productos.find((x) => x.id === op.payload.productoId);
+        if (!p) return {ok:false, error:"waiting-for-product"};
+        // A rejected durable write must not leave an optimistic PN delta in RAM.
+        // Otherwise the next local sale starts from a movement that never committed.
+        const previoStock = ["stockBase", "stockEpochId", "stockPN", "stockActual", "stockDeficit"]
+          .map(k => ({ k, existe: Object.prototype.hasOwnProperty.call(p, k),
+            valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k] }));
+        const restaurarStock = () => {
+          previoStock.forEach(({k, existe, valor}) => {
+            if (existe) p[k] = valor; else delete p[k];
+          });
+        };
+        if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
+        // The receipt rides in the SAME durable write as the stock effect (v842); undone on failure.
+        // typeof: tests evaluate this branch alone, without the receipt helpers in scope.
+        const recibos = typeof _cargarOpsAplicadas === "function" ? _cargarOpsAplicadas() : null;
+        const quitarRecibo = () => { if (recibos) recibos.delete(op.opId); };
+        if (recibos) recibos.add(op.opId);
+        let intentoGuardado;
+        try { intentoGuardado = guardarEstadoLocal(true); }
+        catch (_) { quitarRecibo(); restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
+        return Promise.resolve(intentoGuardado).then((saved) => {
+          if (saved !== true) {
+            quitarRecibo();
+            restaurarStock();
+            return {ok:false, error:"stock-not-durable"};
+          }
+          _marcarOpAplicada(op.opId);
+          avisarCatalogoCambiado();
+          return {ok:true};
+        }).catch(() => {
+          quitarRecibo();
+          restaurarStock();
+          return {ok:false, error:"stock-commit-failed"};
+        });
+      }
+      /* NEUTRALIZADO (JFC 2026-09-16, v293) — EVITA DOBLE CONTEO DE PLATA/STOCK.
+         El stock y las ventas ahora los aplica el SYNC NUEVO (catálogo Yjs):
+         stock por LWW ABSOLUTO (stockTs, v289) y ventas ADD-ONLY por id (v292).
+         Si este puente (sync viejo / opsDoc) TAMBIÉN aplicara el delta y creara la
+         venta, la misma venta entraría DOS veces (aquí con uuid nuevo + por el
+         catálogo con su id real) y el stock se descontaría doble -> descuadre.
+         Por eso queda como NO-OP idempotente: solo marca el opId como visto.
+         DORMANT, NO BORRAR: para revertir al modelo de ops, quitar este bloque.
+         El código de abajo (aplicaba delta + creaba venta) queda intacto pero
+         inalcanzable a propósito. */
+      if (localStorage.getItem("f123_ops_delta_activo") !== "1") {
+        _marcarOpAplicada(op.opId);
+        return { ok: true, neutralizado: true };
+      }
+      const pl = op.payload;
+      try {
+        /* A3 (2026-08-28): respaldo por NOMBRE si el id no coincide. Dos
+           dispositivos del mismo negocio pueden tener el mismo producto con ids
+           distintos (creado por separado en cada uno). Antes el delta se
+           descartaba en silencio ("That product does not exist") y la venta del
+           celular no llegaba a la PC. Ahora, si no hay producto con ese id pero
+           hay EXACTAMENTE UNO con ese nombre, se aplica ahí y se deja constancia
+           en movimientos. Si hay dos con el mismo nombre, no se adivina. */
+        let p = productos.find((x) => x.id === pl.productoId);
+        if (!p && pl.nombre) {
+          const _porNombre = productos.filter((x) => String(x.nombre || "").trim().toLowerCase() === String(pl.nombre).trim().toLowerCase());
+          if (_porNombre.length === 1) {
+            p = _porNombre[0];
+            mov("alerta-id-producto", { producto: p.nombre, motivo: "El delta llegó con un id distinto; se aplicó por nombre (mismo producto en ambos dispositivos)." });
+          }
+        }
+        if (!p) return { ok: false, error: "That product does not exist on this device (sync the catalog first)" };
+        /* EL STOCK NO BAJA DE CERO (JFC 2026-08-21, reportado en produccion:
+           "probe a sobrevender un item y quedo en -1 desde el celular").
+           Antes se aplicaba el delta crudo y el negativo se dejaba ver a
+           proposito, como senal de descuadre. En pantalla eso es un producto
+           con -1 unidades, que no significa nada para quien lo lee y hace
+           dudar de todo lo demas.
+           No se pierde informacion: lo que no se pudo descontar queda en el
+           movimiento "alerta-descuadre" de mas abajo, con la cantidad exacta.
+           Vender mas de lo que hay solo tendra sentido cuando existan los
+           pedidos por anticipado (ver APUNTE-PEDIDOS-ANTICIPADOS-2026-08-21.md);
+           hasta entonces, cero es el piso. */
+        const _antes = p.stockActual;
+        p.stockActual = Math.max(0, p.stockActual + pl.delta);
+        const _noDescontado = Math.max(0, -(_antes + pl.delta));
+        if (op.tipo === "venta" && pl.delta < 0) {
+          const cant = -pl.delta;
+          // El delta legado no trae el acuerdo de venta: comisión desconocida, nunca exención ni porcentaje actual.
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split: null, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
+        }
+        mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
+        if (_noDescontado > 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, faltaron: _noDescontado, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez. El stock quedo en 0: " + _noDescontado + " unidad(es) se vendieron sin existencia. Cuenta la percha." });
+        _marcarOpAplicada(op.opId);
+        guardarEstadoLocal();
+        return { ok: true };
+      } catch (err) { return { ok: false, error: String(err) }; }
+    },
+  };
+  // === FIN PUENTE DE SYNC ======================================================
+
+  const J = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "Content-Type": "application/json" } });
+
+  // Item 3 COMPLETO (2026-07-07): QR generado 100% local con qrcode-local.js
+  // (Kazuhiko Arase, MIT, vendoreado en el repo — cero llamadas externas).
+  // Si la librería no cargó, devuelve null y la UI omite el <img> sin romper.
+  function qrDataUrl(payload) {
+    try {
+      if (!window.qrcode) return null;
+      const q = window.qrcode(0, "M");
+      q.addData(String(payload));
+      q.make();
+      return q.createDataURL(4, 8);
+    } catch (_) { return null; }
+  }
+
+  // Al arrancar: si hay un estado persistido válido, reemplaza los datos
+  // semilla (item 1 — persistencia local real).
+  /* Foto de la semilla ANTES de cargar nada guardado: la usa refrescarDemoSiViejo(). */
+  let _semillaDemo = null;
+  try { _semillaDemo = JSON.parse(JSON.stringify(estadoActualExportable())); } catch (_) { _semillaDemo = null; }
+  // JFC 2026-11-01: S2 destructive cutover permanently retired.
+  // Some older login code may still call this historical hook. Keep it inert
+  // for mixed-shell compatibility; never clear a notebook, IndexedDB or PIN.
+  window.__f123PrepareJfcReset = function () { return false; };
+  let _demoRefrescado = false;
+  try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  if (!_estadoLecturaBloqueada) _estadoPublicableConfirmado = _huellaPublicable();
+  /* Caja negra de DATOS (JFC 2026-11-01): nada se pierde. Antes de sincronizar, cada arranque guarda una
+     copia interna completa del estado local en una base IndexedDB aparte (últimas 10), sin UI. Solo para
+     recuperación interna; nunca se borra nada del negocio, solo copias viejas de esta misma caja. */
+  (function cajaNegraDatos() {
+    try {
+      if (_estadoLecturaBloqueada || !window.indexedDB) return;
+      const crudo = JSON.stringify(estadoActualExportable({ vivo: true }));
+      if (!crudo || crudo.length < 50) return;
+      const req = indexedDB.open("f123-caja-negra-datos" + (OC_STATE_SUFIJO || ""), 1);
+      req.onupgradeneeded = function () { try { req.result.createObjectStore("snaps"); } catch (_) {} };
+      req.onsuccess = function () {
+        const db = req.result;
+        try {
+          const tx = db.transaction("snaps", "readwrite"), st = tx.objectStore("snaps");
+          st.put({ en: new Date().toISOString(), bytes: crudo.length, crudo: crudo }, Date.now());
+          const k = st.getAllKeys();
+          k.onsuccess = function () {
+            const ks = k.result.slice().sort(function (a, b) { return a - b; });
+            ks.slice(0, Math.max(0, ks.length - 10)).forEach(function (x) { st.delete(x); });
+          };
+          tx.oncomplete = tx.onabort = tx.onerror = function () { try { db.close(); } catch (_) {} };
+        } catch (_) { try { db.close(); } catch (__) {} }
+      };
+    } catch (_) {}
+  })();
+  /* INVARIANTES AL ARRANCAR (JFC 2026-09-30, plan PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md).
+     Regla: reparar SOLO lo derivable (percha vacia de una venta), avisar SIEMPRE en dinero.
+     Solo con datos reales (no semilla demo). El informe se lee por GET /api/invariantes y
+     Advanced lo muestra. Nunca recalcula un monto ni borra una venta. Si algo falla, la app
+     arranca igual: es un chequeo, no una puerta. */
+  let _informeInvariantes = { avisos: [], reparaciones: [], aplicadas: 0, revisado: false };
+  try {
+    if (_cargoBufferReal && window.OCInvariantes) {
+      _informeInvariantes = window.OCInvariantes.revisar({ ventas, productos, ubicaciones });
+      _informeInvariantes.aplicadas = window.OCInvariantes.aplicar(_informeInvariantes, ventas);
+      _informeInvariantes.revisado = true;
+      if (_informeInvariantes.aplicadas) guardarEstadoLocal();
+    }
+  } catch (e) { console.error("Invariantes al arrancar:", e); }
+  /* FOTOS DEL DEMO (JFC 2026-09-24, shell 374: "sube buenas fotos de productos al
+     demo, seamos impresionantes"). 38 fotos CC0 (StockSnap/Openverse, uso comercial
+     sin atribucion; fuentes en docs/demo/CREDITOS.json), 480x480 WebP, ~20 KB c/u.
+     Solo se ponen a productos SEMILLA INTACTOS: mismo id, mismo nombre original y
+     sin foto propia. Un producto real (aunque comparta id) nunca recibe una foto
+     de ejemplo. Corre tras cargar el estado guardado para que un aparato que ya
+     habia abierto el demo antes tambien las vea. Aditivo: no quita ninguna foto. */
+  ponerFotosDemo();
+  refrescarDemoSiViejo();
+  /* GUARD DEMO — NADIE QUE NO SEA DEMO VE STOCK DE EJEMPLO (JFC 2026-09-11).
+     Bug real: en un navegador/PC nuevo la app arranca con la SEMILLA demo en
+     memoria. Si el aparato está ACTIVADO (f123_owned con instanceId, o sea
+     alguien ya aplastó 789/entró con su licencia) o entró a una tienda por
+     licencia (OC_STATE_SUFIJO), pero el arranque no cargó ningún buffer real
+     todavía (sin datos locales aún), esas arrays con ejemplo se quedaban y el
+     "sync integral" mezclaba el catálogo REAL add-only encima -> demo + real
+     revueltos (queja de JFC). Ahora: si es un aparato real y no cargó buffer,
+     se vacía la semilla y la tienda arranca LIMPIA; solo se llena con lo que
+     baje por sync/respaldo. El demo puro (456: sin f123_owned y sin sufijo) NO
+     entra aquí y conserva su ejemplo. Solo puede vaciar la SEMILLA: los datos
+     reales únicamente entran vía buffer cargado (que ya puso _cargoBufferReal)
+     o vía sync (posterior a esto), así que esto jamás borra inventario real. */
+  /* NO MOVER DATA (JFC 2026-09-15). Antes aquí vivía _autoRecuperarInventario(),
+     que al arrancar escaneaba TODOS los namespaces del aparato y ADOPTABA el
+     buffer con más productos a la tienda activa. Eso movía data entre namespaces
+     y violaba la regla dura "no hay que mover nada". Se eliminó. La causa real del
+     "entro y sale vacío" se ataca donde corresponde: normalizando el PUNTERO de
+     tienda al arranque (arriba, junto a f123_tienda_activa) y restaurando la
+     precedencia de licencia propia en cambiar() — el dueño aterriza en su cuaderno
+     real ("") sin mover ni un buffer. */
+  try {
+    var _aparatoReal = false;
+    try { _aparatoReal = !!((JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId); } catch (_) {}
+    if (!_cargoBufferReal && (_aparatoReal || OC_STATE_SUFIJO)) {
+      // Aparato real/unido sin NINGÚN buffer propio: solo tiene la SEMILLA de
+      // ejemplo. Se vacía para que la tienda arranque limpia y se llene por
+      // sync/respaldo. No se mueve ni se adopta data de otros namespaces.
+      _vaciarTiendaFresca();
+      console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
+    }
+  } catch (_) {}
+  /* v448 GOLDEN: retirado el purgado especial JFC por /^p\\d+$/.
+     La protección común, exacta y reversible de abajo rige para TODA licencia. */
+    /* v448 GOLDEN: descontaminación quirúrgica para CUALQUIER tienda real.
+     No usa prefijos de licencia ni borra por id genérico: exige huella exacta de
+     la semilla para productos/clientes y el prefijo reservado vs- para ventas.
+     Se conserva snapshot reversible antes de retirar cualquier evidencia demo. */
+  /* FEATURE — DORMANT (desactivado por JFC 2026-10-07: "Apagarla, solo filtrar"). NO BORRAR.
+     La limpieza de arranque que RETIRABA el demo sobrante del almacenamiento de un negocio con licencia queda APAGADA:
+     ya no se borra ni se pone en cuarentena nada. El demo solo se FILTRA A LA LECTURA (item 5 de v457, huellas exactas).
+     Para reactivar: poner LIMPIEZA_DEMO_ACTIVA = true (aplica a esta puerta de arranque Y a la de "idb-rescue" de mas
+     abajo; la funcion _limpiarSemillaExactaEnTiendaReal sigue intacta y conserva su copia de cuarentena). */
+  const LIMPIEZA_DEMO_ACTIVA = false;
+  try {
+    if (LIMPIEZA_DEMO_ACTIVA) {
+    var _limDemo = _limpiarSemillaExactaEnTiendaReal("startup");
+    if (_huboLimpiezaDemo(_limDemo)) {
+      guardarEstadoLocal();
+      try { console.warn("[guard-demo-exacto] semilla retirada de tienda real:", _limDemo); } catch (_) {}
+    }
+    }
+  } catch (_) {}
+  /* v457 (b): recalculo retroactivo al % del producto, una vez tras cargar el estado (idempotente). */
+  try { recalcularAlPctDelProducto(); } catch (_) {}
+
+  /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
+     Si en la sesion anterior localStorage estaba lleno, los ultimos guardados
+     solo entraron en el espejo de IndexedDB. Aqui se comparan las revisiones y
+     gana la MAS NUEVA: sin esto la app arrancaria con el estado viejo y el
+     dueno veria desaparecer trabajo que la app le dijo que estaba guardado.
+     Asincrono a proposito: la app arranca ya con lo que haya en localStorage y
+     esto solo la corrige si de verdad hace falta. */
+  (async () => {
+    try {
+      if (!window.OCEstadoIDB) return;
+      const espejo = await window.OCEstadoIDB.leer();
+      // Failback is a SNAPSHOT COPY, not a replay of stock/money effects.
+      // Reconcile the same validated journal only when A/B is newer; never
+      // use a stale IDB mirror to erase a locally accepted sale.
+      if ((!espejo || typeof espejo._rev !== "number" || espejo._rev < _localRev) &&
+          _cargoBufferReal && !_estadoLecturaBloqueada && !_conflictoEstadoAB &&
+          typeof window.OCEstadoIDB.guardarConRevision === "function") {
+        try {
+          const vista = _estadoAB().leer();
+          const raw = vista && vista.buffers[vista.activo];
+          const state = raw ? JSON.parse(raw) : null;
+          if (state && vista.registro && vista.registro.phase === "COMMITTED" &&
+              vista.registro.candidateRaw === raw && !vista.conflictos.length &&
+              !vista.danados.length && state._rev === _localRev &&
+              !validarRespaldo(state)) {
+            const revisionIDB = espejo && Number.isSafeInteger(espejo._rev) ? espejo._rev : 0;
+            // Atomic CAS fences a second tab or a newer IDB revision. Keep the
+            // A/B source intact on failure, including any pending opIds.
+            await window.OCEstadoIDB.guardarConRevision(state, revisionIDB);
+          }
+        } catch (_) {} // Local A/B remains authoritative while IDB is offline.
+      }
+      if (!espejo || typeof espejo._rev !== "number") return;
+      if (espejo._rev <= _localRev) return;
+      if (_demoRefrescado) return; // el demo acaba de volver a la semilla nueva: no resucitar la vieja
+      /* Demo de semilla vieja guardado solo en IndexedDB (p. ej. localStorage borrado): se ignora
+         con las mismas guardas del refresco (aparato demo + ventas semilla "vs-"). */
+      if (_esAparatoDemo() && _demoSeedVAlArrancar < DEMO_SEED_VERSION &&
+          Array.isArray(espejo.ventas) && espejo.ventas.some((v) => /^vs-/.test(String(v && v.id)))) return;
+      if (validarRespaldo(espejo)) return;
+      _localRev = espejo._rev;
+      aplicarRespaldo(espejo);
+      _estadoLecturaBloqueada = !!_conflictoEstadoAB;
+      _cargoBufferReal = true;
+      _estadoPublicableConfirmado = _huellaPublicable();
+      try {
+        /* DORMANT, ver LIMPIEZA_DEMO_ACTIVA arriba (JFC 2026-10-07, "Apagarla, solo filtrar"). */
+        if (LIMPIEZA_DEMO_ACTIVA) {
+          var _limIdb = _limpiarSemillaExactaEnTiendaReal("idb-rescue");
+          if (_huboLimpiezaDemo(_limIdb)) guardarEstadoLocal();
+        }
+        recalcularAlPctDelProducto();
+      } catch (_) {}
+      try { localStorage.setItem("f123_rescate_idb", String(Date.now())); } catch (_){}
+      console.warn("[estado-idb] se recuperaron cambios que no cabian en localStorage (rev " + espejo._rev + ")");
+      /* La UI ya se pinto con el estado viejo: se le avisa para que se repinte. */
+      try { window.dispatchEvent(new CustomEvent("oc-estado-rescatado")); } catch (_) {}
+    } catch (_) {}
+  })();
+  // AUTO-HEAL (paridad AMIGABLE, 2026-07-17): si el catalogo quedo VACIO por un
+  // 789 disparado sin querer en un dispositivo que debia seguir en demo, se
+  // repara UNA sola vez en la vida del dispositivo (guardia en localStorage,
+  // nunca sessionStorage: el usuario debe poder vaciar su inventario real
+  // legitimamente despues sin que esto se vuelva a disparar).
+  try {
+    if (!localStorage.getItem("f123_autoheal_888_v1")) {
+      localStorage.setItem("f123_autoheal_888_v1", "1");
+      /* BUG REAL (JFC 2026-08-19): "puse 7-8-9 y dije que prefiero la tienda
+         vacia PERO SIGUEN CARGADAS LAS CAMISETAS DE METALLICA".
+
+         Este auto-heal existe para un caso concreto y unico: alguien teclea
+         789 SIN QUERER en un dispositivo de demo y se queda sin catalogo. En
+         ese caso el dispositivo NO esta activado (no hay f123_owned) y
+         devolverle la demo es un favor.
+
+         Lo que hacia mal: no distinguia ese accidente de una activacion
+         DELIBERADA con "empezar vacio". El dueno activaba su negocio, elegia
+         tienda vacia, y al siguiente arranque este bloque veia el catalogo en
+         cero, borraba f123_owned (desactivando el dispositivo del dueno) y
+         recargaba con los datos semilla. Las camisetas volvian y la
+         activacion se perdia.
+
+         Ahora: si el dispositivo esta ACTIVADO (f123_owned existe) o el dueno
+         marco explicitamente que vacio a proposito, no se toca nada. Un
+         catalogo vacio en un negocio activado es una decision, no una averia.
+
+         Ademas, homologado con amigable-123: (a) se exige que TODAS las
+         colecciones esten vacias, no solo productos/ubicaciones — un negocio
+         con ventas o clientes cargados nunca fue una demo rota; (b) antes de
+         borrar nada se guarda una copia de rescate fechada, para no destruir
+         un estado que resulte ser real. */
+      var _activado = false;
+      try {
+        _activado = !!localStorage.getItem("f123_owned")
+                 || !!localStorage.getItem("f123_vaciado_deliberado");
+      } catch (_) {}
+      var _realmenteVacio = productos.length === 0 && ubicaciones.length === 0
+        && ventas.length === 0 && clientes.length === 0
+        && movimientos.length === 0 && sucursales.length === 0
+        && promotoras.length === 0;
+      if (!_activado && _realmenteVacio) {
+        try {
+          var _raw = localStorage.getItem(OC_STATE_KEY);
+          if (_raw) localStorage.setItem(OC_STATE_KEY + "_rescate_" + Date.now(), _raw);
+          var _ptr = localStorage.getItem(OC_STATE_PTR);
+          if (_ptr) {
+            var _buf = localStorage.getItem(OC_STATE_KEY + "_" + _ptr);
+            if (_buf) localStorage.setItem(OC_STATE_KEY + "_rescate_" + Date.now(), _buf);
+          }
+        } catch (_) {}
+        localStorage.removeItem(OC_STATE_KEY);
+        // Fase 3: el estado real vive en los buffers A/B, no en OC_STATE_KEY
+        // directo (esa clave ahora es solo fallback de migracion) — limpiar
+        // tambien los buffers y el puntero, o el reload de abajo recargaria
+        // el mismo estado vacio en vez de volver a los datos semilla.
+        try {
+          localStorage.removeItem(OC_STATE_KEY + "_A");
+          localStorage.removeItem(OC_STATE_KEY + "_B");
+          localStorage.removeItem(OC_STATE_PTR);
+        } catch (_) {}
+        location.reload();
+      }
+    }
+  } catch (_) {}
+
+  // One canonical sales adapter, reused by legacy reads and the atomic reporting cut.
+  // No await: sales, expense records and revision are serialized in one JS turn.
+  function ventasParaReportes(uid) {
+      const _coreVentas = _payoutCore();
+      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, payoutConflicts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
+      const _dueVenta = new Map();
+      const _paidVenta = new Map();
+      const _heldVenta = new Map();
+      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
+      _obsVentas.filter((o) => o.kind === "sale" && o.paidCents > 0).forEach((o) => _paidVenta.set(String(o.sourceId), true));
+      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _heldVenta.set(String(o.sourceId), (_heldVenta.get(String(o.sourceId)) || 0) + Number(o.heldCents || 0)));
+      /* v457 (b): una venta vieja sin reparto recalculada al % del producto NO se reescribe; su comision vive en el
+         ajuste "adj-retro-<id>". La fila la lee DEL LEDGER (centavos exactos, ya pagado o no), sin recalcular aqui. */
+      const _retroPorVenta = new Map();
+      if (_coreVentas) {
+        const _ajPorId = new Map(ajustesComision.filter(Boolean).map((a) => [String(a.id), a]));
+        _obsVentas.filter((o) => o.kind === "adjustment").forEach((o) => {
+          const a = _ajPorId.get(String(o.sourceId));
+          if (!a || a.tipo !== "recalculo-retroactivo") return;
+          const k = String(a.ventaId);
+          const r = _retroPorVenta.get(k) || { ganadoC: 0, dueC: 0, pct: a.comisionPct != null ? a.comisionPct : null, payeeId: o.payeeId };
+          r.ganadoC += Number(o.signedAmountCents || 0); r.dueC += Number(o.dueCents || 0);
+          _retroPorVenta.set(k, r);
+        });
+      }
+      /* v778 (Safari se cerraba en Commissions con una tienda grande): indices armados UNA vez, con la regla de
+         .find (gana el primero que coincide). Antes cada venta recorria productos, clientes, perchas y personas. */
+      const _primero = (lista, clave) => { const m = new Map(); for (const x of lista) { if (!x) continue; const k = clave(x); if (!m.has(k)) m.set(k, x); } return m; };
+      const _prodPorId = _primero(productos, (x) => x.id), _cliPorId = _primero(clientes, (x) => x.id);
+      const _ubiPorId = _primero(ubicaciones, (x) => x.id), _perPorId = _primero(promotoras, (x) => x.id);
+      const _perVivaPorId = _primero(promotoras.filter((x) => x && !x.borrado), (x) => x.id);
+      // Devolucion de una venta: el PRIMER ajuste (en orden) que sea su devolucionId o una devolucion con su ventaId.
+      const _ajIdxPorId = new Map(), _ajIdxDevPorVenta = new Map();
+      ajustesComision.forEach((a, i) => { if (!a) return;
+        if (!_ajIdxPorId.has(a.id)) _ajIdxPorId.set(a.id, i);
+        if (a.tipo === "devolucion" && !_ajIdxDevPorVenta.has(a.ventaId)) _ajIdxDevPorVenta.set(a.ventaId, i); });
+      const _ajusteDevolucion = (v) => {
+        const i1 = _ajIdxPorId.has(v.devolucionId) ? _ajIdxPorId.get(v.devolucionId) : Infinity;
+        const i2 = _ajIdxDevPorVenta.has(v.id) ? _ajIdxDevPorVenta.get(v.id) : Infinity;
+        const i = Math.min(i1, i2); return i === Infinity ? undefined : ajustesComision[i];
+      };
+      return ventasActivas().filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
+        const p = _prodPorId.get(v.productoId);
+        const c = _cliPorId.get(v.clienteId);
+        const u = _ubiPorId.get(v.ubicacionId);
+        // Persona de la venta primero (campo nuevo); ventas viejas caen a la percha.
+        const _pid = v.promotoraId || (u && u.promotoraId) || null;
+        const pr = _pid ? _perPorId.get(_pid) : null;
+        const _rt = !v.split ? _retroPorVenta.get(String(v.id)) : null;
+        const _prRt = _rt && _rt.payeeId ? _perPorId.get(_rt.payeeId) : null;
+        return {
+          id: v.id, fecha: v.fecha, impuesto: v.impuesto || null, noCommission: v.noCommission === true,
+          productoId: v.productoId,
+          productoNombre: p ? p.nombre : "(deleted product)",
+          sku: p ? p.sku : "", categoria: p ? p.categoria : "",
+          comisionistaIdProducto: p ? (p.comisionistaId || null) : null,
+          /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
+          pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
+          direccionProducto: p && p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha: switch de Summary by Product
+          comisionistaNombreProducto: p && p.comisionistaId ? ((_perVivaPorId.get(p.comisionistaId) || {}).nombre || "") : "",
+          cantidad: v.cantidad, precioUnit: v.precioUnit, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
+          clienteNombre: c ? c.nombre : "",
+          ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
+          tipoProducto: p ? (p.tipoProducto || "normal") : "normal",
+          eventoNombre: (v.info && v.info.nombreEvento) || "",
+          eventoId: (v.info && (v.info.eventoId || v.info.eventOccurrenceId || v.info.ocurrenciaId)) || null,
+          eventoFecha: (v.info && v.info.fechaEvento) || "",
+          eventoPersonas: (v.info && v.info.numPersonas) || null,
+          pagador: (v.info && v.info.nombrePagador) || "",
+          formaPago: (v.info && v.info.formaPago) || "",
+          factura: (v.info && v.info.factura) || "",
+          cortesia: !!(v.info && v.info.cortesia), // JFC 2026-09-08: venta de cortesía.
+          notas: (v.info && v.info.notas) || "",
+          clienteId: v.clienteId || "",
+          servings: (v.info && v.info.servings) || null,
+          botellas: (v.info && v.info.botellas) || null,
+          comisionPct: v.split ? v.split.comisionPct : (_rt ? _rt.pct : null),
+          comisionAjusteRetroIncluido: !!_rt,
+          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : v.noCommission === true ? 0 : null),
+          netoCasa: v.split ? v.split.montoNetoDueno : (_rt ? +(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) - _coreVentas.money(_rt.ganadoC)).toFixed(2) : null),
+          modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
+          /* v521 flecha: sin campo = venta vieja = la casa paga. */
+          direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga",
+          comisionCorregida: !!(v.split && v.split.corregida),
+          liquidada: !!v.liquidada,
+          comisionPagada: !!_paidVenta.get(String(v.id)),
+          /* Payout Ledger: exact remaining commission for this sale, summed
+             across people. Missing commission evidence remains unknown. */
+          comisionPendiente: !v.split && !_rt && v.noCommission !== true ? null : _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
+          comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
+          devuelta: !!v.devuelta,
+          fechaDevolucion: v.fechaDevolucion || ((_ajusteDevolucion(v) || {}).fecha) || null,
+          medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
+          reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
+          asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((_perPorId.get(v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
+          /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
+             /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
+             comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
+          delMesActual: esDelMesActual(v.fecha, v.relojDesfaseMs),
+          // Shell 371: el mes local de la venta, para que Commissions filtre por el mes elegido.
+          mes: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7) : "",
+          fechaLocal: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs) : "",
+          ubicacionTipo: u ? (u.tipo || "propio") : "",
+          // COUNTER SALE no se atribuye a la persona permanente de la percha:
+          // el nombre acompaña solo a ventas que realmente tienen reparto.
+          asociadoNombre: v.split && pr ? pr.nombre : (_prRt ? _prRt.nombre : ""),
+          // 2026-09-26 (aditivo): id de la persona que cobra, para el estado de cuenta por persona.
+          promotoraId: v.split && pr ? pr.id : (_prRt ? _prRt.id : null),
+        };
+      });
+  }
+
+  const realFetch = window.fetch.bind(window);
+
+  /* CANDADO ENTRE PESTANAS (revision Linus 2026-09-25). Toda escritura /api pasa por un
+     candado unico del origen (Web Locks: Chrome 69+, Safari 15.4+). Dentro del candado se
+     recarga el estado si otra pestana guardo despues, se valida (stock, etc.) y se guarda.
+     Asi la segunda venta de la ultima unidad ve stock 0 y se RECHAZA, en vez de "venderse"
+     y perderse. Lecturas (GET) no esperan a nadie. Sin Web Locks: igual se recarga por sello. */
+  /* PERMISOS DEL EMPLEADO EN EL BACKEND (revision Linus bloque 3, JFC 2026-09-25: "lo que
+     sea legalmente, operativamente y worlds best practices mejor, en ese orden"). Separacion
+     de funciones, como el cajero de Square / Shopify POS / Lightspeed: quien cobra no anula,
+     no cambia precios ni costos, no borra productos, no ve comisiones ni crea comisionistas.
+     Antes solo lo frenaba la interfaz (botones escondidos); el backend lo permitia todo.
+     Limite honesto: en una app local alguien con DevTools puede saltarse JS; esto frena lo
+     real de una tienda (un boton que se cuela, un enlace directo, una pantalla abierta).
+     NO se toca /api/respaldo/exportar: lo usa respaldo-empleado.js (punto 13 de JFC). */
+  function _negadoPorRol(url, opts) {
+    try {
+      if (_rolLocal() !== "empleado") return null;
+      const u0 = typeof url === "string" ? url : (url && url.url) || "";
+      const path = new URL(u0, window.location.origin).pathname;
+      const m = ((opts && opts.method) || "GET").toUpperCase();
+      let body = {}; try { body = opts && opts.body ? JSON.parse(opts.body) : {}; } catch (_) {}
+      const msg = "Ask the owner or a manager: an employee cannot do this.";
+      if (/^\/api\/(liquidaciones|comisiones)(\/|$)/.test(path) || path === "/api/promotores/desempeno") return msg;
+      /* Anular: INTERINO (JFC 2026-09-25: "claro que el empleado debe poder pedir anulaciones").
+         Queda como antes de v406 hasta que exista la autorizacion del encargado con PIN en el
+         momento (mejor practica: el cajero pide, un dueno/admin aprueba). */
+      if (/^\/api\/promotoras(\/|$)/.test(path) && m !== "GET") return msg;
+      const mp = /^\/api\/productos\/([^/]+)$/.exec(path);
+      if (mp && m === "DELETE") return msg;
+      if (mp && (m === "PUT" || m === "PATCH")) {
+        const prod = productos.find((x) => String(x.id) === String(mp[1]));
+        const cambia = (k) => body[k] !== undefined && prod && Number(body[k]) !== Number(prod[k]);
+        if (cambia("precio") || cambia("costo")) return msg;
+      }
+    } catch (_) {}
+    return null;
+  }
+  let _colaEscriturasLocal = Promise.resolve();
+  const _fetchConCandado = async function (url, opts) {
+    const _negado = _negadoPorRol(url, opts);
+    if (_negado) return new Response(JSON.stringify({ error: _negado }), { status: 403, headers: { "Content-Type": "application/json" } });
+    let escribe = false;
+    try {
+      const u0 = typeof url === "string" ? url : (url && url.url) || "";
+      const m0 = ((opts && opts.method) || (url && url.method) || "GET").toUpperCase();
+      escribe = m0 !== "GET" && new URL(u0, window.location.origin).pathname.startsWith("/api");
+    } catch (_) {}
+    // A legacy browser without cross-tab locks must not bypass the visible
+    // compatibility guard by invoking a write directly. Reads stay available.
+    if (escribe && _conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
+    if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
+    const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
+    // A rejected CAS sale may only be retried against a newer durable revision.
+    // The normal successful sale pays NO extra IndexedDB read or Web Lock wait.
+    const ventaConcurrente = (() => {
+      try {
+        const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
+        return /^\/api\/productos\/[^/]+\/venta$/.test(path) && ((opts && opts.method) || "GET").toUpperCase() === "POST";
+      } catch (_) { return false; }
+    })();
+    // P0 v689: +1/-1 manual stock deltas need the same bounded CAS rebase as
+    // a sale, on THIS DEVICE too. Never auto-replay absolute physical counts:
+    // they establish a new epoch and require explicit human intent.
+    const ajusteDeltaConcurrente = (() => {
+      try {
+        const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
+        if (!/^\/api\/productos\/[^/]+\/ajustar$/.test(path) ||
+            ((opts && opts.method) || "GET").toUpperCase() !== "POST") return false;
+        const body = JSON.parse((opts && opts.body) || "{}");
+        return Number.isInteger(body.delta) && body.delta !== 0 &&
+          !(Number.isInteger(body.stockFisico) && body.stockFisico >= 0);
+      } catch (_) { return false; }
+    })();
+    const ejecutar=async()=>{
+      // C118: every commercial write shares the same live notebook. When a
+      // remote PN CAS is in flight, wait for its ACK/rollback BEFORE reading or
+      // mutating local business state; reads and idle UI pay no added wait.
+      if (typeof _pnReceiverPending !== "undefined" && _pnReceiverPending.size) await _pnReceiverTail;
+      /* FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
+         Este bloque (v730) hacia que la venta esperase hasta 3 s a que la propia
+         pestana terminase de tomar su turno con PIN y, si el turno no era suyo, la
+         rechazaba con 403 "Your session changed...". JFC ordeno que ese mensaje NO
+         salga con el rol vigente y que la venta se acepte SIEMPRE: ya no hace
+         falta esperar el turno, porque el guard de abajo solo compara el ROL y la
+         integridad la da el control de revision de IndexedDB. Un cierre de sesion
+         o cambio de rol real se sigue rechazando en el guard.
+         PARA REACTIVAR (solo con orden expresa de JFC): poner
+         ESPERAR_RECLAMO_PROPIO_ACTIVO = true. */
+      const ESPERAR_RECLAMO_PROPIO_ACTIVO = false; // v739: renombrada (antes _DORMANT con polaridad opuesta a DOBLE_PESTANA_DORMANT): false = DORMIDO
+      // P0: the same tab may still be acquiring its own PIN lease when a user
+      // taps CONFIRM SALE. Wait only for that already-started local claim,
+      // never for another tab, logout, changed role, or changed epoch.
+      // The existing strict session fence below runs again before the write.
+      if (ESPERAR_RECLAMO_PROPIO_ACTIVO && ventaConcurrente && window.OCTabSession && window.OCTabSession.pending) {
+        const tab=window.OCTabSession;
+        const lista=await new Promise(function(resolve) {
+          let finished=false,timer=null;
+          function finish(ok){
+            if(finished)return;finished=true;
+            try{window.removeEventListener('oc-tab-session-changed',changed);}catch(_){}
+            if(timer!==null)clearTimeout(timer);
+            resolve(ok===true);
+          }
+          function changed(){
+            if(rolAlPedir!==_rolLocal() ||
+               epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0))return finish(false);
+            if(!tab.pending)return finish(tab.isCurrent()===true);
+          }
+          window.addEventListener('oc-tab-session-changed',changed);
+          timer=setTimeout(function(){finish(false);},3000);
+          changed();
+        });
+        if(!lista)return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),
+          {status:403,headers:{"Content-Type":"application/json"}});
+      }
+      /* P0 HOTFIX (ORDEN DE JFC, dueno, 2026-11-11): "la venta se acepta SIEMPRE".
+         Una vendedora real no podia vender porque este guard rechazaba la escritura
+         con 403 "Your session changed while this action was waiting..." en dos casos
+         que NO son un cambio de sesion real:
+           (a) la epoca de login (OC_AUTH_SESSION_EPOCH) cambio mientras la accion
+               esperaba en la cola (un nuevo oc-login del MISMO rol, p. ej. al
+               volver a la app), y
+           (b) otra pantalla (pestana o PWA del mismo perfil) tomo el turno
+               compartido de localStorage (OCTabSession.isCurrent() === false).
+         AHORA solo se compara el ROL: un cierre de sesion real o un cambio de rol
+         real (rol distinto, o vacio) sigue dando 403 con este mismo texto.
+         Por que es seguro quitar epoca y turno: la integridad entre pantallas NO la
+         da el turno; la da el control de revision de IndexedDB
+         (OCEstadoIDB.guardarConRevision, compare-and-set) mas
+         _recargarSiOtraPestanaEscribio() justo abajo, que releen el estado
+         durable antes de escribir. Dos pantallas pueden vender a la vez y el CAS
+         decide (la venta rechazada se rebasa una vez, ver el reintento CAS mas abajo).
+         El turno SOLO gobierna la sincronizacion (OCTabSession.canSync en
+         sync-yjs.js / sync-realtime.js): eso NO se toca aqui.
+         NO mostrar modales/avisos ni texto nuevo (orden de JFC).
+         PARA REVERTIR (volver al guard viejo, NO recomendado): cambiar la linea por
+           const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+         y revertir tab-session.js check() (ver su comentario DORMANT). */
+      const cambio=rolAlPedir!==_rolLocal();
+      // JFC 2026-11-12: el turno entre pestanas ya no existe. Cambio real de rol o cierre de
+      // sesion sigue dando 403, con el texto de permiso que ya existia (ningun texto nuevo).
+      const negado=_negadoPorRol(url,opts) || (cambio ? "Ask the owner or a manager: an employee cannot do this." : null);
+      if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
+      _recargarSiOtraPestanaEscribio();
+      if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
+      let revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
+      // P0 v834: a manual +/-N delta gets ONE stable opId before its first attempt, so the CAS
+      // rebase below can tell "already committed" from "refused" and never applies it twice.
+      let _opIdDelta = "";
+      if (ajusteDeltaConcurrente) {
+        try {
+          const b0 = JSON.parse((opts && opts.body) || "{}");
+          if (typeof b0.opId !== "string" || !/^[A-Za-z0-9_-]{8,96}$/.test(b0.opId.trim())) b0.opId = uuid("adj-");
+          _opIdDelta = b0.opId.trim();
+          opts = Object.assign({}, opts, { body: JSON.stringify(b0) });
+        } catch (_) { _opIdDelta = ""; }
+      }
+      let primero = await _fetchInterno(url,opts);
+      // v755: up to 3 local rebases (was 1). Each one only against a NEWER durable revision
+      // than the previous attempt, so it can never apply the same sale twice.
+      for (let _reintento = 0; _reintento < 3; _reintento++) {
+      // #607: 503 now identifies a NON-quota strict save rejection, but the
+      // existing fenced sale-rebase must still run. Only accept our explicit
+      // durability code; an arbitrary 503 is never replayed. The response is
+      // cloned so the original error remains readable by the caller.
+      // v767 (revision 13 nov 2026): antes arrancaba en `primero.status === 507`, y una
+      // venta con cuota REAL (507 SALE_STORAGE_QUOTA, aparato sin espacio) se rebasaba y
+      // repetia hasta 3 veces contra el mismo disco lleno. Ahora un 507 con
+      // codigo SALE_STORAGE_QUOTA NUNCA se reintenta; solo el 503 con codigo de durabilidad no-cuota (abajo) se rebasa.
+      // Prueba: test/p0-v767-cuota-venta-sin-reintento.test.js
+      let _rechazoReintentable = false;
+      // Un 507 sin codigo (rechazo CAS heredado) sigue rebasandose; con SALE_STORAGE_QUOTA nunca.
+      if (ventaConcurrente && primero.status === 507) {
+        try { _rechazoReintentable = (await primero.clone().json()).code !== "SALE_STORAGE_QUOTA"; }
+        catch (_) { _rechazoReintentable = true; }
+      }
+      if ((ventaConcurrente || ajusteDeltaConcurrente) && primero.status === 503) {
+        try {
+          const codigo = (await primero.clone().json()).code;
+          _rechazoReintentable = ventaConcurrente
+            ? codigo === "SALE_DURABILITY_UNCONFIRMED"
+            : codigo === "STOCK_DURABILITY_UNCONFIRMED";
+        } catch (_) { _rechazoReintentable = false; }
+      }
+      // Only an explicit non-quota stock CAS refusal may be replayed. 507 from
+      // genuine storage quota is NEVER retried here. The handler has rolled back.
+      if (ajusteDeltaConcurrente && primero.status !== 503) _rechazoReintentable = false;
+      if (!(ventaConcurrente || ajusteDeltaConcurrente) || !_rechazoReintentable || _estadoLecturaBloqueada ||
+          _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
+      // A local mirror may still be settling after the first durable ACK.
+      // Wait for it only on this failed path, before replacing any in-memory copy.
+      if (_guardadoCatalogoPendiente) {
+        try { await _guardadoCatalogoPendiente; } catch (_) { return primero; }
+        if (_guardadoCatalogoPendiente || _estadoLecturaBloqueada ||
+            _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
+      }
+      // A second tab may have committed after our copy of the notebook was read.
+      // On a CAS rejection, the sale handler already rolled back every provisional
+      // fact. Rebase from the exact durable snapshot; execute at most ONCE again.
+      // Quota errors, corrupt snapshots and unchanged revisions remain failures.
+      const idb = window.OCEstadoIDB;
+      if (!idb || idb.soportado === false || typeof idb.leer !== "function") return primero;
+      let nuevo = null;
+      try { nuevo = await idb.leer(); } catch (_) { return primero; }
+      if (!nuevo || !Number.isSafeInteger(nuevo._rev) || nuevo._rev <= revisionAntes ||
+          nuevo._rev < _localRev || validarRespaldo(nuevo)) return primero;
+      /* P0 HOTFIX (JFC 2026-11-11): igual que el guard de arriba, el reintento CAS
+         solo se aborta si el ROL cambio de verdad. La epoca de login ya no cancela
+         el reintento: antes una venta rechazada por CAS (otra pantalla escribio
+         primero) se devolvia como fallo si el usuario habia vuelto a entrar mientras
+         tanto. El reintento sigue siendo UNA sola vez y solo contra una revision
+         durable mas nueva (arriba), asi que no puede duplicar la venta.
+         Para revertir: restaurar `|| epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0)`. */
+      if (rolAlPedir !== _rolLocal())
+        return primero;
+      aplicarRespaldo(nuevo);
+      _localRev = nuevo._rev;
+      _localRevReservado = Math.max(_localRevReservado, _localRev);
+      _estadoPublicableConfirmado = _huellaPublicable();
+      revisionAntes = _localRev;
+      // The newer durable notebook already holds THIS delta (first attempt committed but was
+      // reported unconfirmed): adopt it and answer with the product, never re-apply.
+      if (_opIdDelta && movimientos.some(mv => mv && mv.detalle && mv.detalle.opId === _opIdDelta)) {
+        // Re-enter the idempotent handler so the exact already-saved fact is
+        // republished after a false ACK, without a second CAS or stock effect.
+        return _fetchInterno(url, opts);
+      }
+      primero = await _fetchInterno(url,opts);
+      }
+      return primero;
+    };
+    // P0: a tab-local FIFO + session fencing replaces the 10-second Web Lock
+    // queue. Durable cross-tab conflict detection is delegated to IndexedDB's
+    // atomic revision check (OCEstadoIDB.guardarConRevision), not to this lease.
+    // Never execute two business mutations at once in this tab.
+    const operacion = _colaEscriturasLocal.then(ejecutar);
+    _colaEscriturasLocal = operacion.catch(() => {});
+    return operacion;
+  };
+  const _fetchInterno = async function (url, opts) {
+    // Microcirugia 4 (2026-07-07): si alguna libreria llama fetch(new
+    // Request(...)), antes el interceptor no veia metodo ni body y la
+    // llamada al backend local se perdia en silencio. Se normaliza aqui.
+    if (url && typeof url === "object" && url.url) {
+      const req = url;
+      opts = opts || {};
+      if (!opts.method && req.method) opts.method = req.method;
+      if (!opts.body && req.method && req.method !== "GET" && typeof req.clone === "function") {
+        try { opts.body = await req.clone().text(); } catch (_) {}
+      }
+      url = req.url;
+    }
+    // Item 1: toda mutación exitosa o fallida persiste el estado al final
+    // (finally), salvo lecturas GET, rutas de sync y la exportación.
+    let debePersistir = false;
+    try {
+      const u = new URL(url, window.location.origin);
+      if (!u.pathname.startsWith("/api")) return realFetch(url, opts);
+      const path = u.pathname;
+      const q = u.searchParams;
+      // FIX 2026-07-07: un body que no sea JSON (FormData, texto suelto)
+      // reventaba el interceptor entero con un 500 generico. Se degrada a {}
+      // y cada endpoint responde su error especifico.
+      let body = {};
+      if (opts && opts.body) { try { body = (function () { try { return JSON.parse(opts.body); } catch (_) { return {}; } })(); } catch (_) { body = {}; } }
+      const method = (opts && opts.method ? opts.method : "GET").toUpperCase();
+      debePersistir = ["POST", "PUT", "PATCH", "DELETE"].includes(method) && !path.startsWith("/api/sync") && path !== "/api/respaldo/exportar";
+      /* PRUEBA VENCIDA = SOLO LECTURA (decisión JFC 2026-09-22; lógica en
+         docs/licencia-prueba.js). Una sola compuerta para TODA escritura, en el
+         único punto por el que pasan todas. Se bloquea solo con certeza (aparato
+         activado, sin pago, prueba vencida, no demo, ruta que escribe negocio).
+         FALLA ABIERTO: si OCPrueba no está cargado o algo lanza, NO bloquea.
+         Un bug aquí nunca puede dejar en solo lectura a un cliente que pagó.
+         Los datos no se tocan: solo se rechaza escribir algo NUEVO. */
+      if (debePersistir) {
+        let _bloquea = false;
+        try { _bloquea = !!(window.OCPrueba && window.OCPrueba.bloquea && window.OCPrueba.bloquea(path)); } catch (_) { _bloquea = false; }
+        if (_bloquea) {
+          debePersistir = false; // nada cambió: no hay estado que persistir
+          try { window.dispatchEvent(new CustomEvent("oc-prueba-vencida")); } catch (_) {}
+          let _msg = "Your trial has ended: the app is read-only.";
+          try { _msg = window.OCPrueba.mensajeError(); } catch (_) {}
+          return J({ error: _msg, codigo: "PRUEBA_VENCIDA" }, 402);
+        }
+      }
+      /* COMPUERTA DEL ARTISTA (benchmark #6, JFC 2026-09-24). DENY-BY-DEFAULT:
+         con rol "artista" solo existen las rutas de esta lista; todo lo demas
+         (ventas, clientes, plata, equipo, rutas futuras) responde 403 sin
+         llegar a su manejador. NO convertir en lista negra: una ruta nueva
+         quedaria abierta sin que nadie se entere. test/artista-permisos.test.js */
+      if (_rolLocal() === "artista") {
+        const art = _artistaSesion();
+        if (!art) { debePersistir = false; return J({ error: "Artist access is not active. Ask the owner.", codigo: "ARTISTA_SIN_ACCESO" }, 403); }
+        const racks = _perchasDeArtista(art.id);
+        const idsRack = racks.map((u) => String(u.id));
+        const mEt = method === "GET" ? path.match(/^\/api\/productos\/([^/]+)\/etiqueta$/) : null;
+        if (method === "GET" && path === "/api/productos") {
+          return J(productos.filter((p) => !p.borrado && !p.archivado && idsRack.includes(String(p.ubicacionId)))
+            .map(_piezaParaArtista).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es")));
+        }
+        if (method === "GET" && path === "/api/ubicaciones") return J(racks.map((u) => ({ id: u.id, nombre: u.nombre })));
+        if (method === "GET" && path === "/api/config/moneda") { /* solo lectura: simbolo de moneda para pintar precios */ }
+        else if (mEt) {
+          const p = productos.find((x) => x.id === mEt[1] && !x.borrado);
+          if (!p || !idsRack.includes(String(p.ubicacionId))) return J({ error: "That piece is not on your rack." }, 403);
+          const barcodeSvg = window.OCBarcode ? window.OCBarcode.code128SVG(p.barcode, { width: 300, height: 80 }) : "";
+          return J({ producto: _piezaParaArtista(p), qrDataUrl: qrDataUrl(String(p.barcode || p.sku || "")), barcodeSvg });
+        }
+        else if (method === "POST" && path === "/api/productos") {
+          if (!racks.length) { debePersistir = false; return J({ error: "You do not have a rack yet. Ask the owner to assign you one.", codigo: "ARTISTA_SIN_PERCHA" }, 403); }
+          const pedida = body.ubicacionId && body.ubicacionId !== "todas" ? String(body.ubicacionId) : null;
+          if (pedida && !idsRack.includes(pedida)) { debePersistir = false; return J({ error: "You can only add pieces to your own rack.", codigo: "ARTISTA_PERCHA_AJENA" }, 403); }
+          /* Lista blanca de campos: el artista no fija costo, precio de casa,
+             variantes, tipo de producto ni comisionista. La pieza queda atada a
+             el y a SU percha, pase lo que pase en el body. */
+          const limpio = { nombre: body.nombre, barcode: body.barcode, sku: body.sku, categoria: body.categoria, precio: body.precio,
+            stockInicial: body.stockInicial, foto: body.foto, ubicacionId: pedida || idsRack[0], comisionistaId: art.id,
+            umbralRojo: 1, umbralAmarillo: 2, altaPorArtista: art.nombre };
+          Object.keys(body).forEach((k) => { delete body[k]; });
+          Object.assign(body, limpio);
+        }
+        else { debePersistir = false; return J({ error: "Artists can only add and see their own pieces.", codigo: "ARTISTA_SIN_PERMISO" }, 403); }
+      }
+      const uid = q.get("ubicacionId");
+
+      let m;
+      // Una categoría puede abarcar muchos productos. Cambiarla con PATCH por
+      // ficha dejaba una operación a medias si la red fallaba entre solicitudes.
+      // Validamos TODO primero y aplicamos en un único turno síncrono al store
+      // local; cada ficha recibe rev para converger por el catálogo cifrado.
+      if (path === "/api/categorias/cambiar" && method === "POST") {
+        const vieja = String(body.vieja || "").trim();
+        const nueva = String(body.nueva == null ? "" : body.nueva).trim();
+        if (!vieja || (!nueva && body.borrar !== true)) return J({ error: "A category name is required." }, 400);
+        if (nueva.length > 120) return J({ error: "The category name is too long." }, 400);
+        if (vieja.toLowerCase() === nueva.toLowerCase()) return J({ ok: true, actualizados: 0 });
+        const afectados = productos.filter((p) => p && !p.borrado && categoriaCanonica(p.categoria).toLowerCase() === categoriaCanonica(vieja).toLowerCase());
+        afectados.forEach((p) => { p.categoria = nueva; p.rev = _revNueva(); });
+        if (afectados.length) {
+          mov("edicion-categoria", { antes: vieja, ahora: nueva, productosAfectados: afectados.length });
+          avisarCatalogoCambiado();
+        }
+        return J({ ok: true, actualizados: afectados.length });
+      }
+      // Edicion libre de la ficha (nombre, foto, precios, codigo interno).
+      // El gating por rol (encargado NO edita) vive en la UI; aca solo se aplica.
+      /* v521 FLECHA — switch de Summary by Product (JFC 2026-10-14: "Todas! Necesitan arreglar las del pasado").
+         Gira la direccion del producto y de TODAS sus ventas no anuladas, de cualquier mes. Los montos no cambian.
+         Una venta que ya tenia pago en la direccion vieja se cambia igual, pero el pago se conserva en el
+         libro y la venta queda marcada para revisar (directionReview); se informa cuantas. Persiste UNA vez. */
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/direccion-comision$/)) && opts && opts.method === "PATCH") {
+        // Financial history can only be reclassified by an authorized owner/admin.
+        // Demo may exercise this on its synthetic notebook only.
+        if (!["dueno", "admin", "demo"].includes(_rolLocal())) {
+          debePersistir = false;
+          return J({ error: "Only the owner or administrator can change commission direction." }, 403);
+        }
+        const p = productos.find((x) => x.id === m[1] && !x.borrado); if (!p) return J({ error: "Product not found." }, 404);
+        const dir = _direccionValida(body && body.direccion);
+        if (!dir) return J({ error: "Direction must be casaPaga or asociadoPaga." }, 400);
+        const antes = _direccionValida(p.direccionComision) || "casaPaga";
+        p.direccionComision = dir; p.rev = _revNueva();
+        let cambiadas = 0, pagadasARevisar = 0;
+        ventas.forEach((v) => {
+          if (!v || v.anulada || v.productoId !== p.id) return;
+          if ((_direccionValida(v.direccionComision) || "casaPaga") === dir) return;
+          if (v.split && (v.liquidada || _ventaTienePagoComision(v))) pagadasARevisar++;
+          v.direccionComision = dir;
+          v.direccionCambios = (Array.isArray(v.direccionCambios) ? v.direccionCambios : []).concat([{ fecha: new Date().toISOString(), quien: String((body && body.quien) || "").trim().slice(0, 80) || "unidentified", de: antes, a: dir }]).slice(-20);
+          v.rev = _revNueva(); cambiadas++;
+        });
+        mov("direccion-comision", { producto: p.nombre, de: antes, a: dir, ventas: cambiadas, pagadasARevisar });
+        guardarEstadoLocal(); avisarCatalogoCambiado();
+        return J({ ok: true, direccion: dir, cambiadas, pagadasARevisar });
+      }
+      if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        const preciosError = errorPreciosEntrada(body);
+        if (preciosError) return J({ error: preciosError }, 400);
+        if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
+        const stockAntesEdicion = Number(p.stockActual) || 0;
+        const _conversionBar = body.servingMl !== undefined && (body.tipoProducto === undefined ? p.tipoProducto : body.tipoProducto) === "bar";
+        const _fotoBar = _conversionBar ? { producto: clonar(p), movLen: movimientos.length, sello: selloUltimo, ajustesLen: ajustesComision.length } : null;
+        let _barGuardada = false, terminarBar;
+        const _revertirBar = () => {
+          Object.keys(p).forEach(k => { delete p[k]; }); Object.assign(p, _fotoBar.producto);
+          movimientos.length = _fotoBar.movLen; selloUltimo = _fotoBar.sello; ajustesComision.length = _fotoBar.ajustesLen;
+        };
+        if (_conversionBar) {
+          debePersistir = false; // La conversión comparte la barrera de catálogo de la venta durable.
+          _ventaConfirmando = true; _ventaPendiente = new Promise(resolve => { terminarBar = resolve; });
+        }
+        try {
+        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "archivado", "piezaUnica"];
+        CAMPOS.forEach((k) => {
+      if (body[k] === undefined) return;
+      if (k === "categoria") { p[k] = categoriaCanonica(body[k]); return; }
+      if (k === "foto") {
+        if (p.foto !== body[k]) { p.foto = body[k]; p.fotoHash = null; }
+        return;
+      }
+      /* precioCasa (JFC/Belén 2026-09-15): nullable. "" o vacío => se borra el
+         precio de casa (null); si no, número >=0. Va ANTES del branch numérico
+         genérico, que convertiría null/"" en 0 y dejaría un precio de casa $0
+         fantasma. */
+      if (k === "precioCasa") { p[k] = (body[k] === "" || body[k] == null) ? null : aCent(Math.max(0, Number(body[k]) || 0)); return; }
+      if (k === "precioReserva" || k === "precioWalkIn") { p[k] = precioOpcional(body[k]); return; }
+      if (k === "precio" || k === "costo") { p[k] = aCent(Number(body[k]) || 0); return; }
+      if (k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
+      if (k === "servingMl" || k === "botellaMl") {
+        const nuevo = Math.max(1, Number(body[k]) || (k === "servingMl" ? 50 : 750));
+        /* BAR (JFC 2026-09-10, queja de Belén: "el stock de bebidas no cambia al
+           editar copas/ml"). El stock de una bebida está en COPAS. Si cambia el ml
+           POR COPA, la MISMA bebida física rinde otro número de copas: se reescala
+           el stock para conservar el volumen (copas × mlViejo = copas' × mlNuevo).
+           Antes solo se guardaba el ml y el número de copas quedaba igual (mal).
+           botellaMl NO reescala: es solo la referencia copas↔botellas. */
+        if (k === "servingMl" && (p.tipoProducto || "normal") === "bar") {
+          const viejo = Math.max(1, Number(p.servingMl) || 50);
+          if (viejo !== nuevo) p.stockActual = Math.round(Math.max(0, Number(p.stockActual) || 0) * viejo / nuevo);
+        }
+        p[k] = nuevo; return;
+      }
+      if (k === "pctAsociado") { p[k] = normPctAsociado(body[k]); return; } // Belen 2026-09-29: % del asociado por producto (null = trato de la percha)
+      if (k === "direccionComision") { const d = _direccionValida(body[k]); if (d) p[k] = d; return; } // v521 flecha: valor invalido = no se toca
+      if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
+      if (k === "fechaEvento") { p[k] = String(body[k] || "").trim().slice(0, 20); return; } // JFC 2026-09-30 (v430)
+      if (k === "piezaUnica") { p[k] = typeof body[k] === "boolean" ? body[k] : null; return; } // v557: true/false explicito, null = inferido
+      if (k === "perecible" || k === "archivado" || k === "exentoImpuesto") { p[k] = !!body[k]; return; } // archivado: JFC/Belén 2026-09-08
+      p[k] = body[k];
+    });
+        const _opBar = Number(p.stockActual) !== stockAntesEdicion ? { productoId: p.id, delta: Number(p.stockActual) - stockAntesEdicion } : null;
+        if (_opBar) { if (_conversionBar) _prepararOpStock(_opBar); else emitirOpStock("conversion-bar", _opBar); }
+        p.rev = _revNueva();
+        mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) }, !_conversionBar);
+        if (body.pctAsociado !== undefined || body.comisionistaId !== undefined) { try { recalcularAlPctDelProducto(!_conversionBar); } catch (_) {} } // v457 (b)
+        if (_conversionBar) {
+          try { _barGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!_barGuardada) { _revertirBar(); return J({ error: tSeguro("product.notSaved", "The change was NOT saved: storage is unavailable. Try again when storage is available.") }, 507); }
+          if (_opBar) emitirOpStock("conversion-bar", _opBar, true);
+        } else avisarCatalogoCambiado(); // nombre/precio/percha viajan; el stock tiene sus propias ops.
+        return J(ficha(p));
+        } catch (e) { if (_conversionBar && !_barGuardada) _revertirBar(); throw e; }
+        finally {
+          if (_conversionBar) {
+            _ventaConfirmando = false; _ventaPendiente = null;
+            try {
+              _drenarCatalogosPendientes();
+              if (_barGuardada) _avisarCatalogoConfirmado();
+            } finally { terminarBar(); }
+          }
+        }
+      }
+      // Borrado definitivo (dueno, doble confirmacion en la UI).
+      if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "DELETE") {
+        const i = productos.findIndex((x) => x.id === m[1]); if (i === -1) return J({ error: "Product not found." }, 404);
+        // BUG FIJADO 2026-07-03: una transferencia "en_transito" ya restó el
+        // stock del origen esperando que el destino lo reciba. Borrar el
+        // producto origen o destino en ese estado perdía esas unidades para
+        // siempre, sin rastro. Bloquear hasta que se confirme o resuelva.
+        const enTransito = transferencias.find((t) => (t.estado === "en_transito" || t.estado === "solicitada") && (t.productoOrigenId === m[1] || t.productoDestinoId === m[1]));
+        if (enTransito) return J({ error: `"${productos[i].nombre}" tiene una transferencia en tránsito (${enTransito.cantidad} unidades). Espera a que se confirme o se resuelva antes de borrarlo.` }, 400);
+        const borrado = productos[i]; borrado.borrado = true; borrado.rev = _revNueva();
+        mov("baja", { producto: borrado.nombre, sku: borrado.sku, ubicacion: nombreUbic(borrado.ubicacionId) });
+        return J({ ok: true });
+      }
+      if (path === "/api/modo") return J({ modo: "demo-estatico" });
+      if (path === "/api/ubicaciones" && (!opts || opts.method !== "POST")) {
+        const soloActivas = q.get("todas") !== "1";
+        return J(soloActivas ? ubicaciones.filter((u) => !u.borrado && u.activa !== false && !_demoOculto("ubicaciones", u)) : ubicaciones.filter((u) => !u.borrado && !_demoOculto("ubicaciones", u)));
+      }
+      if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
+        if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
+        const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0), baseComision: _baseComisionValida(body.baseComision) || null };
+        nueva.rev = _revNueva();
+        nueva.estadoRev = nueva.rev;
+        ubicaciones.push(nueva);
+        // BUG FIX (2026-07-03): las perchas creadas en runtime no existian en
+        // gastosMensuales, por lo que la suma "todas" las excluia hasta que se
+        // guardara algun gasto para ellas. Se inicializa en 0 al crearlas.
+        gastosMensuales[nueva.id] = 0;
+        mov("ubicacion-alta", { ubicacion: nueva.nombre });
+        avisarCatalogoCambiado(); // la percha nueva viaja al resto del negocio
+        return J(nueva);
+      }
+      if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "PUT") {
+        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
+        // Photo pointer retries must prove the same original hash AND revision.
+        // Check before touching any shelf fields so a conflict is side-effect free.
+        if ("fotoHash" in body && ("expectedFotoHash" in body || "expectedFotoRev" in body)) {
+          const expectedRev = body.expectedFotoRev, actualRev = u.fotoRev || null;
+          const matchesHash = "expectedFotoHash" in body &&
+            (body.expectedFotoHash === null || typeof body.expectedFotoHash === "string") &&
+            body.expectedFotoHash === (u.fotoHash || null);
+          const matchesRev = "expectedFotoRev" in body && (expectedRev === null
+            ? actualRev === null
+            : !!(expectedRev && typeof expectedRev === "object" && actualRev &&
+                Number.isSafeInteger(expectedRev.c) && typeof expectedRev.d === "string" &&
+                expectedRev.c === actualRev.c && expectedRev.d === actualRev.d));
+          if (!matchesHash || !matchesRev) return J({ error: "Photo changed on another device. Refresh this shelf before retrying.", codigo: "PHOTO_POINTER_CONFLICT" }, 409);
+        }
+        if (body.nombre && body.nombre.trim()) u.nombre = body.nombre.trim();
+        if (body.tipo) u.tipo = body.tipo;
+        if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;
+        if ("promotoraId" in body) u.promotoraId = body.promotoraId || null;
+        /* El % del trato y la meta no se podian cambiar NUNCA desde aqui: una
+           percha nacia con su comision y quedaba asi para siempre, y la unica
+           salida era borrarla y rehacerla — perdiendo su historial. Sin esto
+           la modalidad de artista (se lleva 85, la casa retiene 15) era
+           inalcanzable. (JFC 2026-08-18) */
+        if ("comisionSocio" in body) {
+          const pc = Number(body.comisionSocio);
+          if (!Number.isFinite(pc) || pc < 0 || pc > 100) return J({ error: "The commission must be between 0 and 100." }, 400);
+          u.comisionSocio = pc;
+        }
+        if ("metaMensual" in body) u.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
+        if ("esEvento" in body) u.esEvento = !!body.esEvento;
+        if ("esFeria" in body) u.esFeria = !!body.esFeria;
+        /* LAS DOS FORMAS DE DECIR EL MISMO TRATO (JFC 2026-08-18). Se guarda
+           SIEMPRE un solo numero canonico —lo que se lleva el asociado— y
+           aparte como lo dice este negocio. Si el duenio escribe "la casa
+           retiene 15", aqui se convierte a 85 y se recuerda que el prefiere
+           leerlo al reves. Nadie tiene que restar de cabeza, y es imposible
+           guardar un reparto que no sume 100. */
+        /* LO EXPLICITO Y MAS RECIENTE MANDA (JFC 2026-08-18). Escribir un
+           porcentaje EN ESTA PERCHA quiere decir "este trato, aqui", aunque la
+           persona asignada tenga otro trato propio en otras perchas. Se puede
+           desactivar mandando usarComisionPropia:false en la misma peticion. */
+        if (("comisionSocio" in body || "pctQuedaEnCasa" in body) && !("usarComisionPropia" in body)) u.usarComisionPropia = true;
+        if ("pctQuedaEnCasa" in body) {
+          const pc = Number(body.pctQuedaEnCasa);
+          if (!Number.isFinite(pc) || pc < 0 || pc > 100) return J({ error: "The house share must be between 0 and 100." }, 400);
+          u.comisionSocio = +(100 - pc).toFixed(2);
+          u.lecturaPreferida = "casa";
+        }
+        if ("lecturaPreferida" in body) u.lecturaPreferida = body.lecturaPreferida === "casa" ? "casa" : "asociado";
+        /* Se BLOQUEA al escribir, no se corrige al leer (mismo criterio que
+           amigable-123): el aporte fijo y las escalas por meta no pueden
+           coexistir, porque el modelo escalonado calcula el % venta por venta
+           con el acumulado del mes y restar un fijo ahi obligaria a recalcular
+           cada venta ya registrada. Decirlo aqui, cuando se configura, evita
+           que el duenio descubra el conflicto en la liquidacion de fin de mes. */
+        if ("contribFija" in body) {
+          const cf = Math.max(0, Number(body.contribFija) || 0);
+          const habraEscalas = "escalasComision" in body
+            ? (Array.isArray(body.escalasComision) && body.escalasComision.length > 0)
+            : (Array.isArray(u.escalasComision) && u.escalasComision.length > 0);
+          if (cf > 0 && habraEscalas) return J({ error: "A fixed contribution can't be combined with goal-based tiers: pick one. The tiered model recalculates the rate sale by sale, so subtracting a fixed amount would change every sale already recorded." }, 400);
+          u.contribFija = cf;
+        }
+        if ("minimoGarantizado" in body) u.minimoGarantizado = Math.max(0, Number(body.minimoGarantizado) || 0);
+        if ("usarComisionPropia" in body) u.usarComisionPropia = !!body.usarComisionPropia;
+        if ("baseComision" in body) u.baseComision = _baseComisionValida(body.baseComision) || "bruto";
+        if ("rebajaEdad" in body) u.rebajaEdad = _rebajaValida(body.rebajaEdad); // benchmark #3
+        if ("escalasComision" in body) u.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision : [];
+        /* B2 (JFC 2026-09-10): puntero de la foto. La foto (bytes) se guarda por
+           su hash SHA-256 en idb-fotos; aqui solo viaja el HASH en el catalogo,
+           asi la asignacion "esta percha tiene esta foto" converge entre aparatos
+           sin mover megas por el CRDT. Los bytes viajan aparte (a la nube del
+           dueno, B3). null = quitar la foto. */
+        const revCambio = _revNueva();
+        if ("fotoHash" in body) {
+          u.fotoHash = body.fotoHash || null;
+          u.fotoRev = revCambio; // v446: solo una edicion explicita de foto puede borrar/reemplazar el puntero.
+        }
+        u.rev = revCambio;
+        guardarEstadoLocal();
+        avisarCatalogoCambiado(); // cambios de la percha (nombre, trato, foto) viajan al equipo
+        return J(u);
+      }
+      if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
+        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
+        u.activa = m[2] === "activar";
+        u.rev = _revNueva();
+        u.estadoRev = u.rev;
+        mov(u.activa ? "ubicacion-reactivada" : "ubicacion-desactivada", { ubicacion: u.nombre });
+        return J(u);
+      }
+      if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "DELETE") {
+        const idx = ubicaciones.findIndex((x) => x.id === m[1]); if (idx < 0) return J({ error: "Shelf not found." }, 404);
+        if (ubicaciones.filter((x) => !x.borrado).length <= 1) return J({ error: "At least one shelf has to remain." }, 400);
+        const u = ubicaciones[idx];
+        // Borrado en cascada: la percha y TODOS sus productos. La UI ya lo advirtio.
+        const productosBorrados = productos.filter((p) => p.ubicacionId === u.id && !p.borrado).length;
+        for (const p of productos) if (p.ubicacionId === u.id && !p.borrado) { p.borrado = true; p.rev = _revNueva(); }
+        u.borrado = true; u.activa = false; u.rev = _revNueva(); u.estadoRev = u.rev;
+        delete gastosMensuales[u.id];
+        mov("ubicacion-borrada", { ubicacion: u.nombre, productosBorrados });
+        return J({ ok: true, productosBorrados });
+      }
+      // ---- CAJA CHICA por percha — Roadmap Agosto 2026, Fase 2 ----
+      // Mismo espiritu que cartera de clientes: el saldo NUNCA se guarda
+      // aqui, se deriva en AMG.CajaChica reproduciendo los hechos.
+      const mPerchaCaja = path.match(/^\/api\/ubicaciones\/([^/]+)\/caja-chica$/);
+      if (mPerchaCaja && (!opts || !opts.method || opts.method === "GET")) {
+        const u = ubicaciones.find((x) => x.id === mPerchaCaja[1]);
+        if (!u) return J({ error: "Shelf not found." }, 404);
+        if (!window.AMG || !window.AMG.CajaChica) return J({ saldo: 0, movimientos: [] });
+        return J(await window.AMG.CajaChica.saldoDePercha(u.id));
+      }
+      const mPerchaCajaMov = path.match(/^\/api\/ubicaciones\/([^/]+)\/caja-chica\/(ingreso|retiro)$/);
+      if (mPerchaCajaMov && opts && opts.method === "POST") {
+        const u = ubicaciones.find((x) => x.id === mPerchaCajaMov[1]);
+        if (!u) return J({ error: "Shelf not found." }, 404);
+        const monto = Number(body.monto);
+        if (!(monto > 0)) return J({ error: "The amount must be greater than zero." }, 400);
+        if (!body.motivo || !String(body.motivo).trim()) return J({ error: "A reason is required." }, 400);
+        if (!window.AMG || !window.AMG.CajaChica) return J({ error: "Petty cash is not available." }, 500);
+        const tipo = mPerchaCajaMov[2];
+        try {
+          await window.AMG.CajaChica.registrarMovimiento(u.id, tipo, monto, body.motivo);
+        } catch (e) {
+          return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, 400);
+        }
+        mov(tipo === "ingreso" ? "caja-chica-ingreso" : "caja-chica-retiro", { ubicacion: u.nombre, monto, motivo: body.motivo });
+        return J(await window.AMG.CajaChica.saldoDePercha(u.id));
+      }
+
+      // ---- Asociados/as (comision por traer gente) ----
+      /* El PIN del artista NUNCA sale por aqui (lo ve cualquiera que abra la
+         lista). Se expone solo si tiene acceso activo. (benchmark #6) */
+      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado && !_demoOculto("promotoras", p)).map((p) => {
+        const { accesoArtista, ...resto } = p;
+        return { ...resto, tieneAccesoArtista: !!(accesoArtista && accesoArtista.activo), tienePercha: _perchasDeArtista(p.id).length > 0 };
+      }));
+      /* PUT /api/promotoras/:id/acceso { pin?, activo } — solo dueno/admin.
+         Fija, cambia o quita el PIN de artista. El PIN no choca con equipo,
+         PINs integrados, reservados ni otro artista (si chocara con el del
+         dueno, el artista entraria como DUENO: el integrado se revisa primero). */
+      const mAcc = path.match(/^\/api\/promotoras\/([^/]+)\/acceso$/);
+      if (mAcc && method === "PUT") {
+        if (!_puedeGestionarEquipo()) { debePersistir = false; return J({ error: "Only the owner or an admin can manage artist access." }, 403); }
+        const pr = promotoras.find((x) => x.id === mAcc[1] && !x.borrado);
+        if (!pr) { debePersistir = false; return J({ error: "Associate not found." }, 404); }
+        const prev = pr.accesoArtista || null;
+        let pin = prev ? prev.pin : "";
+        if (body.pin !== undefined && body.pin !== null && body.pin !== "") {
+          pin = String(body.pin).trim();
+          if (!/^\d{3}$/.test(pin)) { debePersistir = false; return J({ error: "The PIN must be exactly 3 digits." }, 400); }
+          if (_pinReservado(pin)) { debePersistir = false; return J({ error: "That PIN is reserved for the app. Pick another one.", codigo: "PIN_RESERVADO" }, 400); }
+          const integ = await _pinIntegradoEnUso(pin);
+          if (integ === null) { debePersistir = false; return J({ error: "Could not verify current PINs. Nothing changed; retry.", codigo: "PIN_NO_VERIFICADO" }, 503); }
+          if (integ) { debePersistir = false; return J({ error: "A built-in role already uses that PIN.", codigo: "PIN_COLISION" }, 409); }
+          if (usuarios.some((u) => !u.borrado && u.pin === pin)) { debePersistir = false; return J({ error: "A team member already uses that PIN.", codigo: "PIN_COLISION" }, 409); }
+          if (_pinDeArtista(pin, pr.id)) { debePersistir = false; return J({ error: "Another artist already uses that PIN.", codigo: "PIN_COLISION" }, 409); }
+        }
+        const activo = body.activo === undefined ? !!(prev && prev.activo) : !!body.activo;
+        if (activo && !pin) { debePersistir = false; return J({ error: "Set a 3-digit PIN first." }, 400); }
+        pr.accesoArtista = { pin, activo, actualizadoEn: new Date().toISOString() };
+        pr.rev = _revNueva();
+        // Nunca el PIN en la bitacora: solo si cambio.
+        mov("artista-acceso", { promotora: pr.nombre, activo, pinCambiado: !prev || prev.pin !== pin }, false);
+        avisarCatalogoCambiado();
+        return J({ id: pr.id, tieneAccesoArtista: activo, tienePercha: _perchasDeArtista(pr.id).length > 0 });
+      }
+      /* POST /api/artistas/verificar { pin } — lo llama auth-ui en el candado.
+         Falla cerrado: si el PIN tambien es de alguien del equipo, de otro
+         artista o de un rol integrado (p. ej. llego asi por sync), NO abre. */
+      if (path === "/api/artistas/verificar" && method === "POST") {
+        debePersistir = false;
+        const pin = String(body.pin || "").trim();
+        if (!/^\d{3}$/.test(pin)) return J({ error: "That PIN does not match any artist." }, 401);
+        const pr = promotoras.find((x) => !x.borrado && x.activa !== false && x.accesoArtista && x.accesoArtista.activo && x.accesoArtista.pin === pin);
+        if (!pr) return J({ error: "That PIN does not match any artist." }, 401);
+        const integ = await _pinIntegradoEnUso(pin);
+        if (integ !== false || usuarios.some((u) => !u.borrado && u.pin === pin) || _pinDeArtista(pin, pr.id))
+          return J({ error: "This artist PIN clashes with another PIN. Ask the owner to change it.", codigo: "ARTISTA_PIN_CONFLICTO" }, 409);
+        return J({ id: pr.id, nombre: pr.nombre, tienePercha: _perchasDeArtista(pr.id).length > 0 });
+      }
+      if (path === "/api/promotoras" && opts && opts.method === "POST") {
+        if (!body.nombre || !body.nombre.trim()) return J({ error: "A name is required." }, 400);
+        /* Datos de contacto/pago opcionales (paridad con amigable-123, JFC
+           2026-08-25): antes solo se guardaba nombre + %, muy por detras de lo
+           que ya se pide para clientes. Todo opcional salvo el nombre. */
+        const _s = (x) => String(x || "").trim().slice(0, 160);
+        /* Base % en `comisionBase` (JFC 2026-09-01): el editor de comisionista
+           (portado de amigable) usa comisionBase y resolverTrato lo lee primero.
+           Se acepta `comision` como alias de entrada y se guarda `comision`
+           espejo para compatibilidad con datos/lectores viejos. */
+        const _base = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
+        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comisionBase: _base, comision: _base, baseComision: _baseComisionValida(body.baseComision) || "bruto",
+          telefono: _s(body.telefono), cedula: _s(body.cedula), banco: _s(body.banco), cuenta: _s(body.cuenta),
+          direccion: _s(body.direccion), notas: _s(body.notas), activa: true, creadoEn: new Date().toISOString(),
+          /* JFC 2026-08-27 (portado de amigable-123): meta mensual y tramos/escalas
+             propios del comisionista. Formato {hasta,comision} — el MISMO que lee
+             pctDeLaVenta/resolverTrato y el editor de barra (antes {desde,pct}: los
+             tramos del comisionista se perdían en silencio). */
+          metaMensual: Math.max(0, Number(body.metaMensual) || 0),
+          escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [], rev: _revNueva() };
+        promotoras.push(nuevaProm);
+        mov("promotora-alta", { promotora: nuevaProm.nombre });
+        return J(nuevaProm);
+      }
+      const mProm = path.match(/^\/api\/promotoras\/([^/]+)$/);
+      if (mProm && opts && opts.method === "PUT") {
+        const pr = promotoras.find((x) => x.id === mProm[1]);
+        if (!pr || pr.borrado) return J({ error: "Associate not found." }, 404);
+        const _baseAntes = Math.max(0, Number(pr.comisionBase !== undefined ? pr.comisionBase : pr.comision) || 0);
+        const _tramosAntes = Number(pr.metaMensual) > 0 && Array.isArray(pr.escalasComision) && pr.escalasComision.length > 0;
+        let _cambioBase = false;
+        if (body.nombre !== undefined) pr.nombre = String(body.nombre).trim().slice(0, 80) || pr.nombre;
+        // Base % en comisionBase (con comision espejo) — acepta ambos nombres de entrada.
+        if (body.comisionBase !== undefined || body.comision !== undefined) {
+          const b = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
+          pr.comisionBase = b; pr.comision = b;
+          _cambioBase = Math.abs(b - _baseAntes) >= 0.0001;
+        }
+        if (body.metaMensual !== undefined) pr.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
+        if (body.baseComision !== undefined) pr.baseComision = _baseComisionValida(body.baseComision) || "bruto";
+        // Escalas {hasta,comision} — el mismo formato que lee pctDeLaVenta (antes {desde,pct}).
+        if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [];
+        ["telefono", "cedula", "banco", "cuenta", "direccion", "notas"].forEach((k) => { if (body[k] !== undefined) pr[k] = String(body[k] || "").trim().slice(0, 160); });
+        pr.rev = _revNueva();
+        let _reactivo = { corregidas: 0 };
+        if (_cambioBase) {
+          const _tramosDespues = Number(pr.metaMensual) > 0 && Array.isArray(pr.escalasComision) && pr.escalasComision.length > 0;
+          _reactivo = corregirPendientesPorCambioComisionista(pr, _baseAntes, Number(pr.comisionBase) || 0, _tramosAntes || _tramosDespues);
+        }
+        mov("promotora-edicion", { promotora: pr.nombre, comisionAntes: _baseAntes, comisionAhora: Number(pr.comisionBase) || 0, ventasPendientesActualizadas: _reactivo.corregidas || 0 });
+        return J(pr);
+      }
+      if (mProm && opts && opts.method === "DELETE") {
+        const idxP = promotoras.findIndex((x) => x.id === mProm[1]);
+        if (idxP < 0) return J({ error: "Associate not found." }, 404);
+        const prb = promotoras[idxP];
+        if (prb.borrado) return J({ error: "Associate not found." }, 404);
+        prb.borrado = true; prb.activa = false; prb.rev = _revNueva();
+        // Desasignar de las perchas que lo tenian. FIX (JFC 2026-09-22): antes NO
+        // se subia u.rev aqui, asi que Yjs (que mergea perchas por rev mas alto)
+        // podia conservar el promotoraId VIEJO en otro aparato que ya tenia una
+        // revision mayor de esa percha por otro motivo -> Commissions mostraba
+        // distinto entre dispositivos tras archivar un comisionista.
+        ubicaciones.forEach((u) => { if (u.promotoraId === prb.id) { u.promotoraId = null; u.rev = _revNueva(); } });
+        mov("promotora-baja", { promotora: prb.nombre });
+        return J({ ok: true });
+      }
+      // ---- Sucursales (agrupadores backend de perchas) ----
+      if (path === "/api/sucursales" && (!opts || opts.method !== "POST")) return J(sucursales.filter((s) => !s.borrado && !_demoOculto("sucursales", s)));
+      if (path === "/api/sucursales" && opts && opts.method === "POST") {
+        if (!body.nombre || !body.nombre.trim()) return J({ error: "The branch name is required." }, 400);
+        const nuevaSuc = { id: uuid("suc"), nombre: body.nombre.trim(), activa: true, rev: _revNueva() };
+        sucursales.push(nuevaSuc);
+        mov("sucursal-alta", { sucursal: nuevaSuc.nombre });
+        return J(nuevaSuc);
+      }
+      const mSuc = path.match(/^\/api\/sucursales\/([^/]+)$/);
+      if (mSuc && opts && opts.method === "PUT") {
+        const s = sucursales.find((x) => x.id === mSuc[1]); if (!s || s.borrado) return J({ error: "Branch not found." }, 404);
+        if (body.nombre && body.nombre.trim()) s.nombre = body.nombre.trim();
+        s.rev = _revNueva();
+        return J(s);
+      }
+      if (mSuc && opts && opts.method === "DELETE") {
+        const tienePerchas = ubicaciones.some((u) => u.sucursalId === mSuc[1]);
+        if (tienePerchas) return J({ error: "Move the shelves to another branch before deleting this one." }, 400);
+        const idxS = sucursales.findIndex((x) => x.id === mSuc[1]);
+        if (idxS < 0) return J({ error: "Branch not found." }, 404);
+        const s = sucursales[idxS];
+        if (s.borrado) return J({ error: "Branch not found." }, 404);
+        s.borrado = true; s.activa = false; s.rev = _revNueva();
+        mov("sucursal-baja", { sucursal: s.nombre });
+        return J({ ok: true });
+      }
+
+      // Desempeno por asociado/a: agrega las perchas que tiene asignadas,
+      // suma comision y ventas del mes, y saca su mejor SKU (rec 04 + 09).
+      if (path === "/api/promotores/desempeno") {
+        /* 2026-09-25: se atribuye cada venta a su persona (v.promotoraId); las ventas
+           viejas sin ese campo caen a la persona actual de la percha, como antes. */
+        const byId = {};
+        promotoras.filter((pr) => !pr.borrado && !_demoOculto("promotoras", pr) && ubicaciones.some((u) => u.promotoraId === pr.id && !_demoOculto("ubicaciones", u))).forEach((pr) => {
+          byId[pr.id] = { id: pr.id, nombre: pr.nombre, ventasBrutas: 0, ventasCount: 0, comision: 0, ultima: "", porSku: {} };
+        });
+        ventasActivas().filter((v) => esDelMesActual(v.fecha, v.relojDesfaseMs) && v.split).forEach((v) => {
+          const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+          const pid = v.promotoraId || (u && u.promotoraId) || null;
+          const pr = pid ? promotoras.find((x) => x.id === pid) : null; if (!pr) return;
+          const g = byId[pr.id] || (byId[pr.id] = { id: pr.id, nombre: pr.nombre, ventasBrutas: 0, ventasCount: 0, comision: 0, ultima: "", porSku: {} });
+          g.ventasBrutas += v.split.montoBruto;
+          g.comision += v.split.montoComisionSocio;
+          g.ventasCount += v.cantidad;
+          if (v.fecha > g.ultima) g.ultima = v.fecha;
+          const prod = productos.find((x) => x.id === v.productoId);
+          const sku = prod ? prod.sku : v.productoId;
+          g.porSku[sku] = (g.porSku[sku] || 0) + v.cantidad;
+        });
+        const arr = Object.values(byId).map((g) => {
+          const top = Object.entries(g.porSku).sort((a, b) => b[1] - a[1])[0];
+          return { id: g.id, nombre: g.nombre, ventasBrutas: +g.ventasBrutas.toFixed(2), ventasCount: g.ventasCount, comision: +g.comision.toFixed(2), diasSinVenta: g.ultima ? Math.floor((Date.now() - new Date(g.ultima).getTime()) / 86400000) : null, topSku: top ? { sku: top[0], unidades: top[1] } : null };
+        }).sort((a, b) => b.ventasBrutas - a.ventasBrutas);
+        return J(arr);
+      }
+      if (path === "/api/dashboard") {
+       try {
+        const ps = filtrar(uid), vh = ventasHoyDe(uid), dh = devolucionesHoyDe(uid);
+        const dailyReader = window.OCBusinessReadModel;
+        // C197: the old projection did ajustesComision.find() for EVERY historical sale.
+        // A large notebook incurred O(sales × adjustments) main-thread work and
+        // allocated a new date formatter per sale inside business-read-model.day().
+        // Preserve first-match semantics, including explicit devolucionId overrides.
+        const ajustesPorId = new Map(), devolucionesPorVenta = new Map();
+        if (dailyReader) ajustesComision.forEach((a, index) => {
+          if (!a) return;
+          if (!ajustesPorId.has(a.id)) ajustesPorId.set(a.id, { index, ajuste: a });
+          if (a.tipo === "devolucion" && !devolucionesPorVenta.has(a.ventaId))
+            devolucionesPorVenta.set(a.ventaId, { index, ajuste: a });
+        });
+        const fechaDevolucionIndexed = (v) => {
+          if (v.fechaDevolucion) return v.fechaDevolucion;
+          const byId = ajustesPorId.get(v.devolucionId), byVenta = devolucionesPorVenta.get(v.id);
+          const winner = byId && (!byVenta || byId.index <= byVenta.index) ? byId : byVenta;
+          return winner ? winner.ajuste.fecha : undefined;
+        };
+        const dailyProjection = dailyReader ? dailyReader.daily(ventasActivas().filter(v => !uid || uid === "todas" || v.ubicacionId === uid).map(v => ({...v,fechaLocal:fechaLocalDe(v.fecha,v.relojDesfaseMs),fechaDevolucion:fechaDevolucionIndexed(v)})),hoyISO(),ZONA) : null;
+        const entra = dailyProjection ? dailyProjection.entra : vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
+        const sale = dailyProjection ? dailyProjection.sale : vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
+        const inv = ps.some(p => !window.OCBusinessReadModel.stock(p).known) ? null : ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
+        const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}`, reposicionPlegable: avisoPlegable(e.p) }));
+        // El hero de HOY es tri-estado (verde/amarillo/rojo, como el manual):
+        // las alertas naranjas ("revisar pronto") encienden el nivel medio.
+        // BUG FIX 2026-07-07: comparaba contra "amarillo", que ya no existe
+        // en alertas (ahora son rojo/naranja) — el hero saltaba de verde a rojo.
+        let sem = "verde";
+        const _visibles = alertas.filter((a) => a.reposicionPlegable !== true); // v557: los avisos plegados no encienden el semaforo general
+        if (_visibles.some((a) => a.estado === "rojo")) sem = "rojo"; else if (_visibles.some((a) => a.estado === "naranja")) sem = "amarillo";
+        // Mejora #5 (JFC 2026-07-16): resumen semanal para el nudge de WhatsApp
+        // (weekly-summary en index.html). Ultimos 7 dias, misma ubicacion filtrada.
+        const hace7dias = new Date(hoyISO()).getTime() - 6 * 86400000; // Fix-8: ZONA-aware boundary, not UTC epoch
+        const vSemana = ventasActivas().filter((v) => new Date(v.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || v.ubicacionId === uid));
+        // B6: las devoluciones de la semana (por la fecha del ajuste) restan.
+        const ajustesDevSemana = ajustesComision.filter((a) => a && a.tipo === "devolucion" && new Date(a.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || a.ubicacionId === uid));
+        const ventasPorIdSemana = new Map();
+        if (ajustesDevSemana.length) ventas.forEach((v) => { if (!ventasPorIdSemana.has(v.id)) ventasPorIdSemana.set(v.id, v); });
+        const devSemana = ajustesDevSemana.map((a) => ventasPorIdSemana.get(a.ventaId)).filter(Boolean);
+        const entraSemana = vSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - devSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+        /* AVISO PREVIO DE REBAJA (benchmark #3, 2026-09-25): productos con stock cuya
+           rebaja por antiguedad cambia en 3 dias o menos. Campo APARTE de alertas para
+           no mover el semaforo general. Solo lectura. */
+        const avisosRebaja = ps.filter((p) => (Number(p.stockActual) || 0) > 0).map((p) => ({ p, r: rebajaDe(p) }))
+          .filter((x) => x.r.proxima && x.r.proxima.enDias <= 3)
+          .map((x) => ({ productoId: x.p.id, nombre: x.p.nombre, enDias: x.r.proxima.enDias, pct: x.r.proxima.pct, precioLista: x.p.precio, precioNuevo: +(x.p.precio * (1 - x.r.proxima.pct / 100)).toFixed(2) }));
+        return J({ semaforoGeneral: sem, resumenDia: { entra: entra===null?null:+entra.toFixed(2), sale: sale===null?null:+sale.toFixed(2), gananciaHoy: entra===null||sale===null?null:+(entra - sale).toFixed(2), inventarioValorizado: inv === null ? null : +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
+       } catch (e) {
+        // FIX v301: el dashboard NUNCA debe lanzar (un producto con datos
+        // incompletos hacia 500 -> el hero se quedaba en "Loading"). Se responde
+        // un estado seguro y usable; el detalle se ve en consola.
+        try { console.error("[dashboard] fallo el calculo del dia:", e && e.message); } catch (_) {}
+        return J({ semaforoGeneral: "verde", resumenDia: { entra: 0, sale: 0, gananciaHoy: 0, inventarioValorizado: 0, ventasCount: 0 }, resumenSemana: { entra: 0, ventasCount: 0 }, alertas: [] });
+       }
+      }
+
+      if (path === "/api/productos" && (!opts || opts.method !== "POST")) {
+        // soloArchivados=1 → devuelve los archivados (para la lista de archivados),
+        // en vez de excluirlos como hace filtrar(). JFC/Belén 2026-09-08.
+        // El GRID de Inventario (vista operacional) es el ÚNICO que oculta los
+        // archivados. Todo lo demás (dashboard, resumen, BCG, reportes) usa
+        // filtrar() y SÍ los ve — archivar no borra del historial (JFC 2026-09-08).
+        const soloArch = q.get("soloArchivados") === "1";
+        let fuente = soloArch
+          ? productos.filter((p) => p.archivado && !_demoOculto("productos", p) && (!uid || uid === "todas" || p.ubicacionId === uid))
+          : filtrar(uid).filter((p) => !p.archivado);
+        /* GARANTIA v306: para la licencia de JFC (prefijo), NUNCA mostrar la semilla
+           demo (ids "p"+digitos) en el listado, pase lo que pase con el estado local
+           o la purga. Los reales son "p"+UUID. idiomARTE (K7M2)/otros NO se filtran
+           (pueden tener ids p\d+ propios). Es cinturon + tirantes con la purga. */
+        try { var _lpF = String((_licenciaPropia && _licenciaPropia()) || "").toUpperCase().replace(/\s+/g, ""); if (_lpF.indexOf("F123-A6YK-6V1J-") === 0) fuente = fuente.filter((p) => !/^p\d+$/.test(String(p.id || ""))); } catch (_) {}
+        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, avisosPlegados: avisoPlegable(p), fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado, direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga" }; });
+        const est = q.get("estado");
+        if (est) lista = lista.filter((x) => x.estado === est);
+        lista.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || a.nombre.localeCompare(b.nombre, "es"));
+        return J(lista);
+      }
+
+      if (path === "/api/productos" && opts && opts.method === "POST") {
+        // C112: never let the generic fire-and-forget finally acknowledge an
+        // uncommitted new product. This endpoint owns its strict durable ACK.
+        debePersistir = false;
+        if (!body.nombre || !body.barcode) return J({ error: "The name or the barcode is missing." }, 400);
+        const preciosError = errorPreciosEntrada(body);
+        if (preciosError) return J({ error: preciosError }, 400);
+        // BUG FIX (2026-07-03): sin esta guarda, umbralRojo >= umbralAmarillo hace
+        // el estado "amarillo" inalcanzable: el producto salta directo de verde a rojo.
+        if (Number(body.umbralRojo) >= Number(body.umbralAmarillo)) return J({ error: "The red threshold must be lower than the yellow one." }, 400);
+        if (body.perecible && !body.fechaCaducidad) return J({ error: "If the product expires, enter its expiry date." }, 400);
+        if (body.perecible && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
+        const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
+        if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
+        // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
+        /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
+        /* Variantes: guardas en la capa de datos, no solo en la pantalla. Esto
+           evita dos variantes identicas por doble toque o concurrencia. Los
+           productos historicos sin familia conservan su comportamiento. */
+        let _altaVarianteBaseAntes = null;
+        if (body.familiaId) {
+          const norm = (v) => String(v || "").trim().toLocaleLowerCase();
+          const fam = String(body.familiaId || "").trim().toUpperCase().slice(0, 80);
+          const atr = norm(body.varianteAtributo);
+          const val = String(body.varianteValor || "").trim().slice(0, 40);
+          if (!fam || !atr || !val || !body.productoBaseId) return J({ error: "Complete the variant attribute and value." }, 400);
+          const baseVariante = productos.find((p) => p.id === body.productoBaseId && !p.borrado);
+          if (!baseVariante) return J({ error: "The base product no longer exists." }, 409);
+          if (productos.some((p) => !p.borrado && norm(p.barcode) === norm(body.barcode))) return J({ error: "That barcode or internal code is already used by another product." }, 409);
+          if (productos.some((p) => !p.borrado && norm(p.sku) === norm(body.sku))) return J({ error: "That SKU is already used. Change the variant value." }, 409);
+          if (productos.some((p) => !p.borrado && norm(p.familiaId) === norm(fam) && norm(p.varianteAtributo) === atr && norm(p.varianteValor) === norm(val))) return J({ error: "That variant already exists in this product family." }, 409);
+          body.familiaId = fam; body.varianteValor = val; body.stockInicial = 0;
+          /* El producto base entra formalmente a la misma familia. Así el
+             resumen agrupa base+variantes incluso si su SKU histórico no
+             tenía guion. Es metadata aditiva; no toca dinero ni stock. */
+          if (!baseVariante.familiaId) {
+            _altaVarianteBaseAntes = { producto: baseVariante,
+              familiaId: baseVariante.familiaId, rev: baseVariante.rev,
+              teniaFamilia: Object.prototype.hasOwnProperty.call(baseVariante,"familiaId"),
+              teniaRev: Object.prototype.hasOwnProperty.call(baseVariante,"rev") };
+            baseVariante.familiaId = fam; baseVariante.rev = _revNueva();
+          }
+          if (body.umbralRojo == null) body.umbralRojo = baseVariante.umbralRojo;
+          if (body.umbralAmarillo == null) body.umbralAmarillo = baseVariante.umbralAmarillo;
+        }
+        /* (JFC 2026-10-28) Doble toque en "crear producto": mismo codigo ya existente (no borrado) -> 409, no un duplicado.
+           Seccion sincrona hasta productos.push: dos llamadas concurrentes no se cuelan. Las variantes ya se validaron arriba. */
+        if (!body.familiaId) {
+          const _bc = String(body.barcode || "").trim().toLocaleLowerCase();
+          if (_bc && productos.some((p) => !p.borrado && !_demoOculto("productos", p) && String(p.barcode || "").trim().toLocaleLowerCase() === _bc)) return J({ error: "That barcode or internal code is already used by another product." }, 409);
+        }
+        const nuevo = {
+          // M5 (2026-08-14): variante interna, hasta 12 caracteres. Vacio por
+          // defecto: un producto sin variante se comporta igual que siempre.
+          chip: String(body.chip || "").trim().slice(0, 12),
+          familiaId: String(body.familiaId || "").trim().slice(0, 80),
+          productoBaseId: body.productoBaseId || null,
+          varianteAtributo: String(body.varianteAtributo || "").trim().slice(0, 24),
+          varianteValor: String(body.varianteValor || "").trim().slice(0, 40),
+          id: body.familiaId ? idVariante(body.familiaId, body.varianteAtributo, body.varianteValor) : uuid("p"), nombre: String(body.nombre).trim(), categoria: categoriaCanonica(body.categoria) || "General",
+          sku: body.sku || body.barcode, barcode: body.barcode, ubicacionId: body.ubicacionId || "todas",
+          // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
+          // corrompía la valorización de inventario desde la creación.
+          precio: aCent(Math.max(0, Number(body.precio) || 0)), costo: aCent(Math.max(0, Number(body.costo) || 0)), stockActual: Math.max(0, Number(body.stockInicial) || 0),
+          stockEpochId: uuid("stock-epoch-"), // Unique physical epoch for new products; do not retrofit ambiguous historical products.
+          stockTs: (function () { const _r = ahoraRelayComun(); return _r === null ? Date.now() : _r; })(), // v447: stock inicial no hereda un reloj civil adelantado
+          /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
+             OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al
+             público, $3 a artistas) SIN abrir un segundo producto que partiría
+             el stock en dos. null = no hay precio de casa (comportamiento de
+             siempre). "" o no-número => null. Ver precioEfectivo en /venta. */
+          precioCasa: (body.precioCasa === "" || body.precioCasa == null) ? null : aCent(Math.max(0, Number(body.precioCasa) || 0)),
+          precioReserva: precioOpcional(body.precioReserva), precioWalkIn: precioOpcional(body.precioWalkIn),
+          umbralRojo: Number(body.umbralRojo) || 5, umbralAmarillo: Number(body.umbralAmarillo) || 10, proveedor: body.proveedor || "",
+          perecible: !!body.perecible, exentoImpuesto: !!body.exentoImpuesto, piezaUnica: typeof body.piezaUnica === "boolean" ? body.piezaUnica : null, fechaCaducidad: body.perecible ? (body.fechaCaducidad || null) : null,
+          metodoCosteo: body.metodoCosteo === "LIFO" ? "LIFO" : "FIFO",
+          tipoProveedor: body.tipoProveedor === "consignacion" ? "consignacion" : "compra",
+          comisionProveedorPct: Math.max(0, Number(body.comisionProveedorPct) || 0),
+          /* Bar (JFC 2026-08-27): tipoProducto "bar" cuenta stock en servings;
+             servingMl/botellaMl definen la conversión (default 50/750 ml). */
+          tipoProducto: body.tipoProducto === "ticket" ? "ticket" : (body.tipoProducto === "bar" ? "bar" : "normal"),
+          servingMl: Math.max(1, Number(body.servingMl) || 50),
+          botellaMl: Math.max(1, Number(body.botellaMl) || 750),
+          comisionistaId: body.comisionistaId || null, // JFC 2026-08-27: comisionista asociado al producto
+          pctAsociado: normPctAsociado(body.pctAsociado),
+          direccionComision: _direccionValida(body.direccionComision) || "casaPaga", // v521 flecha (JFC 2026-10-14) // Belen 2026-09-29: % del asociado solo para este producto (null = trato de la percha)
+          fechaEvento: String(body.fechaEvento || "").trim().slice(0, 20), // JFC 2026-09-30 (v430): fecha del evento/clase se pone al crear el ticket, no al venderlo
+          creadoEn: new Date().toISOString(),
+          /* FIX 2026-09-24 (hallado con benchmark #6): el formulario de alta manda
+             body.foto desde 2026-07-22, pero esta ruta nunca la guardaba y la foto
+             elegida al crear se perdia. Mismo tratamiento que PATCH: foto nueva,
+             fotoHash null (el hashing/puntero lo completa el sistema de fotos). */
+          foto: (typeof body.foto === "string" && body.foto.indexOf("data:image/") === 0) ? body.foto : null,
+          fotoHash: null,
+        };
+        // C112: a new product is NOT a committed business fact until the
+        // same product+signed movement has a confirmed strict local snapshot.
+        // A 200 previously escaped while finally() wrote asynchronously; a
+        // reload could then lose this freshly-created item without warning.
+        const _fotoAlta = { movLen: movimientos.length, sello: selloUltimo };
+        const _revertirAlta = () => {
+          const i = productos.indexOf(nuevo);
+          if (i >= 0) productos.splice(i, 1);
+          movimientos.length = _fotoAlta.movLen;
+          selloUltimo = _fotoAlta.sello;
+          if (_altaVarianteBaseAntes) {
+            const a = _altaVarianteBaseAntes, p = a.producto;
+            if (a.teniaFamilia) p.familiaId = a.familiaId; else delete p.familiaId;
+            if (a.teniaRev) p.rev = a.rev; else delete p.rev;
+          }
+        };
+        let _altaGuardada = false, _terminarAlta;
+        _ventaConfirmando = true; // prevents provisional catalog publication and incoming merges
+        _ventaPendiente = new Promise(resolve => { _terminarAlta = resolve; });
+        try {
+          nuevo.rev = _revNueva();
+          productos.push(nuevo);
+          mov("alta", { producto: nuevo.nombre, sku: nuevo.sku,
+            ubicacion: nombreUbic(nuevo.ubicacionId),
+            ...(body.altaPorArtista ? { porArtista: String(body.altaPorArtista).slice(0, 80) } : {}) }, false);
+          try { _altaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!_altaGuardada) {
+            _revertirAlta();
+            return J({ error:"The new product was NOT saved. Check available storage and retry.",
+              code:"PRODUCT_DURABILITY_UNCONFIRMED" },503);
+          }
+          return J(ficha(nuevo));
+        } catch (e) {
+          if (!_altaGuardada) _revertirAlta();
+          throw e;
+        } finally {
+          _ventaConfirmando = false; _ventaPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+            if (_altaGuardada) _avisarCatalogoConfirmado();
+          } finally { _terminarAlta(); }
+        }
+      }
+
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/venta$/))) {
+        // v779: sync-yjs.js does not renew the store summary (checkpoint) within 30 s of a sale.
+        try { window.__f123UltimaVentaMs = Date.now(); } catch (_) {}
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        // A caller-supplied CONFIRM operation id is stable across retries.
+        // Do not re-run any stock, money, movement or Sync3 effect on replay.
+        const _opIdVenta = typeof body.opId === "string" ? body.opId.trim() : "";
+        if (_opIdVenta && !/^[a-zA-Z0-9][a-zA-Z0-9:._-]{9,119}$/.test(_opIdVenta))
+          return J({ error:"Invalid sale operation identifier." },400);
+        if (_opIdVenta) {
+          const ya = ventas.find(v => v && v.opId === _opIdVenta);
+          if (ya) {
+            const cantidadSolicitada = body.cantidad == null || body.cantidad === "" ? 1 : Number(body.cantidad);
+            const fechaEnReintento = body.info && typeof body.info === "object" ? String(body.info.fechaVenta || "").trim() : "";
+            if (ya.productoId !== p.id || ya.cantidad !== cantidadSolicitada ||
+                fechaEnReintento !== String((ya.info && ya.info.fechaVenta) || ""))
+              return J({ error:"Operation id belongs to a different sale or sale date.",code:"SALE_OPID_CONFLICT" },409);
+            return J({ producto:ficha(p), ventaId:ya.id, opId:_opIdVenta, duplicate:true });
+          }
+        }
+        /* VENDER SIEMPRE (JFC 2026-11-11, diseno Fable 5.2): un perecible vencido YA NO rechaza la venta.
+           DORMANT, NO BORRAR: antes respondia 400 "This product has expired...". El vencimiento sigue
+           marcado en la linea de estado existente del producto (estadoDe), sin modal. Para reactivar el
+           rechazo: devolver aqui J({ error: ... }, 400) cuando p.perecible && estadoDe(p).dias < 0. */
+        const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
+        if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
+        /* B19 (JFC 2026-08-19, medido con un harness contra este endpoint).
+           Antes: `Number.isInteger(body.cantidad) && body.cantidad > 0 ?
+           body.cantidad : 1`. Cualquier cantidad invalida se convertia en 1
+           EN SILENCIO. Pedir vender -5, o 0, o "dos" devolvia 200 y grababa
+           una venta real de 1 unidad: movimiento de stock y de dinero que
+           nadie pidio, sin un solo aviso.
+
+           Es la misma enfermedad que JFC ya hizo corregir en el PUT de
+           ubicacion ("clampeaba silenciosamente"): ante un dato invalido se
+           rechaza y se explica, nunca se adivina.
+
+           Se conserva el contrato viejo para el caso legitimo: si no viene
+           cantidad, es una venta de 1 (asi la manda el toque de producto, la
+           accion mas frecuente de la app). Solo se rechaza lo que VINO y
+           esta mal. Se acepta "3" como texto porque un input HTML devuelve
+           texto, pero no 0, ni negativos, ni fracciones, ni letras.
+
+           NOTA: amigable-123 tiene exactamente el mismo defecto en su
+           propio mock-backend. No se toca desde aqui (regla 1b: se injerta
+           por repo, nunca se sobreescribe entre hermanas). */
+        var cant;
+        if (body.cantidad === undefined || body.cantidad === null || body.cantidad === "") {
+          cant = 1;
+        } else {
+          cant = Number(body.cantidad);
+          if (!Number.isFinite(cant) || !Number.isInteger(cant) || cant <= 0) {
+            return J({ error: "The quantity must be a whole number greater than zero." }, 400);
+          }
+        }
+        /* VENDER SIEMPRE (JFC 2026-11-11, diseno Fable 5.2): ya NO se rechaza por stock insuficiente.
+           DORMANT, NO BORRAR: antes respondia 400 "No hay suficiente stock disponible (quedan N)".
+           La venta procede; lo que falta queda como stockDeficit (la percha nunca muestra negativos),
+           ver el ajuste justo despues de _prepararOpStock. Para reactivar el rechazo: devolver aqui
+           J({ error: ... }, 400) cuando p.stockActual < cant. */
+        // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
+        /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
+        /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
+           arreglado en amigable-123 y portado aqui: "puse que la clase es de
+           $150 pero me hace la comision sobre $20". Para un producto tipo
+           ticket/evento el precio REAL de cada venta es el que la persona
+           escribe en "cuanto pago" — el del catalogo es solo una referencia,
+           porque cada funcion, cada cupo y cada paquete valen distinto. Cobrar
+           la comision sobre el precio de catalogo le quita plata real a quien
+           vende. */
+        const _infoPago = (body && typeof body.info === "object" && body.info) ? body.info : {};
+        // A historical sale uses its commercial date for reports while the original
+        // registration/ACK time remains auditable. Noon UTC avoids the prior-day
+        // shift for the Ecuador business timezone when parsing date-only strings.
+        const _fechaVentaTexto = String(_infoPago.fechaVenta || "").trim();
+        let _fechaVentaIso = null;
+        if (_fechaVentaTexto) {
+          if (!/^\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$/.test(_fechaVentaTexto))
+            return J({ error: "Choose a valid sale date (YYYY-MM-DD)." }, 400);
+          const diaElegido = new Date(_fechaVentaTexto + "T12:00:00Z");
+          if (!Number.isFinite(diaElegido.getTime()) || diaElegido.toISOString().slice(0, 10) !== _fechaVentaTexto)
+            return J({ error: "The sale date is not a real calendar day." }, 400);
+          _fechaVentaIso = diaElegido.toISOString();
+        }
+        const _esTicket = (p.tipoProducto || "normal") === "ticket";
+        const _pagado = aCent(_infoPago.montoPagado);
+        /* CORTESIA (JFC 2026-09-08, "hay costo pero no precio"): una venta de
+           cortesía sale del stock y CONSERVA su costoUnit (el costo se contabiliza),
+           pero su precioUnit es 0 — no genera ingreso ni comisión (no hay monto que
+           repartir). Se marca cortesia:true en info para que reportes y la lista de
+           ventas la distingan. */
+        const _esCortesia = !!_infoPago.cortesia;
+        /* PRECIO POR VENTA (JFC/Belén 2026-09-15). Prioridad:
+           1) cortesía => 0 (sin ingreso).
+           2) precioOverride: monto libre que el cajero puso en "Adjust price"
+              para ESTA venta (descuento puntual, o el precio de casa que se
+              llenó de un toque). Debe ser un número finito >= 0.
+           3) ticket con montoPagado => ese monto.
+           4) el precio de lista del producto.
+           El stock baja igual (una unidad es una unidad); solo cambia el
+           precioUnit registrado. No inventa un segundo producto. */
+        const _override = _infoPago.precioOverride === "" || _infoPago.precioOverride == null ? NaN : aCent(_infoPago.precioOverride);
+        const modalidadVenta = String(body.modalidadVenta || "");
+        const preciosEntrada = { reservation: precioOpcional(p.precioReserva), "walk-in": precioOpcional(p.precioWalkIn) };
+        if (modalidadVenta && (!["reservation", "walk-in"].includes(modalidadVenta) || preciosEntrada[modalidadVenta] == null || !Number.isFinite(preciosEntrada[modalidadVenta]) || preciosEntrada[modalidadVenta] < 0)) {
+          return J({ error: "Choose an available reservation or walk-in price." }, 400);
+        }
+        if (!modalidadVenta && preciosEntrada.reservation != null && preciosEntrada["walk-in"] != null) {
+          return J({ error: "Choose reservation or walk-in before recording the sale." }, 400);
+        }
+        const precioEntrada = modalidadVenta ? preciosEntrada[modalidadVenta] : null;
+        const precioEfectivo = _esCortesia
+          ? 0
+          : ((Number.isFinite(_override) && _override >= 0)
+              ? _override
+              : (precioEntrada != null ? precioEntrada : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : rebajaDe(p).precio)));
+        const montoBruto = precioEfectivo * cant;
+        const _mesVenta = fechaLocalDe(_fechaVentaIso || new Date().toISOString()).slice(0, 7);
+        const acumuladoPrevio = ubicP ? ventasActivas()
+          .filter(v => v.ubicacionId === ubicP.id && esDelMes(v.fecha, _mesVenta, v.relojDesfaseMs))
+          .reduce((s, v) => s + v.precioUnit * v.cantidad, 0) : 0;
+        /* DISEÑO JFC (2026-09-22): COUNTER SALE pertenece íntegramente a la
+           casa. Es una decisión por venta, no una edición de la percha: no se
+           exige comisionista, no se crea split y no se desasigna a nadie del
+           acuerdo permanente. Ausente conserva el contrato histórico. */
+        /* COUNTER NO ES LA CASA (JFC 2026-09-30, shell v429, Belen/idiomARTE). REGLA DURA.
+           "Counter sale" = se vendio en el mostrador o en la puerta. NO significa venta de la
+           casa: se comisiona IGUAL que cualquier venta, con el trato de la pieza (comisionista
+           o % propios) o, si la pieza no trae nada, con el trato de la percha. Antes COUNTER
+           SALE dejaba la venta 100% casa y chocaba con la comision puesta en la pieza: dos
+           instrucciones que se contradecian y la comision se perdia en silencio.
+           La venta queda en modoComision "acuerdo" (las apps viejas la leen bien) y lleva el
+           campo nuevo canalVenta: "mostrador". Si el comisionista de la pieza ya no existe,
+           una venta de mostrador usa el trato de la percha: nunca se bloquea. Las ventas
+           viejas guardadas como "counter" siguen igual y se corrigen con "Review split". */
+        /* PERSONA DE LA VENTA (JFC 2026-09-25, "el Spray de la verdad", shell v398).
+           La pantalla deja elegir comisionista en CUALQUIER percha, pero el reparto
+           solo usaba el trato de la percha, y una percha PROPIA no reparte con nadie:
+           la venta quedaba sin comision aunque se eligiera a alguien. Ahora, si la
+           venta trae promotoraId y la percha es propia, se aplica el trato de esa
+           persona. En perchas compartidas sigue mandando la percha (como siempre).
+           La venta guarda promotoraId (campo nuevo): el ranking y Sold la atribuyen
+           a quien la hizo, no a quien este asignado despues. */
+        /* IdiomARTE 2026-09-28: la pieza puede tener su propio comisionista.
+           La eleccion explicita en ESTA venta manda; si no la hay, manda el
+           producto y por ultimo la percha. COUNTER SALE NO es 100% casa (v429, v457):
+           "counter sale es quien vendio, customer es a quien se vendio"; el cliente
+           nunca cambia la comision. Sin esto el campo comisionistaId era decorativo y las piezas en una
+           percha propia se vendian con $0 de comision. */
+        const _pedidoMostrador = !!(body && body.modoComision === "counter");
+        const modoComision = "acuerdo";
+        const _pidPieza = p.comisionistaId && promotoras.some((x) => String(x.id) === String(p.comisionistaId) && !x.borrado) ? p.comisionistaId : null;
+        const _pidVenta = _pedidoMostrador ? _pidPieza
+          : ((body && body.promotoraId) || p.comisionistaId || null);
+        const _prVenta = _pidVenta
+          ? promotoras.find((x) => String(x.id) === String(_pidVenta) && !x.borrado) : null;
+        if (_pidVenta && !_prVenta) return J({ error: "The associate assigned to this product or sale is unavailable. Choose a current associate or Counter sale." }, 409);
+        // Percha propia: trato de la persona. Percha compartida: la persona elegida en la venta,
+        // con las reglas de la percha (mismo resultado que el viejo PUT previo, sin tocar la percha).
+        const _ubicTrato = (ubicP && _prVenta)
+          ? ((!ubicP.tipo || ubicP.tipo === "propio")
+              ? Object.assign({}, ubicP, { tipo: "socio", promotoraId: _prVenta.id, usarComisionPropia: false })
+              : Object.assign({}, ubicP, { promotoraId: _prVenta.id }))
+          : ubicP;
+        const split = modoComision === "counter"
+          ? null
+          : (_ubicTrato ? calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null);
+        /* Bloque 4: asistente opcional por venta. COUNTER SALE lo ignora (split null). */
+        if (split && !_pedidoMostrador && body && body.asistenteId) aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct);
+        const _promotoraVenta = split ? ((_prVenta && _prVenta.id) || (_ubicTrato && _ubicTrato.promotoraId) || null) : null;
+        let clienteVenta = null;
+        if (body.clienteId) {
+          clienteVenta = clientes.find((c) => c.id === body.clienteId);
+          if (!clienteVenta) return J({ error: "Customer not found." }, 404);
+          if (clienteVenta.despedido) return J({ error: `"${clienteVenta.nombre}" is fired — no new sales allowed. Reactivate them from Customers if this was a mistake.` }, 400);
+        }
+        /* B1 (corrida Hugo/Paco/Luis, 2026-09-24): el stock bajaba ANTES de
+           validar el cliente. Una venta rechazada (cliente borrado en otro
+           aparato, o despedido) devolvia error pero el stock ya habia bajado y
+           se guardaba: mercaderia perdida sin venta. Toda validacion va antes;
+           esta es la primera linea que muta. test/cuadre-hugo-paco-luis.test.js */
+        debePersistir = false; // La venta requiere ACK estricto; nunca auto-guardar un 507/500 en el finally exterior.
+        const _ventasAntes = ventas.length, _deshacerStockVenta = _marchaAtrasStock(p);
+        const _revertirVenta = () => { _deshacerStockVenta(); ventas.length = _ventasAntes; };
+        let _ventaGuardada = false, terminarVenta;
+        _ventaConfirmando = true;
+        _ventaPendiente = new Promise(resolve => { terminarVenta = resolve; });
+        try {
+        p.stockActual -= cant;
+        const ventaId = uuid("v");
+        const opIdVenta = _opIdVenta || ventaId; // legacy UI gets a unique stable receipt id
+        /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
+           guardarlos, las ventas de una funcion o una clase quedan
+           desperdigadas en la lista general y no hay forma de saber como fue
+           "el concierto del sabado" sin filtrar por fecha a ojo. El tablero
+           agrupa por el NOMBRE que se escribe aqui. */
+        const infoBody = (body && typeof body.info === "object" && body.info) || {};
+        /* SI EL PRODUCTO YA ES UN EVENTO, EL EVENTO ES EL PRODUCTO (JFC 2026-08-25).
+           Un producto tipo "ticket" YA es un evento y tiene nombre: pedir (o
+           elegir) el nombre del evento otra vez al vender es absurdo. Cuando se
+           vende un ticket, el evento se toma del NOMBRE del propio producto,
+           automaticamente, sin cajas ni selectores. Para productos normales
+           sigue mandando el evento activo que venga en info (vender bebidas
+           "en" un evento, por ejemplo). */
+        const infoVenta = {
+          fechaVenta: _fechaVentaTexto,
+          nombreEvento: _esTicket
+            ? String(p.nombre || "").trim().slice(0, 120)
+            : String(infoBody.nombreEvento || "").trim().slice(0, 120),
+          // JFC 2026-09-30 (v430): la fecha escrita en la venta manda; si no hay, la del ticket.
+          fechaEvento: String(infoBody.fechaEvento || p.fechaEvento || "").trim().slice(0, 20),
+          numPersonas: (infoBody.numPersonas !== undefined && infoBody.numPersonas !== "") ? Math.max(0, Number(infoBody.numPersonas) || 0) : null,
+          nombrePagador: String(infoBody.nombrePagador || "").trim().slice(0, 120),
+          email: String(infoBody.email || (clienteVenta && clienteVenta.email) || "").trim().slice(0, 120),
+          whatsapp: String(infoBody.whatsapp || (clienteVenta && clienteVenta.telefono) || "").trim().slice(0, 40),
+          formaPago: String(infoBody.formaPago || "").trim().slice(0, 20), // JFC 2026-08-26: forma de pago (portado de amigable)
+          /* Explicit marker, saved in the very same durable sale record.
+             Old receipts/tests without this marker keep their original contract. */
+          ...(infoBody.fiadoAtomico === true && String(infoBody.formaPago || "") === "fiado" &&
+            !!clienteVenta && !_esCortesia ? { fiadoAtomico: true } : {}),
+          factura: String(infoBody.factura || "").trim().slice(0, 60), // JFC 2026-09-02: número de factura opcional
+          montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
+          notas: String(infoBody.notas || "").trim().slice(0, 500), // JFC 2026-08-27: notas de la venta
+          /* Bar (JFC 2026-08-27): servings vendidos y su equivalente en botellas. */
+          servings: (infoBody.servings !== undefined && infoBody.servings !== "") ? Math.max(0, Number(infoBody.servings) || 0) : null,
+          botellas: (infoBody.botellas !== undefined && infoBody.botellas !== "") ? Math.max(0, Number(infoBody.botellas) || 0) : null,
+          cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
+        };
+        const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
+        ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: _fechaVentaIso || new Date().toISOString(), ...(_fechaVentaIso ? { registradaEn: new Date().toISOString() } : {}), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        mov("venta", { opId: opIdVenta, producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
+        const _opVenta = { productoId: p.id, delta: -cant };
+        // C34 PORT2: The old stock fact carries ONLY delta. C31's certified
+        // sale.record needs exact paid quantity/cents from the locally DURABLE
+        // sale, not a guessed monetary amount from stock. Only explicit full
+        // CASH, list-price, non-credit/non-courtesy, non-deficit sales qualify.
+        // All other sales retain their original legacy stock event and never
+        // invent business-committed cash on the typed DO.
+        // Typed 2.0 sale.record has no effective-date contract. The legacy
+        // stock/catalog path preserves the historical sale without misdating cash.
+        const _metodo20 = String(infoVenta.formaPago || "").trim().toLowerCase();
+        const _unit20 = Math.round(precioEfectivo * 100);
+        const _total20 = Math.round(montoBruto * 100);
+        if (!infoVenta.fechaVenta && (_metodo20 === "cash" || _metodo20 === "efectivo") &&
+            !_esCortesia && infoVenta.fiadoAtomico !== true &&
+            (infoVenta.montoPagado === null ||
+              (Number.isFinite(infoVenta.montoPagado) && Math.round(infoVenta.montoPagado * 100) === _total20)) &&
+            Number.isSafeInteger(cant) && cant >= 1 && cant <= 10000 &&
+            Number.isSafeInteger(_unit20) && _unit20 > 0 &&
+            Number.isSafeInteger(_total20) && _total20 === _unit20 * cant &&
+            _total20 <= 10000000000 &&
+            Number.isFinite(p.precio) && Math.round(p.precio * 100) === _unit20 &&
+            Number.isFinite(p.stockActual) && p.stockActual >= 0 &&
+            // C36: a typed business command must use the SAME stable opId as
+            // the locally committed sale. Existing legacy IDs with ':' or '.'
+            // remain valid for local receipts but must not be sent as C15 SQL.
+            /^[A-Za-z0-9_-]{8,96}$/.test(opIdVenta)) {
+          _opVenta.cantidad = cant;
+          _opVenta.amountCents = _total20;
+          _opVenta.opId = opIdVenta;
+        }
+        _prepararOpStock(_opVenta);
+        /* VENDER SIEMPRE (v737): si se vendio mas de lo que habia, el contador compartido (stockPN)
+           ya lleva la salida completa; aqui solo se muestra igual que el merge: percha en 0 y el
+           faltante aparte (suma al faltante previo). Reponer paga primero el faltante. */
+        _perchaEnCeroYFaltante(p);
+        /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
+           corria despues, en finally, sin esperar a IndexedDB: con localStorage
+           lleno e IndexedDB caido la app decia "vendido", la op ya habia salido a
+           los otros aparatos y la venta se perdia al recargar. Ahora se guarda
+           PRIMERO; si ningun almacen la acepta, se deshace y se avisa. La op de
+           stock sale solo despues de guardar. Mismo patron que
+           _confirmarEquipoORevertir. test/venta-durable-deficit.test.js */
+        try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+        if (!_ventaGuardada) {
+          _revertirVenta();
+          debePersistir = false; // Failed sale is not a state change to mirror or retry.
+          // #607: a false strict commit is NOT proof of storage quota.
+          // Distinguish genuine quota from CAS fences and transient IDB failures.
+          // Keep the rollback and never emit stock or money without a durable ACK.
+          const causa = _causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB());
+          const cuotaReal = _esErrorDeCuota(causa);
+          const aviso = cuotaReal
+            ? tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.")
+            : tSeguro("sale.notSavedOther", "The sale was NOT saved: the secure save could not be confirmed. Check Sold before trying again.");
+          try { console.warn("[sale] strict save rejected", cuotaReal ? "quota" : (causa && causa.name || "revision-or-unavailable")); } catch (_) {}
+          return J({ error: aviso, code: cuotaReal ? "SALE_STORAGE_QUOTA" : "SALE_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
+        }
+        emitirOpStock("venta", _opVenta, true);
+        /* v777 (JFC 13 nov 2026: «me deja vender siempre y cuando no asigne comisionista»): the WhatsApp notice for the
+           associate used to fetch /api/ventas/todas, which rebuilds the commission ledger of the WHOLE history; on a big
+           store Safari hung and crashed. The notice now uses only THIS sale's figures, returned here. Additive field. */
+        const avisoComisionista = (split && _promotoraVenta && Number(split.montoComisionSocio) > 0)
+          ? { promotoraId: _promotoraVenta, comision: Number(split.montoComisionSocio), cantidad: cant, precioUnit: precioEfectivo,
+              productoNombre: p.nombre || "", ubicacionNombre: (ubicP && ubicP.nombre) || "" }
+          : null;
+        return J({ producto: ficha(p), ventaId, opId: opIdVenta, avisoComisionista });
+        } catch (e) {
+          if (!_ventaGuardada) { _revertirVenta(); debePersistir = false; }
+          throw e;
+        } finally {
+          _ventaConfirmando = false; _ventaPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+            if (_ventaGuardada) _avisarCatalogoConfirmado();
+          } finally { terminarVenta(); }
+        }
+      }
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/anular$/))) {
+        const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
+        if (idx === -1) return J({ error: "This sale can no longer be voided (the window passed, or it was already voided)." }, 400);
+        const venta = ventas[idx];
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 409);
+        /* B4 (2026-09-24): dentro de los 30 s se podia anular una venta que ya
+           se habia PAGADO al asociado: la plata salio y la venta desaparecia.
+           Lo pagado se corrige con una devolucion (ajuste negativo), nunca
+           borrando. */
+        if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) return J({ error: "This sale was already paid to the partner. Record a return instead.", codigo: "VENTA_PAGADA" }, 400);
+        // BUG FIJADO 2026-07-03: la UI muestra 5s de cuenta regresiva para
+        // anular y luego oculta el botón, pero este endpoint aceptaba anular
+        // cualquier venta pasada sin límite de tiempo (podía borrar ventas
+        // ya liquidadas a un socio). Margen generoso sobre esos 5s.
+        const VENTANA_ANULACION_MS = 30 * 1000;
+        // FIX (code-review 2026-07-03): fecha ausente/invalida -> NaN -> "NaN >
+        // 30000" es false -> anulable para siempre. Number.isFinite() falla
+        // CERRADO (rechaza) en vez de abierto.
+        const antiguedadMs = Date.now() - new Date(venta.fecha).getTime();
+        if (!Number.isFinite(antiguedadMs) || antiguedadMs > VENTANA_ANULACION_MS) {
+          return J({ error: "This sale can no longer be voided (the window passed, or it was already voided)." }, 400);
+        }
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        /* JFC 2026-11-12: anular con guardado confirmado y marcha atras, igual que la venta y la
+           correccion. Antes sumaba el stock y mandaba la operacion sin esperar el guardado: si el
+           guardado fallaba a medias, quedaba stock devuelto en otros aparatos y la venta viva aqui. */
+        const _deshacerStockAnulacion = _marchaAtrasStock(p), _ventaAntesDeAnular = { ...venta };
+        p.stockActual += venta.cantidad;
+        venta.anulada = true; venta.rev = _revNueva();
+        mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) }, false);
+        /* v597: id determinista por venta (el mismo que usa la devolucion): dos aparatos que
+           anulan/cancelan/devuelven la misma venta suman la reposicion UNA sola vez en el
+           contador PN (maximo por id), no una por aparato. */
+        const _opAnular = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(_opAnular, "aj-dev-" + venta.id);
+        let _anulacionGuardada = false;
+        try { _anulacionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+        if (!_anulacionGuardada) {
+          _deshacerStockAnulacion();
+          Object.keys(venta).forEach(k => delete venta[k]);
+          Object.assign(venta, _ventaAntesDeAnular);
+          debePersistir = false;
+          return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
+        }
+        emitirOpStock("anulacion", _opAnular, true); // sale del aparato solo despues del guardado
+        avisarCatalogoCambiado();
+        debePersistir = false; // el guardado estricto ya contiene venta, stock, contadores y registro
+        return J({ producto: ficha(p) });
+      }
+      /* CANCELAR EX-POST (JFC 2026-09-02): "sobre todo en Sales/Sold debe haber
+         cancelar ex post tambien". A diferencia de /anular (ventana de 30s para
+         deshacer un toque recién hecho), esto permite cancelar una venta pasada
+         cuando hubo un error. Protege la plata ya liquidada a un socio: si la
+         venta ya se pagó a la casa/artista, NO se puede cancelar aquí (habría que
+         corregir la liquidación). Todo queda en el log con usuario + dispositivo. */
+      /* DEVOLUCION / CLAWBACK (JFC 2026-09-24, Bloque 4, aprobado). Una venta
+         ya PAGADA al asociado no se edita ni se anula: se agrega un ajuste
+         NEGATIVO fechado hoy (ciclo abierto) que se descuenta del proximo pago,
+         con quien y motivo. Toda devolucion conserva la venta original y registra
+         el reverso en su propia fecha, incluso sin comision o sin pago previo. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/devolucion$/)) && opts && opts.method === "POST") {
+        const _rD = _rolLocal();
+        if (_rD !== "dueno" && _rD !== "admin" && _rD !== "empleado") return J({ error: "Sign in to record a return." }, 403);
+        const venta = ventas.find((v) => v.id === m[1] && !v.anulada);
+        if (!venta) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 400);
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
+        const quien = String((body && body.quien) || "").trim().slice(0, 80) || "unidentified";
+        // The same sale cannot create two economic reversals on offline devices.
+        // A deterministic adjustment id also survives repeated sync envelopes.
+        debePersistir = false;
+        const foto = { venta: JSON.parse(JSON.stringify(venta)), producto: JSON.parse(JSON.stringify(p)),
+          ajustesLen: ajustesComision.length, movLen: movimientos.length, sello: selloUltimo };
+        const sp = venta.split || { montoBruto: venta.precioUnit * venta.cantidad,
+          montoComisionSocio: venta.noCommission === true ? 0 : null,
+          montoNetoDueno: venta.noCommission === true ? venta.precioUnit * venta.cantidad : null };
+        const aj = {
+          id: "aj-dev-" + venta.id, tipo: "devolucion", ventaId: venta.id, ubicacionId: venta.ubicacionId, productoId: p.id,
+          cantidad: venta.cantidad, fecha: new Date().toISOString(),
+          montoBruto: -(Number(sp.montoBruto) || 0),
+          montoComisionSocio: sp.montoComisionSocio == null ? null : -(Number(sp.montoComisionSocio) || 0),
+          montoNetoDueno: sp.montoNetoDueno == null ? null : -(Number(sp.montoNetoDueno) || 0),
+          reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
+          quien, motivo, liquidada: false, rev: _revNueva()
+        };
+        ajustesComision.push(aj);
+        venta.devuelta = true; venta.devolucionId = aj.id; venta.fechaDevolucion = aj.fecha; venta.rev = _revNueva();
+        p.stockActual += venta.cantidad;
+        const opStock = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(opStock, aj.id);
+        mov("devolucion", { producto: p.nombre, ventaId: venta.id, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), comisionDevuelta: aj.montoComisionSocio, quien, motivo }, false);
+        // Reuse the financial boundary: reads and incoming catalog merges wait
+        // until this attempt has committed or restored its complete snapshot.
+        let terminarRetorno;
+        _payoutConfirmando = true;
+        _payoutPendiente = new Promise(resolve => { terminarRetorno = resolve; });
+        try {
+          let guardada = false;
+          try { guardada = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!guardada) {
+            Object.keys(venta).forEach(k => delete venta[k]);
+            Object.assign(venta, foto.venta);
+            Object.keys(p).forEach(k => delete p[k]);
+            Object.assign(p, foto.producto);
+            ajustesComision.length = foto.ajustesLen;
+            movimientos.length = foto.movLen;
+            selloUltimo = foto.sello;
+            return J({ error: "The return could not be saved. No sale, stock or commission changes recorded." }, 507);
+          }
+          emitirOpStock("devolucion", opStock, true);
+          _avisarCatalogoConfirmado();
+          return J({ ok: true, ajuste: aj, producto: ficha(p) });
+        } finally {
+          _payoutConfirmando = false; _payoutPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+          } finally { terminarRetorno(); }
+        }
+      }
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/cancelar$/)) && opts && opts.method === "POST") {
+        // JFC 2026-09-03: el encargado TAMBIÉN puede corregir errores (cancelar).
+        // La defensa contra abusos es el log (cada acción queda con usuario+rol+
+        // dispositivo, tracking de tampering), no capar al encargado. Se exige
+        // sesión (rol) y sigue bloqueado si la venta ya fue liquidada.
+        const _rC = _rolLocal();
+        if (_rC !== "dueno" && _rC !== "admin" && _rC !== "empleado") return J({ error: "Sign in to cancel a recorded sale." }, 403);
+        const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
+        if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
+        const venta = ventas[idx];
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 409);
+        // B5: una COUNTER SALE no tiene comision que proteger (split null): se puede cancelar aunque la percha ya se haya pagado.
+        if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
+        const deshacerStock = _marchaAtrasStock(p), ventaAnterior = { ...venta };
+        const opCancelar = { productoId: p.id, delta: venta.cantidad };
+        debePersistir = false;
+        let liberarCancelacion, guardada = false;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarCancelacion = resolve; });
+        try {
+          p.stockActual += venta.cantidad;
+          venta.anulada = true; venta.canceladaExPostEn = new Date().toISOString(); venta.rev = _revNueva();
+          mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha }, false);
+          // El ID determinista también deduplica una anulación o devolución de la misma venta.
+          _prepararOpStock(opCancelar, "aj-dev-" + venta.id);
+          guardada = (await guardarEstadoLocal(true, true)) === true;
+        } catch (_) {
+          guardada = false;
+        } finally {
+          if (!guardada) {
+            deshacerStock();
+            Object.keys(venta).forEach(k => delete venta[k]);
+            Object.assign(venta, ventaAnterior);
+          }
+          _retencionConfirmando = false;
+          _retencionPendiente = null;
+          try { _drenarCatalogosPendientes(); } finally { liberarCancelacion(); }
+        }
+        if (!guardada) return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
+        emitirOpStock("cancelacion-ex-post", opCancelar, true);
+        _avisarCatalogoConfirmado();
+        return J({ producto: ficha(p), ok: true });
+      }
+      /* v418: la anulacion es monotona en sync: desmarcarla reviviria o perderia
+         dinero al converger dos aparatos. Compensamos con un asiento nuevo ligado
+         al original, sin pasar por /venta (que correctamente bloquea vencidos).
+         La fecha, precio y split son los del asiento original; no se recalculan. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/deshacer-cancelacion$/)) && opts && opts.method === "POST") {
+        const rol = _rolLocal();
+        if (rol !== "dueno" && rol !== "admin" && rol !== "empleado") return J({ error: "Sign in to undo a cancellation." }, 403);
+        const original = ventas.find((v) => v.id === m[1]);
+        if (!original) return J({ error: "Sale not found." }, 404);
+        const idRestaurado = "v-rest-" + original.id;
+        if (ventas.some((v) => v.id === idRestaurado || v.restauracionDe === original.id)) return J({ error: "This cancellation was already restored." }, 409);
+        const edad = Date.now() - new Date(original.canceladaExPostEn).getTime();
+        if (!original.anulada || !original.canceladaExPostEn || !Number.isFinite(edad) || edad < 0 || edad > 30000 || original.devuelta || (original.liquidada && original.split)) {
+          return J({ error: "Only a recent, unsettled cancellation is eligible for undo." }, 400);
+        }
+        const p = productos.find((x) => x.id === original.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        if (!Number.isInteger(original.cantidad) || original.cantidad <= 0) return J({ error: "Invalid quantity in the cancelled sale." }, 400);
+        const restaurada = { ...original, id: idRestaurado, anulada: false, canceladaExPostEn: null, restauracionDe: original.id, rev: _revNueva() };
+        p.stockActual -= original.cantidad;
+        ventas.push(restaurada);
+        mov("restauracion-cancelacion", { ventaId: original.id, ventaRestauradaId: idRestaurado, producto: p.nombre, cantidad: original.cantidad, total: +(original.precioUnit * original.cantidad).toFixed(2) });
+        /* VENDER SIEMPRE (v737): recuperar la venta no se rechaza por stock; lo que falte queda como faltante. */
+        const _opRest = { productoId: p.id, delta: -original.cantidad };
+        _prepararOpStock(_opRest);
+        _perchaEnCeroYFaltante(p);
+        emitirOpStock("restauracion-cancelacion", _opRest, true);
+        return J({ ok: true, ventaId: idRestaurado, producto: ficha(p) });
+      }
+      /* EDITAR UNA VENTA (JFC 2026-09-02): la lista de Sold es editable con
+         lapicitos "por si hubo errores". Se puede corregir cantidad, forma de
+         pago, notas, número de factura y el cliente. Si cambia la cantidad se
+         ajusta stock y se recalcula el split de comisión. Bloqueado si la venta
+         ya fue liquidada (la plata ya se repartió). Todo va al log. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)$/)) && opts && opts.method === "PATCH") {
+        // JFC 2026-09-03: el encargado también puede corregir errores (editar
+        // cantidad/precio/pago/notas). El log registra quién+dispositivo (tampering).
+        const _rE = _rolLocal();
+        if (_rE !== "dueno" && _rE !== "admin" && _rE !== "empleado") return J({ error: "Sign in to edit a recorded sale." }, 403);
+        const venta = ventas.find((v) => v.id === m[1] && !v.anulada);
+        if (!venta) return J({ error: "Sale not found." }, 404);
+        // Payment-method corrections do not alter a settled commission. Quantity,
+        // price and customer remain protected by the financial guard below.
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const cambios = {};
+        /* B2 (2026-09-24): TODO se valida antes de tocar stock o montos. Antes
+           la cantidad se aplicaba al stock y DESPUES se rechazaba un precio
+           invalido o un cliente inexistente: error en pantalla, pero el stock y
+           la cantidad ya habian cambiado y se guardaban. */
+        const _hayCant = body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "";
+        const _hayPrecio = body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "";
+        if (venta.devuelta && (_hayCant || _hayPrecio || body.clienteId !== undefined || (body.info && body.info.formaPago !== undefined))) {
+          return J({ error: "This sale was returned. Its financial history cannot be edited." }, 409);
+        }
+        // A partial payout is sealed money too. Reject financial edits before
+        // stock or the split changes; notes and contact corrections remain usable.
+        if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit)) && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
+          return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
+        }
+        if (_hayCant && !(Number.isInteger(Number(body.cantidad)) && Number(body.cantidad) >= 1)) return J({ error: "The quantity must be a whole number, 1 or more." }, 400);
+        if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
+        if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);
+        if (body.clienteId && !clientes.find((x) => x.id === body.clienteId)) return J({ error: "Customer not found." }, 404);
+        let impuestoCorregido = venta.impuesto;
+        if (_hayCant || _hayPrecio) {
+          const lector = window.OCBusinessReadModel;
+          impuestoCorregido = venta.impuesto == null ? null : lector && lector.recalculateTax
+            ? lector.recalculateTax(venta.impuesto, _hayPrecio ? +Number(body.precioUnit).toFixed(2) : venta.precioUnit, _hayCant ? Number(body.cantidad) : venta.cantidad)
+            : undefined;
+          if (impuestoCorregido === undefined) return J({ error: "The original tax could not be verified. No financial changes recorded." }, 409);
+        }
+        // HOTFIX 2026-10-12: payment correction CASH -> FIADO must create a
+        // single immutable, sale-linked charge BEFORE changing the sale record.
+        // No ad-hoc saldo mutations and no duplicate charges on retry/reload.
+        const _pagoAnterior = String((venta.info && venta.info.formaPago) || "");
+        const _pagoSiguiente = body.info && body.info.formaPago !== undefined
+          ? String(body.info.formaPago || "") : _pagoAnterior;
+        const _clienteSiguiente = body.clienteId !== undefined ? body.clienteId : venta.clienteId;
+        // 2026-10-13: a receipt belongs to its original debtor. Reassignment
+        // needs a separate approved ledger transfer, not a silent sale edit.
+        if (String(_clienteSiguiente || "") !== String(venta.clienteId || "")) {
+          const _primerDeudorFiado = !venta.clienteId && !!_clienteSiguiente && _pagoAnterior !== 'fiado' && _pagoSiguiente === 'fiado';
+          if (!_primerDeudorFiado && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
+            return J({ error: "This sale was already settled — its customer cannot be changed." }, 400);
+          }
+          let _tieneCargo = _pagoAnterior === "fiado";
+          if (window.AMG && window.AMG.Hechos && window.AMG.Hechos.todos) {
+            try {
+              const _hechos = await window.AMG.Hechos.todos();
+              const _delaVenta = _hechos.filter(h => {
+                const d = h && h.datos && h.datos.payload ? h.datos.payload : (h && h.datos) || {};
+                return (h.tipo === "cartera_cargo" || h.tipo === "cartera_vinculo") &&
+                  String(d.ventaId || "") === String(venta.id);
+              });
+              // v490 (2026-10-13): a receipt left by a FAILED save of this same
+              // correction (only receipts for the chosen customer, sale not fiado)
+              // must not block the retry; it is reused, never duplicated.
+              const _huerfanoMismoCliente = _pagoAnterior !== "fiado" && _delaVenta.length > 0 &&
+                _delaVenta.every(h => {
+                  const d = h && h.datos && h.datos.payload ? h.datos.payload : (h && h.datos) || {};
+                  return h.tipo === "cartera_cargo" && String(d.clienteId || "") === String(_clienteSiguiente || "");
+                });
+              _tieneCargo = _tieneCargo || (_delaVenta.length > 0 && !_huerfanoMismoCliente);
+            } catch (_) {
+              return J({ error: "Could not verify customer credit. No changes recorded." }, 503);
+            }
+          }
+          if (_tieneCargo) return J({ error: "This sale has a customer credit receipt. Its customer cannot be changed." }, 409);
+        }
+        if (_pagoSiguiente === "fiado") {
+          if (!_clienteSiguiente || !clientes.some(c => c.id === _clienteSiguiente)) {
+            return J({ error: "Select a registered customer to record an on-account sale." }, 400);
+          }
+          if (venta.info && venta.info.cortesia) {
+            return J({ error: "A courtesy sale cannot be recorded as on account." }, 400);
+          }
+          // Validate availability before posting the debt: a failed stock
+          // correction must never leave an orphan financial receipt.
+          const _cantFinal = _hayCant ? Number(body.cantidad) : venta.cantidad;
+          const _precioFinal = _hayPrecio ? +Number(body.precioUnit).toFixed(2) : venta.precioUnit;
+          const _montoFiadoFinal = +(_cantFinal * _precioFinal).toFixed(2);
+          if (!(_montoFiadoFinal > 0)) return J({ error: "On-account amount must be greater than zero." }, 400);
+          if (_pagoAnterior !== "fiado") {
+            if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.registrarMovimiento) {
+              return J({ error: "Customer credit is unavailable. No changes recorded." }, 503);
+            }
+            try {
+              if (window.AMG.Cartera.asegurarCargoVenta) {
+                await window.AMG.Cartera.asegurarCargoVenta(_clienteSiguiente,
+                  _montoFiadoFinal, "Sale on credit: " + p.nombre, venta.id);
+              } else {
+                await window.AMG.Cartera.registrarMovimiento(_clienteSiguiente, "cargo",
+                  _montoFiadoFinal, "Sale on credit: " + p.nombre, { ventaId: venta.id });
+              }
+            } catch (err) {
+              return J({ error: "Could not confirm the on-account charge. Sale unchanged: " + ((err && err.message) || "unknown error") }, 409);
+            }
+          }
+        }
+        // Match the durable-sale contract: no catalog/stock notification before
+        // storage confirms the correction. A retained immutable receipt for a
+        // failed cash->credit edit contributes zero while the sale stays cash.
+        const _fotoEdicion = { venta: JSON.parse(JSON.stringify(venta)),
+          producto: JSON.parse(JSON.stringify(p)), movLen: movimientos.length, sello: selloUltimo };
+        let _deltaEdicion = 0;
+        // Cantidad: ajusta stock (delta) y recalcula split.
+        if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
+          const nueva = Number(body.cantidad); // validada arriba (B2): entero >= 1
+          const delta = nueva - venta.cantidad; // >0 = vender más (baja stock)
+          if (delta !== 0) {
+            p.stockActual -= delta;
+            _deltaEdicion = -delta;
+            cambios.cantidad = { antes: venta.cantidad, ahora: nueva };
+            venta.cantidad = nueva;
+            const ubicP = ubicaciones.find((x) => x.id === venta.ubicacionId);
+            if (venta.split) {
+              venta.split = _splitConTratoSellado(venta, (venta.precioUnit || 0) * nueva, (Number(venta.costoUnit) || 0) * nueva);
+              if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP, venta.asistenteId, venta.asistentePct);
+            }
+          }
+        }
+        // Precio unitario: corregir un monto mal tecleado (JFC/Belén 2026-09-02:
+        // "puse $150 y no 115"). Recalcula el split de comisión con el precio nuevo.
+        if (body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "") {
+          const nuevoPrecio = Number(body.precioUnit);
+          if (!Number.isFinite(nuevoPrecio) || nuevoPrecio < 0) return J({ error: "Enter a valid unit price." }, 400);
+          const precioRedondo = +nuevoPrecio.toFixed(2);
+          if (precioRedondo !== venta.precioUnit) {
+            cambios.precioUnit = { antes: venta.precioUnit, ahora: precioRedondo };
+            venta.precioUnit = precioRedondo;
+            const ubicP2 = ubicaciones.find((x) => x.id === venta.ubicacionId);
+            if (venta.split) {
+              venta.split = _splitConTratoSellado(venta, precioRedondo * (venta.cantidad || 1), (Number(venta.costoUnit) || 0) * (venta.cantidad || 1));
+              if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP2, venta.asistenteId, venta.asistentePct);
+            }
+          }
+        }
+        if (_hayCant || _hayPrecio) venta.impuesto = impuestoCorregido;
+        if (body.clienteId !== undefined) {
+          if (body.clienteId) { const c = clientes.find((x) => x.id === body.clienteId); if (!c) return J({ error: "Customer not found." }, 404); venta.clienteId = c.id; }
+          else venta.clienteId = null;
+          cambios.clienteId = venta.clienteId;
+        }
+        if (body.info && typeof body.info === "object") {
+          venta.info = venta.info || {};
+          const iv = body.info;
+          if (iv.formaPago !== undefined) venta.info.formaPago = String(iv.formaPago || "").slice(0, 20);
+          if (iv.notas !== undefined) venta.info.notas = String(iv.notas || "").slice(0, 500);
+          if (iv.factura !== undefined) venta.info.factura = String(iv.factura || "").slice(0, 60);
+          if (iv.nombrePagador !== undefined) venta.info.nombrePagador = String(iv.nombrePagador || "").slice(0, 120);
+          cambios.info = true;
+        }
+        mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios }, false);
+        venta.rev = _revNueva();
+        // PN, base, and monotonic stockTs belong to the FIRST durable snapshot.
+        // Prepare without publishing, then emit exactly once after strict ACK.
+        const _opEdicionStock = _deltaEdicion ? { productoId: p.id, delta: _deltaEdicion } : null;
+        if (_opEdicionStock) _prepararOpStock(_opEdicionStock);
+        /* VENDER SIEMPRE (v737): subir la cantidad sin stock deja el faltante, igual que la venta. */
+        _perchaEnCeroYFaltante(p);
+        let _edicionGuardada = false;
+        try { _edicionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+        if (!_edicionGuardada) {
+          Object.keys(venta).forEach(k => delete venta[k]);
+          Object.assign(venta, _fotoEdicion.venta);
+          Object.keys(p).forEach(k => delete p[k]);
+          Object.assign(p, _fotoEdicion.producto);
+          movimientos.length = _fotoEdicion.movLen;
+          selloUltimo = _fotoEdicion.sello;
+          debePersistir = false;
+          return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
+        }
+        if (_opEdicionStock) emitirOpStock("venta-editada", _opEdicionStock, true);
+        avisarCatalogoCambiado();
+        debePersistir = false; // strict snapshot already contains sale, stock, PN and audit
+        return J({ producto: ficha(p), venta, ok: true });
+      }
+      /* EDITAR UN EVENTO (JFC 2026-09-02, micromejora #10): dueño/admin puede
+         renombrar el evento y cambiar su fecha. Como el "evento" es el nombre que
+         llevan las ventas (info.nombreEvento), se actualizan TODAS las ventas de
+         ese evento de una sola vez. Todo al log. */
+      if (path === "/api/eventos" && opts && opts.method === "PATCH") {
+        const _rEv = _rolLocal();
+        if (_rEv !== "dueno" && _rEv !== "admin") return J({ error: "Only the owner or an admin can edit an event." }, 403);
+        const antes = String(body.nombreAnterior || "").trim();
+        const nuevo = String(body.nombreNuevo || "").trim().slice(0, 120);
+        const fechaNueva = body.fechaNueva !== undefined ? String(body.fechaNueva || "").trim().slice(0, 20) : null;
+        if (!antes) return J({ error: "Missing the event to edit." }, 400);
+        if (!nuevo) return J({ error: "Enter a name for the event." }, 400);
+        let n = 0;
+        ventasActivas().forEach((v) => {
+          if (v.info && v.info.nombreEvento === antes) {
+            v.info.nombreEvento = nuevo;
+            if (fechaNueva !== null) v.info.fechaEvento = fechaNueva;
+            v.rev = _revNueva();
+            n++;
+          }
+        });
+        mov("evento-editado", { antes, ahora: nuevo, fecha: fechaNueva || "", ventasAfectadas: n });
+        if (n) avisarCatalogoCambiado();
+        guardarEstadoLocal();
+        return J({ ok: true, ventasAfectadas: n, nombre: nuevo, fecha: fechaNueva });
+      }
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        // JFC 2026-11-01: owner/admin may set an absolute physical count ("fijar en N"). It opens a NEW stock
+        // epoch (base N, counters reset) that travels with the catalog; the latest count wins on every device.
+        const fisico = Number.isInteger(body.stockFisico) && body.stockFisico >= 0 ? body.stockFisico : null;
+        if (fisico !== null && !["dueno", "admin"].includes(window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()))
+          return J({ error: "Only the owner or an admin can set a physical count." }, 403);
+        // C111: a second independent HTTP request may carry an already
+        // committed operation ID. The signed movement is the durable receipt.
+        // Return the ORIGINAL outcome, do not add another PN delta or movement.
+        const _opIdSolicitado = typeof body.opId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(body.opId.trim())
+          ? body.opId.trim() : "";
+        if (_opIdSolicitado) {
+          const _ya = movimientos.find(m => m && m.detalle && m.detalle.opId === _opIdSolicitado);
+          if (_ya) {
+            const det = _ya.detalle;
+            const mismoTipo = _ya.tipo === (fisico !== null ? "conteo-fisico" : "ajuste");
+            const mismoProducto = String(det.productoId || "") === String(p.id);
+            const mismoIntento = fisico !== null
+              ? Number(det.stockFisico) === fisico
+              : Number.isInteger(body.delta) && det.delta === body.delta;
+            if (!mismoTipo || !mismoProducto || !mismoIntento)
+              return J({ error: "This adjustment reference belongs to a different operation.",
+                code: "STOCK_OPID_CONFLICT" }, 409);
+            // A first CAS commit might have succeeded despite a lost ACK.
+            // Republish its ORIGINAL idempotent payload, not a fresh delta.
+            if (fisico === null && det.opPayload && det.opPayload.opId === _opIdSolicitado &&
+                det.opPayload.productoId === p.id)
+              emitirOpStock("ajuste", clonar(det.opPayload), true);
+            return J({ ...ficha(p), opId: _opIdSolicitado, duplicate: true });
+          }
+        }
+        const d = fisico !== null ? fisico - Math.max(0, Number(p.stockActual) || 0) : (Number.isInteger(body.delta) ? body.delta : 0);
+        // BUG FIX (2026-07-03): delta=0 es un entero valido, pasa la guarda de
+        // arriba, no cambia el stock pero registra un movimiento en el log. Silencioso
+        // y contaminante. Se rechaza explicitamente. (A physical count that confirms the same number is valid.)
+        if (d === 0 && fisico === null) return J({ error: "The adjustment cannot be zero." }, 400);
+        if (p.stockActual + d < 0) return J({ error: `That adjustment would push stock negative (currently: ${p.stockActual}).` }, 400);
+        // Same durable boundary as a sale: never publish a correction that may
+        // disappear on reload when both local storage backends reject the write.
+        debePersistir = false;
+        const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
+          meta: ["stockBase", "stockPN", "stockTs", "stockCountTs", "stockDeficit", "stockEpochId", "stockEvidencias", "stockCountWitness", "stockReconciliacionPendiente", "rev"].map(k => ({
+            k, existe: Object.prototype.hasOwnProperty.call(p, k),
+            valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
+          })) };
+        const revertir = () => {
+          p.stockActual = foto.stock;
+          foto.meta.forEach(({k, existe, valor}) => { if (existe) p[k] = valor; else delete p[k]; });
+          movimientos.length = foto.movLen;
+          selloUltimo = foto.sello;
+        };
+        let guardado = false, terminar, _epocaFisicaConfirmada = "";
+        _ventaConfirmando = true; // Hold Yjs seed, incoming merges and reads until ACK/rollback.
+        _ventaPendiente = new Promise(resolve => { terminar = resolve; });
+        try {
+          if (fisico !== null) {
+            // Physical count: new epoch. No delta op is emitted (other devices would add it again);
+            // the epoch fields reach them through the catalog merge, where the latest count wins.
+            // Keep the PREVIOUS physical baseline and PN facts for audit/recovery.
+            // These are encrypted with the catalog; they never count toward the new epoch.
+            const historial = _pruebasStockUnir(p);
+            if (Object.keys(historial).length) p.stockEvidencias = historial;
+            // Snapshot the CAUSAL front the owner had seen when physically counting.
+            // Never infer inclusion of a remote offline sale from a later wall-clock.
+            p.stockCountWitness = {
+              base: p.stockBase == null ? null : Number(p.stockBase),
+              epoch: String(p.stockEpochId || ""),
+              pn: clonar(p.stockPN || {})
+            };
+            p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
+            p.stockDeficit = 0; p.stockCountTs = Date.now();
+            p.stockTs = p.stockCountTs; p.stockActual = fisico;
+            p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
+          } else p.stockActual += d;
+          const _opIdAjuste = (typeof body.opId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(body.opId.trim()))
+            ? body.opId.trim() : uuid("adj-");
+          const op = { productoId: p.id, delta: d, stockNuevo: p.stockActual, opId: _opIdAjuste };
+          if (fisico === null) _prepararOpStock(op);
+          // Commit the intent fingerprint and the original outbound payload
+          // atomically with this signed movement, in the same strict snapshot.
+          mov(fisico !== null ? "conteo-fisico" : "ajuste", {
+            producto: p.nombre, productoId: p.id, delta: d, opId: _opIdAjuste,
+            ...(fisico !== null ? { stockFisico: fisico } : { opPayload: clonar(op) }),
+            motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"),
+            stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId)
+          }, false);
+          try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!guardado) {
+            revertir();
+            // A strict CAS conflict is NOT proof of device storage exhaustion.
+            // Only genuine quota keeps 507; other refusal gets a distinct code
+            // for a one-shot rebase against a newer durable IDB revision.
+            const causa = _causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB());
+            const cuotaReal = _esErrorDeCuota(causa);
+            const mensaje = cuotaReal
+              ? tSeguro("product.notSaved", "The stock adjustment was NOT saved: storage quota is unavailable.")
+              : tSeguro("product.notSavedOther", "The stock change was NOT saved: secure storage could not confirm it. Check inventory before trying again.");
+            return J({ error: mensaje,
+              code: cuotaReal ? "STOCK_STORAGE_QUOTA" : "STOCK_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
+          }
+          if (fisico === null) emitirOpStock("ajuste", op, true);
+          else _epocaFisicaConfirmada = String(p.stockEpochId || "");
+          return J(ficha(p));
+        } catch (e) {
+          if (!guardado) revertir();
+          throw e;
+        } finally {
+          _ventaConfirmando = false; _ventaPendiente = null;
+          try {
+            if (guardado && _epocaFisicaConfirmada && window.OCYjs &&
+                typeof window.OCYjs.sembrarConteoConfirmado === "function") {
+              // Publish the durable physical epoch BEFORE draining queued remote
+              // catalogs so an older queued catalog cannot repaint stale stock
+              // or block the confirmed count epoch from seeding.
+              try { window.OCYjs.sembrarConteoConfirmado(p.id, _epocaFisicaConfirmada); }
+              catch (_) {}
+            }
+            _drenarCatalogosPendientes();
+            if (guardado) _avisarCatalogoConfirmado();
+          } finally { terminar(); }
+        }
+      }
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/etiqueta$/))) {
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        // Barcode y QR: ambos generados 100% locales (barcode128.js y
+        // qrcode-local.js) — cero llamadas externas, funciona sin internet.
+        const barcodeSvg = window.OCBarcode ? window.OCBarcode.code128SVG(p.barcode, { width: 300, height: 80 }) : "";
+        /* El QR representa el código del producto, no una URL. La URL heredada
+           apuntaba a AMIGABLE y Safari podía ofrecer abrir la app hermana al
+           detectar el QR. Además, friendly no consumía ?sku, así que la promesa
+           de "ver la ficha" era falsa. Un payload de código sirve en cualquier
+           lector y no puede sacar al usuario de esta app. */
+        const qrPayload = String(p.barcode || p.sku || "");
+        return J({ producto: ficha(p), qrDataUrl: qrDataUrl(qrPayload), barcodeSvg });
+      }
+      if ((m = path.match(/^\/api\/productos\/([^/]+)$/))) {
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        return J(ficha(p));
+      }
+
+      if (path === "/api/escanear") {
+        const c = String(body.codigo || "").trim().toLowerCase();
+        if (!c) return J({ error: "Empty code." }, 400);
+        const p = productos.find((x) => String(x.barcode).toLowerCase() === c || String(x.sku).toLowerCase() === c);
+        if (!p) return J({ error: "No product found with that code." }, 404);
+        return J(ficha(p));
+      }
+
+      if (path === "/api/actividad") return J(_actividadVista().reverse().slice(0, 100));
+
+      /* DIRECTORIO DE ACCESO (JFC 2026-08-28). Quién tiene cada PIN (nombre,
+         correo, notas). Solo el dueño. Lo lee el dashboard para el reporte
+         "quién tiene acceso". Viaja cifrado con el secreto; aquí solo se
+         expone lo que el dueño ya puede ver en Advanced/Team. */
+      if (path === "/api/directorio" && (!opts || opts.method === "GET")) {
+        if (_rolLocal() !== "dueno") return J({ error: "Only the owner can see the access directory." }, 403);
+        let dir = null;
+        try { dir = (window.OCSecure && window.OCSecure.directorioNormalizado) ? window.OCSecure.directorioNormalizado() : null; } catch (_) {}
+        return J({ directorio: dir });
+      }
+
+      // GASTOS (2026-08-27): registrar y listar gastos individuales.
+      // GET /api/gastos — lista los gastos (más recientes primero) + totales.
+      // POST /api/gastos — registra un gasto { concepto, monto, fecha, ubicacionId }.
+      if (path === "/api/gastos" && (!opts || opts.method === "GET")) {
+        const lista = gastos.filter((g) => !g.borrado).slice().reverse();
+        const total = lista.reduce((a, g) => a + (Number(g.monto) || 0), 0);
+        // JFC 2026-09-02: totales por categoría para el tablero y el resumen.
+        const porCategoria = {};
+        lista.forEach((g) => { const k = g.categoria || "other"; porCategoria[k] = (porCategoria[k] || 0) + (Number(g.monto) || 0); });
+        Object.keys(porCategoria).forEach((k) => { porCategoria[k] = +porCategoria[k].toFixed(2); });
+        return J({ gastos: lista, total, porCategoria });
+      }
+      if (path === "/api/gastos" && opts && opts.method === "POST") {
+        debePersistir = false; // the durable boundary below is the only expense commit
+        const concepto = String(body.concepto || "").trim();
+        const monto = Number(body.monto);
+        if (!concepto) return J({ error: "Enter a description for the expense." }, 400);
+        if (!Number.isFinite(monto) || !Number.isSafeInteger(Math.round(monto * 100)) || Number(monto.toFixed(2)) <= 0) return J({ error: "Enter a valid amount of at least one cent." }, 400);
+        // JFC 2026-09-02: categoría de gasto (best-practice sirve en USA y Ecuador).
+        // Claves canónicas neutrales; la etiqueta visible la traduce la UI.
+        const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
+        const categoria = CATS_GASTO.includes(String(body.categoria || "")) ? String(body.categoria) : "other";
+        if (body.metodoPago !== undefined && !["cash", "transfer"].includes(body.metodoPago)) return J({ error: "Invalid expense payment method." }, 400);
+        if (body.facturaFotoHash !== undefined && (typeof body.facturaFotoHash !== "string" || !/^[a-f0-9]{64}$/.test(body.facturaFotoHash))) return J({ error: "Invalid receipt photo." }, 400);
+        if (body.eventKey !== undefined && (typeof body.eventKey !== "string" || body.eventKey.length > 500)) return J({ error: "Invalid expense event." }, 400);
+        const g = {
+          id: uuid("g"), concepto, monto: +monto.toFixed(2),
+          categoria,
+          metodoPago: body.metodoPago || null,
+          facturaFotoHash: body.facturaFotoHash || null,
+          eventKey: body.eventKey || null,
+          factura: String(body.factura || "").trim().slice(0, 60), // JFC 2026-09-08: nº factura/invoice del proveedor (control tributario básico).
+          fecha: body.fecha || new Date().toISOString(),
+          ubicacionId: body.ubicacionId || "todas",
+          usuarioId: (window.OCCurrentUser && window.OCCurrentUser.id) || "sistema",
+          usuarioNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || "Sistema", rev: _revNueva(),
+        };
+        const resultado = await _payoutDurable(() => {
+          gastos.push(g);
+          mov("gasto", { concepto, monto: g.monto, categoria, ubicacionId: g.ubicacionId }, false);
+          return g;
+        }, 'This expense was NOT saved. Free up storage and retry.');
+        return J(resultado, resultado.error ? resultado.status || 507 : 200);
+      }
+      // DELETE /api/gastos/:id — anula un gasto (solo dueño/admin/contador). Deja constancia.
+      const mGastoDel = path.match(/^\/api\/gastos\/([^/]+)$/);
+      if (mGastoDel && opts && opts.method === "DELETE") {
+        debePersistir = false;
+        const _rDel = _rolLocal();
+        if (_rDel !== "dueno" && _rDel !== "admin" && _rDel !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can delete expenses." }, 403);
+        const idx = gastos.findIndex((x) => x.id === mGastoDel[1] && !x.borrado);
+        if (idx < 0) return J({ error: "Expense not found." }, 404);
+        const resultado = await _payoutDurable(() => {
+          const g = gastos[idx]; g.borrado = true; g.rev = _revNueva();
+          mov("gasto-anulado", { concepto: g.concepto, monto: g.monto }, false);
+          return { ok: true };
+        }, 'The expense was NOT deleted. Free up storage and retry.');
+        return J(resultado, resultado.error ? resultado.status || 507 : 200);
+      }
+      // PATCH /api/gastos/:id — edita concepto/monto/fecha de un gasto (JFC 2026-08-27).
+      if (mGastoDel && opts && opts.method === "PATCH") {
+        debePersistir = false;
+        const _rPat = _rolLocal();
+        if (_rPat !== "dueno" && _rPat !== "admin" && _rPat !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can edit expenses." }, 403);
+        const originalGasto = gastos.find((x) => x.id === mGastoDel[1] && !x.borrado);
+        if (!originalGasto) return J({ error: "Expense not found." }, 404);
+        const g = Object.assign({}, originalGasto); // validate every field before mutating money
+        if (body.metodoPago !== undefined && !["cash", "transfer"].includes(body.metodoPago)) return J({ error: "Invalid expense payment method." }, 400);
+        if (body.facturaFotoHash !== undefined && (typeof body.facturaFotoHash !== "string" || !/^[a-f0-9]{64}$/.test(body.facturaFotoHash))) return J({ error: "Invalid receipt photo." }, 400);
+        if (body.eventKey !== undefined && (typeof body.eventKey !== "string" || body.eventKey.length > 500)) return J({ error: "Invalid expense event." }, 400);
+        if (body.metodoPago !== undefined) g.metodoPago = body.metodoPago;
+        if (body.facturaFotoHash !== undefined) g.facturaFotoHash = body.facturaFotoHash;
+        if (body.eventKey !== undefined) g.eventKey = body.eventKey;
+        if (body.ubicacionId !== undefined) g.ubicacionId = String(body.ubicacionId || "todas");
+        if (body.concepto !== undefined) {
+          const c = String(body.concepto).trim();
+          if (!c) return J({ error: "Enter a description for the expense." }, 400);
+          g.concepto = c;
+        }
+        if (body.monto !== undefined) {
+          const m = Number(body.monto);
+          if (!Number.isFinite(m) || !Number.isSafeInteger(Math.round(m * 100)) || Number(m.toFixed(2)) <= 0) return J({ error: "Enter a valid amount of at least one cent." }, 400);
+          g.monto = +m.toFixed(2);
+        }
+        if (body.fecha !== undefined) g.fecha = body.fecha;
+        if (body.categoria !== undefined) {
+          const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
+          g.categoria = CATS_GASTO.includes(String(body.categoria)) ? String(body.categoria) : (g.categoria || "other");
+        }
+        const resultado = await _payoutDurable(() => {
+          g.rev = _revNueva(); Object.assign(originalGasto, g);
+          mov("gasto-editado", { concepto: g.concepto, monto: g.monto, categoria: g.categoria }, false);
+          return g;
+        }, 'The expense edit was NOT saved. Free up storage and retry.');
+        return J(resultado, resultado.error ? resultado.status || 507 : 200);
+      }
+
+      // GET /api/movimientos?limite=N — últimos N movimientos (log), solo lectura.
+      // Lo usa el tablero (dashboard.html) para pintar el periscopio de datos.
+      if (path === "/api/movimientos" && (!opts || opts.method === "GET")) {
+        const n = Math.min(Number(q.get("limite")) || 200, 500);
+        return J(_actividadVista().slice(-n).reverse());
+      }
+
+      // Estrella: dueño marca/desmarca productos para que el encargado promueva
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/estrella$/))) {
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        p.estrella = !p.estrella;
+        mov("estrella", { producto: p.nombre, accion: p.estrella ? "marcado" : "desmarcado" });
+        return J({ estrella: p.estrella });
+      }
+
+      /* RESPALDO POR ROL (revision Linus bloque 3, JFC 2026-09-25: "export del empleado suena
+         riesgoso e innecesario ... lo legal, operativa y world best practices"). Completo SOLO
+         el dueno. Admin y empleado reciben una exportacion PARCIAL armada aqui por LISTA
+         BLANCA: productos sin costo, perchas, ventas con su comision y el rastro basico.
+         Sin clientes, costos, gastos, PINs ni margenes. respaldo-empleado.js (punto 13) se
+         arma con esto y sigue funcionando. Importar (reemplaza TODO el cuaderno): solo dueno. */
+      if (path === "/api/respaldo/exportar") {
+        const _rolExp = _rolLocal();
+        /* v597: PUNTO DE RECUPERACION (caja local de Advanced, cajaGuardarPunto). Solo con
+           ?confirmado=1&completo=1: (a) solo el rol que ya recibe el respaldo completo
+           (dueno/contador/demo o sin sesion), si no 403 sin datos; (b) solo si el estado en
+           memoria es el confirmado en disco (_estadoPuedePublicarse), si no 409 sin datos;
+           (c) agrega _recuperacion con la identidad del cuaderno: namespace (el mismo que lee
+           el cliente) + notebookId (instanceId, estable al rotar la licencia). licenseCode es
+           solo informativo. SIN la query la ruta responde exactamente como antes. */
+        if (q.get("confirmado") === "1" && q.get("completo") === "1") {
+          if (_rolExp && _rolExp !== "dueno" && _rolExp !== "demo" && _rolExp !== "contador") return J({ error: "Only the owner can take a full recovery checkpoint." }, 403);
+          if (!_estadoPuedePublicarse()) return J({ error: "The notebook is not saved yet. Try again in a moment." }, 409);
+          let _ns = ""; try { _ns = localStorage.getItem("f123_tienda_activa") || ""; } catch (_) {}
+          // v598: notebookId = _cuadernoIdCaja(), la misma identidad que lee el cliente (OCTienda.cuadernoId).
+          return J(Object.assign(estadoActualExportable(), { _recuperacion: { confirmado: true, completo: true, namespace: _ns, notebookId: _cuadernoIdCaja(), licenseCode: _licenciaActual() } }));
+        }
+        if (!_rolExp || _rolExp === "dueno" || _rolExp === "demo" || _rolExp === "contador") return J(estadoActualExportable()); // sin sesion = uso interno; demo = muestra; contador = rol de solo lectura que necesita costos (no importa)
+        const _c = estadoActualExportable();
+        const _toma = (o, ks) => ks.reduce((r, k) => { if (o && o[k] !== undefined) r[k] = o[k]; return r; }, {});
+        return J({
+          parcial: true, nombreNegocio: _c.nombreNegocio || "",
+          productos: (_c.productos || []).map((x) => _toma(x, ["id", "nombre", "sku", "precio", "ubicacionId"])),
+          ubicaciones: (_c.ubicaciones || []).map((x) => _toma(x, ["id", "nombre", "tipo"])),
+          ventas: (_c.ventas || []).map((v) => Object.assign(_toma(v, ["id", "fecha", "productoId", "cantidad", "precioUnit", "ubicacionId", "vendedorId", "liquidada", "anulada"]),
+            { split: v.split ? { montoComisionSocio: v.split.montoComisionSocio } : null })),
+          movimientos: _actividadVista().map((x) => _toma(x, ["id", "fecha", "tipo", "productoId", "cantidad", "ubicacionId", "vendedorId", "usuario"])),
+        });
+      }
+      if (path === "/api/respaldo/importar") {
+        debePersistir = false; // Import owns its durable boundary; a rejected restore must never be saved by finally.
+        const _rolImp = _rolLocal();
+        if (_rolImp && _rolImp !== "dueno" && _rolImp !== "demo") return J({ error: "Only the owner can import a backup: it replaces the whole notebook." }, 403);
+        try {
+          // BUG FIJADO 2026-07-03 y ampliado 2026-07-05 (item 19): antes solo
+          // se comprobaba que fueran arrays; ahora validarRespaldo() revisa
+          // ids unicos, numeros finitos/no negativos y referencias a perchas
+          // existentes antes de tocar nada. Un respaldo corrupto ya no puede
+          // dejar la app inservible.
+          const error = validarRespaldo(body);
+          if (error) return J({ error }, 400);
+          /* (JFC 2026-10-28) Restaurar NO se permite si el Y.Doc local ya tiene datos: gana al reabrir
+             (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
+          /* (JFC 2026-10-28) `error` en ingles (default de la app); `errorEs` para la UI en espanol. */
+          if (await _cuadernoConDatosTrasArranque()) return J({ error: "A backup can only be restored on a new device with no data. In a notebook that already has data, the restore would be undone when the app reopens.", errorEs: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
+          const anterior = estadoActualExportable(), actividadAnterior = actividadCompartida, pagosAnteriores = payouts.slice();
+          const listas = [_CAT_BASE_CUSTOM, _CAT_BASE_OCULTAS].map(base => { const clave = _catKey(base); return { clave, raw: localStorage.getItem(clave) }; });
+          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(anterior)); } catch (_) {}
+          const restaurar = () => {
+            aplicarRespaldo(anterior);
+            actividadCompartida = actividadAnterior;
+            payouts.splice(0, payouts.length, ...pagosAnteriores);
+            instanceId = anterior.instanceId; nombreNegocioTs = anterior.nombreNegocioTs; nombreNegocioRev = anterior.nombreNegocioRev;
+            ajusteImpuesto = anterior.configuracion.impuesto; ajusteMoneda = anterior.configuracion.moneda;
+            ajusteLealtad = anterior.configuracion.lealtad; ajusteRetencion = anterior.configuracion.retencion;
+            for (const {clave,raw} of listas) try { if (raw === null) localStorage.removeItem(clave); else localStorage.setItem(clave, raw); } catch (_) {}
+          };
+          // Reuse the catalog rollback fence so background saves and incoming sync cannot capture a provisional restore.
+          let liberarImportacion;
+          _retencionConfirmando = true;
+          _retencionPendiente = new Promise(resolve => { liberarImportacion = resolve; });
+          let guardado = false;
+          try {
+            aplicarRespaldo(body);
+            // Once storage starts, wait for its real result: a timed-out Promise can still commit later.
+            try { guardado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+            if (!guardado) {
+              restaurar();
+              return J({ error: "Could not import: the backup was NOT saved on this device. Free up storage and try again.", errorEs: "No se pudo importar: el respaldo NO quedó guardado en este aparato. Libera espacio e inténtalo de nuevo." }, 507);
+            }
+            _avisarCatalogoConfirmado();
+            return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
+          } catch (e) { if (!guardado) restaurar(); throw e; }
+          finally {
+            _retencionConfirmando = false; _retencionPendiente = null;
+            try {
+              _drenarCatalogosPendientes();
+            } finally { liberarImportacion(); }
+          }
+        } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
+      }
+
+      if (path === "/api/liquidaciones") return J(getLiquidaciones(q.get("mes")));
+      /* Ficha de producto: quien vendio el producto y cuanto gano cada persona en el mes.
+         Aqui SOLO se juntan los hechos del periodo (mismos filtros que _payoutInput) y se llama al core
+         (OCLedger.buildLedger + productSheet). Cero matematica de dinero en la ruta. */
+      if ((m = path.match(/^\/api\/ledger\/producto\/([^/]+)$/)) && method === "GET") {
+        const LG = (typeof window !== "undefined" && window.OCLedger) ? window.OCLedger : null;
+        if (!LG) return J({ error: "Ledger is not available." }, 503);
+        const pid = decodeURIComponent(m[1]);
+        const prod = productos.find((x) => String(x.id) === pid);
+        if (!prod) return J({ error: "Product not found." }, 404);
+        const periodo = mesValido(q.get("mes"));
+        const base = _payoutInput(null, periodo);
+        const ledger = LG.buildLedger({ ventas: base.sales, ajustes: base.adjustments, payouts, payoutConflicts, gastos: [], cartera: [], ubicaciones });
+        const hoja = LG.productSheet({ ledger, payouts, payoutConflicts, sales: base.sales, productId: pid });
+        const nombre = (id) => { const x = promotoras.find((r) => String(r.id) === String(id)); return x ? x.nombre : ""; };
+        hoja.people = hoja.people.map((r) => Object.assign({ name: nombre(r.personId) }, r));
+        hoja.locationNames = hoja.locations.map((id) => { const u = ubicaciones.find((x) => String(x.id) === String(id)); return { id, nombre: u ? u.nombre : id }; });
+        return J(Object.assign({ mes: periodo, nombre: prod.nombre, sku: prod.sku || prod.barcode || "" }, hoja));
+      }
+      if (path === "/api/payouts" && method === "GET") {
+        const mes = q.get("mes"); const ubic = q.get("ubicacionId"); const payee = q.get("payeeId");
+        return J(payouts.filter((p) => (!mes || p.period === mes) && (!ubic || String(p.locationId) === String(ubic)) && (!payee || String(p.payeeId || "") === String(payee))).map((p) => clonar(p)));
+      }
+      if (path === "/api/payouts" && method === "POST") {
+        debePersistir = false;
+        const r = await _payoutDurable(() => _registrarPayout(body && body.ubicacionId, body || {}, body && body.mes));
+        return J(r.error ? { error:r.error, payees:r.payees || undefined } : r, r.error ? (r.status || 400) : 200);
+      }
+      if ((m = path.match(/^\/api\/payouts\/([^/]+)\/reverse$/)) && method === "POST") {
+        if(payoutConflicts.some(c=>c.records.some(p=>String(p.id)===String(m[1])))) return J({error:'Review the conflicting receipts before reversing a payment.'},409);
+        const rol = _rolLocal();
+        if (rol && rol !== "dueno" && rol !== "admin" && rol !== "demo") return J({ error:"Only the owner or an admin can reverse a commission payment." }, 403);
+        const original = payouts.find((p) => String(p.id) === String(m[1]) && p.status === "paid" && !p.reversalOf);
+        if (!original) return J({ error:"Payment not found or already a reversal." }, 404);
+        const prior = payouts.find((p) => String(p.reversalOf || "") === String(original.id));
+        if (prior) return J({ ok:true, existing:true, reversal:clonar(prior) });
+        const motivo = String(body && body.reason || "").trim().slice(0,240);
+        if (!motivo) return J({ error:"Explain why this payment is being reversed." }, 400);
+        const now = new Date().toISOString();
+        const reversal = { id:uuid("payrev-"), opId:String(body && body.opId || ("reverse:" + original.opId)), status:"paid", type:"reversal", reversalOf:original.id,
+          payeeId:original.payeeId || null, payeeName:original.payeeName || "", payeeType:original.payeeType || "associate", locationId:original.locationId,
+          period:original.period, amountCents:original.amountCents, amount:original.amount, method:original.method || null, reference:original.reference || "",
+          note:motivo, paidAt:now, paidBy:(body && body.paidBy) || (rol || "owner"), items:clonar(original.items || []), rev:_revNueva(), createdAt:now };
+        /* Invariante del libro (auditoria 2026-10-07, punto 3): una reversa nunca devuelve
+           mas de lo pagado. Antes el core lo tapaba con Math.max(0, ...) sin avisar. */
+        const _core = _payoutCore();
+        if (_core && _core.ledgerAnomalies && _core.ledgerAnomalies(payouts.concat([reversal])).length > _core.ledgerAnomalies(payouts).length) {
+          return J({ error:"This reversal would return more than was paid. Nothing was recorded." }, 409);
+        }
+        debePersistir = false;
+        const confirmado = await _payoutDurable(() => {
+        reversal.authorRole = _rolLocal() || 'dueno';
+        payouts.push(reversal);
+        /* Las banderas de compatibilidad siguen al ledger (auditoria 2026-10-07). Una
+           reversa reabre exactamente lo que restaura: la venta o el ajuste vuelve a
+           quedar pendiente y desbloqueado. Antes quedaban liquidada=true y bloqueadas. */
+        reversal.items.forEach((it) => {
+          const pagadoTodo = _fuentePayoutLiquidada(it.kind, it.sourceId, original.locationId, original.period);
+          if (it.kind === "sale") { const v = ventas.find((x) => String(x.id) === String(it.sourceId)); if (v) { v.liquidada = pagadoTodo; v.rev = _revNueva(); } }
+          else if (it.kind === "adjustment") { const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId)); if (a) { a.liquidada = pagadoTodo; a.rev = _revNueva(); } }
+        });
+        mov("payout-reversal", { payoutId:original.id, reversalId:reversal.id, payeeId:reversal.payeeId, amount:reversal.amount, mes:reversal.period, motivo }, false);
+        return { ok:true, reversal:clonar(reversal) };
+        });
+        return J(confirmado, confirmado.error ? confirmado.status : 200);
+      }
+      /* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar
+         fuera de vista"). TODAS las ventas activas del mes, repartidas en cubos
+         que suman exacto al total (en centavos): con comision, COUNTER SALE en
+         perchas compartidas, perchas propias, y sin trato. Aparte: devoluciones
+         de ventas pagadas (por la fecha del ajuste), cortesias, aporte fijo
+         descontado y lo que falta pagar (ventas + ajustes pendientes). Solo
+         lectura; no cambia ningun calculo. test/cuadre-hugo-paco-luis.test.js */
+      if (path === "/api/invariantes" && method === "GET") {
+        return J(_informeInvariantes);
+      }
+      if (path === "/api/comisiones/cuadre" && method === "GET") {
+        const _mes = mesValido(q.get("mes"));
+        const ce = (n) => Math.round((Number(n) || 0) * 100);
+        const bruto = (v) => ce((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0));
+        const tipoDe = (id) => { const u = ubicaciones.find((x) => x.id === id); return u && u.tipo ? u.tipo : "propio"; };
+        const vm = ventasActivas().filter((v) => esDelMes(v.fecha, _mes, v.relojDesfaseMs));
+        const cubo = () => ({ c: 0, ventas: 0 });
+        const k = { conComision: cubo(), casaCompartida: cubo(), perchasPropias: cubo(), sinTrato: cubo() };
+        let comAsoc = 0, porPagar = 0, contribMes = 0, cortesias = 0;
+        vm.forEach((v) => {
+          const b = bruto(v);
+          let dest;
+          if (v.split) { dest = k.conComision; comAsoc += ce(v.split.montoComisionSocio); contribMes += ce(v.split.contribFijaAplicada); if (!v.liquidada) porPagar += ce(v.split.montoComisionSocio); }
+          else if (tipoDe(v.ubicacionId) === "propio") dest = k.perchasPropias;
+          /* Sin reparto en percha compartida = venta de la casa, con o sin la marca
+             "counter" (ventas viejas no la tienen). Misma regla que Sold, que las
+             muestra como COUNTER SALE. sinTrato queda en 0 por compatibilidad. */
+          else dest = k.casaCompartida;
+          dest.c += b; dest.ventas++;
+          if (v.info && v.info.cortesia) cortesias += Number(v.cantidad) || 0;
+        });
+        const aj = ajustesComision.filter((a) => a && esDelMes(a.fecha, _mes));
+        let devBruto = 0, ajCom = 0;
+        aj.forEach((a) => { devBruto += ce(a.montoBruto); ajCom += ce(a.montoComisionSocio); if (!a.liquidada) porPagar += ce(a.montoComisionSocio); });
+        const d = (n) => +(n / 100).toFixed(2);
+        const _coreCuadre = _payoutCore();
+        if (_coreCuadre) porPagar = _coreCuadre.balancesByPayee(_payoutInput(null, _mes, true))
+          .reduce((a,r) => a + Number(r.dueCents || 0), 0);
+        const total = k.conComision.c + k.casaCompartida.c + k.perchasPropias.c + k.sinTrato.c;
+        const salida = { mes: _mes, totalVentas: d(total), ventas: vm.length,
+          devoluciones: { monto: d(devBruto), cantidad: aj.filter((a) => a.tipo === "devolucion").length },
+          netoDelMes: d(total + devBruto), comisionAsociados: d(comAsoc + ajCom), porPagar: d(porPagar),
+          contribFijaDescontada: d(contribMes), cortesiasUnidades: cortesias };
+        Object.keys(k).forEach((n) => { salida[n] = { monto: d(k[n].c), ventas: k[n].ventas }; });
+        return J(salida);
+      }
+      if (path === "/api/liquidaciones/meses") return J(mesesConComision());
+    if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/panorama$/))) {
+      const pan = getPanoramaPercha(m[1]);
+      if (!pan) return J({ error: "Shelf not found." }, 404);
+      return J(pan);
+    }
+    if ((m = path.match(/^\/api\/ventas\/([^/]+)\/comision$/)) && opts && opts.method === "PATCH") {
+      const r = corregirComisionVenta(m[1], body.comisionPct, body.quien, body.motivo);
+      if (r.error) return J({ error: r.error }, r.status || 400);
+      return J(r);
+    }
+    /* IdiomARTE 2026-09-28: una venta antigua marcada COUNTER no se puede
+       repartir con el editor de porcentaje (que requiere un split previo).
+       Preview no escribe; la confirmacion explicita crea un split auditado.
+       Nunca se recalifica automaticamente una venta de la casa ni un pago cerrado. */
+    if ((m = path.match(/^\/api\/ventas\/([^/]+)\/asignar-comision$/)) && opts && opts.method === "POST") {
+      const rol = _rolLocal();
+      if (rol !== "dueno" && rol !== "admin") return J({ error: "Only an owner or admin can correct a commission assignment." }, 403);
+      const v = ventas.find((x) => x.id === m[1] && !x.anulada);
+      if (!v) return J({ error: "Sale not found." }, 404);
+      if (v.split) return J({ error: "This sale already has a commission split." }, 409);
+      if (v.liquidada || v.devuelta) return J({ error: "This sale is settled or returned and cannot be reclassified." }, 409);
+      const pr = promotoras.find((x) => String(x.id) === String(body.promotoraId || "") && !x.borrado);
+      if (!pr) return J({ error: "Choose a current associate." }, 400);
+      const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+      if (!u) return J({ error: "The sale's rack is unavailable." }, 409);
+      const bruto = +(Number(v.precioUnit) * Number(v.cantidad)).toFixed(2);
+      if (!(bruto > 0)) return J({ error: "A sale with no revenue has no commission to assign." }, 400);
+      const ubicTrato = Object.assign({}, u, { promotoraId: pr.id,
+        ...((!u.tipo || u.tipo === "propio") ? { tipo: "socio", usarComisionPropia: false } : {}) });
+      // La escala se evalua en la fecha de la venta, no con ventas posteriores.
+      const mesVenta = fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7);
+      const _instanteVenta = instanteCorregidoMs(v.fecha, v.relojDesfaseMs);
+      const previo = ventasActivas().filter((x) => x.id !== v.id && x.ubicacionId === u.id
+        && esDelMes(x.fecha, mesVenta, x.relojDesfaseMs) && instanteCorregidoMs(x.fecha, x.relojDesfaseMs) < _instanteVenta)
+        .reduce((a, x) => a + (Number(x.precioUnit) || 0) * (Number(x.cantidad) || 0), 0);
+      const split = calcularSplitVenta(ubicTrato, bruto, previo, (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 0), (productos.find((x) => x.id === v.productoId) || {}).pctAsociado);
+      if (!split) return J({ error: "No valid commission agreement for this sale." }, 409);
+      if (body.preview === true) return J({ preview: true, ventaId: v.id, promotoraId: pr.id, nombre: pr.nombre, split });
+      const motivo = String(body.motivo || "").trim().slice(0, 200);
+      if (!motivo) return J({ error: "Explain why this house sale needs a commission." }, 400);
+      split.corregida = true;
+      split.correcciones = [{ fecha: new Date().toISOString(), quien: String(body.quien || "").trim().slice(0, 80) || "unidentified",
+        motivo, antes: { modoComision: v.modoComision || "counter", montoComisionSocio: 0, montoNetoDueno: bruto },
+        despues: { promotoraId: pr.id, comisionPct: split.comisionPct, montoComisionSocio: split.montoComisionSocio, montoNetoDueno: split.montoNetoDueno } }];
+      v.split = split; v.modoComision = "acuerdo"; v.promotoraId = pr.id; v.rev = _revNueva();
+      mov("comision-asignada-a-venta", { ventaId: v.id, ubicacion: u.nombre, promotora: pr.nombre,
+        comision: split.montoComisionSocio, motivo });
+      guardarEstadoLocal(); avisarCatalogoCambiado();
+      return J({ ok: true, venta: { id: v.id, fecha: v.fecha, split: v.split } });
+    }
+    if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/comisiones-del-mes$/)) && opts && opts.method === "PATCH") {
+      const r = corregirComisionesDelMes(m[1], body.comisionPct, body.quien, body.motivo, body.soloPendientes !== false);
+      if (r.error) return J({ error: r.error }, r.status || 400);
+      return J(r);
+    }
+      /* GUARD DE METODO (JFC 2026-09-22): este endpoint SELLA ventas como
+         liquidadas — es una escritura de dinero y no debe poder dispararse con
+         un GET. Le faltaba el `opts.method` que si tienen sus 17 vecinos, asi
+         que la ruta matcheaba con cualquier verbo. Hoy el unico llamador real
+         (index.html ~L7758) ya manda POST, asi que agregar el guard NO cambia
+         el comportamiento de nada que funcione: solo cierra la puerta a que un
+         prefetch, un proxy o una herramienta de diagnostico liquide ventas sin
+         que nadie lo pidiera. Un verbo distinto cae al 404 del router (~L4490),
+         igual que en todos los demas endpoints. */
+      if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/)) && opts && opts.method === "POST") {
+        /* Backward-compatible URL; the operation is now a first-class payout.
+           It no longer flips a batch of sale booleans blindly. */
+        debePersistir = false;
+        const r = await _payoutDurable(() => _registrarPayoutLegacyRack(m[1], body || {}, q.get("mes")));
+        if (r.error) return J({ error:r.error, payees:r.payees || undefined }, r.status || 400);
+        const hechos = r.payouts || (r.payout ? [r.payout] : []);
+        return J({ ok:true, noop:!!r.noop, payoutId:r.payout ? r.payout.id : null, opId:r.payout ? r.payout.opId : null,
+          amount:r.amount != null ? r.amount : (r.payout ? r.payout.amount : 0),
+          medioPago:r.payout ? r.payout.method : null, payeeId:r.payout ? r.payout.payeeId : null, payeeName:r.payout ? r.payout.payeeName : "",
+          items:r.payout ? clonar(r.payout.items || []) : [],
+          ventasLiquidadas:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "sale").length, 0),
+          ajustesLiquidados:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "adjustment").length, 0),
+          payoutIds:hechos.map((p) => p.id), existing:!!r.existing });
+      }
+
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/hermanos$/))) {
+        return J(getHermanosPercha(m[1]));
+      }
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/clonar-percha$/)) && opts && opts.method === "POST") {
+        const origen = productos.find((x) => x.id === m[1]);
+        if (!origen) return J({ error: "Product not found." }, 404);
+        const destUbic = ubicaciones.find((u) => u.id === body.ubicacionId && u.activa !== false);
+        if (!destUbic) return J({ error: "That shelf does not exist or is switched off." }, 400);
+        if (productos.some((x) => x.sku === origen.sku && x.ubicacionId === destUbic.id)) return J({ error: `Este producto ya tiene una fila en "${destUbic.nombre}". Usa Transferir en vez de Agregar percha.` }, 400);
+        const clon = { id: uuid("p"), nombre: origen.nombre, categoria: origen.categoria, sku: origen.sku, barcode: origen.barcode, ubicacionId: destUbic.id, precio: origen.precio, costo: origen.costo || 0, stockActual: 0, umbralRojo: origen.umbralRojo, umbralAmarillo: origen.umbralAmarillo, proveedor: origen.proveedor || "", tipoProveedor: origen.tipoProveedor || "compra", comisionProveedorPct: origen.comisionProveedorPct || 0, pctAsociado: normPctAsociado(origen.pctAsociado), perecible: !!origen.perecible, exentoImpuesto: !!origen.exentoImpuesto, fechaCaducidad: origen.perecible ? (origen.fechaCaducidad || null) : null, metodoCosteo: origen.metodoCosteo || "FIFO", tipoProducto: origen.tipoProducto || "normal", servingMl: origen.servingMl || 50, botellaMl: origen.botellaMl || 750, foto: origen.foto || null, creadoEn: new Date().toISOString() };
+        productos.push(clon);
+        mov("alta-percha", { producto: clon.nombre, sku: clon.sku, desde: nombreUbic(origen.ubicacionId), hacia: destUbic.nombre });
+        return J(ficha(clon));
+      }
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/sugerencias-transferencia$/))) {
+        return J(getSugerenciasTransferencia(m[1]));
+      }
+      if (path === "/api/transferencias" && (!opts || opts.method !== "POST")) {
+        return J(transferencias.slice().reverse());
+      }
+      if (path === "/api/transferencias" && opts && opts.method === "POST") {
+        const origen = productos.find((x) => x.id === body.productoOrigenId);
+        const destino = productos.find((x) => x.id === body.productoDestinoId);
+        if (!origen || !destino) return J({ error: "Product not found." }, 404);
+        /* B20 (JFC 2026-09-09, caza 33, medido contra el endpoint real): se
+           aceptaba una transferencia de un producto A SI MISMO. Devolvia 200,
+           y al aprobarla el stock bajaba de 20 a 18 con destino la MISMA
+           percha de la que nunca salio. Esas 2 unidades quedaban en transito
+           hacia donde ya estaban: invisibles en el inventario, y perdidas del
+           todo si nadie confirmaba la recepcion.
+
+           Se rechazan los dos casos sin sentido: el mismo producto, y dos
+           productos que ya estan en la misma percha (mover algo dentro de una
+           percha no es una transferencia). Comprobado contra los datos antes
+           de escribir la segunda regla: no existe ningun par de productos con
+           el mismo SKU en una misma percha, asi que no bloquea nada legitimo. */
+        if (origen.id === destino.id) return J({ error: "Origin and destination are the same product." }, 400);
+        if (origen.ubicacionId === destino.ubicacionId) return J({ error: "Both products are already on the same shelf — there is nothing to transfer." }, 400);
+        if (origen.sku !== destino.sku) return J({ error: "The source and destination products are not the same item (different SKU)." }, 400);
+        const cant = Number(body.cantidad);
+        if (!Number.isInteger(cant) || cant <= 0) return J({ error: "The quantity must be a whole number greater than 0." }, 400);
+        if (origen.stockActual < cant) return J({ error: `"${origen.nombre}" solo tiene ${origen.stockActual} unidades en origen.` }, 400);
+        const t = { id: uuid("t"), productoOrigenId: origen.id, productoDestinoId: destino.id, sku: origen.sku, nombre: origen.nombre, desde: origen.ubicacionId, desdeNombre: nombreUbic(origen.ubicacionId), hacia: destino.ubicacionId, haciaNombre: nombreUbic(destino.ubicacionId), cantidad: cant, estado: "solicitada", fecha: new Date().toISOString(), rev: _revNueva() };
+        transferencias.push(t);
+        mov("transferencia-solicitada", { producto: t.nombre, cantidad: cant, desde: t.desdeNombre, hacia: t.haciaNombre });
+        return J(t);
+      }
+      if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/aprobar$/))) {
+        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transfer not found." }, 404);
+        if (t.estado !== "solicitada") return J({ error: `Esta transferencia ya está en estado "${t.estado}".` }, 400);
+        const origen = productos.find((x) => x.id === t.productoOrigenId);
+        if (!origen || origen.stockActual < t.cantidad) return J({ error: "There is no longer enough stock at the source to approve this transfer." }, 400);
+        origen.stockActual -= t.cantidad;
+        t.estado = "en_transito"; t.rev = _revNueva();
+        mov("transferencia-aprobada", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
+        emitirOpStock("transferencia-aprobada", { productoId: origen.id, delta: -t.cantidad });
+        return J(t);
+      }
+      if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/confirmar-recepcion$/))) {
+        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transfer not found." }, 404);
+        if (t.estado !== "en_transito") return J({ error: `Esta transferencia está "${t.estado}", no se puede confirmar recepción.` }, 400);
+        const destino = productos.find((x) => x.id === t.productoDestinoId);
+        if (!destino) return J({ error: "Destination product not found." }, 404);
+        destino.stockActual += t.cantidad;
+        t.estado = "recibida"; t.rev = _revNueva();
+        mov("transferencia-recibida", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
+        emitirOpStock("transferencia-recibida", { productoId: destino.id, delta: t.cantidad });
+        return J(t);
+      }
+      if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/rechazar$/))) {
+        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transfer not found." }, 404);
+        if (t.estado !== "solicitada") return J({ error: `Esta transferencia ya está en estado "${t.estado}".` }, 400);
+        t.estado = "rechazada"; t.rev = _revNueva();
+        avisarCatalogoCambiado();
+        return J(t);
+      }
+
+      if (path === "/api/configuracion/gastos" && (!opts || opts.method !== "POST")) {
+        if (!uid || uid === "todas") { const _gv = _gastosMensualesVisibles(); return J({ ubicacionId: "todas", gastosMensuales: +Object.values(_gv).reduce((a, v) => a + v, 0).toFixed(2), porUbicacion: _gv }); } // v507: sin perchas demo
+        return J({ ubicacionId: uid, gastosMensuales: gastosMensuales[uid] || 0 });
+      }
+      if (path === "/api/configuracion/gastos") {
+        const { ubicacionId, gastosMensuales: g } = body; const monto = Number(g);
+        // BUG FIJADO (JFC, 2026-07-01): esta excepción de "todas" es correcta
+        // en Olimpo (ubicaciones DORMANT ahí, una sola tienda virtual), pero
+        // se copió sin adaptar a AMIGABLE, donde ubicaciones SÍ está activo.
+        // Guardar bajo "todas" aquí crearía una clave fantasma que se suma
+        // aparte de los locales reales, inflando el total. AMIGABLE exige
+        // una ubicación específica, como siempre debió ser.
+        if (!ubicacionId || ubicacionId === "todas") return J({ error: "Pick a specific location to save its monthly expenses." }, 400);
+        if (!isFinite(monto) || monto < 0) return J({ error: "The amount must be a number equal to or greater than 0." }, 400);
+        gastosMensuales[ubicacionId] = +monto.toFixed(2);
+        const _uGasto = ubicaciones.find((x) => x.id === ubicacionId);
+        if (_uGasto) _uGasto.gastoMensualRev = _revNueva();
+        avisarCatalogoCambiado();
+        return J({ ubicacionId, gastosMensuales: gastosMensuales[ubicacionId] });
+      }
+
+      // Ajuste de impuesto del cuaderno (v359). Leer: cualquiera. Cambiar:
+      // dueño o admin. Es una escritura normal: pasa por la compuerta de la
+      // prueba vencida y se persiste/sincroniza como el resto.
+      if (path === "/api/config/impuesto" && method === "GET") {
+        return J(ajusteImpuesto ? Object.assign({}, ajusteImpuesto) : { id: "impuesto", activo: false, tasa: 0, nombre: "Sales tax", rev: null });
+      }
+      if (path === "/api/config/impuesto" && method === "PUT") {
+        const _r = _rolLocal();
+        if (_r !== "dueno" && _r !== "admin") return J({ error: "Only the owner or an admin can change the tax setting." }, 403);
+        const n = _normImpuesto({ id: "impuesto", activo: body.activo, tasa: body.tasa, nombre: body.nombre, modo: body.modo });
+        if (!n) return J({ error: "The tax rate must be between 0 and 100." }, 400);
+        // v360 (Hugo/Paco/Luis #23): encendido con tasa 0 decía "guardado" y no hacía nada.
+        if (n.activo && !(n.tasa > 0)) return J({ error: "Turn the tax on with a rate above 0 %.", codigo: "TASA_CERO" }, 400);
+        n.rev = _revNueva();
+        ajusteImpuesto = n;
+        mov("config-impuesto", { activo: n.activo, tasa: n.tasa, nombre: n.nombre, modo: n.modo });
+        return J(Object.assign({}, n));
+      }
+      /* RETENCION (JFC 2026-10-07). Leer: cualquiera. Cambiar: dueno o admin. */
+      if (path === "/api/config/retencion" && method === "GET") return J(Object.assign({ id: "retencion", dias: 0, opciones: RETENCION_DIAS.slice() }, ajusteRetencion || {}));
+      if (path === "/api/config/retencion" && method === "PUT") {
+        debePersistir = false; // One deliberate durable commit; never a second write in finally.
+        const _rr = _rolLocal();
+        if (_rr !== "dueno" && _rr !== "admin") return J({ error: "Only the owner or an admin can change the payment hold." }, 403);
+        const n = _normRetencion({ id: "retencion", dias: body && body.dias });
+        if (!n) return J({ error: "Choose 0, 7, 14 or 30 days." }, 400);
+        const anterior = ajusteRetencion, len = movimientos.length, sello = selloUltimo;
+        let liberar;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberar = resolve; });
+        try {
+          n.rev = _revNueva(); ajusteRetencion = n;
+          mov("config-retencion", { dias: n.dias }, false);
+          let duradero = false;
+          try { duradero = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!duradero) {
+            ajusteRetencion = anterior; movimientos.length = len; selloUltimo = sello;
+            return J({ error: "Payment hold was NOT saved. Free up storage and retry." }, 507);
+          }
+          _avisarCatalogoConfirmado();
+          return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
+        } finally {
+          _retencionConfirmando = false; _retencionPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+          } finally { liberar(); }
+        }
+      }
+      /* LEALTAD (benchmark #5). GET/PUT de la regla global y cuenta por cliente
+         derivada de las ventas (no hay contador que pueda divergir). */
+      if (path === "/api/lealtad" && method === "GET") return J(Object.assign({ id: "lealtad", activa: false, cada: 10, pct: 10 }, ajusteLealtad || {}));
+      if (path === "/api/lealtad" && method === "PUT") {
+        const _rl = _rolLocal();
+        if (_rl !== "dueno" && _rl !== "admin") return J({ error: "Only the owner or an admin can change loyalty." }, 403);
+        const n = _normLealtad(Object.assign({}, body, { id: "lealtad" }));
+        n.rev = _revNueva(); ajusteLealtad = n;
+        mov("config-lealtad", { activa: n.activa, cada: n.cada, pct: n.pct });
+        avisarCatalogoCambiado();
+        return J(Object.assign({}, n));
+      }
+      if ((m = path.match(/^\/api\/clientes\/([^/]+)\/lealtad$/))) {
+        const cfg = ajusteLealtad || { activa: false, cada: 10, pct: 10 };
+        const compras = ventasActivas().filter((v) => v.clienteId === m[1] && !v.devuelta && !(v.info && v.info.cortesia)).length;
+        const faltan = cfg.cada - (compras % cfg.cada) - 1;
+        return J({ activa: !!cfg.activa, cada: cfg.cada, pct: cfg.pct, compras, faltan: Math.max(0, faltan), tocaDescuento: !!cfg.activa && faltan === 0 });
+      }
+      if (path === "/api/config/moneda" && method === "GET") return J({ id: "moneda", codigo: window.OCMoneda.codigo() });
+      if (path === "/api/config/moneda" && method === "PUT") {
+        const _r2 = _rolLocal();
+        if (_r2 !== "dueno" && _r2 !== "admin") return J({ error: "Only the owner or an admin can change the currency." }, 403);
+        const m = _normMoneda({ id: "moneda", codigo: body.codigo });
+        if (!m) return J({ error: "Use a 3-letter currency code (USD, EUR, MXN...)." }, 400);
+        m.rev = _revNueva(); ajusteMoneda = m;
+        mov("config-moneda", { codigo: m.codigo });
+        return J(Object.assign({}, m));
+      }
+      if (path === "/api/reportes/pl") {
+        const reader = window.OCBusinessReadModel;
+        const reportSales = ventasParaReportes(uid);
+        const policies = reportSales.filter(v => v.fechaLocal === hoyISO() || v.devuelta && v.fechaDevolucion && fechaLocalDe(v.fechaDevolucion) === hoyISO()).map(v => v.impuesto).filter(Boolean);
+        const policy = policies.length && policies.every(t => t.tasa === policies[0].tasa && t.modo === policies[0].modo && t.nombre === policies[0].nombre) ? policies[0] : null;
+        const result = reader && reader.businessResult({ sales: reportSales, expenses: gastos,
+          adjustments: ajustesComision, period: { from: hoyISO(), to: hoyISO() }, zone: ZONA,
+          scope: uid && uid !== "todas" ? { locationId: uid } : {} });
+        const money = (key) => result && Number.isFinite(result[key]) ? result[key] / 100 : null;
+        const revenue = money("netCents"), cost = money("costCents");
+        const gm = (!uid || uid === "todas") ? Object.values(_gastosMensualesVisibles()).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0);
+        return J({ ingresos: revenue, ingresosConIva: money("customerGrossCents"), ivaCobrado: money("taxCents"),
+          impuesto: { activo: result ? result.taxCents !== 0 : false, tasa: policy ? policy.tasa : null, nombre: policy ? policy.nombre : "Tax", modo: policy ? policy.modo : null },
+          costoVentas: cost, utilidadBruta: revenue === null || cost === null ? null : +(revenue - cost).toFixed(2),
+          comisiones: money("artistShareCents"), gastosOperativos: money("expensesCents"),
+          presupuestoDiario: +(gm / diasEnMesActual()).toFixed(2), utilidadNeta: money("houseAfterExpensesCents"),
+          advertencias: result ? result.warnings : ["missing-read-model"] });
+      }
+      if (path === "/api/reportes/balance") {
+        const ps = filtrar(uid);
+        // Sales, including credit sales, are not a complete cash ledger.
+        // Preserve unknown cash and total assets until cash evidence is available.
+        /* BALANCE A MEJOR PRACTICA (JFC 2026-09-24, "elijo world's best practices").
+           Antes el activo era stock x PRECIO DE VENTA e incluia las piezas en
+           consignacion, que son de la consignadora, no de la tienda (demo: $21,899
+           contra $8,023 a costo). Ahora el activo es inventario PROPIO a COSTO
+           (criterio contable estandar, y el mismo que usa el costo de lo vendido
+           en la capa contable). Nada queda fuera de vista: 'memo' trae el propio a
+           precio de venta y lo consignado (a precio de venta, no es activo).
+           Consignado = producto tipoProveedor consignacion o percha tipo consignacion. */
+        const _esConsig = (p) => p.tipoProveedor === "consignacion" || ((ubicaciones.find((u) => u.id === p.ubicacionId) || {}).tipo === "consignacion");
+        const _propios = ps.filter((p) => !_esConsig(p)), _consig = ps.filter(_esConsig);
+        const inv = _propios.reduce((a, p) => a + (Number(p.costo) || 0) * p.stockActual, 0);
+        const invVenta = _propios.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
+        const consigVenta = _consig.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
+        return J({ activos: { efectivoEstimado: null, inventarioValorizado: +inv.toFixed(2), total: null },
+          memo: { criterioInventario: "costo", inventarioPropioPrecioVenta: +invVenta.toFixed(2), consignacionPrecioVenta: +consigVenta.toFixed(2), piezasConsignacion: _consig.reduce((a, p) => a + (Number(p.stockActual) || 0), 0) } });
+      }
+      if (path === "/api/reportes/valorizado") {
+        const filas = filtrar(uid).map((p) => ({ nombre: p.nombre, stockActual: p.stockActual, valorCosto: +(p.costo * p.stockActual).toFixed(2), valorVenta: +(p.precio * p.stockActual).toFixed(2), utilidadPotencial: +((p.precio - p.costo) * p.stockActual).toFixed(2) }));
+        const t = filas.reduce((a, f) => ({ valorCosto: a.valorCosto + f.valorCosto, valorVenta: a.valorVenta + f.valorVenta, utilidadPotencial: a.utilidadPotencial + f.utilidadPotencial }), { valorCosto: 0, valorVenta: 0, utilidadPotencial: 0 });
+        return J({ productos: filas, totales: { valorCosto: +t.valorCosto.toFixed(2), valorVenta: +t.valorVenta.toFixed(2), utilidadPotencial: +t.utilidadPotencial.toFixed(2) } });
+      }
+
+      // Unidades vendidas HOY por producto (el cierre del dia las muestra
+      // como referencia: lo tecleado ahi es ADICIONAL, jamas se pre-carga
+      // como cantidad — eso duplicaria ventas al aplicar).
+      if (path === "/api/reporting/corte" && method === "GET") {
+        if (!["dueno", "admin", "contador", "demo"].includes(_rolLocal())) return J({error:"Ask the owner or a manager to view this financial report."},403);
+        return J({schema:1, revision:_localRev, timezone:localStorage.getItem("f123_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone,
+          generadaEn:new Date().toISOString(), ventas:ventasParaReportes(uid), gastos:gastos.filter(g=>!g.borrado).slice().reverse(), ajustesComision:ajustesComision.slice()});
+      }
+      if (path === "/api/ventas/todas") return J(ventasParaReportes(uid));
+    if (path === "/api/ventas/hoy") {
+        const agregado = {};
+        ventasHoyDe(uid).forEach((v) => { agregado[v.productoId] = (agregado[v.productoId] || 0) + v.cantidad; });
+        return J(agregado);
+      }
+
+      // ---- CIERRE DEL DIA (JFC 2026-07-07) ----
+      // Conciliacion: el dueno que no registra en vivo apunta cuantas
+      // unidades salieron hoy de cada producto y esto genera las ventas de
+      // una sola vez (misma logica de split/comisiones que la venta normal).
+      // Se aplican los items validos y se reportan los que no calzan.
+      if (path === "/api/ventas/cierre" && opts && opts.method === "POST") {
+        if (!estaLicenciado()) return J({ error: "Activate this device (PIN 789) to use day close." }, 403);
+        const items = Array.isArray(body.items) ? body.items : [];
+        if (!items.length) return J({ error: "There are no quantities to apply." }, 400);
+        const errores = [];
+        let aplicadas = 0;
+        for (const it of items) {
+          const p = productos.find((x) => x.id === it.productoId);
+          const cant = Number(it.cantidad);
+          if (!p || !Number.isInteger(cant) || cant <= 0) { errores.push("There is an invalid item in the day close."); continue; }
+          if (p.precioReserva != null || p.precioWalkIn != null) { errores.push(`${p.nombre}: record each reservation or walk-in through Sell so its price is explicit.`); continue; }
+          const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
+          const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
+          const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
+          p.stockActual -= cant;
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
+          /* VENDER SIEMPRE (v737): sin stock suficiente la venta igual se registra; el faltante queda aparte. */
+          const _opCierre = { productoId: p.id, delta: -cant };
+          _prepararOpStock(_opCierre);
+          _perchaEnCeroYFaltante(p);
+          emitirOpStock("cierre-dia", _opCierre, true);
+          aplicadas += cant;
+          mov("cierre-dia", { producto: p.nombre, cantidad: cant, ubicacion: nombreUbic(p.ubicacionId) });
+        }
+        return J({ ok: true, aplicadas, errores });
+      }
+
+      // ---- CLIENTES (2026-07-07) ----
+      if (path === "/api/clientes" && (!opts || opts.method !== "POST")) {
+        const med = medianaMontos();
+        // Clientes despedidos no aparecen en el selector de Vender ni en listas operativas.
+        return J(clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).map((c) => fichaCliente(c, med)));
+      }
+      if (path === "/api/clientes" && opts && opts.method === "POST") {
+        // P0 #614: a successful customer Add must mean THIS device has a
+        // durable ACK, not that a best-effort background save was scheduled.
+        // The generic finally must NOT persist a rolled-back customer.
+        debePersistir = false;
+        if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
+        const perfilError = errorPerfilCliente(body);
+        if (perfilError) return J({ error: perfilError }, 400);
+        const _emailCli = String(body.email || "").trim().slice(0, 160);
+        const _emailOk = _emailCli && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(_emailCli) ? _emailCli : "";
+        const antesClientes = clientes.length, antesMovimientos = movimientos.length, antesSello = selloUltimo;
+        let liberarAlta;
+        // Reuse the existing strict-commit rollback fence (also used for
+        // contact edits). No Sync3 transport, room, outbox or PIN change.
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarAlta = resolve; });
+        let confirmado = false;
+        try {
+          const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk,
+            rangoEdad: String(body.rangoEdad || "").trim().slice(0, 12), pais: String(body.pais || "").trim().slice(0, 60),
+            ...perfilCliente(body), rev: _revNueva() };
+          clientes.push(nuevoCli);
+          mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo }, false);
+          try { confirmado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+          if (!confirmado) {
+            clientes.length = antesClientes;
+            movimientos.length = antesMovimientos;
+            selloUltimo = antesSello;
+            return J({ error: "Customer was NOT saved. Your form is intact; please check storage and retry.", code: "CUSTOMER_NOT_DURABLE" }, 507);
+          }
+          _avisarCatalogoConfirmado();
+          return J(fichaCliente(nuevoCli));
+        } catch (e) {
+          if (!confirmado) {
+            clientes.length = antesClientes;
+            movimientos.length = antesMovimientos;
+            selloUltimo = antesSello;
+          }
+          return J({ error: "Customer was NOT saved. Please retry.", code: "CUSTOMER_NOT_DURABLE" }, 507);
+        } finally {
+          _retencionConfirmando = false;
+          _retencionPendiente = null;
+          try { _drenarCatalogosPendientes(); }
+          finally { liberarAlta(); }
+        }
+      }
+      if (path === "/api/clientes/importar" && opts && opts.method === "POST") {
+        const entrantes = Array.isArray(body.clientes) ? body.clientes : [];
+        if (!entrantes.length) return J({ error: "There are no customers to import." }, 400);
+        if (entrantes.length > 5000) return J({ error: "Too many customers at once (5000 max)." }, 400);
+        // Dedup por nombre (insensible a mayusculas) contra los existentes Y
+        // dentro del mismo archivo — un CSV con repetidos no crea gemelos.
+        const existentes = new Set(clientes.map((c) => String(c.nombre).trim().toLowerCase()));
+        let agregados = 0, repetidos = 0, invalidos = 0;
+        for (const e of entrantes) {
+          const nombre = String((e && e.nombre) || "").trim().slice(0, 120);
+          if (!nombre) { invalidos++; continue; }
+          if (existentes.has(nombre.toLowerCase())) { repetidos++; continue; }
+          const nuevo = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre, telefono: String((e && e.telefono) || "").trim().slice(0, 40), rev: _revNueva() };
+          clientes.push(nuevo);
+          existentes.add(nombre.toLowerCase());
+          agregados++;
+        }
+        if (agregados) mov("clientes-importados", { cantidad: agregados });
+        return J({ ok: true, agregados, repetidos, invalidos });
+      }
+      if (path === "/api/clientes/matriz") {
+        const med = medianaMontos();
+        const grupos = { verano: [], primavera: [], otono: [], invierno: [] };
+        clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).forEach((c) => { const f = fichaCliente(c, med); grupos[f.estacion].push(f); });
+        Object.keys(grupos).forEach((k) => grupos[k].sort((a, b) => b.monto - a.monto));
+        return J(grupos);
+      }
+
+      // Matriz de comportamiento: agrupa por cuadrante trato×confiabilidad.
+      // estrella=+/+  tolerable=-/+  ojo=+/-  bandera=-/-  neutro=cualquier 0
+      if (path === "/api/clientes/comportamiento") {
+        const med = medianaMontos();
+        const grupos = { estrella: [], tolerable: [], ojo: [], bandera: [], neutro: [], despedidos: [] };
+        clientes.filter((c) => !c.borrado && !_demoOculto("clientes", c)).forEach((c) => {
+          const f = fichaCliente(c, med);
+          if (c.despedido) { grupos.despedidos.push(f); return; }
+          // JFC 2026-08-06: evaluacion.trato/confiabilidad son 1-5 (no -1/0/1);
+          // nivel() los normaliza igual que en amigable-123 (4-5=positivo, 1-2=negativo).
+          const nivel = (v) => (v >= 4 ? 1 : (v > 0 && v <= 2) ? -1 : 0);
+          const t = nivel(f.evaluacion.trato), cv = nivel(f.evaluacion.confiabilidad);
+          if (t === 1 && cv === 1)  grupos.estrella.push(f);
+          else if (t === -1 && cv === 1) grupos.tolerable.push(f);
+          else if (t === 1 && cv === -1) grupos.ojo.push(f);
+          else if (t === -1 && cv === -1) grupos.bandera.push(f);
+          else grupos.neutro.push(f);
+        });
+        return J(grupos);
+      }
+
+      // PATCH /api/clientes/:id/evaluacion — actualiza trato y/o confiabilidad.
+      // Registra en historial con atribución del usuario en sesión.
+      const mCliEv = path.match(/^\/api\/clientes\/([^/]+)\/evaluacion$/);
+      if (mCliEv && opts && opts.method === "PATCH") {
+        const c = clientes.find((x) => x.id === mCliEv[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        // JFC 2026-08-06: unico sistema de calificar en TODAS las apps es el de
+        // amigable-123 -- escala 1-5 (0=sin calificar), NO el tri-estado -1/0/1
+        // que se habia introducido aqui por error.
+        if (!c.evaluacion) c.evaluacion = { trato: 0, confiabilidad: 0, historial: [] };
+        if (body.trato !== undefined) c.evaluacion.trato = Math.max(0, Math.min(5, Number(body.trato)||0));
+        if (body.confiabilidad !== undefined) c.evaluacion.confiabilidad = Math.max(0, Math.min(5, Number(body.confiabilidad)||0));
+        c.evaluacion.historial = c.evaluacion.historial || [];
+        // horaIncidente: hora local del evento según el encargado (HH:MM), para conciliación con cámaras/audios.
+        c.evaluacion.historial.push({ trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, quien: body.quien || "Sistema", fecha: new Date().toISOString(), horaIncidente: body.horaIncidente || null });
+        c.rev = _revNueva();
+        mov("cliente-evaluado", { cliente: c.nombre, trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, horaIncidente: body.horaIncidente || null });
+        guardarEstadoLocal();
+        return J(fichaCliente(c));
+      }
+
+      /* PATCH /api/clientes/:id/incidentes/:idx — LAPICITO DE INCIDENTES (JFC 2026-09-26).
+         Decision de JFC: de un incidente ya anotado solo se corrige FECHA, HORA y NOTA;
+         la calificacion y quien la puso NO se tocan, y no se borra (queda para
+         conciliar con camaras/audios). Solo dueno o admin, validado aqui y no solo
+         en la UI. Campos NUEVOS y opcionales (fechaIncidente, nota, editadoPor,
+         editadoEn): una app vieja los ignora, no cambia el formato. `fecha` (sello
+         de cuando se anoto) jamas se reescribe. */
+      const mCliInc = path.match(/^\/api\/clientes\/([^/]+)\/incidentes\/(\d+)$/);
+      if (mCliInc && opts && opts.method === "PATCH") {
+        const _rInc = _rolLocal();
+        if (_rInc !== "dueno" && _rInc !== "admin") return J({ error: "Only the owner or an admin can edit an incident." }, 403);
+        const c = clientes.find((x) => x.id === mCliInc[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        const h = c.evaluacion && Array.isArray(c.evaluacion.historial) ? c.evaluacion.historial[Number(mCliInc[2])] : null;
+        if (!h) return J({ error: "Incident not found." }, 404);
+        if (body.fechaIncidente !== undefined) {
+          const f = String(body.fechaIncidente || "");
+          const d = new Date(f + "T12:00:00");
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || isNaN(d) || d.toISOString().slice(0, 10) !== f) return J({ error: "Invalid date." }, 400);
+        }
+        if (body.horaIncidente !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.horaIncidente || ""))) return J({ error: "Invalid time." }, 400);
+        if (body.fechaIncidente !== undefined) h.fechaIncidente = String(body.fechaIncidente);
+        if (body.horaIncidente !== undefined) h.horaIncidente = String(body.horaIncidente);
+        if (body.nota !== undefined) h.nota = String(body.nota || "").trim().slice(0, 300);
+        h.editadoPor = body.quien || "Sistema";
+        h.editadoEn = new Date().toISOString();
+        c.rev = _revNueva();
+        mov("incidente-editado", { cliente: c.nombre, quien: h.editadoPor, fechaIncidente: h.fechaIncidente || null, horaIncidente: h.horaIncidente || null });
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        return J(fichaCliente(c));
+      }
+
+      // PATCH /api/clientes/:id/contacto — edita nombre/telefono/email/notas.
+      // Portado de amigable-123 (2026-08-27): el shared digital notebook debe
+      // dejar editar el contacto y las notas del cliente. Solo se actualizan
+      // los campos presentes en el body (nunca se pisan con "" los que no se
+      // mandaron — evita el bug de "un campo se vacía por una escritura pasiva").
+      const mCliContacto = path.match(/^\/api\/clientes\/([^/]+)\/contacto$/);
+      if (mCliContacto && opts && opts.method === "PATCH") {
+        const c = clientes.find((x) => x.id === mCliContacto[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        const perfilError = errorPerfilCliente(body);
+        if (perfilError) return J({ error: perfilError }, 400);
+        /* Optional optimistic guard for remote dashboard edits: do not silently
+           overwrite an update made on the phone since its last snapshot. */
+        if (body.baseContacto && typeof body.baseContacto === "object") {
+          const campos = ["nombre", "telefono", "email", "notas", "rangoEdad", "pais"];
+          if (campos.some((k) => String(c[k] || "") !== String(body.baseContacto[k] || ""))) {
+            return J({ error: "Customer changed on another device. Refresh before editing." }, 409);
+          }
+          const perfil = perfilCliente(c);
+          if (["resideCuenca", "genero"].some((k) => Object.prototype.hasOwnProperty.call(body.baseContacto, k) && perfil[k] !== body.baseContacto[k])) {
+            return J({ error: "Customer changed on another device. Refresh before editing." }, 409);
+          }
+        }
+        const antesContacto = { ...c }, movimientosAntes = movimientos.length, selloAntes = selloUltimo;
+        debePersistir = false; // This endpoint confirms or rolls back before reporting success.
+        // Reuse the catalog rollback fence so remote history cannot be truncated.
+        let liberarContacto;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarContacto = resolve; });
+        try {
+        if (body.nombre !== undefined) c.nombre = String(body.nombre).trim() || c.nombre;
+        if (body.telefono !== undefined) c.telefono = String(body.telefono).trim();
+        if (body.email !== undefined) c.email = String(body.email).trim();
+        if (body.notas !== undefined) c.notas = String(body.notas).trim();
+        // JFC 2026-09-02: rango de edad y país (pulldowns en My customers).
+        if (body.rangoEdad !== undefined) c.rangoEdad = String(body.rangoEdad).trim().slice(0, 12);
+        if (body.pais !== undefined) c.pais = String(body.pais).trim().slice(0, 60);
+        if (Object.prototype.hasOwnProperty.call(body, "resideCuenca")) c.resideCuenca = body.resideCuenca;
+        if (Object.prototype.hasOwnProperty.call(body, "genero")) c.genero = body.genero;
+        c.rev = _revNueva();
+        mov("cliente-contacto", { cliente: c.nombre }, false);
+        let contactoGuardado = false;
+        try { contactoGuardado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+        if (!contactoGuardado) {
+          Object.keys(c).forEach(k => delete c[k]); Object.assign(c, antesContacto);
+          movimientos.length = movimientosAntes; selloUltimo = selloAntes;
+          return J({ error: "The contact could not be saved. No changes recorded." }, 507);
+        }
+        _avisarCatalogoConfirmado();
+        return J(fichaCliente(c));
+        } finally {
+          _retencionConfirmando = false; _retencionPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+          } finally { liberarContacto(); }
+        }
+      }
+
+      // ---- CARTERA DE CLIENTES (fiado/abono) — Roadmap Agosto 2026, Fase 1 ----
+      // El saldo NUNCA se guarda aqui: se deriva en AMG.Cartera reproduciendo
+      // los hechos ya persistidos por hechos.js. Este endpoint solo delega.
+      const mCliCartera = path.match(/^\/api\/clientes\/([^/]+)\/cartera$/);
+      if (mCliCartera && (!opts || !opts.method || opts.method === "GET")) {
+        const c = clientes.find((x) => x.id === mCliCartera[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera) return J({ saldo: 0, movimientos: [] });
+        const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        return J(await _vistaCarteraConVinculos(c.id, info, rol));
+      }
+      /* Claude 2026-10-07 — VINCULAR UN CARGO ANTIGUO A SU VENTA (solo dueno/admin, a mano).
+         GET  /api/clientes/:id/cartera/:cargoId/opciones -> ventas candidatas + saldo antes/despues
+         POST /api/clientes/:id/vincular    { cargoId, ventaId }
+         POST /api/clientes/:id/desvincular { cargoId }
+         Nunca por heuristica: la persona elige el cargo y la venta. Hecho aditivo cartera_vinculo
+         (append-only): los aparatos v459 lo ignoran. */
+      const mCliOpc = path.match(/^\/api\/clientes\/([^/]+)\/cartera\/([^/]+)\/opciones$/);
+      if (mCliOpc && (!opts || !opts.method || opts.method === "GET")) {
+        const rolV = _rolLocal();
+        if (rolV !== "dueno" && rolV !== "admin") return J({ error: "Only the owner or an admin can link a charge to a sale." }, 403);
+        const c = clientes.find((x) => x.id === mCliOpc[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
+        const r = await window.AMG.Cartera.opcionesVinculo(c.id, decodeURIComponent(mCliOpc[2]), ventas);
+        if (!r) return J({ error: "This charge cannot be linked." }, 400);
+        r.opciones.forEach((o) => {
+          const v = ventas.find((x) => x.id === o.ventaId);
+          const pr = v && productos.find((x) => x.id === v.productoId);
+          o.producto = pr ? pr.nombre : ""; o.fecha = v ? v.fecha : "";
+        });
+        return J(r);
+      }
+      const mCliVinc = path.match(/^\/api\/clientes\/([^/]+)\/(vincular|desvincular)$/);
+      if (mCliVinc && opts && opts.method === "POST") {
+        const rolV = _rolLocal();
+        if (rolV !== "dueno" && rolV !== "admin") return J({ error: "Only the owner or an admin can link a charge to a sale." }, 403);
+        const c = clientes.find((x) => x.id === mCliVinc[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
+        const cargoId = String(body.cargoId || "");
+        try {
+          if (mCliVinc[2] === "vincular") {
+            const r = await window.AMG.Cartera.opcionesVinculo(c.id, cargoId, ventas);
+            // Solo ventas del MISMO cliente, fiadas, activas y sin otro cargo (opcionesVinculo ya filtra).
+            if (!r || !r.opciones.some((o) => o.ventaId === String(body.ventaId))) {
+              return J({ error: "The charge must be linked to an active on-account sale of this customer." }, 400);
+            }
+            await window.AMG.Cartera.vincularCargo(c.id, cargoId, String(body.ventaId));
+          } else {
+            await window.AMG.Cartera.desvincularCargo(c.id, cargoId);
+          }
+        } catch (e) {
+          return J({ error: (e && e.message) || "No se pudo registrar el vinculo." }, 400);
+        }
+        mov(mCliVinc[2] === "vincular" ? "cartera-vinculo" : "cartera-desvinculo", { cliente: c.nombre, cargoId });
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        return J(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"));
+      }
+      /* 2026-10-21 (fiados de Belen, decision JFC «elige quien cobra»): aplica un abono ya
+         confirmado a los consumos que la persona toco. No mueve dinero ni cambia el saldo;
+         solo deja hechos cartera_aplicacion validados por AMG.Cartera.aplicarAbono. */
+      const mCliAplicar = path.match(/^\/api\/clientes\/([^/]+)\/aplicar$/);
+      if (mCliAplicar && opts && opts.method === "POST") {
+        const c = clientes.find((x) => x.id === mCliAplicar[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.aplicarAbono) return J({ error: "Customer credit is not available." }, 500);
+        const partes = Array.isArray(body.partes) ? body.partes.map((p) => ({ cargoKey: String(p && p.cargoKey || ""), monto: Number(p && p.monto) })) : [];
+        // P0: never assign a payment to a sale belonging to another customer,
+        // even if an old charge still exists in the requesting customer's ledger.
+        if (partes.some((p) => {
+          if (!p.cargoKey.startsWith("venta:")) return false;
+          const sale = ventas.find((v) => v && String(v.id) === p.cargoKey.slice(6));
+          return !!(sale && sale.clienteId && String(sale.clienteId) !== String(c.id));
+        })) return J({ error: "A selected purchase belongs to another customer. Payment not allocated; review the original sale before correcting records.", needsReview: true }, 409);
+        let asignacion;
+        try {
+          const opId = body.opId === undefined ? undefined : body.opId;
+          if (opId !== undefined && (typeof opId !== "string" || !opId.trim() || opId.length > 160)) {
+            return J({ error: "Invalid allocation reference." }, 400);
+          }
+          asignacion = await window.AMG.Cartera.aplicarAbono(c.id, String(body.abonoId || ""), partes, ventas, opId);
+          if (!asignacion || !asignacion.id) return J({ error: "Payment saved, but allocation not confirmed." }, 503);
+        } catch (e) {
+          return J({ error: (e && e.message) || "Could not apply the payment." }, e && e.status === 409 ? 409 : 400);
+        }
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        if (!Array.isArray(info.aplicacionesAceptadas) ||
+            !info.aplicacionesAceptadas.includes(String(asignacion.id))) {
+          // Concurrent remote events may have consumed this capacity first.
+          // Keep every fact; do not acknowledge an allocation that the common projection rejects.
+          return J({ error: "Payment saved. This allocation conflicts with another device; review unassigned purchases. Do not record the payment twice.", needsReview: true }, 409);
+        }
+        if (!movimientos.some((m) => m.detalle && m.detalle.aplicacionId === asignacion.id)) {
+          mov("cartera-aplicacion", { cliente: c.nombre, abonoId: String(body.abonoId || ""), aplicacionId: asignacion.id });
+        }
+        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"),
+          { aplicacionId: asignacion.id, opId: body.opId || null }));
+      }
+      const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
+      if (mCliFiar && opts && opts.method === "POST") {
+        // P0 Hermes/Belén: local customer-money routes must enforce the same
+        // role boundary as the UI, even when a caller skips the payment modal.
+        // A separate authenticated backend remains the ultimate authority.
+        const rolCobro = _rolLocal();
+        if (rolCobro !== "dueno" && rolCobro !== "admin" && rolCobro !== "empleado") {
+          return J({ error: "This role is not authorized to record customer credit or payments." }, 403);
+        }
+        const c = clientes.find((x) => x.id === mCliFiar[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        const monto = Number(body.monto);
+        if (!(monto > 0)) return J({ error: "The amount must be greater than zero." }, 400);
+        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
+        const tipo = mCliFiar[2] === "fiar" ? "cargo" : "abono";
+        // Codex 2026-10-07: a caller-supplied sale link is evidence only after checking
+        // the real sale/customer/amount. Old callers and manual debts stay valid.
+        let relacion = null;
+        if (body.opId !== undefined) {
+          if (typeof body.opId !== 'string' || !body.opId.trim() || body.opId.length > 160) {
+            return J({ error: 'Invalid payment reference.' }, 400);
+          }
+          relacion = { opId: body.opId };
+        }
+        if (body.ventaId !== undefined) {
+          const origen = typeof body.ventaId === "string" && ventas.find((v) => v.id === body.ventaId);
+          if (tipo !== "cargo" || !origen || origen.anulada || origen.devuelta || origen.clienteId !== c.id || !origen.info || origen.info.formaPago !== "fiado") {
+            return J({ error: "The debt must refer to this customer's active on-account sale." }, 400);
+          }
+          if (!Number.isFinite(monto) || Math.round(monto * 100) !== Math.round(origen.precioUnit * origen.cantidad * 100)) {
+            return J({ error: "The debt amount must match the recorded sale." }, 400);
+          }
+          relacion = Object.assign(relacion || {}, { ventaId: origen.id });
+        }
+        let recibo;
+        try {
+          recibo = await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "", relacion);
+        } catch (e) {
+          return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, e && e.status === 409 ? 409 : 400);
+        }
+        if (!movimientos.some(m=>m.detalle && m.detalle.movimientoId===recibo.id)) {
+          mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto, movimientoId:recibo.id });
+          if (tipo === "abono" && typeof window.OCSyncEmit === "function") {
+            const _rawCustPayOpId = (typeof body.opId === "string" && /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(body.opId.trim()))
+              ? body.opId.trim()
+              : ("customer-payment:" + String(recibo.id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
+            const _opIdAbono = /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(_rawCustPayOpId)
+              ? _rawCustPayOpId
+              : ("customer-payment:" + uuid("").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
+            try {
+              window.OCSyncEmit("abono", {
+                opId: _opIdAbono,
+                clienteId: c.id,
+                movimientoId: String(recibo.id || ""),
+                amountCents: Math.round(monto * 100),
+                monto
+              });
+            } catch (_) {}
+          }
+        }
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
+        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, rol), {movimientoId: recibo.id, opId: body.opId || null}));
+      }
+
+      // POST /api/clientes/:id/despedir — excluye al cliente de la operación activa.
+      // POST /api/clientes/:id/reactivar — lo devuelve.
+      const mCliAct = path.match(/^\/api\/clientes\/([^/]+)\/(despedir|reactivar)$/);
+      if (mCliAct && opts && opts.method === "POST") {
+        /* Lista negra solo dueno o admin (JFC 2026-09-26). El unico llamador (boton
+           de la tarjeta de Clientes) ya era solo dueno/admin: el candado no rompe a nadie. */
+        const _rDes = _rolLocal();
+        if (_rDes !== "dueno" && _rDes !== "admin") return J({ error: "Only the owner or an admin can blacklist or reactivate a customer." }, 403);
+        const c = clientes.find((x) => x.id === mCliAct[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        const accion = mCliAct[2];
+        c.despedido = accion === "despedir";
+        /* FIX (JFC 2026-09-22): faltaba el sello logico. El merge de clientes
+           (aplicarCatalogo, ~L2153) SOLO aplica el registro remoto si
+           _revDomina(remoto.rev, mio.rev) === true; sin subir rev aqui, despedir
+           o reactivar a un cliente NO viajaba nunca al otro aparato — quedaba
+           vivo en un dispositivo y despedido en el otro. El campo `despedido` ya
+           viaja en el catalogo (~L2588), asi que solo faltaba la revision.
+           Misma clase de bug que el de promotoras archivadas corregido en v332.
+           Sus endpoints vecinos (editar contacto ~L4193, borrar ~L4249) ya lo
+           hacian bien; este se habia quedado atras. */
+        c.rev = _revNueva();
+        mov(accion === "despedir" ? "cliente-despedido" : "cliente-reactivado", { cliente: c.nombre, quien: body.quien || "Sistema" });
+        guardarEstadoLocal();
+        /* La baja/alta operativa de un cliente se publica YA (rebote de 400 ms en
+           pedirSeed) en vez de esperar al re-sembrado periodico de 2 s. Mismo
+           patron que usa marcar-pagado (~L3885). Es idempotente: sembrar()
+           compara y reescribe por id, disparar de mas nunca duplica nada. */
+        avisarCatalogoCambiado();
+        try { if (window.OCReactivo && typeof window.OCReactivo.emitir === "function") window.OCReactivo.emitir("clientes"); } catch (_) {}
+        try { if (window.AMG && window.AMG.PlanPagosUI && typeof window.AMG.PlanPagosUI.refrescarHoy === "function") window.AMG.PlanPagosUI.refrescarHoy(); } catch (_) {}
+        return J({ ok: true, despedido: c.despedido });
+      }
+      // DELETE /api/clientes/:id — borra el cliente por completo (solo dueño/admin).
+      // JFC 2026-08-27: el borrado queda SIEMPRE en el registro de auditoría
+      // (mov) con quién, a quién y cuándo — "todo esto queda en registro".
+      const mCliDel = path.match(/^\/api\/clientes\/([^/]+)$/);
+      if (mCliDel && opts && opts.method === "DELETE") {
+        const c = clientes.find((x) => x.id === mCliDel[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        c.borrado = true; c.rev = _revNueva(); c.estadoRev = c.rev;
+        mov("cliente-borrado", { cliente: c.nombre, codigo: c.codigo || "", quien: body.quien || "Sistema" });
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        try { if (window.OCReactivo && typeof window.OCReactivo.emitir === "function") window.OCReactivo.emitir("clientes"); } catch (_) {}
+        try { if (window.AMG && window.AMG.PlanPagosUI && typeof window.AMG.PlanPagosUI.refrescarHoy === "function") window.AMG.PlanPagosUI.refrescarHoy(); } catch (_) {}
+        return J({ ok: true });
+      }
+      if (path === "/api/inventario/bcg") return J(matrizBCG(uid));
+
+      // === USUARIOS NOMBRADOS — multi-usuario 2026-07-07 ========================
+      // El dueno crea encargados desde Avanzado -> Encargados.
+      // Cada encargado tiene un PIN propio de 3 digitos distinto a los demas.
+      // NO se puede verificar aqui si colisiona con el PIN del dueno/contador
+      // (esos hashes viven en crypto-store, no en este mock). Se pide al dueno
+      // que elija PINs que no coincidan con los suyos.
+
+      // GET /api/usuarios — lista usuarios del equipo (id/nombre/rol/email/activo).
+      // ?pins=1 (JFC 2026-09-01): incluye el PIN en claro para que el owner/admin
+      // vea la lista unificada del Team y no repita PINs al crear otros. Es LOCAL
+      // (este fetch lo intercepta el mock en el dispositivo) — el PIN nunca sale
+      // del aparato: el relay sigue zero-knowledge. El gating por rol lo hace el
+      // frontend (solo pide ?pins=1 si isDueno()/isAdmin()).
+      if (path === "/api/usuarios" && (!opts || !opts.method || opts.method === "GET")) {
+        const conPin = q.get("pins") === "1" && _puedeGestionarEquipo();
+        return J(usuarios.filter((u) => !u.borrado).map((u) => {
+          const base = { id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || null, rev: u.rev || null };
+          if (conPin) base.pin = u.pin || "";
+          return base;
+        }));
+      }
+      // POST /api/usuarios — crear miembro del equipo (encargado o admin); desde Avanzado = solo dueno.
+      //
+      // UN ADMIN SI CUENTA CONTRA EL TOPE DEL PLAN GRATIS (JFC, 2026-08-19).
+      // Antes estaban exentos, con el argumento de que un admin es "co-
+      // responsable y no personal adicional". Esa distincion no existe: un
+      // admin ES personal, solo que de alto nivel. Con la exencion, el plan
+      // "1 encargado" se convertia en la practica en 1 encargado + infinitos
+      // admins, que es regalar el producto entero. El tope es de PERSONAS en
+      // el equipo, no de un rol concreto.
+      if (path === "/api/usuarios" && opts && opts.method === "POST") {
+        debePersistir = false; // la ruta espera confirmación durable propia
+        if (!_puedeGestionarEquipo()) return J({ error: "Only the owner or an admin can add team members." }, 403);
+        const nombre = String(body.nombre || "").trim().slice(0, 60);
+        const pin    = String(body.pin    || "").trim();
+        const email  = String(body.email  || "").trim().slice(0, 160) || null;
+        /* GUARD: SOLO EL DUEÑO PUEDE CREAR ADMINS (2026-08-26, code-review finding #1b).
+           Mismo patrón que el guard de PATCH /rol (finding #1 de la corrida anterior).
+           La UI ya fuerza rol="empleado" si el caller es admin (ver isDueno() en el form).
+           PERO un admin podría hacer desde DevTools:
+             fetch('/api/usuarios', {method:'POST', body:JSON.stringify({nombre:'x',pin:'111',rol:'admin'})})
+           y crear un admin sin que el dueño lo sepa.
+           Política: si el caller no es dueno y pide rol='admin', se acepta la creación
+           pero se degrada a 'empleado' silenciosamente (no bloqueamos porque un admin
+           SÍ tiene permiso de crear encargados; solo el rol admin queda vedado). */
+        const _callerRolPost = _rolLocal();
+        const rolNuevo = (body.rol === "admin" && _callerRolPost === "dueno") ? "admin" : "empleado";
+        if (!nombre)                     return J({ error: "A name is required." }, 400);
+        if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
+        if (_pinReservado(pin))          return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
+        const colisionIntegrado = await _pinIntegradoEnUso(pin);
+        if (colisionIntegrado === null) return J({ error: "Could not verify current PINs. Nothing changed; retry.", codigo: "PIN_NO_VERIFICADO" }, 503);
+        if (colisionIntegrado) return J({ error: "A built-in role already uses that PIN. Pick a different one.", codigo: "PIN_COLISION" }, 400);
+        /* Limite free: 1 persona en el equipo ademas del dueno, sea encargado
+           o admin. Se cuentan los dos roles y se bloquea la creacion de
+           cualquiera de los dos. Esto SOLO afecta altas nuevas: a quien ya
+           esta creado no se le toca ni se le desactiva nada, asi que ningun
+           equipo existente se rompe con este cambio. */
+        const staffActual = usuarios.filter((u) => !u.borrado && (u.rol === "empleado" || u.rol === "admin")).length;
+        /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
+        if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
+        if (_pinDeArtista(pin)) return J({ error: "An artist already uses that PIN. Pick a different one.", codigo: "PIN_COLISION" }, 409); // benchmark #6
+        const fotoEquipo = _fotoAntesDeEquipo();
+        const _ahoraU = new Date().toISOString();
+        const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU, rev: _revNueva() };
+        usuarios.push(nuevo);
+        // B-07 (2026-08-26): si se demotó silenciosamente, dejar rastro en el log
+        // para que el dueño pueda auditar intentos de escalada de privilegios.
+        if (body.rol === "admin" && rolNuevo === "empleado") {
+          mov("intento-crear-admin-sin-permiso", { nombre, callerRol: _callerRolPost, rolAsignado: "empleado" }, false);
+        }
+        mov("usuario-alta", { id: nuevo.id, nombre, rol: rolNuevo }, false);
+        if (!(await _confirmarEquipoORevertir(fotoEquipo))) return J({ error: "Team change was not saved. Free device space and retry.", codigo: "EQUIPO_NO_GUARDADO" }, 507);
+        return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
+      }
+      // PATCH /api/usuarios/:id — editar nombre, activar/desactivar, cambiar PIN, actualizar email
+      // El admin puede editar encargados pero NO a otros admins (ese control vive en la UI).
+      if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "PATCH") {
+        debePersistir = false;
+        if (!_puedeGestionarEquipo()) return J({ error: "Only the owner or an admin can edit team members." }, 403);
+        const uid2 = path.split("/").pop();
+        const u = usuarios.find((x) => x.id === uid2 && !x.borrado);
+        if (!u) return J({ error: "Team member not found." }, 404);
+        const antes = { nombre: u.nombre, rol: u.rol, activo: u.activo !== false };
+        const pinAntes = u.pin;
+        const emailAntes = u.email || null;
+        /* GUARD: ADMIN NO PUEDE EDITAR OTRO ADMIN (2026-08-26, code-review finding #2b).
+           La UI ya muestra "Owner only" para filas de admin cuando el caller es admin
+           (puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado")).
+           PERO un admin podría editar el PIN/nombre/activo de otro admin vía DevTools.
+           Impacto real: un admin malicioso podría desactivar a su compañero admin, o
+           cambiarle el PIN y dejarlo sin acceso — operaciones que solo el dueño debería
+           poder hacer sobre alguien de su mismo nivel.
+           El guard mira dos cosas: (1) quién es el objeto (u.rol) y (2) quién llama
+           (_rolLocal). Si el objeto es admin y el caller NO es dueno → 403 en todos los
+           campos excepto email (email es cosmético, no es credencial de acceso). */
+        const _callerRolPatch = _rolLocal();
+        const _editandoAdmin = u.rol === "admin";
+        /* EXCEPCIÓN SELF (JFC 2026-08-26): un admin SÍ puede editar SU PROPIA ficha
+           (cambiar su nombre/PIN). Lo que sigue vedado a un admin es editar a OTRO
+           admin. "activo" propio también se veda (un admin no se autodesactiva por
+           error dejándose fuera). El dueño puede todo. */
+        let _editandoOtroAdmin = _editandoAdmin && _callerRolPatch !== "dueno";
+        try { if (_editandoOtroAdmin && window.OCCurrentUser && String(window.OCCurrentUser.id) === String(u.id)) _editandoOtroAdmin = false; } catch (_) {}
+        if (_editandoOtroAdmin) return J({ error: "Only the owner can edit another admin." }, 403);
+        // Aun editando su propia ficha, un admin no puede AUTODESACTIVARSE (se dejaría fuera).
+        if (_editandoAdmin && _callerRolPatch !== "dueno" && body.activo === false) {
+          return J({ error: "You can't deactivate your own admin access. Ask the owner." }, 403);
+        }
+        // Validar todos los campos ANTES de tocar el registro: una solicitud
+        // nombre+rol prohibido no puede mutar parcialmente y luego devolver 403.
+        if (body.rol !== undefined && _callerRolPatch !== "dueno")
+          return J({ error: "Only the owner can change roles." }, 403);
+        if (body.rol !== undefined && body.rol !== "admin" && body.rol !== "empleado")
+          return J({ error: "Invalid team role." }, 400);
+        let np = null;
+        if (body.pin !== undefined) {
+          np = String(body.pin).trim();
+          if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
+          if (_pinReservado(np)) return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
+          const colisionIntegrado = await _pinIntegradoEnUso(np);
+          if (colisionIntegrado === null) return J({ error: "Could not verify current PINs. Nothing changed; retry.", codigo: "PIN_NO_VERIFICADO" }, 503);
+          if (colisionIntegrado) return J({ error: "A built-in role already uses that PIN.", codigo: "PIN_COLISION" }, 400);
+          if (usuarios.some((x) => !x.borrado && x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
+          if (_pinDeArtista(np)) return J({ error: "An artist already uses that PIN.", codigo: "PIN_COLISION" }, 409); // benchmark #6
+        }
+        const fotoEquipo = _fotoAntesDeEquipo();
+        if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;
+        if (body.activo !== undefined) u.activo = !!body.activo;
+        if (body.email  !== undefined) u.email  = String(body.email || "").trim().slice(0, 160) || null;
+        if (np !== null) u.pin = np;
+        // Promover/degradar rol (JFC 2026-07-30): admin<->encargado. Desde el
+        // 2026-08-19 los dos roles cuentan igual contra el tope del plan gratis
+        // (ver POST arriba), asi que promover o degradar NO cambia el cupo: es
+        // la misma persona en el equipo, con otro nivel de permisos.
+        /* GUARD: SOLO EL DUEÑO PUEDE CAMBIAR ROLES (2026-08-26, code-review finding #1).
+           La UI ya bloquea esto: el botón promote/demote solo aparece con
+           puedePromover = isDueno() en avanzado-extra.js.
+           PERO sin este guard, un encargado que conozca el ID de su propio usuario
+           puede hacer desde DevTools:
+             fetch('/api/usuarios/ID', {method:'PATCH', body:JSON.stringify({rol:'admin'})})
+           Su mock-backend local lo aceptaría, actualizadoEn se actualizaría, difundirEquipo()
+           mandaría el registro, y en el dispositivo del dueño el merge timestamp gana
+           porque es más nuevo → el encargado se auto-promovió sin que el dueño lo apruebe.
+           Este guard es defensa en profundidad (defense-in-depth): la UI ya lo previene,
+           pero el backend ES la última línea independientemente de quién llame el fetch.
+           _rolLocal() viene de window.OCAuth.rolActual() — mismo que usa la UI. */
+        if (body.rol !== undefined) {
+          u.rol = body.rol;
+        }
+        /* Sello de edicion (2026-08-21): es lo que decide quien gana cuando dos
+           dispositivos editaron a la misma persona. Sin esto el merge no puede
+           distinguir el dato nuevo del viejo y tendria que adivinar. */
+        u.actualizadoEn = new Date().toISOString();
+        u.rev = _revNueva(); // sello lógico: decide el merge por causalidad, no por reloj de pared
+        mov("usuario-editar", { id: uid2, antes, despues: { nombre: u.nombre, rol: u.rol, activo: u.activo !== false }, pinCambiado: np !== null && np !== pinAntes, correoCambiado: emailAntes !== (u.email || null) }, false);
+        if (!(await _confirmarEquipoORevertir(fotoEquipo))) return J({ error: "Team change was not saved. Free device space and retry.", codigo: "EQUIPO_NO_GUARDADO" }, 507);
+        /* v356 (JFC 2026-09-23): si la persona se editó a SÍ MISMA, su sesión
+           adopta el sello nuevo. Sin esto, revalidarSesionEquipo (auth-ui) veía
+           un rev distinto y cerraba la sesión de quien acababa de guardar su
+           propia ficha. Se muta el MISMO objeto (auth-ui compara identidad). */
+        try {
+          const yo = window.OCCurrentUser;
+          if (yo && String(yo.id) === String(u.id)) { yo.rev = u.rev; yo.actualizadoEn = u.actualizadoEn; yo.nombre = u.nombre; }
+        } catch (_) {}
+        return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
+      }
+      // DELETE /api/usuarios/:id — quitar por completo (distinto de desactivar:
+      // desactivar conserva el registro para reactivarlo despues; borrar es
+      // definitivo, para cuando alguien deja el negocio de verdad).
+      //
+      // TOMBSTONE (JFC 2026-08-26, Camino A). ANTES esto hacía splice: el registro
+      // desaparecía SOLO de este aparato, y como el merge es add-only, el OTRO
+      // aparato lo conservaba y lo re-propagaba de vuelta — el miembro borrado era
+      // inmortal y no se podía sacar a nadie del equipo entre dispositivos. Ahora
+      // el registro NO se elimina: se marca borrado:true con un rev nuevo. Así la
+      // baja viaja (difundirEquipo manda también los tombstones) y GANA al re-add
+      // rancio de un tercer aparato por el reloj lógico. Se filtra de todas las
+      // lecturas (GET/verificar/conteos/UI), así que para el usuario ES una baja.
+      if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "DELETE") {
+        debePersistir = false;
+        if (_rolLocal() !== "dueno") return J({ error: "Only the owner can remove team members." }, 403);
+        const uid3 = path.split("/").pop();
+        const u3 = usuarios.find((x) => x.id === uid3 && !x.borrado);
+        if (!u3) return J({ error: "Team member not found." }, 404);
+        const fotoEquipo = _fotoAntesDeEquipo();
+        u3.borrado = true;
+        u3.activo = false;
+        u3.actualizadoEn = new Date().toISOString();
+        u3.rev = _revNueva();
+        mov("usuario-borrar", { id: u3.id, nombre: u3.nombre, rol: u3.rol }, false);
+        if (!(await _confirmarEquipoORevertir(fotoEquipo))) return J({ error: "Team change was not saved. Free device space and retry.", codigo: "EQUIPO_NO_GUARDADO" }, 507);
+        return J({ ok: true });
+      }
+      // POST /api/usuarios/verificar — recibe { pin }, devuelve { id, nombre, rol } o 401
+      // Llamado por auth-ui.js durante el login para identificar encargados y admins nombrados.
+      if (path === "/api/usuarios/verificar" && opts && opts.method === "POST") {
+        const pin = String(body.pin || "").trim();
+        const u = usuarios.find((x) => !x.borrado && x.activo && x.pin === pin);
+        if (!u) return J({ error: "That PIN does not match any active team member." }, 401);
+        return J({ id: u.id, nombre: u.nombre, rol: u.rol, actualizadoEn: u.actualizadoEn || null, rev: u.rev || null });
+      }
+      // =========================================================================
+
+      // === APROPIACIÓN 789 — instancia propia (2026-07-08) =====================
+      // Llamado por auth-ui.js durante la secuencia de activación con 789.
+      // { vaciar:bool, instanceId:string }. Si vaciar=true, entrega el negocio
+      // en blanco (sin datos-semilla de ejemplo). Persiste el estado para que
+      // el arranque quede fijado como instancia propia, no como demo.
+      if (path === "/api/instancia/activar" && opts && opts.method === "POST") {
+        // Guard: safeParse puede devolver {} — sin instanceId el dispositivo
+        // queda "activado a medias" (owned con instanceId:null). Rechazar.
+        if (!body.instanceId || typeof body.instanceId !== "string") return J({ error: "instanceId required" }, { status: 400 });
+        instanceId = body.instanceId;
+        if (body.vaciar === true) {
+          productos.length = 0; ubicaciones.length = 0; ventas.length = 0;
+          movimientos.length = 0; transferencias.length = 0; clientes.length = 0;
+          usuarios.length = 0; promotoras.length = 0; sucursales.length = 0;
+          for (const k of Object.keys(gastosMensuales)) delete gastosMensuales[k];
+          selloUltimo = ""; // cadena anti-tamper arranca limpia con el negocio nuevo
+        }
+        guardarEstadoLocal(); // fija el arranque: al recargar ya no reseedea el ejemplo
+        return J({ ok: true, instanceId: instanceId });
+      }
+      // GET /api/instancia — estado de apropiación de este dispositivo
+      if (path === "/api/instancia" && (!opts || !opts.method || opts.method === "GET")) {
+        return J({ instanceId: instanceId, apropiada: !!instanceId, nombreNegocio: nombreNegocio });
+      }
+      // POST /api/instancia/nombre — el dueño edita el nombre de su negocio.
+      if (path === "/api/instancia/nombre" && opts && opts.method === "POST") {
+        // Only THIS endpoint confirms the rename. The generic finally must not
+        // retry a failed name under a weaker storage policy.
+        debePersistir = false;
+        if (_rolLocal() !== "dueno") return J({ error: "Only the owner can change the business name." }, 403);
+        const anterior = { nombre: nombreNegocio, rev: nombreNegocioRev, ts: nombreNegocioTs };
+        const intento = String(body.nombre || "").trim().slice(0, 80);
+        const revIntento = (Number(nombreNegocioRev) || 0) + 1;
+        const tsIntento = Date.now();
+        nombreNegocio = intento;
+        nombreNegocioTs = tsIntento;
+        nombreNegocioRev = revIntento;
+        let guardado = false;
+        // No photo sacrifice or history truncation for a metadata-only rename.
+        try { guardado = (await Promise.resolve(guardarEstadoLocal(true, true))) === true; } catch (_) {}
+        const sigueSiendoIntento = nombreNegocio === intento &&
+          nombreNegocioRev === revIntento && nombreNegocioTs === tsIntento;
+        if (!guardado) {
+          // A Yjs update may arrive while IndexedDB is resolving: never roll
+          // back that independent update, any other records or their revisions.
+          if (sigueSiendoIntento) {
+            nombreNegocio = anterior.nombre;
+            nombreNegocioRev = anterior.rev;
+            nombreNegocioTs = anterior.ts;
+          }
+          return J({ error: "Business name was not saved. Previous saved name is kept." }, 507);
+        }
+        if (!sigueSiendoIntento) return J({ error: "Business name changed while saving. Check the current name and retry." }, 409);
+        // Cache and notify only AFTER the full notebook state is durable.
+        // v594: renombrar dentro de una tienda unida no toca el sidecar del negocio propio.
+        // (typeof: las pruebas E4/1AAA ejecutan este manejador extraido sin el helper; ausente = comportamiento previo.)
+        if (typeof _cuadernoPropio !== "function" || _cuadernoPropio()) try {
+          const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs;
+          _o.nombreNegocioRev = nombreNegocioRev;
+          localStorage.setItem("f123_owned", JSON.stringify(_o));
+        } catch (_) {}
+        try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
+        avisarCatalogoCambiado();
+        return J({ ok: true, nombreNegocio: nombreNegocio });
+      }
+      /* DIAGNOSTICO FORENSE DE RELOJ (v447). SOLO LECTURA.
+         Señala evidencia que merece conciliacion humana; JAMAS cambia stock,
+         ventas ni timestamps. Un stock legado en el futuro no implica cual era
+         el conteo correcto, por eso aqui no hay auto-repair. */
+      if (path === "/api/diagnostico/reloj-datos" && method === "GET") {
+        const _ahora = ahoraRelayComun();
+        const _tol = 5 * 60 * 1000;
+        const stockSospechoso = [];
+        if (_ahora !== null) {
+          productos.forEach((p) => {
+            if (!p || p.borrado) return;
+            const _ts = Number(p.stockTs);
+            const _legacy = p.stockBase == null && !(p.stockPN && typeof p.stockPN === "object");
+            if (_legacy && Number.isFinite(_ts) && _ts > _ahora + _tol) {
+              stockSospechoso.push({
+                productoId: p.id, nombre: p.nombre || "", stockActual: Number(p.stockActual) || 0,
+                stockTs: _ts, futuroMs: _ts - _ahora, legacySinLedger: true
+              });
+            }
+          });
+        }
+        const ventasConDesfase = ventas.filter((v) => v && v.fecha && Number.isFinite(Number(v.relojDesfaseMs)) && Math.abs(Number(v.relojDesfaseMs)) > _tol)
+          .map((v) => {
+            const _ms = instanteCorregidoMs(v.fecha, v.relojDesfaseMs);
+            return {
+              ventaId: v.id, productoId: v.productoId, fechaGuardada: v.fecha,
+              relojDesfaseMs: Number(v.relojDesfaseMs), relojMargenMs: Number(v.relojMargenMs) || 0,
+              fechaCorregida: Number.isFinite(_ms) ? new Date(_ms).toISOString() : null
+            };
+          });
+        const ventasFechaSospechosa = [];
+        const productosAltaSospechosa = [];
+        if (_ahora !== null) {
+          ventas.forEach((v) => {
+            if (!v || !v.fecha) return;
+            const _raw = Date.parse(v.fecha);
+            if (!Number.isFinite(_raw)) return;
+            const _tieneSello = v.relojDesfaseMs !== null && v.relojDesfaseMs !== "" && Number.isFinite(Number(v.relojDesfaseMs));
+            const _corregido = instanteCorregidoMs(v.fecha, v.relojDesfaseMs);
+            const _rawFuturo = _raw > _ahora + _tol;
+            const _corregidoFuturo = Number.isFinite(_corregido) && _corregido > _ahora + _tol;
+            if ((_rawFuturo && !_tieneSello) || _corregidoFuturo) {
+              ventasFechaSospechosa.push({
+                ventaId: v.id, productoId: v.productoId, fechaGuardada: v.fecha,
+                tieneSelloReloj: _tieneSello,
+                relojDesfaseMs: _tieneSello ? Number(v.relojDesfaseMs) : null,
+                fechaCorregida: Number.isFinite(_corregido) ? new Date(_corregido).toISOString() : null,
+                futuroMs: (Number.isFinite(_corregido) ? _corregido : _raw) - _ahora,
+                motivo: !_tieneSello ? "fecha-futura-sin-sello" : "fecha-corregida-sigue-en-futuro"
+              });
+            }
+          });
+          productos.forEach((p) => {
+            if (!p || p.borrado || !p.creadoEn) return;
+            const _alta = Date.parse(p.creadoEn);
+            if (Number.isFinite(_alta) && _alta > _ahora + _tol) {
+              productosAltaSospechosa.push({
+                productoId: p.id, nombre: p.nombre || "", creadoEn: p.creadoEn,
+                futuroMs: _alta - _ahora
+              });
+            }
+          });
+        }
+        return J({
+          relojComun: _ahora !== null, ahoraRelay: _ahora, toleranciaFuturoMs: _tol,
+          stockSospechoso, ventasConDesfase, ventasFechaSospechosa, productosAltaSospechosa
+        });
+      }
+
+      // GET /api/integridad — verifica la cadena anti-tamper del historial.
+      // Recorre los movimientos SELLADOS (los viejos sin sello son "histórico")
+      // y reporta la primera ruptura: edición (el sello propio no recalcula) o
+      // borrado/reordenamiento (prevSello no enlaza con el anterior). El chequeo
+      // de cola (prev === selloUltimo) detecta si recortaron el final del log.
+      if (path === "/api/integridad" && (!opts || !opts.method || opts.method === "GET")) {
+        let sellados = 0, historico = 0, prev = "", ruptura = null;
+        for (let i = 0; i < movimientos.length; i++) {
+          const m = movimientos[i];
+          if (!m || !m.sello) { historico++; continue; }
+          const recalculado = selloHash(movHuella(m));
+          const enlazaOk = sellados === 0 ? true : (m.prevSello === prev);
+          if (recalculado !== m.sello || !enlazaOk) {
+            ruptura = { index: i, fecha: m.fecha, usuarioNombre: m.usuarioNombre || "?", tipo: m.tipo, motivo: recalculado !== m.sello ? "editado" : "borrado-o-reordenado" };
+            break;
+          }
+          prev = m.sello; sellados++;
+        }
+        const colaOk = ruptura ? false : (sellados === 0 || prev === selloUltimo);
+        const compartido = _actividadEstado(_actividadExportable());
+        return J({ ok: !ruptura && colaOk && compartido.ok, total: movimientos.length, sellados: sellados, historico: historico, ruptura: ruptura, colaOk: colaOk,
+          actividadCompleta: compartido.completa, origenes: compartido.origenes, actividadProblemas: compartido.problemas, totalCompartido: _actividadVista().length });
+      }
+      // =========================================================================
+
+      return J({ error: "Route not found in the demo." }, 404);
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
+    } finally {
+      // Item 1: persistir tras cada mutacion — asi un refresh (o cerrar la
+      // pestana) ya no pierde ventas ni productos nuevos.
+      if (debePersistir) guardarEstadoLocal();
+    }
+  };
+  window.fetch = _fetchConCandado;
+  window.__ocMockBackendReady = true;
+})();

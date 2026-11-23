@@ -1,0 +1,86 @@
+{
+  "source_repo": "jfcarpiopuntocom/friendly-123",
+  "pr": 1103,
+  "head_sha": "18b4ecf7663159c50fbea15379e1c786d94a4c58",
+  "merged_sha": "61e638d4fb066c6a76735f5e50f5378d90537276",
+  "files": [
+    {
+      "path": ".github/workflows/qa-belen-20261123.yml",
+      "blob_sha": "ab24de83dec9151ae324b11a6a9205ba6f204f8f",
+      "chars": 1468
+    },
+    {
+      "path": ".github/workflows/qa-port2-v785-shell-seal.yml",
+      "blob_sha": "a5fecbd20a60cffb2ea284478ee7709dc9ef1b98",
+      "chars": 5369
+    },
+    {
+      "path": "docs/app-inline-01.min.js",
+      "blob_sha": "8aa250bcb46a9d6b1dd8cfb3932e3d8be1e1ea42",
+      "chars": 481840
+    },
+    {
+      "path": "docs/dashboard.html",
+      "blob_sha": "e928efd00ea0941cec6379ab5442618d52bc6f78",
+      "chars": 25151
+    },
+    {
+      "path": "docs/mock-backend.js",
+      "blob_sha": "4325b271f81ee5eefefe16b500c990fc0c19f87f",
+      "chars": 699792
+    },
+    {
+      "path": "docs/mock-backend.min.js",
+      "blob_sha": "c681da4a8347803a40eaf91eb3bb5ad722cc2d92",
+      "chars": 358975
+    },
+    {
+      "path": "docs/plan-pagos-ui.js",
+      "blob_sha": "e4396184dee07a7b0c963c7ed28241c38b50ba5e",
+      "chars": 54786
+    },
+    {
+      "path": "docs/plan-pagos-ui.min.js",
+      "blob_sha": "b0780331df488f22da651dcd56af1044d7b1ed36",
+      "chars": 37115
+    },
+    {
+      "path": "docs/sw.js",
+      "blob_sha": "5294dfd477b29ab31720ff54f8a9f7a8a19b75ff",
+      "chars": 108397
+    },
+    {
+      "path": "docs/version-manifest.json",
+      "blob_sha": "5ca5d8efbe11b2af937cf06fd61c1d65cec981df",
+      "chars": 14714
+    },
+    {
+      "path": "docs/version.json",
+      "blob_sha": "a7d7b67687b07351f4106e65c1555d0977a37365",
+      "chars": 424
+    },
+    {
+      "path": "src/app/app-inline-01.js",
+      "blob_sha": "84e23eab05218c13e72ad6687c9aa25806aac6a7",
+      "chars": 658242
+    },
+    {
+      "path": "test/p0-belen-20261123-three-flows-browser.test.cjs",
+      "blob_sha": "9e9a58ee64547088dd3869ff3e70fcf31d7359fc",
+      "chars": 10802
+    },
+    {
+      "path": "test/p0-belen-20261123-three-flows.test.cjs",
+      "blob_sha": "72e3b762ef81b443634aef693a24759eb69f1bab",
+      "chars": 5911
+    }
+  ],
+  "refactor": {
+    "cached_lookups": {
+      "pp-ab-monto": 16,
+      "pp-ab-msg": 13,
+      "pp-ab-ok": 9
+    },
+    "removed_rethrow_catch": 1
+  }
+}

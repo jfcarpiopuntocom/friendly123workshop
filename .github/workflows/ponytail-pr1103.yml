@@ -1,0 +1,48 @@
+name: Ponytail PR 1103 workshop QA
+on:
+  push:
+    branches:
+      - experiment/ponytail-pr1103-20261123
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preserve-behavior:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: workshop
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 18b4ecf7663159c50fbea15379e1c786d94a4c58
+          path: upstream
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify import identity and narrow refactor scope
+        run: node workshop/projects/ponytail-pr1103/verify.cjs
+      - name: Baseline P0 contracts
+        working-directory: upstream
+        run: node --test test/p0-belen-20261123-three-flows.test.cjs
+      - name: Overlay workshop source and build exact served scripts
+        run: |
+          cp workshop/projects/ponytail-pr1103/candidate/docs/plan-pagos-ui.js upstream/docs/plan-pagos-ui.js
+          cd upstream
+          npm ci --ignore-scripts --no-audit --no-fund
+          node scripts/build-min-scripts.cjs
+          node scripts/build-min-scripts.cjs --check
+          node --check docs/plan-pagos-ui.js
+      - name: Original contracts and payments regression
+        working-directory: upstream
+        run: |
+          node --test test/p0-belen-20261123-three-flows.test.cjs test/fiados-pagado-por-consumo-v557.test.js test/dinero-paso-dolar.test.js
+      - name: WebKit browser regression on synthetic notebook
+        working-directory: upstream
+        run: |
+          npx playwright install --with-deps webkit
+          node --test --test-timeout=120000 test/p0-belen-20261123-three-flows-browser.test.cjs
