@@ -34,3 +34,13 @@ storage:
   instructions_markdown: projects/assembled-v783/agents/sol6.md
   config_yaml: projects/assembled-v783/agents/sol6.config.yaml
   not_notional_handoff_substitute: true
+
+mission_continuity:
+  binding_user_order_date: "2026-11-22"
+  findings_commits_prs_are_partial: true
+  continue_authorized_steps_without_reprompt: true
+  complete_implementation_tests_regressions_and_verification: true
+  only_close_after_verified_acceptance: true
+  label_real_blockers_as_partial_or_blocked: true
+  no_fictitious_background_execution: true
+  reference: "docs/agent-operating-rules-2026-11-22.md"
