@@ -1,3 +1,15 @@
+## Orden vinculante de continuidad de misión — JFC, 22 noviembre 2026
+
+> «Un hallazgo, un commit o una PR parcial jamás constituyen el cierre de una misión. La ejecución debe continuar autónomamente hasta completar y verificar el objetivo autorizado, sin exigirte nuevas órdenes para cada paso.»
+
+- Un diagnóstico, mensaje, checkpoint, test aislado, commit, PR abierta o merge parcial = **avance**, nunca cierre.
+- Dentro de la misión ya autorizada, encadenar causa raíz → implementación → pruebas RED/GREEN → regresiones → integración/publicación autorizadas → verificación pertinente; corregir defectos hasta alcanzar el criterio de aceptación.
+- Un bloqueo material se documenta con causa y evidencia, clasificando estado **PARCIAL/BLOQUEADO**, nunca «terminado». No pedir al usuario una nueva orden para continuar pasos ya autorizados.
+- Respetar dependencias, conflictos con otras IA, credenciales, seguridad y límites de las herramientas; no equiparar una anotación en Notion, archivo o PR con ejecución funcional.
+- Continuidad autónoma significa ejecutar en la sesión disponible y en automatizaciones expresamente configuradas, sin prometer trabajo oculto o posterior que no se esté ejecutando.
+- Para friendly-123, la entrega requiere evidencia real de arquitectura 2.0 en **la misma app**, cascada A→B→C, Sync3 conservado, operaciones durable/idempotentes y convergencia real, según las decisiones vigentes.
+- Fuente: [orden persistida](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/docs/agent-operating-rules-2026-11-22.md) y [MDD Notion](https://app.notion.com/p/40a1642b67f381a0a02cf0bfa8b5feac).
+
 ## Sol6, instrucciones y configuración persistentes
 
 Antes de continuar trabajo de Sol6, leer [`projects/assembled-v783/agents/sol6.md`](projects/assembled-v783/agents/sol6.md) y [`projects/assembled-v783/agents/sol6.config.yaml`](projects/assembled-v783/agents/sol6.config.yaml). Son archivos operativos del agente y **no** sustitutos en Notion. Ejecutar acciones y pruebas antes de emitir respuestas de intención.
