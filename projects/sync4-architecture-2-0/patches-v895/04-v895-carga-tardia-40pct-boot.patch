@@ -1,0 +1,297 @@
+diff --git a/docs/carga-tardia.js b/docs/carga-tardia.js
+index 9002c91..d4604f2 100644
+--- a/docs/carga-tardia.js
++++ b/docs/carga-tardia.js
+@@ -1,33 +1,143 @@
+-/* carga-tardia.js (v599, perf, JFC 2026-10-27)
+- * Carga DESPUES de la primera pantalla los modulos que solo se usan por accion del usuario:
+- *   - barcode128.js  (window.OCBarcode: lo lee mock-backend.js al imprimir etiquetas, con guarda)
+- *   - qrcode-local.js (window.qrcode: lo lee mock-backend.js al imprimir etiquetas, con guarda)
+- *   - tutorial-ui.js (window.OCTutorial: help-ui/welcome-ui lo comprueban antes de usarlo)
+- * Antes eran <script defer> en index.html y bloqueaban el arranque en moviles lentos (~74 KB).
+- * Se piden en orden (async=false) cuando la pagina termino de cargar y el navegador esta ocioso
+- * (>= 2 s tras 'load'). Siguen en el SHELL de sw.js, asi que funcionan sin internet.
+- * Para devolver alguno al arranque: ponerle de nuevo su <script defer> en index.html y quitarlo
+- * de LISTA. NO agregar aqui nada que escuche 'oc-login' ni DOMContentLoaded al cargar.
++/* carga-tardia-v2.js — Post-PIN and on-demand script loader for friendly-123 (Sync4).
++ * Brings synchronous pre-PIN JS boot weight <= 40% of 22-nov baseline (<= 1,482,506 B).
++ * Every deferred script stays in sw.js SHELL for 100% offline support.
+  */
+-(function () {
+-  "use strict";
+-  var LISTA = ["./tutorial-ui.js"]; /* v599 revision: barcode128/qrcode volvieron al arranque (etiqueta sin codigo = riesgo). */
+-  function cargar() {
+-    for (var i = 0; i < LISTA.length; i++) {
+-      var s = document.createElement("script");
+-      s.src = LISTA[i];
+-      s.async = false; /* respeta el orden de LISTA */
+-      document.head.appendChild(s);
++(function (root) {
++  'use strict';
++
++  var GRUPOS = {
++    postLogin: [
++      './backup-scheduler.min.js',
++      './vendor/minisearch.min.js',
++      './vendor/ufuzzy.min.js',
++      './lista-dinamica.min.js',
++      './borradores.min.js',
++      './micelio-vivo.min.js',
++      './micelio-ui.min.js',
++      './geo-ping.min.js',
++      './dashboard-broadcast.js',
++      './telemetry.js',
++      './audit-store.js',
++      './sync-latencia.js',
++      './copiar-libre.js',
++      './customer-profile.js',
++      './core/sales-audit.js',
++      './core/ledger.min.js',
++      './expense-receipt.js',
++      './application/recover-shelf-photo.js',
++      './core/shelf-photo-policy.js',
++      './idb-archivo.js'
++    ],
++    etiquetas: ['./qrcode-local.min.js', './barcode128.js'],
++    avanzado: [
++      './avanzado-extra.min.js',
++      './salud-app.js',
++      './reconciliacion.min.js',
++      './hechos.min.js',
++      './respaldo-empleado.min.js',
++      './simon-config.min.js',
++      './sales-audit-ui.js',
++      './pocketbase-client.min.js'
++    ],
++    perchas: ['./vista-perchas.min.js', './percha-reposicion.min.js'],
++    comisiones: [
++      './core/commission-history.js',
++      './core/payout-ledger.min.js',
++      './commissions-by-person.js',
++      './artista.min.js'
++    ],
++    creditos: [
++      './cartera.min.js',
++      './plan-pagos.min.js',
++      './plan-pagos-ui.min.js',
++      './caja-chica.js'
++    ],
++    ayuda: [
++      './help-ui.min.js',
++      './novedades.min.js',
++      './welcome-ui.min.js',
++      './tutorial-ui.js',
++      './ganchos-demo.js'
++    ],
++    fallbackB: ['./vendor/supabase-relay.min.js'],
++    i18nEs: ['./i18n-es.min.js']
++  };
++
++  var cargados = Object.create(null);
++  var enCurso = Object.create(null);
++  var gruposEnCurso = Object.create(null);
++
++  function cargarScript(src) {
++    if (cargados[src]) return Promise.resolve(src);
++    if (enCurso[src]) return enCurso[src];
++    if (typeof document === 'undefined' || !document.createElement) {
++      return Promise.reject(new Error('DOM unavailable for lazy script: ' + src));
+     }
++    var p = new Promise(function (resolve, reject) {
++      var s = document.createElement('script');
++      s.src = src;
++      s.async = false;
++      s.onload = function () { cargados[src] = true; delete enCurso[src]; resolve(src); };
++      s.onerror = function () { delete enCurso[src]; reject(new Error('Failed to load deferred script: ' + src)); };
++      (document.head || document.documentElement).appendChild(s);
++    });
++    enCurso[src] = p;
++    return p;
+   }
+-  function cuandoOcioso() {
+-    setTimeout(function () {
+-      try {
+-        if (window.requestIdleCallback) window.requestIdleCallback(cargar, { timeout: 8000 });
+-        else cargar();
+-      } catch (_) { try { cargar(); } catch (__) {} }
+-    }, 2000);
++
++  function asegurar(nombreGrupo) {
++    var lista = GRUPOS[nombreGrupo];
++    if (!Array.isArray(lista)) return Promise.reject(new Error('Unknown lazy group: ' + nombreGrupo));
++    if (gruposEnCurso[nombreGrupo]) return gruposEnCurso[nombreGrupo];
++    var p = Promise.all(lista.map(cargarScript)).then(
++      function () { return true; },
++      function (err) { delete gruposEnCurso[nombreGrupo]; throw err; }
++    );
++    gruposEnCurso[nombreGrupo] = p;
++    return p;
+   }
+-  if (document.readyState === "complete") cuandoOcioso();
+-  else window.addEventListener("load", cuandoOcioso, { once: true });
+-})();
++
++  function programarPostLogin() {
++    var lanzar = function () { asegurar('postLogin').catch(function () {}); };
++    if (typeof root.requestIdleCallback === 'function') {
++      try { root.requestIdleCallback(lanzar, { timeout: 3000 }); return; } catch (_) {}
++    }
++    setTimeout(lanzar, 150);
++  }
++
++  function inicializarListeners() {
++    if (typeof root.addEventListener !== 'function') return;
++    root.addEventListener('oc-login', programarPostLogin);
++    var checkUnlocked = function () {
++      var gate = typeof document !== 'undefined' && document.getElementById('oc-gate');
++      var auth = root.OCAuth;
++      var unlocked = (!gate || (gate.style && gate.style.display === 'none')) &&
++        (!auth || typeof auth.rolActual !== 'function' || !!auth.rolActual());
++      if (unlocked) programarPostLogin();
++    };
++    if (typeof document !== 'undefined') {
++      if (document.readyState === 'complete') setTimeout(checkUnlocked, 1000);
++      else root.addEventListener('load', function () { setTimeout(checkUnlocked, 1000); }, { once: true });
++    }
++  }
++
++  var api = {
++    GRUPOS: GRUPOS,
++    cargarScript: cargarScript,
++    asegurar: asegurar,
++    estaCargado: function (src) { return !!cargados[src]; },
++    listarDiferidos: function () {
++      var out = [];
++      Object.keys(GRUPOS).forEach(function (g) {
++        GRUPOS[g].forEach(function (s) { if (out.indexOf(s) === -1) out.push(s); });
++      });
++      return out;
++    }
++  };
++
++  if (typeof module === 'object' && module.exports) module.exports = api;
++  if (root) {
++    root.OCCargaTardia = api;
++    inicializarListeners();
++  }
++})(typeof globalThis !== 'undefined' ? globalThis : window);
+diff --git a/docs/index.html b/docs/index.html
+index 846b815..be680fa 100644
+--- a/docs/index.html
++++ b/docs/index.html
+@@ -74,26 +74,17 @@
+      interceptaba fetch() y todo /api/* devolvia 404 (selector de sucursal
+      roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
+      para que el mock ya este instalado cuando el app arranque. NO QUITAR. -->
+-<script defer src="./barcode128.js"></script>
+-<script defer src="./qrcode-local.min.js"></script>
+ <!-- tutorial-ui.js: ahora lo pide carga-tardia.js despues de la primera pantalla (v599). barcode128/qrcode siguen al arranque: una etiqueta impresa en los primeros segundos no puede salir sin codigo. -->
+ <!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
+ <!-- Local-first: pocketbase-client.js se carga SIEMPRE pero queda dormido
+      si el dueño no guardó una URL de PocketBase en Avanzado (localStorage
+      OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
+      estática, o server.js real en el servidor local del negocio. -->
+-<script defer src="./pocketbase-client.min.js"></script>
+ <script defer src="./estado-ab.min.js"></script>
+ <script defer src="./estado-idb.min.js"></script>
+ <script defer src="./canarios.js"></script>
+-<script defer src="./copiar-libre.js"></script>
+ <script defer src="./invariantes.js"></script>
+-<script defer src="./core/payout-ledger.min.js"></script>
+-<script defer src="./core/ledger.min.js"></script>
+-<script defer src="./core/sales-audit.js"></script>
+ <script defer src="./core/business-read-model.min.js"></script>
+-<script defer src="./customer-profile.js"></script>
+-<script defer src="./sales-audit-ui.js"></script>
+ <script defer src="./core/demo-huellas.min.js"></script>
+ <script defer src="./mock-backend.min.js"></script>
+ <script defer src="./red-segura.js"></script>
+@@ -885,63 +876,39 @@
+   </div>
+ </div>
+ 
+-<script src="./core/commission-history.js" defer></script>
+ <script src="./app-inline-01.min.js" defer></script>
+ <!-- C100: proyección de comisiones por beneficiario; dinero intacto. -->
+-<script defer src="./commissions-by-person.js"></script>
+ 
+ <script defer src="./crypto-store.min.js"></script>
+ <script defer src="./email-recovery.js"></script>
+ <script defer src="./device-identity.js"></script>
+ <script defer src="./storage-durabilidad.js"></script>
+   <script defer src="./peer-sync.min.js"></script>
+-  <script defer src="./vendor/supabase-relay.min.js"></script>
+   <script defer src="./firebase-relay.min.js"></script>
+   <script defer src="./relay-selector.min.js"></script>
+-  <script defer src="./dashboard-broadcast.js"></script>
+   <script defer src="./sync-realtime.min.js"></script>
+   <script defer src="./sync-watchdog.min.js"></script>
+   <script defer src="./auth-ui.min.js"></script>
+   <!-- DORMIDO (orden de JFC, 2026-11-12): tab-session.js ya no se carga; el archivo se conserva. -->
+   <script defer src="./soporte-visual.js"></script>
+-  <script defer src="./backup-scheduler.min.js"></script>
+-<script defer src="./avanzado-extra.min.js"></script>
+ <!-- Vista del artista (benchmark #6, JFC 2026-09-24): solo con PIN de artista. La frontera real es la compuerta de mock-backend.js. -->
+-<script defer src="./artista.min.js"></script>
+-<script defer src="./geo-ping.min.js"></script>
+ <!-- Novedades: experimental employee gamification (EXPERIMENTAL FEATURE,
+      JFC 2026-07-22). Separate module, ON by DEFAULT (owner can turn it off
+      in Advanced with an explicit "0").
+      See novedades.js for detail — never touches real sales/inventory. -->
+-<script defer src="./novedades.min.js"></script>
+-<script defer src="./help-ui.min.js"></script>
+ <!-- idb-fotos.js (JFC 2026-07-18): DEBE cargar antes de vista-perchas.js —
+      expone window.OCFotos, que vista-perchas.js usa para persistir fotos de
+      percha en IndexedDB en vez de localStorage. -->
+ <script defer src="./idb-fotos.min.js"></script>
+-<script defer src="./expense-receipt.js"></script>
+ <!-- v448 GOLDEN G07: hexagonal photo core. Domain + application load before the UI adapter. -->
+-<script defer src="./core/shelf-photo-policy.js"></script>
+-<script defer src="./application/recover-shelf-photo.js"></script>
+-<script defer src="./idb-archivo.js"></script>
+-<script defer src="./simon-config.min.js"></script>
+-<script defer src="./percha-reposicion.min.js"></script>
+-<script defer src="./micelio-vivo.min.js"></script>
+ <script defer src="./device-environment.js"></script>
+-<script defer src="./micelio-ui.min.js"></script>
+-<script defer src="./borradores.min.js"></script>
+-<script defer src="./vista-perchas.min.js"></script>
+-<script defer src="./welcome-ui.min.js"></script>
+ <script defer src="./carga-tardia.js"></script>
+ <!-- Ganchos del embudo SOLO en el demo (JFC 2026-09-24, shell 375). Tarjetas en linea, nunca modales. Ver ganchos-demo.js. -->
+-<script defer src="./ganchos-demo.js"></script>
+ <!-- MICELIO (homologado de AMIGABLE, 2026-07-28). El bus va primero:
+      hechos.js se engancha a el al cargar. Ver docs/reconciliacion.js. -->
+ <script defer src="./event-bus.js"></script>
+ <script defer src="./logger.js"></script>
+-<script defer src="./telemetry.js"></script>
+ <script defer src="./identity-context.js"></script>
+-<script defer src="./audit-store.js"></script>
+ <script defer src="./sync-queue.js"></script>
+ <script defer src="./sync-outbox.js"></script>
+ <!-- Plan C del sync redundante (Yjs/CRDT). ENCENDIDO por defecto (JFC 2026-09-15):
+@@ -956,24 +923,13 @@
+ <script defer src="./owner-approved-inventory-repair.js"></script>
+ <script defer src="./ui-actions.min.js"></script>
+ <script defer src="./feature-gate.js"></script>
+-<script defer src="./salud-app.js"></script>
+-<script defer src="./hechos.min.js"></script>
+-<script defer src="./reconciliacion.min.js"></script>
+-<script defer src="./cartera.min.js"></script>
+-<script defer src="./plan-pagos.min.js"></script>
+-<script defer src="./plan-pagos-ui.min.js"></script>
+-<script defer src="./caja-chica.js"></script>
+ <!-- uFuzzy (JFC 2026-07-30): busqueda tolerante a errores de tipeo para
+      Clientes (via lista-dinamica.js). Vendorizado localmente, MIT, sin
+      CDN, sin build step - si falta o falla, lista-dinamica.js cae sola al
+      filtro por substring de siempre (ver feedback_aislar_fallos_ui_nunca_datos). -->
+-<script defer src="./vendor/ufuzzy.min.js"></script>
+-<script defer src="./lista-dinamica.min.js"></script>
+ <!-- MiniSearch (JFC 2026-07-30): busqueda tolerante + filtro por categoria
+      para el grid tactil de Sold. Mismo criterio de aislamiento: si falla,
+      el buscador cae al filtro por substring que ya existia. -->
+-<script defer src="./vendor/minisearch.min.js"></script>
+-<script defer src="./respaldo-empleado.min.js"></script>
+ <!-- CARGADOR DE CODIGO (Bloque P, fase A canario, JFC 2026-09-24). Los cuatro
+      scripts de abajo ya no son <script src>: los pide cargador.js, en orden,
+      desde el origen remoto si hay uno (Hostinger) y desde github.io si no o

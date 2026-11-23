@@ -1,8 +1,8 @@
 diff --git a/docs/auth-ui.js b/docs/auth-ui.js
-index 87494c0..5ae10e4 100644
+index 0cf93cd..ee681f9 100644
 --- a/docs/auth-ui.js
 +++ b/docs/auth-ui.js
-@@ -1345,6 +1345,43 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
+@@ -1355,6 +1355,43 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      if(central==="unavailable-identity"&&rolHash==="dueno"){
        error("La identidad de la licencia no coincide con el registro central. Recupera la licencia desde el panel.");return;
      }
