@@ -1,0 +1,235 @@
+Subject: Scope encrypted catch-up cursors to their durable provider
+
+Base: jfcarpiopuntocom/friendly-123@4a6d038f7e8230e90036e543671fde987bb65ad5
+Regenerate served .min.js files with scripts/build-min-scripts.cjs after applying.
+This checkpoint does not assign a release shell.
+
+diff --git a/docs/relay-selector.js b/docs/relay-selector.js
+index e0bf84085c61df9244192213d1de97b525ca5d5c..b75adcb2473463ca3fea6292f46fa8723ddc8dd2 100644
+--- a/docs/relay-selector.js
++++ b/docs/relay-selector.js
+@@ -528,6 +528,7 @@
+            (with the peer receipt/ack handles) and only holds back a peer "persist-result" while a durable layer is
+            alive: another device's disk is not a durable layer. */
+         if (cerradoH) return;
++        if (x.orden !== alimentador && typeof e.data === "string" && /"k"\s*:\s*"(?:head-result|pull-page)"/.test(e.data)) return;
+         if (ws.peerOnly === true && typeof e.data === "string" && e.data.indexOf('"persist-result"') !== -1 &&
+             (e.peerAccepted !== true || subs.some(function (o) { return o.ws.peerOnly !== true && o.ws.readyState < 2; }))) return;
+         emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true, relaySource: e.relaySource, peerReceipt: e.peerReceipt, peerAck: e.peerAck });
+@@ -535,6 +536,7 @@
+       ws.addEventListener("error", function () { hubError = true; });
+       ws.addEventListener("close", function (e) {
+         if (cerradoH) return;
++        if (emitidoOpen && x.orden === alimentador && abiertas().length) { reiniciar("pull layer lost"); return; }
+         if (!x.abrio && vivas().length === 0) siguiente(); // every layer started closed before opening: do not wait the 3 s
+         // The layer feeding the app dropped while another is still only connecting: restart instead of a silent H.
+         if (emitidoOpen && !abiertas().length && vivas().length) { reiniciar("layer lost"); return; }
+@@ -581,6 +583,7 @@
+           .sort(function (a, b) { return a.orden - b.orden; })[0];
+         return active ? capas[active.orden].key : (abiertas().length ? "peer" : null);
+       } },
++      pullRelayLayer: { get: function () { return capas[alimentador] ? capas[alimentador].key : null; } },
+       carrilVivo: { get: function () { return vivo ? vivo.readyState : null; } }, // v662 diagnostics: live lane state
+       readyState: { get: function () { return cerradoH ? 3 : abiertas().length ? 1 : 0; } },
+       peerOnly: { get: function () { var l = abiertas(); if (!l.length) l = subs; return l.length > 0 && l.every(function (x) { return x.ws.peerOnly === true; }); } },
+@@ -595,6 +598,8 @@
+     ["onopen", "onmessage", "onclose", "onerror"].forEach(function (n) { H[n] = null; });
+     H.send = function (v) {
+       var l = abiertas(), ok = false, err = null;
++      // Each pull response must belong to the provider that owns the cursor.
++      if (typeof v === "string" && /^\{"k":"(?:head|pull)"/.test(v)) l = l.filter(function (x) { return x.orden === alimentador; });
+       if (cerradoH || !l.length) throw new DOMException("Socket is not open", "InvalidStateError");
+       var n = bytes(v);
+       // Preserve the existing checkpoint-only empty-buffer exception. The
+diff --git a/docs/sync-yjs.js b/docs/sync-yjs.js
+index fcf138ef2922c1ad95843b58c0e6896180e6f745..1020f1163499fa8efc5b3af42bedb756c729ca8f 100644
+--- a/docs/sync-yjs.js
++++ b/docs/sync-yjs.js
+@@ -285,7 +285,8 @@
+                         // exponencial con jitter y tope 30s, como el sync viejo.
+     var _tEstable = null;
+     var _colaRecepcion = Promise.resolve();
+-    var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
++    var _pullCursorBaseKey = "f123_yjs_pull_cursor_v2" + suffix;
++    var _pullCursorKey = _pullCursorBaseKey;
+     var _pullCursor = { rev: -1, seq: 0 }, _appliedPullCursor = { rev: -1, seq: 0 };
+     var _pullCursorReady = Promise.resolve();
+     // Encrypted durable outbox lives alongside the local Y.Doc, scoped by room/channel.
+@@ -1119,32 +1120,7 @@
+           return persistencia.get(_pullCursorKey);
+         })
+         .then(function (guardado) {
+-          if (_soloMemoria) return;
+-          var cursor = cursorValido(guardado);
+-          if (!cursor) return;
+-          var snap = guardado.pendingSnapshot;
+-          if (!snap) {
+-            _pullCursor = cursor; _appliedPullCursor = cursor;
+-            _ultimoCursorLimpio = cursor; return;
+-          }
+-          var limpio = cursorValido(guardado.cursorLimpio);
+-          if (!limpio || !cursorAnteriorOIgual(limpio, cursor))
+-            limpio = { rev: -1, seq: 0 };
+-          _ultimoCursorLimpio = limpio;
+-          function reanudarDesdeLimpio() {
+-            _pullCursor = limpio; _appliedPullCursor = limpio;
+-            _cursorContainsPending = false;
+-          }
+-          // Rejected proof may use the LAST clean cut once hydration succeeded.
+-          var bytes;
+-          try { bytes = new Uint8Array(snap); } catch (_) { reanudarDesdeLimpio(); return; }
+-          if (!bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES) {
+-            reanudarDesdeLimpio(); return;
+-          }
+-          try { Y.applyUpdate(doc, bytes, "red"); }
+-          catch (_) { reanudarDesdeLimpio(); return; }
+-          _pullCursor = cursor; _appliedPullCursor = cursor;
+-          _cursorContainsPending = true;
++          restaurarPruebaPull(guardado);
+         }).catch(function (e) {
+           // No confirmed journal means no safe cursor. Do not pull or
+           // checkpoint against a half-loaded device; leave the channel in recovery.
+@@ -1160,6 +1136,53 @@
+           throw e;
+         });
+     }
++    function restaurarPruebaPull(guardado) {
++      if (_soloMemoria) return;
++      var cursor = cursorValido(guardado);
++      if (!cursor) return;
++      var snap = guardado.pendingSnapshot;
++      if (!snap) {
++        _pullCursor = cursor; _appliedPullCursor = cursor;
++        _ultimoCursorLimpio = cursor; return;
++      }
++      var limpio = cursorValido(guardado.cursorLimpio);
++      if (!limpio || !cursorAnteriorOIgual(limpio, cursor))
++        limpio = { rev: -1, seq: 0 };
++      _ultimoCursorLimpio = limpio;
++      function reanudarDesdeLimpio() {
++        _pullCursor = limpio; _appliedPullCursor = limpio;
++        _cursorContainsPending = false;
++      }
++      // Rejected proof may use the LAST clean cut once hydration succeeded.
++      var bytes;
++      try { bytes = new Uint8Array(snap); } catch (_) { reanudarDesdeLimpio(); return; }
++      if (!bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES) {
++        reanudarDesdeLimpio(); return;
++      }
++      try { Y.applyUpdate(doc, bytes, "red"); }
++      catch (_) { reanudarDesdeLimpio(); return; }
++      _pullCursor = cursor; _appliedPullCursor = cursor;
++      _cursorContainsPending = true;
++    }
++    function cargarCursorDeCapa(sock) {
++      var capa = sock.pullRelayLayer;
++      if (!capa) return Promise.resolve();
++      var clave = _pullCursorBaseKey + ":" + capa;
++      if (_pullCursorKey === clave) return Promise.resolve();
++      var lectura = !_soloMemoria && persistencia && typeof persistencia.get === "function"
++        ? persistencia.get(clave) : Promise.resolve(null);
++      return lectura.then(function (prueba) {
++        if (canal.ws !== sock || sock.readyState !== 1) return;
++        // Cursor sequences and checkpoint revisions belong to one provider.
++        // Keep the hydrated Yjs journal and apply each provider's own proof.
++        _pullCursorKey = clave;
++        _pullCursor = _appliedPullCursor = _ultimoCursorLimpio = { rev: -1, seq: 0 };
++        _cursorContainsPending = false; _pendingProofPages = 0;
++        _legacyProbeKey = ""; _legacyProbeAttempts = 0;
++        _replayKey = null; _replayUsed = 0;
++        restaurarPruebaPull(prueba);
++      });
++    }
+     function guardarPullCursor(cursor) {
+       var siguiente = {
+         rev: Number.isFinite(Number(cursor.rev)) ? Math.trunc(Number(cursor.rev)) : -1,
+@@ -1783,6 +1806,7 @@
+         if (_pausado || !permitido() || canal.ws !== ws) {
+           try { ws.close(1000, "inactive tab"); } catch (_) {} return;
+         }
++        pullEstado.enCurso = !ws.peerOnly;
+         _lastRelayProgressAt = Date.now(); _cupoRechazado = false;
+         /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
+            reseteaba el backoff aqui y el canal de fotos podia reconectar cada
+@@ -1800,7 +1824,11 @@
+           if (canal.ws !== ws || ws.readyState !== 1) return;
+           try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // hello AFTER local hydration
+           if (ws.peerOnly) { programarRelecturaPeer(); return; }
+-          return pedirPagina(ws, pullEstado);
++          return cargarCursorDeCapa(ws).then(function () {
++            if (canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado);
++          }).catch(function () {
++            if (canal.ws === ws) try { ws.close(1013, "cursor proof unavailable"); } catch (_) {}
++          });
+         });
+         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
+            "catalogo". FIX de costo (JFC 2026-09-22, v337): la v335 hacia ping cada
+diff --git a/test/relay-selector.test.cjs b/test/relay-selector.test.cjs
+index a79368fc7286277f1f30788262424a34c0d6ff80..3f17a6d990cc86449a5b2a2b39f496758f2123fe 100644
+--- a/test/relay-selector.test.cjs
++++ b/test/relay-selector.test.cjs
+@@ -665,3 +665,23 @@ test('C240: a peer relay in F123Relay is not taken as the Supabase durable layer
+   const peer = require('node:fs').readFileSync(require('node:path').join(__dirname, '../docs/peer-sync.js'), 'utf8');
+   assert.match(peer, /_relayVecinos\.peerSyncRelay = true; window\.F123Relay = _relayVecinos;/);
+ });
++
++test("cursor RPCs stay on the serving durable layer when the backup also opens", () => {
++  const { R, made, vencer } = app();
++  const h = R.connect(URL1);
++  made[0].open();
++  vencer();
++  const alternate = made.find(socket => socket.kind === 'firebase');
++  assert.ok(alternate);
++  alternate.open();
++  const seen = [];
++  h.onmessage = event => seen.push(JSON.parse(event.data).k);
++  const pull = JSON.stringify({k:'pull',rev:3,seq:120});
++  h.send(pull);
++  assert.equal(h.pullRelayLayer, 'f123_relay_cupo_v1');
++  assert.equal(made[0].sent.includes(pull), true);
++  assert.equal(alternate.sent.includes(pull), false);
++  alternate.recv(JSON.stringify({k:'pull-page',rev:3,seq:120}));
++  made[0].recv(JSON.stringify({k:'pull-page',rev:3,seq:120}));
++  assert.deepEqual(seen, ['pull-page']);
++});
+diff --git a/test/sync3-head-causal-gap.test.cjs b/test/sync3-head-causal-gap.test.cjs
+index da054e7d96522fa4d596cb71133b9c743d9df1a5..36f93fcb1a0c4782be0afd932afc7acd11e7b45c 100644
+--- a/test/sync3-head-causal-gap.test.cjs
++++ b/test/sync3-head-causal-gap.test.cjs
+@@ -204,3 +204,36 @@ test("SYNC3: Firebase staged timestamp progress stops after a finite tie budget"
+  assert.equal(state.rescateCausalAvanzo,false,"no unlimited paced continuation");
+  assert.equal(a.ctx._pullCursor.seq,120);
+ });
++
++test("provider switch loads its own cursor and keeps the old provider proof", async () => {
++ const a = harness({ pending: false });
++ const cf = "f123_relay_cupo_cf_v1", fb = "f123_relay_cupo_fb_v1";
++ const base = "f123_yjs_pull_cursor_v2-y";
++ const data = new Map([[base + ":" + cf, { rev: 3, seq: 120 }]]);
++ const reads = [];
++ Object.assign(a.ctx, {
++  _pullCursorBaseKey: base, _pullCursorKey: base + ":" + cf,
++  persistencia: { get: async key => { reads.push(key); return data.get(key); } }
++ });
++ const start = src.indexOf("    function cursorValido(v) {");
++ const end = src.indexOf("    if (persistencia && typeof persistencia.get", start);
++ const restore = src.indexOf("    function restaurarPruebaPull(guardado) {", end);
++ const save = src.indexOf("    function guardarPullCursor(cursor) {", restore);
++ assert.ok(start > 0 && end > start && restore > end && save > restore);
++ vm.runInContext(src.slice(start, end) + src.slice(restore, save), a.ctx);
++
++ a.ws.pullRelayLayer = fb;
++ await a.ctx.cargarCursorDeCapa(a.ws);
++ await head(a); // identical numeric end between unrelated providers
++ assert.deepEqual(a.sent.map(frame => frame.k), ["head", "pull"]);
++ assert.deepEqual([a.sent[1].rev, a.sent[1].seq], [-1, 0]);
++ await a.ctx.cargarCursorDeCapa(a.ws); // reconnect to the same provider
++ assert.deepEqual(reads, [base + ":" + fb]);
++ a.ws.pullRelayLayer = cf;
++ await a.ctx.cargarCursorDeCapa(a.ws);
++ assert.deepEqual([a.ctx._appliedPullCursor.rev, a.ctx._appliedPullCursor.seq], [3, 120]);
++ a.ws.pullRelayLayer = fb;
++ data.set(base + ":" + fb, { rev: 1, seq: 15 });
++ await a.ctx.cargarCursorDeCapa(a.ws);
++ assert.deepEqual([a.ctx._pullCursor.rev, a.ctx._pullCursor.seq], [1, 15]);
++});
