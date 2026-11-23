@@ -1,0 +1,398 @@
+diff --git a/docs/sync-yjs.js b/docs/sync-yjs.js
+index fcf138ef..c4e8a4a4 100644
+--- a/docs/sync-yjs.js
++++ b/docs/sync-yjs.js
+@@ -288,6 +288,53 @@
+     var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
+     var _pullCursor = { rev: -1, seq: 0 }, _appliedPullCursor = { rev: -1, seq: 0 };
+     var _pullCursorReady = Promise.resolve();
++    var _pullCursorCapasKey = _pullCursorKey + ":capas";
++    var _pullCursoresPorCapa = Object.create(null), _capasHidratadas = false, _capasHidratando = null;
++    function _capaSocket(sock) { return sock && sock.relayLayer ? String(sock.relayLayer) : ""; }
++    function _cursorDeCapa(sock) {
++      var capa = _capaSocket(sock);
++      if (!capa) return _pullCursor;
++      return _pullCursoresPorCapa[capa] || { rev: -1, seq: 0 };
++    }
++    function _limpiarCursorCapa(sock) {
++      var capa = _capaSocket(sock);
++      if (capa) delete _pullCursoresPorCapa[capa];
++    }
++    function _hidratarCursoresCapa() {
++      if (_capasHidratadas || _soloMemoria || typeof persistencia === "undefined" || !persistencia || typeof persistencia.get !== "function") {
++        _capasHidratadas = true; return Promise.resolve();
++      }
++      if (_capasHidratando) return _capasHidratando;
++      _capasHidratando = Promise.resolve(persistencia.get(_pullCursorCapasKey)).then(function (guardado) {
++        if (guardado && typeof guardado === "object") {
++          Object.keys(guardado).forEach(function (k) {
++            var v = guardado[k];
++            if (v && Number.isFinite(Number(v.rev)) && Number.isFinite(Number(v.seq)) &&
++                Math.trunc(Number(v.rev)) >= -1 && Math.trunc(Number(v.seq)) >= 0) {
++              _pullCursoresPorCapa[k] = { rev: Math.trunc(Number(v.rev)), seq: Math.trunc(Number(v.seq)) };
++            }
++          });
++        }
++        _capasHidratadas = true;
++      }).catch(function () { _capasHidratadas = true; });
++      return _capasHidratando;
++    }
++    function _guardarCursorCapa(sock, cursor) {
++      var capa = _capaSocket(sock);
++      if (!capa || !cursor || typeof partesEntrantes !== "undefined" && Object.keys(partesEntrantes).length) return Promise.resolve();
++      var siguiente = {
++        rev: Number.isFinite(Number(cursor.rev)) ? Math.trunc(Number(cursor.rev)) : -1,
++        seq: Math.max(0, Math.trunc(Number(cursor.seq) || 0))
++      };
++      var previo = _pullCursoresPorCapa[capa] || { rev: -1, seq: 0 };
++      if (siguiente.rev < previo.rev || (siguiente.rev === previo.rev && siguiente.seq <= previo.seq)) return Promise.resolve();
++      _pullCursoresPorCapa[capa] = siguiente;
++      if (_soloMemoria || typeof persistencia === "undefined" || !persistencia || typeof persistencia.set !== "function") return Promise.resolve();
++      if (doc && doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return Promise.resolve();
++      var copia = {}; Object.keys(_pullCursoresPorCapa).forEach(function (k) { copia[k] = _pullCursoresPorCapa[k]; });
++      var barrera = typeof barreraYjsConfirmada === "function" ? barreraYjsConfirmada() : Promise.resolve();
++      return barrera.then(function () { return persistencia.set(_pullCursorCapasKey, copia); }).catch(function () {});
++    }
+     // Encrypted durable outbox lives alongside the local Y.Doc, scoped by room/channel.
+     // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
+     var _outboxKey = "f123_relay_outbox_v1" + suffix;
+@@ -1289,7 +1336,7 @@
+     }
+     function pedirPagina(sock, estado, sinHead) {
+       estado.enCurso = true; estado.fallos = 0;
+-      return _pullCursorReady.then(function () {
++      function _ejecutarPedido() {
+         if (sock !== canal.ws || sock.readyState !== 1) return;
+         if (!sinHead && estado.usarHead === true && !_soloMemoria) {
+           estado.esperandoHead = true;
+@@ -1306,8 +1353,16 @@
+         }
+         // v1 legacy checkpoint can compact operations without bumping revision.
+         // Probe the actual ciphertext checkpoint, never a stale high-water seq.
+-        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : (estado.rescateCausalDesde || _pullCursor);
++        var cursorCapa = typeof _cursorDeCapa === "function" ? _cursorDeCapa(sock) : _pullCursor;
++        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : (estado.rescateCausalDesde || cursorCapa);
+         sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
++      }
++      return _pullCursorReady.then(function () {
++        if (typeof _hidratarCursoresCapa === "function" && !_capasHidratadas &&
++            _capaSocket(sock) && typeof persistencia !== "undefined" && persistencia && typeof persistencia.get === "function") {
++          return _hidratarCursoresCapa().then(_ejecutarPedido);
++        }
++        return _ejecutarPedido();
+       }).catch(function () {});
+     }
+     function marcarReplayCifradoAplicado(sock) {
+@@ -1333,8 +1388,9 @@
+         Number.isSafeInteger(Number(r.seq)) && Number(r.rev) >= 0 && Number(r.seq) >= 0;
+       if (!valido) estado.headLegacy = true;
+       else estado.headLegacy = false;
+-      if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) < _pullCursor.seq) {
+-        var probeKey = r.rev + ":" + r.seq + ":" + _pullCursor.rev + ":" + _pullCursor.seq;
++      var cursorCapa = typeof _cursorDeCapa === "function" ? _cursorDeCapa(sock) : _pullCursor;
++      if (valido && Number(r.rev) === cursorCapa.rev && Number(r.seq) < cursorCapa.seq) {
++        var probeKey = r.rev + ":" + r.seq + ":" + cursorCapa.rev + ":" + cursorCapa.seq;
+         if (_legacyProbeKey !== probeKey) { _legacyProbeKey = probeKey; _legacyProbeAttempts = 0; }
+         if (_legacyProbeAttempts >= 2) {
+           // No proof after two probes: keep socket and LOCAL Yjs, stop quota-draining replay.
+@@ -1352,14 +1408,14 @@
+         estado.rebaseFrames = 0;
+         estado.rebaseCipherFrames = 0;
+       }
+-      if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
++      if (valido && Number(r.rev) === cursorCapa.rev && Number(r.seq) === cursorCapa.seq) {
+         estado.enCurso = false;
+         // One Firebase-only ancestor sweep after a verified HEAD when a
+         // suspicious CKPT has hidden the genuine historical Yjs parent.
+         // Never rewind the last IDB-proven durable cursor or certify a PIN.
+         if (nombre === "catalogo" && sock.relayLayer === "f123_relay_cupo_fb_v1" &&
+             estado.validacionFinal === true && !_antecedentesBuscados &&
+-            canal.recuperando && _pullCursor.rev > 0 && Number(r.seq) > 0 &&
++            canal.recuperando && cursorCapa.rev > 0 && Number(r.seq) > 0 &&
+             doc.store && doc.store.pendingStructs && doc.store.pendingStructs.missing &&
+             doc.store.pendingStructs.missing.size > 0 &&
+             !Object.keys(partesEntrantes).length) {
+@@ -2131,12 +2187,15 @@
+                   _pullCursor = { rev: -1, seq: 0 };
+                   _appliedPullCursor = { rev: -1, seq: 0 };
+                   _ultimoCursorLimpio = { rev: -1, seq: 0 };
++                  if (typeof _limpiarCursorCapa === "function") _limpiarCursorCapa(ws);
+                   pullEstado.rebaseCursor = false;
+                   pullEstado.rebaseFrames = 0;
+                   pullEstado.rebaseCipherFrames = 0;
+                   _legacyProbeKey = ""; _legacyProbeAttempts = 0; // proven encrypted recovery
+                 }
+                 return guardarPullCursor(c).then(function () {
++                  return typeof _guardarCursorCapa === "function" ? _guardarCursorCapa(ws, c) : undefined;
++                }).then(function () {
+                   if (canal.ws !== ws || ws.readyState !== 1) return;
+                   pullEstado.pullAplicado = true; // verified ciphertext + durable cursor write/readback
+                   if (pullEstado.rescateCausalDesde) {
+@@ -2208,7 +2267,7 @@
+                   if (!c.more && canal.recuperando && deudaPendiente() &&
+                       !pullEstado.validacionFinal && !_antecedentesBuscados &&
+                       nombre === "catalogo" && ws.relayLayer === "f123_relay_cupo_fb_v1" &&
+-                      _pullCursor.rev > 0 && !Object.keys(partesEntrantes).length &&
++                      (typeof _cursorDeCapa === "function" ? _cursorDeCapa(ws).rev : _pullCursor.rev) > 0 && !Object.keys(partesEntrantes).length &&
+                       doc.store && doc.store.pendingStructs &&
+                       doc.store.pendingStructs.missing && doc.store.pendingStructs.missing.size > 0) {
+                     pullEstado.validacionFinal = true;
+@@ -2630,7 +2689,8 @@
+         recuperacionLocalPendiente: [this.canal, this.fotosCanal, this.opsCanal].some(function (c) { return c && (c.recuperacionLocal === "pendiente" || c.recuperacionLocal === "sin-almacenamiento"); }),
+         ws: { catalogo: rs(this.canal), fotos: rs(this.fotosCanal), ops: rs(this.opsCanal) },
+         meta: { nombre: this.meta ? this.meta.get("nombreNegocio") : null, esDueno: this.meta ? this.meta.get("nombreEsDueno") : null },
+-        fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0 };
++        fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0,
++        corte20: this.__ultimoEstadoCorte20 || null };
+     }
+   };
+   window.OCYjs = API;
+@@ -3458,18 +3518,33 @@
+         API.__reactivandoCorte20 = Promise.resolve().then(async function () {
+           if (released) {
+             if (!relay || typeof relay.pausarParaArquitectura20 !== "function" ||
+-                typeof relay.reanudarDesdeArquitectura20 !== "function") return null;
++                typeof relay.reanudarDesdeArquitectura20 !== "function") {
++              API.__ultimoEstadoCorte20 = { activo: false, motivo: "legacy-control-missing", en: Date.now() };
++              return null;
++            }
+             var paused = await relay.pausarParaArquitectura20(licencia);
+-            if (!paused || paused.ok !== true) return null;
++            if (!paused || paused.ok !== true) {
++              API.__ultimoEstadoCorte20 = { activo: false, motivo: "legacy-pause-refused", en: Date.now() };
++              return null;
++            }
+             API.__transporteLegado20Pausado = licencia;
+           }
+           return API.activarCorte20Runtime({ cortarComercio: true, rol: rolQa, permitirDespachoEquipo: rolQa === "admin" || rolQa === "empleado" });
+         }).then(function (resultado) {
+-          if (!released || (resultado && resultado.modoCorte20Activo === true)) return;
++          if (resultado && resultado.modoCorte20Activo === true) {
++            API.__ultimoEstadoCorte20 = { activo: true, motivo: "active-2.0", en: Date.now() };
++            return;
++          }
++          if (resultado) {
++            API.__ultimoEstadoCorte20 = { activo: false, motivo: "cutover-not-active", en: Date.now() };
++          }
++          if (!released) return;
+           var previous = API.__transporteLegado20Pausado;
+           API.__transporteLegado20Pausado = null;
+           if (previous) relay.reanudarDesdeArquitectura20(previous);
+-        }).catch(function () {
++        }).catch(function (err) {
++          var code = String((err && err.message) || "cutover-error").replace(/[^A-Za-z0-9_.: -]/g, "").slice(0, 64) || "cutover-error";
++          API.__ultimoEstadoCorte20 = { activo: false, motivo: code, en: Date.now() };
+           // A failed certification can NEVER strand the old socket: leave
+           // source IDs, encrypted room and durable outbox byte-identical.
+           var previous = API.__transporteLegado20Pausado;
+diff --git a/test/p0-c243-cross-layer-cursor-corte20-diag.test.cjs b/test/p0-c243-cross-layer-cursor-corte20-diag.test.cjs
+new file mode 100644
+index 00000000..48f95985
+--- /dev/null
++++ b/test/p0-c243-cross-layer-cursor-corte20-diag.test.cjs
+@@ -0,0 +1,205 @@
++'use strict';
++
++const { test } = require('node:test');
++const assert = require('node:assert/strict');
++const fs = require('node:fs');
++const path = require('node:path');
++
++const syncSrc = fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8');
++
++function extractBlock(startMarker, endMarker) {
++  const start = syncSrc.indexOf(startMarker);
++  assert.ok(start >= 0, `missing start marker: ${startMarker}`);
++  const end = syncSrc.indexOf(endMarker, start);
++  assert.ok(end > start, `missing end marker: ${endMarker}`);
++  return syncSrc.slice(start, end);
++}
++
++test('RED->GREEN C243-1: switching relay layer (Cloudflare -> Firebase) with equal numeric (rev,seq) MUST still pull Firebase history', async () => {
++  // Real crearCanal slice from docs/sync-yjs.js covering cursor + pedirPagina + procesarHead
++  const cursorSlice = extractBlock('    var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;', '    function clavePendientes()');
++  const headSlice = extractBlock('    function pedirPagina(sock, estado, sinHead) {', '    function reprogramar()');
++  const ops = { pulls: [], persists: [] };
++  const idbStore = new Map();
++  const persistencia = {
++    db: {
++      objectStoreNames: { contains: () => true },
++      transaction() {
++        const tx = {};
++        queueMicrotask(() => tx.oncomplete && tx.oncomplete());
++        return tx;
++      }
++    },
++    whenSynced: Promise.resolve(),
++    async get(k) { return idbStore.has(k) ? JSON.parse(JSON.stringify(idbStore.get(k))) : undefined; },
++    async set(k, v) { idbStore.set(k, JSON.parse(JSON.stringify(v))); ops.persists.push(k); }
++  };
++
++  const fn = new Function('persistencia', 'Y', 'doc', 'canal', 'log', 'setTimeout', 'clearTimeout', 'ops', `
++    var suffix = "-ops", nombre = "ops", permiteCkpt = true;
++    var partesEntrantes = Object.create(null);
++    var _soloMemoria = false, _pendingProofPages = 0, _cursorContainsPending = false;
++    var _ultimoCursorLimpio = { rev: -1, seq: 0 };
++    var MAX_PENDING_PROOF_BYTES = 2 * 1024 * 1024;
++    var PULL_PAGE_SIZE = 64;
++    var _legacyProbeKey = "", _legacyProbeAttempts = 0, _tCkpt = null;
++    var _antecedentesBuscados = false, _replayUsed = 0;
++    var API = { _store: null };
++    function deudaPendiente() { return false; }
++    function programarRelectura() {}
++    function hacerCkpt() {}
++    ${cursorSlice}
++    function clavePendientes() { return "[]"; }
++    ${headSlice}
++    return {
++      pedirPagina,
++      procesarHead,
++      guardarPullCursor,
++      _pullCursorReady,
++      saveLayerCursor: typeof _guardarCursorCapa === "function" ? _guardarCursorCapa : null,
++      getCursor: sock => (typeof _cursorDeCapa === "function" ? _cursorDeCapa(sock) : _pullCursor)
++    };
++  `);
++
++  const doc = { store: null };
++  const Y = { encodeStateVector: () => new Uint8Array([0]) };
++  const canal = { ws: null, recuperando: true, headAcceso: false, accesoListo: () => false };
++  const ctx = fn(persistencia, Y, doc, canal, () => {}, setTimeout, clearTimeout, ops);
++  await ctx._pullCursorReady;
++
++  // Step 1: Cloudflare socket connects and pulls rev:1, seq:6
++  const wsCf = {
++    relayLayer: 'f123_relay_cupo_cf_v1',
++    readyState: 1,
++    send(raw) { ops.pulls.push({ layer: this.relayLayer, msg: JSON.parse(raw) }); }
++  };
++  canal.ws = wsCf;
++  const estCf = { esperandoHead: true, enCurso: true, pullAplicado: false };
++  await ctx.procesarHead(wsCf, estCf, { rev: 1, seq: 6 });
++  // Simulate CF pull-page completion advancing cursor to rev:1, seq:6
++  await ctx.guardarPullCursor({ rev: 1, seq: 6 });
++  if (ctx.saveLayerCursor) await ctx.saveLayerCursor(wsCf, { rev: 1, seq: 6 });
++
++  // Step 2: Switch to Firebase whose independent head ALSO happens to be { rev: 1, seq: 6 }
++  ops.pulls.length = 0;
++  const wsFb = {
++    relayLayer: 'f123_relay_cupo_fb_v1',
++    readyState: 1,
++    send(raw) { ops.pulls.push({ layer: this.relayLayer, msg: JSON.parse(raw) }); }
++  };
++  canal.ws = wsFb;
++  const estFb = { esperandoHead: true, enCurso: true, pullAplicado: false };
++  await ctx.procesarHead(wsFb, estFb, { rev: 1, seq: 6 });
++
++  const fbPulls = ops.pulls.filter(p => p.layer === 'f123_relay_cupo_fb_v1' && p.msg.k === 'pull');
++  assert.equal(fbPulls.length, 1, 'Firebase must request pull from -1:0 even when CF already reached 1:6');
++  assert.deepEqual({ rev: fbPulls[0].msg.rev, seq: fbPulls[0].msg.seq }, { rev: -1, seq: 0 });
++});
++
++test('RED->GREEN C243-2: _intentarActivarCorte20SiElegible exposes zero-PII diagnostic failure reason instead of silent swallow', async () => {
++  const snippet = extractBlock('    function _intentarActivarCorte20SiElegible() {', '    API.estado = "activo";');
++  const API = {
++    canal: { reanudar() {}, pausar() {} },
++    fotosCanal: { reanudar() {}, pausar() {} },
++    opsCanal: { reanudar() {}, pausar() {} },
++    canalSombra: null,
++    canalPiloto: { tipo: 'piloto' },
++    catalogoPublicoLector: null,
++    coordinadorCorte20: null,
++    modoCorte20Activo: false,
++    rollout: { yparty: true, frozenHead: 'fb-deadbeef' },
++    idb: { synced: true },
++    opsIdb: { synced: true },
++    doc: { isDestroyed: false, store: null },
++    codigoCuaderno: 'F123-TEST-1234',
++    async activarCorte20Runtime() {
++      throw new Error('certified baseline mismatch');
++    }
++  };
++  const fn = new Function(
++    'API', 'document', 'window', 'localStorage', 'timerRetorno', 'retornoEnCurso',
++    'canalesPiloto', 'programarRetorno', 'clearTimeout', 'setTimeout',
++    snippet.replace(/\n    API\.canal\.conectar\(\);[\s\S]*?(?=\n    API\.corte20QaHabilitado =)/m, '') +
++    '\nreturn { intentar: _intentarActivarCorte20SiElegible };'
++  );
++  const win = {
++    addEventListener() {},
++    OCAuth: { esDemo: () => false, rolActual: () => 'dueno' },
++    OCSyncControl: {
++      async pausarParaArquitectura20() { return { ok: true }; },
++      reanudarDesdeArquitectura20() {}
++    }
++  };
++  const res = fn(API, { hidden: false, addEventListener() {} }, win, { getItem: () => null }, null, false, [], () => {}, clearTimeout, setTimeout);
++  await res.intentar();
++  await new Promise(r => setTimeout(r, 30));
++
++  assert.equal(API.modoCorte20Activo, false);
++  assert.ok(API.__ultimoEstadoCorte20 && API.__ultimoEstadoCorte20.activo === false &&
++    typeof API.__ultimoEstadoCorte20.motivo === 'string' && API.__ultimoEstadoCorte20.motivo.length > 0,
++    'expected non-empty diagnostic reason when 2.0 cutover fails silently');
++});
++
++test('RED->GREEN C243-3: per-layer cursors persist cleanly across reload in IDB :capas store', async () => {
++  const cursorSlice = extractBlock('    var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;', '    function clavePendientes()');
++  const headSlice = extractBlock('    function pedirPagina(sock, estado, sinHead) {', '    function reprogramar()');
++  const idbStore = new Map();
++  const makePersistencia = () => ({
++    db: {
++      objectStoreNames: { contains: () => true },
++      transaction() {
++        const tx = {};
++        queueMicrotask(() => tx.oncomplete && tx.oncomplete());
++        return tx;
++      }
++    },
++    whenSynced: Promise.resolve(),
++    async get(k) { return idbStore.has(k) ? JSON.parse(JSON.stringify(idbStore.get(k))) : undefined; },
++    async set(k, v) { idbStore.set(k, JSON.parse(JSON.stringify(v))); }
++  });
++  function mount() {
++    const pulls = [];
++    const fn = new Function('persistencia', 'Y', 'doc', 'canal', 'log', 'setTimeout', 'clearTimeout', `
++      var suffix = "-y", nombre = "catalogo", permiteCkpt = true;
++      var partesEntrantes = Object.create(null);
++      var _soloMemoria = false, _pendingProofPages = 0, _cursorContainsPending = false;
++      var _ultimoCursorLimpio = { rev: -1, seq: 0 };
++      var MAX_PENDING_PROOF_BYTES = 2 * 1024 * 1024;
++      var PULL_PAGE_SIZE = 64;
++      var _legacyProbeKey = "", _legacyProbeAttempts = 0, _tCkpt = null;
++      var _antecedentesBuscados = false, _replayUsed = 0;
++      var API = { _store: null };
++      function deudaPendiente() { return false; }
++      function programarRelectura() {}
++      function hacerCkpt() {}
++      ${cursorSlice}
++      function clavePendientes() { return "[]"; }
++      ${headSlice}
++      return {
++        pedirPagina, procesarHead, guardarPullCursor, _pullCursorReady,
++        saveLayerCursor: _guardarCursorCapa, hydrateLayers: _hidratarCursoresCapa,
++        getCursor: _cursorDeCapa
++      };
++    `);
++    const doc = { store: null }, Y = { encodeStateVector: () => new Uint8Array([0]) };
++    const canal = { ws: null, recuperando: true, headAcceso: false, accesoListo: () => false };
++    return { ctx: fn(makePersistencia(), Y, doc, canal, () => {}, setTimeout, clearTimeout), canal, pulls };
++  }
++
++  // Session 1: CF -> 2:10, FB -> 1:500
++  const s1 = mount();
++  await s1.ctx._pullCursorReady;
++  const wsCf = { relayLayer: 'f123_relay_cupo_cf_v1', readyState: 1, send: r => s1.pulls.push(['cf', JSON.parse(r)]) };
++  s1.canal.ws = wsCf;
++  await s1.ctx.saveLayerCursor(wsCf, { rev: 2, seq: 10 });
++  const wsFb = { relayLayer: 'f123_relay_cupo_fb_v1', readyState: 1, send: r => s1.pulls.push(['fb', JSON.parse(r)]) };
++  s1.canal.ws = wsFb;
++  await s1.ctx.saveLayerCursor(wsFb, { rev: 1, seq: 500 });
++
++  // Session 2 (cold reload): hydrates independent cursors for CF (2:10) and FB (1:500)
++  const s2 = mount();
++  await s2.ctx._pullCursorReady;
++  await s2.ctx.hydrateLayers();
++  assert.deepEqual(s2.ctx.getCursor({ relayLayer: 'f123_relay_cupo_cf_v1' }), { rev: 2, seq: 10 });
++  assert.deepEqual(s2.ctx.getCursor({ relayLayer: 'f123_relay_cupo_fb_v1' }), { rev: 1, seq: 500 });
++});
