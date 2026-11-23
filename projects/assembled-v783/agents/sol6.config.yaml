@@ -20,7 +20,7 @@ execution:
   do_not_promise_background_work: true
   never_duplicate_economic_writers: true
   protect_commercial_data: true
-  keep_sync3: true
+  sync3_policy: follow_latest_explicit_jfc_order
 metrics:
   implementation_tracker: docs/engineering/architecture-2-port-score.json
   architectural_quality_tracker: docs/engineering/architecture-2-quality-score.json
