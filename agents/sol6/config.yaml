@@ -41,7 +41,7 @@ metrics:
 engineering:
   method: "Ponytail-RED-GREEN"
   no_separate_port_product: true
-  retain_sync3: true
+  sync3_policy: follow_latest_explicit_jfc_order
   protect_sales_stock_money_photos_access: true
   focus: ["firebase", "final_assembly", "regressions", "release_verification"]
 persistence:
