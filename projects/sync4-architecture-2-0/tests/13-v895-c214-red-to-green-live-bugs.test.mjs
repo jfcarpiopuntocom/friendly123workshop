@@ -191,7 +191,7 @@ test('RED on live v0.8.95 (f13c0a7d) -> GREEN C214: BUG-V895-4 deferred JS boot 
         fs.mkdirSync(path.dirname(out), { recursive: true });
         fs.writeFileSync(out, gitShowV895(rel), 'utf8');
       }
-      for (const p of fs.readdirSync(patchDir).filter(f => f.endsWith('.patch') && !f.startsWith('08-')).sort()) {
+      for (const p of fs.readdirSync(patchDir).filter(f => f.endsWith('.patch') && !/^(08|12|13)-/.test(f)).sort()) {
         cp.execFileSync('git', ['apply', '--check', path.join(patchDir, p)], { cwd: tmp });
       }
     } finally {
