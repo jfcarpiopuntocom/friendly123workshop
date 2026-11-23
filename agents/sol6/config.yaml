@@ -48,3 +48,13 @@ persistence:
   markdown: "agents/sol6/AGENTS.md"
   config: "agents/sol6/config.yaml"
   do_not_use_notion_instead_of_own_files: true
+
+mission_continuity:
+  binding_user_order_date: "2026-11-22"
+  findings_commits_prs_are_partial: true
+  continue_authorized_steps_without_reprompt: true
+  completion_requires_verified_result: true
+  test_and_correct_regressions_in_same_mission: true
+  report_blockers_without_declaring_completion: true
+  no_fictitious_background_execution: true
+  reference: "docs/agent-operating-rules-2026-11-22.md"
