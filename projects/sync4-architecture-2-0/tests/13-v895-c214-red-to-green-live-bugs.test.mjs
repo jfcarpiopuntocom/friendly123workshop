@@ -27,7 +27,7 @@ const {
 const { BASELINE_22NOV_BYTES, TARGET_40PCT_BYTES } = require('../src/audit-js-budget.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const V895 = '8d1519df';
+const V895 = 'e48c63dd';
 const C218_PIN = '94096dde';
 const HAS_V895 = (() => {
   try {

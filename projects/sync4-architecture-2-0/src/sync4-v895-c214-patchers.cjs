@@ -299,11 +299,18 @@ function patchAuthUiAdminVerifyAndLogoutWipe(source) {
     changed = true;
   }
 
-  const revokeTarget =
+  const revokeTargetC220 =
+    '            if (rTeam && rTeam.status === 429 && !rolHash) { error("Acceso bloqueado temporalmente por seguridad."); return; }\n' +
+    '            const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;';
+  const revokeTargetLegacy =
     '            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }\n' +
     '            const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;';
+  const hasC220 = out.includes(revokeTargetC220);
+  const revokeTarget = hasC220 ? revokeTargetC220 : revokeTargetLegacy;
   const revokeReplacement =
-    '            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }\n' +
+    (hasC220
+      ? '            if (rTeam && rTeam.status === 429 && !rolHash) { error("Acceso bloqueado temporalmente por seguridad."); return; }\n'
+      : '            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }\n') +
     '            const dTeam = rTeam ? await rTeam.json().catch(() => null) : null;\n' +
     '            if (rTeam && rTeam.status === 403 && dTeam && dTeam.reason === "team-not-verified" &&\n' +
     '                (rolHash === "admin" || rolHash === "empleado")) {\n' +

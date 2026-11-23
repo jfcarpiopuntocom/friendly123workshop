@@ -20,7 +20,7 @@ const {
 } = require('./sync4-v895-c214-patchers.cjs');
 
 const LIVE_REPO = 'C:\\00 Projects\\claude-f123\\friendly-123';
-const BASE_COMMIT = '8d1519df'; // merged origin/master = origin/estable (v0.8.98)
+const BASE_COMMIT = 'e48c63dd'; // merged origin/master = origin/estable (v0.8.99 C220)
 const C218_WORKER_COMMIT = '94096dde'; // origin/fix/c218-pin-aparato-nuevo
 const OUT_DIR = path.join(__dirname, '..', 'patches-v895');
 
