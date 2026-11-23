@@ -97,8 +97,10 @@ replaceExact(
         wrap.innerHTML = '<div style="max-width:360px;">'
           + '<h2 style="margin:0 0 10px;font-size:22px;">Safe recovery</h2>'
           + '<p style="margin:0 0 16px;font-size:15px;line-height:1.5;">Safari restarted the page repeatedly. Your notebook and sales data stay untouched.</p>'
+          + '<div style="display:flex;flex-direction:column;gap:10px;">'
           + '<button type="button" id="f123-safe-retry" style="min-height:44px;padding:10px 20px;border-radius:8px;border:2px solid #E8A020;background:#E8A020;color:#0F1923;font-weight:800;font-size:15px;cursor:pointer;">Continue cleanly</button>'
-          + '</div>';
+          + '<a id="f123-safe-reengage" href="./reenganchar.html?desde=recovery" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 20px;border-radius:8px;border:2px solid #5294AC;background:#152840;color:#FFF8E8;font-weight:700;font-size:15px;text-decoration:none;">Update &amp; repair loading</a>'
+          + '</div></div>';
         document.body.appendChild(wrap);
         var btn = document.getElementById("f123-safe-retry");
         if (btn) btn.addEventListener("click", function () {
@@ -589,8 +591,274 @@ replaceExact(
   "priv-relay-core accept clean room hex"
 );
 
-// Rebuild app entry + minified scripts inside clone
+// 8. src/app/app-inline-03.js — fix dead _recargarSeguroVersion() + C168 getRegistrations() + waiting/installing SW adoption
+replaceExact(
+  "src/app/app-inline-03.js",
+  `function _recargarSeguroVersion() {
+  /* JFC 2026-09-04: nunca recargar mid-uso. Se difiere SIEMPRE al próximo login
+     (invisible). Antes recargaba de golpe fuera del candado y reiniciaba la UI
+     del usuario mientras trabajaba. */
+  try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {}
+}`,
+  `function _recargarSeguroVersion() {
+  /* JFC 2026-09-04 / C234: never reload inside active work, ONLY queue adoption for PIN
+     by setting BOTH legacy key and active KP ("f123_act_sola_pendiente") so Safari adopts on PIN. */
+  try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {}
+  try { sessionStorage.setItem("f123_act_sola_pendiente", "1"); } catch (_) {}
+  try { if (window._ocActSola && typeof window._ocActSola.intentar === "function") window._ocActSola.intentar(); } catch (_) {}
+}`,
+  "app-inline-03 _recargarSeguroVersion sets active KP and calls intentar"
+);
+
+replaceExact(
+  "src/app/app-inline-03.js",
+  `      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) { await reg.update(); if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" }); }
+      } catch (_) {}`,
+  `      try {
+        const regs = typeof navigator.serviceWorker.getRegistrations === "function"
+          ? await navigator.serviceWorker.getRegistrations()
+          : (await navigator.serviceWorker.getRegistration() ? [await navigator.serviceWorker.getRegistration()] : []);
+        for (const g of regs) {
+          if (!g) continue;
+          if (typeof g.addEventListener === "function" && !g._ocUpdateWired) {
+            g._ocUpdateWired = true;
+            g.addEventListener("updatefound", () => {
+              const sw = g.installing;
+              if (!sw) return;
+              sw.addEventListener("statechange", () => {
+                if (sw.state === "installed" && g.waiting) { try { g.waiting.postMessage({ tipo: "skip-waiting" }); } catch (_) {} }
+                if (sw.state === "activated") onShellTomado();
+              });
+            });
+          }
+          await g.update();
+          if (g.waiting) g.waiting.postMessage({ tipo: "skip-waiting" });
+          if (g.installing && !g.installing._ocStateWired) {
+            g.installing._ocStateWired = true;
+            g.installing.addEventListener("statechange", function () {
+              if (this.state === "installed" && g.waiting) { try { g.waiting.postMessage({ tipo: "skip-waiting" }); } catch (_) {} }
+              if (this.state === "activated") onShellTomado();
+            });
+          }
+        }
+      } catch (_) {}`,
+  "app-inline-03 revisar updates all registrations and listens to installing->activated"
+);
+
+// 9. docs/reenganchar.html — stronger than 15-30d ago: busts Safari max-age=600 HTTP cache for core scripts & clears crash latches
+replaceExact(
+  "docs/reenganchar.html",
+  `  async function releaseOldShell(){
+    // Verify the newest shell is reachable before retiring any offline copy.
+    const response=await deadline(fetch("./version.json?rescue="+Date.now(),{cache:"no-store"}),6000);
+    if(!response || !response.ok)throw new Error("sin red");
+    const version=await deadline(response.json(),5000);
+    if(!version || !version.shell)throw new Error("versión no comprobada");
+    if("serviceWorker" in navigator){
+      try{
+        var regs=await deadline(navigator.serviceWorker.getRegistrations(),5000);
+        for(var i=0;i<regs.length;i++){
+          if(belongs(regs[i].scope))try{await deadline(regs[i].unregister(),5000);}catch(_){}
+        }
+      }catch(_){}
+    }
+    if("caches" in window){
+      try{
+        var names=await deadline(caches.keys(),5000);
+        for(var j=0;j<names.length;j++){
+          if(/^f123-shell-v\\d+(?:-|$)/.test(names[j]))
+            try{await deadline(caches.delete(names[j]),5000);}catch(_){}
+        }
+      }catch(_){}
+    }
+  }`,
+  `  async function releaseOldShell(){
+    // 1) Verify the newest shell is reachable before retiring any offline copy (zero data deleted).
+    status.textContent="1/4 Comprobando la versión más reciente…";
+    const response=await deadline(fetch("./version.json?rescue="+Date.now(),{cache:"no-store"}),6000);
+    if(!response || !response.ok)throw new Error("sin red");
+    const version=await deadline(response.json(),5000);
+    if(!version || !version.shell)throw new Error("versión no comprobada");
+    // 2) Retire only friendly-123 Service Workers & shell caches (PRIME DIRECTIVE 1: never touch IDB/localStorage).
+    status.textContent="2/4 Retirando motor anterior…";
+    if("serviceWorker" in navigator){
+      try{
+        var regs=await deadline(navigator.serviceWorker.getRegistrations(),5000);
+        for(var i=0;i<regs.length;i++){
+          if(belongs(regs[i].scope))try{await deadline(regs[i].unregister(),5000);}catch(_){}
+        }
+      }catch(_){}
+    }
+    if("caches" in window){
+      try{
+        var names=await deadline(caches.keys(),5000);
+        for(var j=0;j<names.length;j++){
+          if(/^f123-shell-v\\d+(?:-|$)/.test(names[j]))
+            try{await deadline(caches.delete(names[j]),5000);}catch(_){}
+        }
+      }catch(_){}
+    }
+    // 3) Bypass Safari max-age=600 HTTP disk cache on core scripts before reloading ./?_purge=
+    status.textContent="3/4 Descargando archivos frescos ("+String(version.version||version.shell)+")…";
+    var coreAssets=["./","./index.html","./sw.js","./aislamiento.js","./estado-ab.min.js","./estado-idb.min.js","./mock-backend.min.js","./auth-ui.min.js","./sync-yjs.min.js","./backup-scheduler.min.js","./app-inline-01.min.js","./app-inline-03.min.js","./core/commission-history.js","./commissions-by-person.js"];
+    try{
+      var q=coreAssets.slice(),w=[];
+      for(var k=0;k<3;k++)w.push((async function(){while(q.length){var u=q.shift();try{await deadline(fetch(u,{cache:"reload"}),2200);}catch(_){}}})());
+      await deadline(Promise.allSettled(w),3600);
+    }catch(_){}
+    // 4) Clear transient boot/crash latches so re-engagement lands cleanly on the newest version.
+    try{
+      sessionStorage.removeItem("f123_boot_crash_v1");
+      sessionStorage.removeItem("f123_act_sola_pendiente");
+      sessionStorage.removeItem("f123_autorecarga");
+      sessionStorage.removeItem("f123_reload_al_entrar");
+      sessionStorage.removeItem("f123_update_frenada_desde");
+    }catch(_){}
+    status.textContent="4/4 Abriendo "+String(version.version||version.shell)+"…";
+  }`,
+  "docs/reenganchar.html 4-stage HTTP cache buster + crash latch reset"
+);
+
+// 10. src/app/app-inline-01.js — Sold (cargarVentasSold): stop mounting 200+ <option> per sale row (lazy populate on edit) & cap initial rows cleanly on huge histories
+replaceExact(
+  "src/app/app-inline-01.js",
+  `  const _esVS = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
+  const _tx = (en, es) => _esVS ? es : en;
+  cont.innerHTML = rows.map((v) => {`,
+  `  const _esVS = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
+  const _tx = (en, es) => _esVS ? es : en;
+  const _opcionCliInicial = (v) => v.clienteId
+    ? \`<option value="\${escHtml(v.clienteId)}" selected>\${escHtml(v.clienteNombre || v.clienteId)}</option>\`
+    : \`<option value="" selected>\${escHtml(t("sold.noCustomer"))}</option>\`;
+  const _poblarClientesFila = (row, v) => {
+    const sel = row && row.querySelector(".vs-cliente");
+    if (!sel || sel.dataset.ocPopulated === "1") return;
+    const prev = sel.value || (v && v.clienteId) || "";
+    sel.innerHTML = _opcionesCliente(Object.assign({}, v || {}, { clienteId: prev }));
+    sel.value = prev;
+    sel.dataset.ocPopulated = "1";
+  };
+  const _renderFilaVS = (v) => {`,
+  "app-inline-01 cargarVentasSold _renderFilaVS header"
+);
+
+replaceExact(
+  "src/app/app-inline-01.js",
+  `style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">\${_opcionesCliente(v)}</select></label>`,
+  `style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">\${_opcionCliInicial(v)}</select></label>`,
+  "app-inline-01 cargarVentasSold lazy option initial"
+);
+
+replaceExact(
+  "src/app/app-inline-01.js",
+  `  }).join("");
+  // JFC 2026-09-23: "abajo de Sold puede todas las ventas" -> resumen por producto`,
+  `  };
+  const _vsLimitInicial = 120;
+  let _vsMontadas = Math.min(rows.length, _vsLimitInicial);
+  cont.innerHTML = rows.slice(0, _vsMontadas).map(_renderFilaVS).join("") +
+    (rows.length > _vsMontadas ? \`<div id="oc-vs-more-wrap" style="margin:8px 0 12px;"><button type="button" id="oc-vs-show-more" class="tecla" style="min-height:44px;">\${_tx("Show more sales","Mostrar más ventas")} (\${rows.length - _vsMontadas})</button></div>\` : "");
+  // JFC 2026-09-23: "abajo de Sold puede todas las ventas" -> resumen por producto`,
+  "app-inline-01 cargarVentasSold bounded initial slice"
+);
+
+replaceExact(
+  "src/app/app-inline-01.js",
+  `  _aplicarFiltroVS(); // v506: la busqueda ya hecha arriba manda tambien sobre las tarjetas recien pintadas
+  cont.querySelectorAll(".oc-vs-row").forEach((row) => {`,
+  `  function _wireSoldRow(row) {
+    if (!row || row.dataset.ocRowWired === "1") return;
+    row.dataset.ocRowWired = "1";`,
+  "app-inline-01 _wireSoldRow head"
+);
+
+replaceExact(
+  "src/app/app-inline-01.js",
+  `    if (btnEdit) btnEdit.addEventListener("click", () => { editor.style.display = editor.style.display === "none" ? "block" : "none"; });`,
+  `    if (btnEdit) btnEdit.addEventListener("click", () => { _poblarClientesFila(row, rows.find(x => x.id === id)); editor.style.display = editor.style.display === "none" ? "block" : "none"; });`,
+  "app-inline-01 populate client select lazily when Sold edit opens"
+);
+
+replaceExact(
+  "src/app/app-inline-01.js",
+  `        if (typeof cargarComisiones === "function") cargarComisiones();
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+  });
+}`,
+  `        if (typeof cargarComisiones === "function") cargarComisiones();
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+  }
+  _aplicarFiltroVS();
+  cont.querySelectorAll(".oc-vs-row").forEach(_wireSoldRow);
+  const btnMoreVS = cont.querySelector("#oc-vs-show-more");
+  if (btnMoreVS) {
+    btnMoreVS.addEventListener("click", () => {
+      const next = rows.slice(_vsMontadas, _vsMontadas + 80);
+      if (!next.length) return;
+      _vsMontadas += next.length;
+      const wrap = cont.querySelector("#oc-vs-more-wrap");
+      if (wrap) wrap.insertAdjacentHTML("beforebegin", next.map(_renderFilaVS).join(""));
+      cont.querySelectorAll(".oc-vs-row").forEach(_wireSoldRow);
+      _aplicarFiltroVS();
+      if (_vsMontadas >= rows.length && wrap) wrap.remove();
+      else btnMoreVS.textContent = _tx("Show more sales","Mostrar más ventas") + " (" + (rows.length - _vsMontadas) + ")";
+    });
+  }
+}`,
+  "app-inline-01 _wireSoldRow tail and Show more sales pagination"
+);
+// 11. Seal release v0.9.06 / f123-shell-v906 / golden442 cleanly
+replaceExact(
+  "docs/sw.js",
+  `const CACHE = "f123-shell-v905";`,
+  `const CACHE = "f123-shell-v906";`,
+  "sw.js bump CACHE v906"
+);
+replaceExact(
+  "docs/sw.js",
+  `const CACHE_GENERACION = "-golden441";`,
+  `const CACHE_GENERACION = "-golden442";`,
+  "sw.js bump golden442"
+);
+replaceExact(
+  "docs/dashboard.html",
+  `<meta name="dashboard-shell" content="f123-shell-v905">
+<meta name="dashboard-release" content="v0.9.05">`,
+  `<meta name="dashboard-shell" content="f123-shell-v906">
+<meta name="dashboard-release" content="v0.9.06">`,
+  "dashboard.html meta v0.9.06"
+);
+replaceExact(
+  "docs/dashboard.html",
+  `<span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v0.9.05</span>`,
+  `<span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v0.9.06</span>`,
+  "dashboard.html header v0.9.06"
+);
+writeRel(
+  "docs/version.json",
+  JSON.stringify(
+    {
+      version: "v0.9.06",
+      fecha: "2026-11-23",
+      changelog: "v0.9.06 C234: guards anti-crasheo/reseteo Safari iOS/PWA, reenganchar con bust HTTP cache, adopcion automatica de SW/version en PIN, Sold acotado, y flecha causal + vista RAW en Commissions.",
+      requerida: false,
+      shell: "f123-shell-v906",
+      apagar: [],
+      releaseName: "v0.9.06",
+      cacheGeneration: "golden442"
+    },
+    null,
+    2
+  ) + "\n"
+);
+
+// Rebuild app entry + minified scripts + deterministic manifest inside clone
 cp.execFileSync(process.execPath, ["scripts/build-app-entry.cjs"], { cwd: targetRoot, stdio: "inherit" });
 cp.execFileSync(process.execPath, ["scripts/build-min-scripts.cjs"], { cwd: targetRoot, stdio: "inherit" });
+cp.execFileSync(process.execPath, ["scripts/gen-manifest.js"], { cwd: targetRoot, stdio: "inherit" });
 
-console.log("C234 applied & minified cleanly on:", targetRoot);
+console.log("C234 applied, minified & manifest-sealed (v0.9.06 / f123-shell-v906 / golden442) on:", targetRoot);
