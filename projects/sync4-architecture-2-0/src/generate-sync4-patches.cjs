@@ -4,6 +4,14 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { patchYPartyPiloto, patchSyncYjs } = require('./sync4-all-roles-patcher.cjs');
+const {
+  patchTeamTicketParams,
+  patchReadOnlyCatalogSession,
+  patchWsWorkerApi,
+  patchAuthUiCentralTeamPin,
+  patchSyncYjsNonBlocking,
+  patchTeamAuthorityPinOnlyVerify
+} = require('./sync4-deep-patchers.cjs');
 
 const LIVE_ROOT = process.argv[2] || 'C:/00 Projects/claude-f123/wt-multisala';
 const PATCHES_DIR = path.join(__dirname, '../patches');
@@ -11,13 +19,33 @@ fs.mkdirSync(PATCHES_DIR, { recursive: true });
 
 const JOBS = [
   { name: '01-yparty-piloto-sync4-all-roles.patch', rel: 'src/yparty-piloto.js', apply: patchYPartyPiloto },
-  { name: '02-sync-yjs-sync4-all-roles.patch', rel: 'docs/sync-yjs.js', apply: patchSyncYjs },
+  {
+    name: '02-sync-yjs-sync4-all-roles-and-nonblocking.patch',
+    rel: 'docs/sync-yjs.js',
+    apply: (src) => {
+      const s1 = patchSyncYjs(src);
+      const s2 = patchSyncYjsNonBlocking(s1.source);
+      return { changed: s1.changed || s2.changed, source: s2.source };
+    }
+  },
   { name: '03-app-inline-01-post-pin-boot.patch', rel: 'src/app/app-inline-01.js', apply: require('./post-pin-boot-guard.cjs').applyPatchToSource },
   { name: '04-business-read-model-perf.patch', rel: 'docs/core/business-read-model.js', apply: require('./business-read-model-fast.cjs').applyPatchToSource },
-  { name: '05-mock-backend-hoy-index.patch', rel: 'docs/mock-backend.js', apply: require('./mock-backend-hoy-index.cjs').applyPatchToSource }
+  { name: '05-mock-backend-hoy-index.patch', rel: 'docs/mock-backend.js', apply: require('./mock-backend-hoy-index.cjs').applyPatchToSource },
+  { name: '06-ws-team-ticket-cat-read.patch', rel: 'src/ws-team-ticket-params.mjs', apply: patchTeamTicketParams },
+  { name: '07-readonly-catalog-team-salavacia.patch', rel: 'src/port2-readonly-catalog-session.mjs', apply: patchReadOnlyCatalogSession },
+  { name: '08-ws-worker-api-default-team-grants.patch', rel: 'cloudflare-worker/ws-worker-api.mjs', apply: patchWsWorkerApi },
+  { name: '09-auth-ui-central-team-pin.patch', rel: 'docs/auth-ui.js', apply: patchAuthUiCentralTeamPin },
+  { name: '10-team-authority-pin-only-verify.patch', rel: 'cloudflare-worker/team-authority.mjs', apply: patchTeamAuthorityPinOnlyVerify }
 ];
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-sync4-patch-'));
+// Clean stale patch filenames if replaced
+for (const oldFile of fs.readdirSync(PATCHES_DIR)) {
+  if (oldFile.endsWith('.patch') && !JOBS.some(j => j.name === oldFile)) {
+    fs.unlinkSync(path.join(PATCHES_DIR, oldFile));
+  }
+}
+
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-sync4-deep-'));
 try {
   for (const job of JOBS) {
     const orig = fs.readFileSync(path.join(LIVE_ROOT, job.rel), 'utf8');

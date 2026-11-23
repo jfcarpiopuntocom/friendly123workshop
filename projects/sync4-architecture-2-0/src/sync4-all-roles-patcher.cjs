@@ -141,9 +141,19 @@ const SYNC_YJS_ELIGIBLE_REPLACEMENT = `        if (demoQa || (rolQa !== "dueno" 
 const SYNC_YJS_ACTIVATE_TARGET = `          return API.activarCorte20Runtime({ cortarComercio: true });`;
 const SYNC_YJS_ACTIVATE_REPLACEMENT = `          return API.activarCorte20Runtime({ cortarComercio: true, rol: rolQa, permitirDespachoEquipo: rolQa === "admin" || rolQa === "empleado" });`;
 
+const YPARTY_TEAM_CREDS_TARGET = `    const team = window.OCSecure?.leerPinQueAbre?.()?.team;`;
+const YPARTY_TEAM_CREDS_REPLACEMENT = `    const team = window.OCSecure?.leerPinQueAbre?.()?.team ||
+      (window.__f123CentralTeamPrincipal && window.__f123CentralTeamPrincipal.role === role
+        ? window.__f123CentralTeamPrincipal : null);`;
+
 function patchYPartyPiloto(source) {
   let out = source;
   let changed = false;
+  if (!out.includes('window.__f123CentralTeamPrincipal')) {
+    if (!out.includes(YPARTY_TEAM_CREDS_TARGET)) throw new Error('Target teamCredentials line not found in src/yparty-piloto.js');
+    out = out.replace(YPARTY_TEAM_CREDS_TARGET, YPARTY_TEAM_CREDS_REPLACEMENT);
+    changed = true;
+  }
   if (!out.includes('activeRole === \'dueno\'')) {
     if (!out.includes(YPARTY_COORDINATOR_TARGET)) throw new Error('Target crearCoordinadorCorte20 block not found in src/yparty-piloto.js');
     out = out.replace(YPARTY_COORDINATOR_TARGET, YPARTY_COORDINATOR_REPLACEMENT);

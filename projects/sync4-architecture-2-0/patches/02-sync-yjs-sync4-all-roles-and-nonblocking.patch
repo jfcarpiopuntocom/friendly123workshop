@@ -1,8 +1,8 @@
 diff --git a/docs/sync-yjs.js b/docs/sync-yjs.js
-index 6c21ad5..f50d764 100644
+index 6c21ad5..c00873f 100644
 --- a/docs/sync-yjs.js
 +++ b/docs/sync-yjs.js
-@@ -3439,7 +3439,7 @@
+@@ -3439,14 +3439,15 @@
          var authQa = typeof window !== "undefined" ? window.OCAuth : null;
          var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
          var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
@@ -11,7 +11,16 @@ index 6c21ad5..f50d764 100644
          var released = !!(API.rollout && API.rollout.yparty === true);
          // Do not sever an existing device's live relay while local Yjs
          // ancestry or the durable ops notebook is still being hydrated.
-@@ -3457,7 +3457,7 @@
++        var sync4Direct = !!(API.rollout && (API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));
+         if (released && (document.hidden || !API.idb || API.idb.synced !== true ||
+             !API.opsIdb || API.opsIdb.synced !== true ||
+             !API.doc || API.doc.isDestroyed ||
+-            (API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)))) return;
++            (!sync4Direct && API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)))) return;
+         var relay = window.OCSyncControl;
+         var licencia = API.codigoCuaderno;
+         API.__reactivandoCorte20 = Promise.resolve().then(async function () {
+@@ -3457,7 +3458,7 @@
              if (!paused || paused.ok !== true) return null;
              API.__transporteLegado20Pausado = licencia;
            }

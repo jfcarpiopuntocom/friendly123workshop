@@ -1,8 +1,19 @@
 diff --git a/src/yparty-piloto.js b/src/yparty-piloto.js
-index 058238e..d50c5d7 100644
+index 058238e..b96723d 100644
 --- a/src/yparty-piloto.js
 +++ b/src/yparty-piloto.js
-@@ -157,7 +157,8 @@ window.F123YPartyPilot = function (sala, licencia) {
+@@ -41,7 +41,9 @@ window.F123YPartyPilot = function (sala, licencia) {
+     let current;
+     try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
+     const role = window.OCAuth?.rolActual?.();
+-    const team = window.OCSecure?.leerPinQueAbre?.()?.team;
++    const team = window.OCSecure?.leerPinQueAbre?.()?.team ||
++      (window.__f123CentralTeamPrincipal && window.__f123CentralTeamPrincipal.role === role
++        ? window.__f123CentralTeamPrincipal : null);
+     if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
+         current?.instanceId !== instanceId ||
+         !['admin', 'empleado'].includes(role) ||
+@@ -157,7 +159,8 @@ window.F123YPartyPilot = function (sala, licencia) {
        const unavailable = () => new Error('certified cutover coordinator unavailable');
        const instanceId = readOwnedInstance();
        if (!instanceId || document.hidden) throw unavailable();
@@ -12,7 +23,7 @@ index 058238e..d50c5d7 100644
        if (!privateDoc || typeof expectedFrozenHead !== 'string' ||
            !/^[A-Za-z0-9_.:-]{3,128}$/.test(expectedFrozenHead) ||
            (createProvider !== undefined && typeof createProvider !== 'function')) throw unavailable();
-@@ -175,12 +176,17 @@ window.F123YPartyPilot = function (sala, licencia) {
+@@ -175,12 +178,17 @@ window.F123YPartyPilot = function (sala, licencia) {
            isVisible: () => !document.hidden,
            onModeChange,
            openCatalogSession: ({onWriterConflict}) =>
@@ -36,7 +47,7 @@ index 058238e..d50c5d7 100644
          });
        } catch (error) {
          reconciler.destroy();
-@@ -283,9 +289,11 @@ window.F123YPartyPilot = function (sala, licencia) {
+@@ -283,9 +291,11 @@ window.F123YPartyPilot = function (sala, licencia) {
        if (!instanceId || document.hidden) throw unavailable();
        const targetRoom = scope === 'fotos:read'
          ? sala + '-fotos'
@@ -51,7 +62,7 @@ index 058238e..d50c5d7 100644
        if (!targetRoom) throw unavailable();
        const fresh = createTeamTicketParams({
          licenseCode: licencia,
-@@ -300,28 +308,18 @@ window.F123YPartyPilot = function (sala, licencia) {
+@@ -300,28 +310,18 @@ window.F123YPartyPilot = function (sala, licencia) {
      // The first real browser seam for C8-C12. This is READ ONLY and requires
      // explicit caller-supplied verified historical HEAD. The default legacy
      // catalog and money paths below remain unchanged until the canary is ready.
