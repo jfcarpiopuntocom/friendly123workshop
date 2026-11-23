@@ -37,9 +37,11 @@ export class RelayPrivado extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.store = null;
+    this.doSecret = null;
     ctx.blockConcurrencyWhile(async () => {
       initRelaySchema(this.ctx.storage.sql);
       this.store = createRelayStore(this.ctx.storage);
+      this.doSecret = this.store.getOrCreateDoSecret();
     });
   }
 
@@ -47,11 +49,40 @@ export class RelayPrivado extends DurableObject {
     const url = new URL(req.url);
     const m = ROUTE_RE.exec(url.pathname);
     if (!m) return jsonReply({ ok: false, reason: 'not-found' }, 404, null);
+    const room = m[1];
     const action = m[2];
     if (!this.store.checkRate()) {
       return jsonReply({ ok: false, reason: 'rate-limited' }, 429, null, { 'retry-after': '5' });
     }
+    const authHeader = req.headers.get('authorization') || '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
     try {
+      if (action === 'session') {
+        if (req.method !== 'POST') return jsonReply({ ok: false, reason: 'method-not-allowed' }, 405, null);
+        let body = null;
+        if (req.headers.get('content-type')?.includes('application/json')) {
+          body = await readBoundedJson(req, 4096).catch(() => null);
+        }
+        const res = await exchangeTicketForSession({
+          env: this.env,
+          room,
+          licenseCode: req.headers.get('x-f123-license') || body?.credentials?.licenseCode,
+          instanceId: req.headers.get('x-f123-instance') || body?.credentials?.instanceId,
+          roleHint: req.headers.get('x-f123-role') || body?.role,
+          ticket: bearer,
+          credentials: body?.credentials || null,
+          fallbackSecret: this.doSecret
+        });
+        if (!res.ok) return jsonReply({ ok: false, reason: res.reason }, res.status, null);
+        return jsonReply({ ok: true, token: res.token, expiresAt: res.expiresAt, role: res.role }, 200, null);
+      }
+
+      const verified = await verifySessionToken(this.env, bearer, room, Date.now, this.doSecret);
+      if (!verified.ok) {
+        return jsonReply({ ok: false, reason: verified.reason }, 401, null);
+      }
+
       if (action === 'ts') {
         if (req.method !== 'GET') return jsonReply({ ok: false, reason: 'method-not-allowed' }, 405, null);
         return jsonReply({ ok: true, t1: Date.now() }, 200, null);
@@ -125,31 +156,15 @@ export default {
       });
     }
 
-    const authHeader = req.headers.get('authorization') || '';
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-
-    // 1. Exchange one-use WS_AUTHORITY ticket for a 10-min room-bound HMAC session token.
-    if (action === 'session') {
-      if (req.method !== 'POST') return jsonReply({ ok: false, reason: 'method-not-allowed' }, 405, origin);
-      const res = await exchangeTicketForSession({
-        env,
-        room,
-        licenseCode: req.headers.get('x-f123-license'),
-        instanceId: req.headers.get('x-f123-instance'),
-        roleHint: req.headers.get('x-f123-role'),
-        ticket: bearer
-      });
-      if (!res.ok) return jsonReply({ ok: false, reason: res.reason }, res.status, origin);
-      return jsonReply({ ok: true, token: res.token, expiresAt: res.expiresAt, role: res.role }, 200, origin);
+    // Fast fail-closed before waking the DO if a data route has no Bearer token at all
+    if (action !== 'session') {
+      const authHeader = req.headers.get('authorization') || '';
+      const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+      if (!bearer || !bearer.includes('.')) {
+        return jsonReply({ ok: false, reason: 'unauthorized' }, 401, origin);
+      }
     }
 
-    // 2. Every data route requires a valid, unexpired, room-bound HMAC session token.
-    const verified = await verifySessionToken(env, bearer, room);
-    if (!verified.ok) {
-      return jsonReply({ ok: false, reason: verified.reason }, 401, origin);
-    }
-
-    // 3. Deterministic per-room Durable Object stub (one SQLite DO per encrypted room).
     const stub = env.RELAY_PRIVADO.getByName(room);
     const doRes = await stub.fetch(req);
     const headers = new Headers(doRes.headers);

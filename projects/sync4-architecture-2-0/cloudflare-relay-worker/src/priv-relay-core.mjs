@@ -17,6 +17,7 @@ export const MAX_STORE_BYTES = 64 * 1024 * 1024;
 export const PAGE_BUDGET_BYTES = 1024 * 1024;
 export const MAX_PULL_LIMIT = 192;
 export const SESSION_TTL_MS = 10 * 60 * 1000;
+export const CLOCK_SKEW_MS = 60 * 1000;
 export const RATE_WINDOW_MS = 60 * 1000;
 export const RATE_LIMIT_PER_MIN = 240;
 
@@ -68,7 +69,6 @@ export async function ypartyBaseForLicense(licenseCode) {
 export function validateCipherBase64(c, maxChars) {
   if (typeof c !== 'string' || c.length < 36 || c.length > maxChars) return { ok: false, reason: 'cipher-size-invalid' };
   if (c.length % 4 !== 0 || !BASE64_RE.test(c)) return { ok: false, reason: 'cipher-not-base64' };
-  // Decode first 28 bytes minimum (12B AES-GCM IV + 16B tag); reject obvious plaintext JSON prefixes.
   let prefix;
   try {
     prefix = atob(c.slice(0, 40));
@@ -99,19 +99,19 @@ export function parseAllowedOrigins(env) {
 }
 
 export function isOriginAllowed(origin, env) {
-  if (origin === null || origin === undefined) return true; // non-browser / server calls
+  if (origin === null || origin === undefined) return true;
   return parseAllowedOrigins(env).has(origin);
 }
 
-async function importSessionKey(env) {
-  const raw = env?.RELAY_SESSION_SECRET || env?.WS_SERVICE_KEY;
+async function importSessionKey(env, fallbackSecret) {
+  const raw = env?.RELAY_SESSION_SECRET || env?.WS_SERVICE_KEY || fallbackSecret;
   if (typeof raw !== 'string' || ENC.encode(raw).length < 32) return null;
   const material = await crypto.subtle.digest('SHA-256', ENC.encode('f123-priv-relay-session-v1:' + raw));
   return crypto.subtle.importKey('raw', material, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
 
-export async function mintSessionToken(env, claims, clock = Date.now) {
-  const key = await importSessionKey(env);
+export async function mintSessionToken(env, claims, clock = Date.now, fallbackSecret = null) {
+  const key = await importSessionKey(env, fallbackSecret);
   if (!key) return null;
   const now = clock();
   const payload = {
@@ -129,9 +129,9 @@ export async function mintSessionToken(env, claims, clock = Date.now) {
   return { token: body + '.' + b64urlEncode(sig), expiresAt: payload.exp };
 }
 
-export async function verifySessionToken(env, token, expectedRoom, clock = Date.now) {
+export async function verifySessionToken(env, token, expectedRoom, clock = Date.now, fallbackSecret = null) {
   try {
-    const key = await importSessionKey(env);
+    const key = await importSessionKey(env, fallbackSecret);
     if (!key || typeof token !== 'string' || token.length > 3500) return { ok: false, reason: 'unauthorized' };
     const parts = token.split('.');
     if (parts.length !== 2) return { ok: false, reason: 'unauthorized' };
@@ -142,10 +142,11 @@ export async function verifySessionToken(env, token, expectedRoom, clock = Date.
     if (!valid) return { ok: false, reason: 'unauthorized' };
     const p = JSON.parse(DEC.decode(bodyBytes));
     const now = clock();
+    // G03: allow ±60s clock skew tolerance on iat across isolates
     if (!p || p.v !== 1 || p.room !== expectedRoom || !ALLOWED_ROLES.has(p.role) ||
         !LICENSE_RE.test(p.lic || '') || !INSTANCE_RE.test(p.inst || '') ||
         !Number.isSafeInteger(p.iat) || !Number.isSafeInteger(p.exp) ||
-        now < p.iat || now >= p.exp) {
+        now + CLOCK_SKEW_MS < p.iat || now >= p.exp) {
       return { ok: false, reason: 'session-expired-or-mismatch' };
     }
     return { ok: true, principal: Object.freeze(p) };
@@ -154,62 +155,138 @@ export async function verifySessionToken(env, token, expectedRoom, clock = Date.
   }
 }
 
-export async function exchangeTicketForSession({ env, room, licenseCode, instanceId, ticket, roleHint, clock = Date.now }) {
+export async function exchangeTicketForSession({
+  env,
+  room,
+  licenseCode,
+  instanceId,
+  ticket,
+  credentials,
+  roleHint,
+  clock = Date.now,
+  fallbackSecret = null
+}) {
   const m = ROOM_RE.exec(String(room || ''));
   if (!m) return { ok: false, status: 400, reason: 'invalid-room' };
   const lic = String(licenseCode || '').trim().toUpperCase();
   const inst = String(instanceId || '').trim();
   const role = String(roleHint || 'dueno').trim().toLowerCase();
-  if (!LICENSE_RE.test(lic) || !INSTANCE_RE.test(inst) || !ALLOWED_ROLES.has(role) || typeof ticket !== 'string' || !ticket) {
+  if (!LICENSE_RE.test(lic) || !INSTANCE_RE.test(inst) || !ALLOWED_ROLES.has(role)) {
+    return { ok: false, status: 400, reason: 'invalid-credentials' };
+  }
+  if ((typeof ticket !== 'string' || !ticket) && (!credentials || typeof credentials !== 'object')) {
     return { ok: false, status: 400, reason: 'invalid-credentials' };
   }
   const expected40 = await legacyRoomHexForLicense(lic);
   if (m[1] !== expected40) {
     return { ok: false, status: 403, reason: 'room-license-mismatch' };
   }
-  if (!env?.WS_AUTHORITY?.fetch || typeof env?.WS_SERVICE_KEY !== 'string' || ENC.encode(env.WS_SERVICE_KEY).length < 32) {
+  if (!env?.WS_AUTHORITY?.fetch) {
     return { ok: false, status: 503, reason: 'authority-unavailable' };
   }
   const authSpec = AUTH_CHANNELS[role];
   const ypartyBase = await ypartyBaseForLicense(lic);
-  const consumeReq = {
-    token: ticket,
-    licenseCode: lic,
-    instanceId: inst,
-    room: ypartyBase + authSpec.suffix,
-    requiredScope: authSpec.scope
-  };
-  let authRes;
-  try {
-    authRes = await env.WS_AUTHORITY.fetch('https://authority.invalid/ws/consume', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'authorization': 'Bearer ' + env.WS_SERVICE_KEY
-      },
-      body: JSON.stringify(consumeReq)
-    });
-  } catch (_) {
+  const hasServiceKey = typeof env?.WS_SERVICE_KEY === 'string' && ENC.encode(env.WS_SERVICE_KEY).length >= 32;
+
+  let verifiedRole = role;
+  let verifiedRevision = 1;
+
+  if (hasServiceKey && typeof ticket === 'string' && ticket) {
+    // Path A: Consume one-use ticket via /ws/consume when WS_SERVICE_KEY is configured
+    const consumeReq = {
+      token: ticket,
+      licenseCode: lic,
+      instanceId: inst,
+      room: ypartyBase + authSpec.suffix,
+      requiredScope: authSpec.scope
+    };
+    let authRes;
+    try {
+      authRes = await env.WS_AUTHORITY.fetch('https://authority.invalid/ws/consume', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'authorization': 'Bearer ' + env.WS_SERVICE_KEY
+        },
+        body: JSON.stringify(consumeReq)
+      });
+    } catch (_) {
+      return { ok: false, status: 503, reason: 'authority-unavailable' };
+    }
+    const authBody = await authRes.json().catch(() => null);
+    if (!authRes.ok || !authBody || authBody.ok !== true || !authBody.principal) {
+      const status = authRes.status === 429 ? 429 : authRes.status === 503 ? 503 : 403;
+      return { ok: false, status, reason: authBody?.reason || 'ticket-rejected' };
+    }
+    const p = authBody.principal;
+    if (p.license !== lic || p.instance !== inst || p.role !== role) {
+      return { ok: false, status: 403, reason: 'principal-mismatch' };
+    }
+    verifiedRole = p.role;
+    verifiedRevision = p.roleRevision || 1;
+  } else if (credentials && typeof credentials === 'object') {
+    // Path B: Direct Service-Binding verification via /ws/ticket (or /pin/verify fallback for non-pilot stores)
+    // Requires ZERO WS_SERVICE_KEY secret on friendly123-relay-privado!
+    let issueRes;
+    try {
+      issueRes = await env.WS_AUTHORITY.fetch('https://authority.invalid/ws/ticket', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({
+          credentials,
+          room: ypartyBase + authSpec.suffix,
+          scopes: [authSpec.scope]
+        })
+      });
+    } catch (_) {
+      return { ok: false, status: 503, reason: 'authority-unavailable' };
+    }
+    const issueBody = await issueRes.json().catch(() => null);
+    if (issueRes.ok && issueBody && issueBody.ok === true && typeof issueBody.token === 'string') {
+      try {
+        const claims = JSON.parse(DEC.decode(b64urlDecode(issueBody.token.split('.')[0])));
+        if (claims.license !== lic || claims.instance !== inst || claims.role !== role) {
+          return { ok: false, status: 403, reason: 'principal-mismatch' };
+        }
+        verifiedRole = claims.role;
+        verifiedRevision = claims.roleRevision || 1;
+      } catch (_) {}
+    } else if (issueRes.status === 404 && role === 'dueno' && typeof credentials.pin === 'string') {
+      // Non-pilot client store not yet in TEAM_AUTHORITY_LICENSES: verify central Owner PIN via /pin/verify
+      let pinRes;
+      try {
+        pinRes = await env.WS_AUTHORITY.fetch('https://authority.invalid/pin/verify', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json; charset=utf-8' },
+          body: JSON.stringify({ licenseCode: lic, instanceId: inst, pin: credentials.pin })
+        });
+      } catch (_) {
+        return { ok: false, status: 503, reason: 'authority-unavailable' };
+      }
+      const pinBody = await pinRes.json().catch(() => null);
+      if (!pinRes.ok || !pinBody || pinBody.ok !== true) {
+        const status = pinRes.status === 429 ? 429 : 403;
+        return { ok: false, status, reason: pinBody?.reason || 'pin-not-verified' };
+      }
+      verifiedRole = 'dueno';
+      verifiedRevision = Number(pinBody.revision) || 1;
+    } else {
+      const status = issueRes.status === 429 ? 429 : issueRes.status === 503 ? 503 : 403;
+      return { ok: false, status, reason: issueBody?.reason || 'ticket-rejected' };
+    }
+  } else {
     return { ok: false, status: 503, reason: 'authority-unavailable' };
   }
-  const authBody = await authRes.json().catch(() => null);
-  if (!authRes.ok || !authBody || authBody.ok !== true || !authBody.principal) {
-    const status = authRes.status === 429 ? 429 : authRes.status === 503 ? 503 : 403;
-    return { ok: false, status, reason: authBody?.reason || 'ticket-rejected' };
-  }
-  const p = authBody.principal;
-  if (p.license !== lic || p.instance !== inst || p.role !== role) {
-    return { ok: false, status: 403, reason: 'principal-mismatch' };
-  }
+
   const minted = await mintSessionToken(env, {
     room,
     licenseCode: lic,
     instanceId: inst,
-    role: p.role,
-    roleRevision: p.roleRevision
-  }, clock);
+    role: verifiedRole,
+    roleRevision: verifiedRevision
+  }, clock, fallbackSecret);
   if (!minted) return { ok: false, status: 503, reason: 'session-key-unavailable' };
-  return { ok: true, status: 200, token: minted.token, expiresAt: minted.expiresAt, role: p.role };
+  return { ok: true, status: 200, token: minted.token, expiresAt: minted.expiresAt, role: verifiedRole };
 }
 
 export function initRelaySchema(sql) {
@@ -249,6 +326,15 @@ export function createRelayStore(storage, clock = Date.now) {
     throw new TypeError('Durable Object SQLite storage is required');
   }
   let rateWindow = { start: 0, count: 0 };
+
+  function getOrCreateDoSecret() {
+    const row = sql.exec("SELECT v FROM relay_meta WHERE k = 'session_secret'").toArray()[0];
+    if (row && typeof row.v === 'string' && row.v.length >= 64) return row.v;
+    const secret = toHex(crypto.getRandomValues(new Uint8Array(32)));
+    sql.exec("INSERT INTO relay_meta(k,v) VALUES ('session_secret',?) ON CONFLICT(k) DO NOTHING", secret);
+    const saved = sql.exec("SELECT v FROM relay_meta WHERE k = 'session_secret'").toArray()[0];
+    return saved ? saved.v : secret;
+  }
 
   function checkRate() {
     const now = clock();
@@ -294,6 +380,7 @@ export function createRelayStore(storage, clock = Date.now) {
 
   return Object.freeze({
     checkRate,
+    getOrCreateDoSecret,
     head() {
       return readHeadSync();
     },
@@ -360,8 +447,16 @@ export function createRelayStore(storage, clock = Date.now) {
             nextRev, n, c.slice(n * CKPT_BLOCK_CHARS, (n + 1) * CKPT_BLOCK_CHARS)
           );
         }
+        // G02: Automatic N-2 checkpoint pruning so 5-year stores never hit 64 MiB ceiling
+        if (nextRev >= 3) {
+          const cutRev = nextRev - 2;
+          sql.exec('DELETE FROM relay_ckpt_blocks WHERE rev <= ?', cutRev);
+          sql.exec('DELETE FROM relay_ckpt_meta WHERE rev <= ?', cutRev);
+        }
+        const opBytes = Number(sql.exec('SELECT COALESCE(SUM(bytes),0) AS b FROM relay_ops').toArray()[0]?.b) || 0;
+        const ckBytes = Number(sql.exec('SELECT COALESCE(SUM(bytes),0) AS b FROM relay_ckpt_meta').toArray()[0]?.b) || 0;
         setIntMeta('rev', nextRev);
-        setIntMeta('total_bytes', total + check.bytes);
+        setIntMeta('total_bytes', opBytes + ckBytes);
         result = { ok: true, status: 201, conflict: false, rev: nextRev };
       });
       if (result.ok && typeof storage.sync === 'function') {

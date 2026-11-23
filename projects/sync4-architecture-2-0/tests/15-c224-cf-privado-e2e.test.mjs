@@ -198,17 +198,20 @@ test('C224 E2E cold device: Owner uploads chunked encrypted money/sales/commissi
     assert.ok(m, 'unexpected URL ' + url);
     const [, reqRoom, action] = m;
     if (action === 'session') {
+      const body = init.body ? JSON.parse(init.body) : null;
       const res = await exchangeTicketForSession({
         env: { ...env, WS_AUTHORITY: activeAuth.current.WS_AUTHORITY },
         room: reqRoom,
         licenseCode: headers.get('x-f123-license'),
         instanceId: headers.get('x-f123-instance'),
         roleHint: headers.get('x-f123-role'),
-        ticket: bearer
+        ticket: bearer,
+        credentials: body?.credentials || null,
+        fallbackSecret: store.getOrCreateDoSecret()
       });
       return new Response(JSON.stringify(res), { status: res.status });
     }
-    const ver = await verifySessionToken(env, bearer, reqRoom);
+    const ver = await verifySessionToken(env, bearer, reqRoom, Date.now, store.getOrCreateDoSecret());
     if (!ver.ok) return new Response(JSON.stringify({ ok: false, reason: ver.reason }), { status: 401 });
     if (action === 'head') return new Response(JSON.stringify({ ok: true, v: 2, ...store.head() }), { status: 200 });
     if (action === 'ts') return new Response(JSON.stringify({ ok: true, t1: Date.now() }), { status: 200 });

@@ -148,7 +148,9 @@
           })
         });
         var ticketBody = await ticketRes.json().catch(function () { return null; });
-        if (!ticketRes.ok || !ticketBody || ticketBody.ok !== true || typeof ticketBody.token !== "string") {
+        var ticketToken = (ticketRes.ok && ticketBody && ticketBody.ok === true && typeof ticketBody.token === "string")
+          ? ticketBody.token : "";
+        if (!ticketToken && ticketRes.status !== 404) {
           var tErr = new Error("Ticket rejected");
           tErr.status = ticketRes.status || 403;
           throw tErr;
@@ -158,11 +160,13 @@
           mode: "cors",
           cache: "no-store",
           headers: {
-            "authorization": "Bearer " + ticketBody.token,
+            "authorization": ticketToken ? ("Bearer " + ticketToken) : "",
+            "content-type": "application/json",
             "x-f123-license": cred.licenseCode,
             "x-f123-instance": cred.instanceId,
             "x-f123-role": cred.role
-          }
+          },
+          body: JSON.stringify({ credentials: cred.credentials, role: cred.role })
         });
         var sessBody = await sessRes.json().catch(function () { return null; });
         if (!sessRes.ok || !sessBody || sessBody.ok !== true || typeof sessBody.token !== "string") {
