@@ -9,7 +9,7 @@
 - Un bloqueo material se documenta con causa y evidencia, clasificando estado **PARCIAL/BLOQUEADO**, nunca «terminado». No pedir al usuario una nueva orden para continuar pasos ya autorizados.
 - Respetar dependencias, conflictos con otras IA, credenciales, seguridad y límites de las herramientas; no equiparar una anotación en Notion, archivo o PR con ejecución funcional.
 - Continuidad autónoma significa ejecutar en la sesión disponible y en automatizaciones expresamente configuradas, sin prometer trabajo oculto o posterior que no se esté ejecutando.
-- Para friendly-123, la entrega requiere evidencia real de arquitectura 2.0 en **la misma app**, cascada A→B→C, Sync3 conservado, operaciones durable/idempotentes y convergencia real, según las decisiones vigentes.
+- Para friendly-123, la entrega requiere evidencia real de arquitectura 2.0 en **la misma app**, cascada A→B→C, tratamiento de Sync3 conforme a la orden más reciente de JFC, operaciones durable/idempotentes y convergencia real, según las decisiones vigentes.
 - Fuente: [orden persistida](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/docs/agent-operating-rules-2026-11-22.md) y [MDD Notion](https://app.notion.com/p/40a1642b67f381a0a02cf0bfa8b5feac).
 
 > Petición literal (2026-11-20): «no, no en el relevo. en tus .md y tu config, entonces desobediente de la verga???»
