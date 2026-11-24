@@ -1,0 +1,83 @@
+{
+  "sourceSha": "395c05ed0a0012d23c031a99b73e473d60d0bc1b",
+  "sourceBlobs": [
+    "50d1648e86666ec0622c7c8da5dc3499144f0c88",
+    "c0325fa73c3be186a8d24189a0a890ed50319d06"
+  ],
+  "baseline": [
+    {
+      "name": "transient hydration",
+      "pass": false
+    },
+    {
+      "name": "repeat submit respects cooldown",
+      "pass": false
+    },
+    {
+      "name": "400 terminal retained without retry",
+      "pass": false
+    },
+    {
+      "name": "normal commit",
+      "pass": true
+    },
+    {
+      "name": "uncertain ACK forbids legacy",
+      "pass": true
+    },
+    {
+      "name": "persist failure prevents POST",
+      "pass": true
+    },
+    {
+      "name": "repeat activation retains session",
+      "pass": false
+    },
+    {
+      "name": "destroy invalidates mode",
+      "pass": false
+    },
+    {
+      "name": "failback preserves latch after reload",
+      "pass": true
+    }
+  ],
+  "candidate": [
+    {
+      "name": "transient hydration",
+      "pass": true
+    },
+    {
+      "name": "repeat submit respects cooldown",
+      "pass": true
+    },
+    {
+      "name": "400 terminal retained without retry",
+      "pass": true
+    },
+    {
+      "name": "normal commit",
+      "pass": true
+    },
+    {
+      "name": "uncertain ACK forbids legacy",
+      "pass": true
+    },
+    {
+      "name": "persist failure prevents POST",
+      "pass": true
+    },
+    {
+      "name": "repeat activation retains session",
+      "pass": true
+    },
+    {
+      "name": "destroy invalidates mode",
+      "pass": true
+    },
+    {
+      "name": "failback preserves latch after reload",
+      "pass": true
+    }
+  ]
+}
