@@ -1,0 +1,211 @@
+{
+  "baseline": 2,
+  "candidate": 7,
+  "total": 7,
+  "results": [
+    {
+      "case": "settled",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": []
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": []
+      }
+    },
+    {
+      "case": "settled",
+      "reverse": true,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-second",
+          "sale-first",
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-second",
+          "sale-first",
+          "sale-first"
+        ],
+        "remaining": []
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-second",
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-second",
+          "sale-first"
+        ],
+        "remaining": []
+      }
+    },
+    {
+      "case": "inflight",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": []
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": []
+      }
+    },
+    {
+      "case": "quarantine",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": []
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [
+          "sale-second"
+        ]
+      }
+    },
+    {
+      "case": "replacement",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": []
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [
+          "sale-second"
+        ]
+      }
+    },
+    {
+      "case": "serial",
+      "reverse": false,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ]
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ]
+      }
+    },
+    {
+      "case": "hidden",
+      "reverse": false,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-first"
+        ]
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-first"
+        ]
+      }
+    }
+  ],
+  "sourceMatch": true,
+  "scope": "exact reconcileNow fragment with deterministic async fixture; not full module or IDB"
+}
