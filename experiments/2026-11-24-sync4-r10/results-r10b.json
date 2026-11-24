@@ -1,0 +1,318 @@
+{
+  "baseline": 2,
+  "candidate": 10,
+  "total": 10,
+  "results": [
+    {
+      "case": "settled",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      }
+    },
+    {
+      "case": "settled",
+      "reverse": true,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-second",
+          "sale-first",
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-second",
+          "sale-first",
+          "sale-first"
+        ],
+        "remaining": [],
+        "scheduled": false
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-second",
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-second",
+          "sale-first"
+        ],
+        "remaining": [],
+        "scheduled": false
+      }
+    },
+    {
+      "case": "inflight",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      }
+    },
+    {
+      "case": "quarantine",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [
+          "sale-second"
+        ],
+        "scheduled": false
+      }
+    },
+    {
+      "case": "replacement",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [
+          "sale-second"
+        ],
+        "scheduled": false
+      }
+    },
+    {
+      "case": "pending",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [
+          "sale-second"
+        ],
+        "scheduled": true
+      }
+    },
+    {
+      "case": "external",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ],
+        "remaining": [],
+        "scheduled": false
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first"
+        ],
+        "remaining": [],
+        "scheduled": false
+      }
+    },
+    {
+      "case": "retry-later",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ]
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second",
+          "sale-second"
+        ]
+      }
+    },
+    {
+      "case": "serial",
+      "reverse": false,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ]
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first",
+          "sale-second"
+        ],
+        "cleared": [
+          "sale-first",
+          "sale-second"
+        ]
+      }
+    },
+    {
+      "case": "hidden",
+      "reverse": false,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-first"
+        ]
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first"
+        ],
+        "cleared": [
+          "sale-first"
+        ]
+      }
+    }
+  ],
+  "sourceMatch": [
+    "trackFlight",
+    "reconcileNow"
+  ],
+  "scope": "exact fragments from kit and v0.9.24 with deterministic async fixture; not native IDB or full module"
+}
