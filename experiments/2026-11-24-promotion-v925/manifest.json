@@ -1,0 +1,46 @@
+{
+  "productBase": "58a9d3f46384f2db0839e722cd429a9a07572788",
+  "policy": "workshop only; review and production release separate; 03 requires 01; no production edit",
+  "patches": [
+    {
+      "stage": "01-r10b",
+      "target": "src/port2-typed-ops-reconciler.mjs",
+      "before": "experiments/2026-11-24-sync4-r11/product-baseline-reconciler.mjs",
+      "after": "experiments/2026-11-24-sync4-r11/product-candidate-reconciler.mjs",
+      "baseBlob": "0dc130b18e9fd15a63577aab20bf50307b6c7be8",
+      "candidateBlob": "9c194973e3c78ab4a73dd585c1b45f3fce6571d5",
+      "added": 7,
+      "removed": 2
+    },
+    {
+      "stage": "02-r11",
+      "target": "src/port2-cross-device-failback.mjs",
+      "before": "experiments/2026-11-24-sync4-r11/baseline.mjs",
+      "after": "experiments/2026-11-24-sync4-r11/candidate.mjs",
+      "baseBlob": "f623f98fe91bc3e45d8952d5d03d94a7d96ed0ae",
+      "candidateBlob": "5e6125228b672200ea6128501b1d7c3c9722ad70",
+      "added": 16,
+      "removed": 4
+    },
+    {
+      "stage": "03-r12",
+      "target": "src/port2-typed-ops-idb-store.mjs",
+      "before": "experiments/2026-11-24-sync4-r11/port2-typed-ops-idb-store.mjs",
+      "after": "experiments/2026-11-24-sync4-r12/store-candidate.mjs",
+      "baseBlob": "a4d385fe6423c446c681605f20a586e4b4990283",
+      "candidateBlob": "5703a4cadc7c584f91a3e94bab4bfd90680cd211",
+      "added": 7,
+      "removed": 0
+    },
+    {
+      "stage": "03-r12",
+      "target": "src/port2-typed-ops-reconciler.mjs",
+      "before": "experiments/2026-11-24-sync4-r11/product-candidate-reconciler.mjs",
+      "after": "experiments/2026-11-24-sync4-r12/reconciler-candidate.mjs",
+      "baseBlob": "9c194973e3c78ab4a73dd585c1b45f3fce6571d5",
+      "candidateBlob": "4fff91f713818c2983828b542886cc96b2b0ae90",
+      "added": 22,
+      "removed": 9
+    }
+  ]
+}
