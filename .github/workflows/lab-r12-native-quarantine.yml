@@ -1,0 +1,22 @@
+name: Lab R12 native quarantine
+on:
+  push:
+    branches: [lab/r10-reconcile-stale-candidates-20261124]
+    paths:
+      - '.github/workflows/lab-r12-native-quarantine.yml'
+      - 'experiments/2026-11-24-sync4-r12/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node experiments/2026-11-24-sync4-r12/run-native.mjs
