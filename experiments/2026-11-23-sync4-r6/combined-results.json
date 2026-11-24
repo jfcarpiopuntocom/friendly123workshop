@@ -1,0 +1,140 @@
+{
+  "r5OnCombined": [
+    {
+      "name": "transient hydration",
+      "pass": true
+    },
+    {
+      "name": "repeat submit respects cooldown",
+      "pass": true
+    },
+    {
+      "name": "400 terminal retained without retry",
+      "pass": true
+    },
+    {
+      "name": "normal commit",
+      "pass": true
+    },
+    {
+      "name": "uncertain ACK forbids legacy",
+      "pass": true
+    },
+    {
+      "name": "persist failure prevents POST",
+      "pass": true
+    },
+    {
+      "name": "repeat activation retains session",
+      "pass": true
+    },
+    {
+      "name": "destroy invalidates mode",
+      "pass": true
+    },
+    {
+      "name": "failback preserves latch after reload",
+      "pass": true
+    }
+  ],
+  "r6OnCombined": [
+    {
+      "name": "cleanup retry local only, one settlement",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "posts": 1,
+        "cleanup": 2,
+        "scheduled": 1,
+        "events": 1,
+        "pending": 0
+      }
+    },
+    {
+      "name": "cleanup crash: durable same-DO intent survives and replay same opId",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "ids": [
+          "synthetic-op-001",
+          "synthetic-op-001"
+        ],
+        "durable": true
+      }
+    },
+    {
+      "name": "destroy during persistence prevents POST; durable intent survives",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "posts": 0,
+        "pending": 1,
+        "stage": "paused-hidden"
+      }
+    },
+    {
+      "name": "destroy terminal: resume and fresh submit cannot POST",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "posts": 0,
+        "stage": "reconciler-destroyed"
+      }
+    },
+    {
+      "name": "hidden initial submit durable but no POST, resume works",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "before": 0,
+        "durable": 1,
+        "posts": 1
+      }
+    },
+    {
+      "name": "pause during persistence reversible",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "before": 0,
+        "posts": 1
+      }
+    },
+    {
+      "name": "attempt counter never exceeds durable schema after 12 explicit drains",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "ram": 10,
+        "durable": 10,
+        "stage": "paused-retry-exhausted"
+      }
+    },
+    {
+      "name": "normal commit",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "business-committed"
+      }
+    },
+    {
+      "name": "pre-send fallback retires intent",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "auth-denied"
+      }
+    },
+    {
+      "name": "ambiguous ACK same-DO only",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "commit-unverified"
+      }
+    }
+  ],
+  "baseSha": "395c05ed0a0012d23c031a99b73e473d60d0bc1b",
+  "note": "Combined component fixtures only. R6 saturates persisted count but explicit repeated reconcileNow still POSTs; event throttle/cooldown and actual IDB/store coupling still need product integration. No duplicate effect simulated."
+}
