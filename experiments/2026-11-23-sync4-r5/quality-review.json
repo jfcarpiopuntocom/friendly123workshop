@@ -1,0 +1,87 @@
+{
+  "asOf": "2026-11-23",
+  "sourceSha": "395c05ed0a0012d23c031a99b73e473d60d0bc1b",
+  "previous": 84,
+  "score": 84.1,
+  "delta": 0.1,
+  "assessment": "Independent provisional engineering re-audit; same seven original weights. Historical JSON does not prescribe deductions, so use its smallest prior unit 0.1 per independently evidenced root-cause group, symmetrically, as a conservative reviewer estimate. Not a new acceptance rubric. Production official JSON still records C178 84.0; this is updated workshop/Notion review of v0.9.23.",
+  "dimensions": [
+    {
+      "id": "business",
+      "weight": 20,
+      "previous": 20,
+      "score": 19.9,
+      "delta": -0.1,
+      "evidence": [
+        "R2/R3 opId divergence on historical/non-typed sale, incomplete payment authority and execution; grouped contract gap"
+      ]
+    },
+    {
+      "id": "durability",
+      "weight": 20,
+      "previous": 20,
+      "score": 19.9,
+      "delta": -0.1,
+      "evidence": [
+        "R4 native Chromium/WebKit two IDB connections show pending+terminal for one opId. C242 watchdog positive evidence retained; original cap 20."
+      ]
+    },
+    {
+      "id": "sync",
+      "weight": 20,
+      "previous": 16.3,
+      "score": 16.5,
+      "delta": 0.2,
+      "evidence": [
+        "C225 #1079 private encrypted history route +0.1; user confirmed previous sales returned, PR head 49/67 successful, unresolved adjacent red retained",
+        "C236 #1089 exponential network backoff +0.1; 29/30 returned workflows green",
+        "C246–250 #1093/#1101 provider-bound cursor +0.1 once, not twice; 88/91 returned workflows green",
+        "C244 #1094 slow recovery protection +0.1; 67/68 workflows success",
+        "R3/R5 retry budget and recovery -0.1 grouped",
+        "R2/R5 failback scope and lifecycle -0.1 grouped"
+      ]
+    },
+    {
+      "id": "security",
+      "weight": 15,
+      "previous": 11.3,
+      "score": 11.4,
+      "delta": 0.1,
+      "evidence": [
+        "C193 #1033 exact Pages/Workers allowlist, Workerd workflow 44993237539 success, effective C232 bundle confirmed"
+      ]
+    },
+    {
+      "id": "photos",
+      "weight": 10,
+      "previous": 8.1,
+      "score": 8.1,
+      "delta": 0
+    },
+    {
+      "id": "migration",
+      "weight": 10,
+      "previous": 8.3,
+      "score": 8.3,
+      "delta": 0
+    },
+    {
+      "id": "physical",
+      "weight": 5,
+      "previous": 0,
+      "score": 0,
+      "delta": 0
+    }
+  ],
+  "portImplementation": 100,
+  "commercialGo": "0/6",
+  "physical": "0/5",
+  "lab": {
+    "branch": "lab/ponytail-sync4-r5-20261123",
+    "baselinePassed": 4,
+    "candidatePassed": 9,
+    "total": 9,
+    "scoreCreditToProduct": 0,
+    "results": "experiments/2026-11-23-sync4-r5/results.json"
+  }
+}
