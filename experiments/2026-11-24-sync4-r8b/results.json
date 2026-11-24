@@ -1,0 +1,194 @@
+{
+  "kit": "b63265991ab149d8ad48caec881c99c4d159d595",
+  "blobs": [
+    "4325b271f81ee5eefefe16b500c990fc0c19f87f",
+    "5a878dcf32e1d7912586268ae75fb752c3b7d347",
+    "fd0d6d5e2182f5d117f2c4f025da7195a4774e77",
+    "ac56c872c2b5ef4c377f03b88a61adf073fc4b55",
+    "c94f7e42786f3b2abeaf754066cfa809c859f02f"
+  ],
+  "baseline": [
+    {
+      "name": "cash",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": true,
+      "typedPayloadId": "sale-original-001",
+      "legacyPayloadId": null
+    },
+    {
+      "name": "historical",
+      "pass": false,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "fiado",
+      "pass": false,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "partial",
+      "pass": false,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "transfer",
+      "pass": false,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "discount",
+      "pass": false,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "courtesy",
+      "pass": false,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "colon",
+      "pass": true,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "malformed",
+      "pass": true,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "non-sale cannot inject legacyOpId",
+      "pass": true,
+      "id": "generated-id-001"
+    },
+    {
+      "name": "C36 source guard tokens remain",
+      "pass": true
+    }
+  ],
+  "candidate": [
+    {
+      "name": "cash",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": true,
+      "typedPayloadId": "sale-original-001",
+      "legacyPayloadId": null
+    },
+    {
+      "name": "historical",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": "sale-original-001"
+    },
+    {
+      "name": "fiado",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": "sale-original-001"
+    },
+    {
+      "name": "partial",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": "sale-original-001"
+    },
+    {
+      "name": "transfer",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": "sale-original-001"
+    },
+    {
+      "name": "discount",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": "sale-original-001"
+    },
+    {
+      "name": "courtesy",
+      "pass": true,
+      "id": "sale-original-001",
+      "generated": 0,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": "sale-original-001"
+    },
+    {
+      "name": "colon",
+      "pass": true,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "malformed",
+      "pass": true,
+      "id": "generated-id-001",
+      "generated": 1,
+      "typed": false,
+      "typedPayloadId": null,
+      "legacyPayloadId": null
+    },
+    {
+      "name": "non-sale cannot inject legacyOpId",
+      "pass": true,
+      "id": "generated-id-001"
+    },
+    {
+      "name": "C36 source guard tokens remain",
+      "pass": true
+    }
+  ]
+}
