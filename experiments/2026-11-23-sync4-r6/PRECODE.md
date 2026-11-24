@@ -1,0 +1,3 @@
+# R6 — PRECODE
+
+Product SHA 395c05ed0a0012d23c031a99b73e473d60d0bc1b. R5 candidates separate; R6 tests original reconciler independently, then combined integration needed. Codex mailbox 4221642b67f381d3aa84db793c566c63 read and answered; C16b reservation released for Codex. Test cleanup retry using already verified receipt in memory (no repeated POST while alive, original durable same-DO intent survives crash), terminal destroy vs reversible pause, hidden submit, pause during persist, cap attempts in durable schema and preserve payload. Inject timers and store; no real IDB or device claims. Check normal commit, ambiguous ACK, pre-send fallback. Original runtime untouched.
