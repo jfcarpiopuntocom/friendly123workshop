@@ -1,0 +1,187 @@
+diff --git a/src/port2-typed-ops-idb-store.mjs b/src/port2-typed-ops-idb-store.mjs
+index 9f652bf9..26afd52c 100644
+--- a/src/port2-typed-ops-idb-store.mjs
++++ b/src/port2-typed-ops-idb-store.mjs
+@@ -217,81 +217,39 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
+       const clean = validateEntry(entry);
+       const key = storageKey(clean.opId);
+       const nextCanonical = canonicalPayload(clean.command);
+-      try {
+-        await transact('readwrite', (objectStore, done, fail, tx) => {
+-          const settledStore = tx.objectStore(SETTLED);
+-          const settledReq = settledStore.get(key);
+-          settledReq.onsuccess = () => {
+-            const settled = settledReq.result;
+-            if (settled && (settled.namespace === namespace || settled.key === key)) {
+-              if (Object.keys(settled).sort().join(',') !== 'key,namespace,opId' ||
+-                  settled.namespace !== namespace || settled.opId !== clean.opId || settled.key !== key) {
+-                fail(new Error('Corrupt own-business committed opId tombstone'));
+-                return;
+-              }
+-              const err = new Error('Persisted opId already committed');
+-              err.code = 'TYPED_OPS_ALREADY_SETTLED';
+-              fail(err);
+-              return;
+-            }
+-            const getReq = objectStore.get(key);
+-            getReq.onsuccess = () => {
+-              const existing = getReq.result;
+-              if (existing?.value) {
+-                if (canonicalPayload(existing.value.command) !== nextCanonical) {
+-                  fail(new Error('Persisted opId command payload mismatch'));
+-                  return;
+-                }
+-              }
+-              const putReq = objectStore.put({ key, namespace, value: clean });
+-              putReq.onsuccess = () => done(true);
+-              putReq.onerror = () => fail(putReq.error || new Error('Typed-ops IndexedDB save failed'));
+-            };
+-            getReq.onerror = () => fail(getReq.error || new Error('Typed-ops IndexedDB read before save failed'));
+-          };
+-          settledReq.onerror = () => fail(settledReq.error || new Error('Committed opId check before save failed'));
+-        }, [STORE, SETTLED]);
+-      } catch (err) {
+-        if (!err || err.name !== 'TypeError') throw err;
+-        // Minimal string-only IDB test harnesses reject multi-store array tx with TypeError;
+-        // real IndexedDB and fake-indexeddb execute the atomic multi-store transaction above.
+-        const alreadySettled = await transact('readonly', (settledStore, done, fail) => {
+-          const settledReq = settledStore.get(key);
+-          settledReq.onsuccess = () => {
+-            const settled = settledReq.result;
+-            if (!settled || (settled.namespace !== namespace && settled.key !== key)) {
+-              done(false);
+-              return;
+-            }
++      await transact('readwrite', (objectStore, done, fail, tx) => {
++        const settledStore = tx.objectStore(SETTLED);
++        const settledReq = settledStore.get(key);
++        settledReq.onsuccess = () => {
++          const settled = settledReq.result;
++          if (settled && (settled.namespace === namespace || settled.key === key)) {
+             if (Object.keys(settled).sort().join(',') !== 'key,namespace,opId' ||
+                 settled.namespace !== namespace || settled.opId !== clean.opId || settled.key !== key) {
+               fail(new Error('Corrupt own-business committed opId tombstone'));
+               return;
+             }
+-            done(true);
+-          };
+-          settledReq.onerror = () => fail(settledReq.error || new Error('Committed opId check before save failed'));
+-        }, [SETTLED]);
+-        if (alreadySettled) {
+-          const settledErr = new Error('Persisted opId already committed');
+-          settledErr.code = 'TYPED_OPS_ALREADY_SETTLED';
+-          throw settledErr;
+-        }
+-        await transact('readwrite', (objectStore, done, fail) => {
++            const err = new Error('Persisted opId already committed');
++            err.code = 'TYPED_OPS_ALREADY_SETTLED';
++            fail(err);
++            return;
++          }
+           const getReq = objectStore.get(key);
+           getReq.onsuccess = () => {
+             const existing = getReq.result;
+-            if (existing?.value && canonicalPayload(existing.value.command) !== nextCanonical) {
+-              fail(new Error('Persisted opId command payload mismatch'));
+-              return;
++            if (existing?.value) {
++              if (canonicalPayload(existing.value.command) !== nextCanonical) {
++                fail(new Error('Persisted opId command payload mismatch'));
++                return;
++              }
+             }
+             const putReq = objectStore.put({ key, namespace, value: clean });
+             putReq.onsuccess = () => done(true);
+             putReq.onerror = () => fail(putReq.error || new Error('Typed-ops IndexedDB save failed'));
+           };
+           getReq.onerror = () => fail(getReq.error || new Error('Typed-ops IndexedDB read before save failed'));
+-        });
+-      }
++        };
++        settledReq.onerror = () => fail(settledReq.error || new Error('Committed opId check before save failed'));
++      }, [STORE, SETTLED]);
+     },
+ 
+     // Read separately from the queue: a committed operation no longer needs
+diff --git a/test/p0-c16b-typed-ops-idb-store.test.cjs b/test/p0-c16b-typed-ops-idb-store.test.cjs
+index 949d7946..c2b8bf61 100644
+--- a/test/p0-c16b-typed-ops-idb-store.test.cjs
++++ b/test/p0-c16b-typed-ops-idb-store.test.cjs
+@@ -19,6 +19,7 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
+   const stores = new Map();
+   let abortPutFlag = abortNextPut;
+   let blockOpenFlag = blockOpen;
++  let rejectNextMultiTransaction = false;
+   let onCompleteCount = 0;
+ 
+   function makeReq() {
+@@ -46,8 +47,14 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
+           },
+           close() {},
+           transaction(storeName, mode) {
+-            const committed = dbMap.get(storeName);
+-            const staged = new Map([...committed].map(([k, v]) => [k, structuredClone(v)]));
++            if (rejectNextMultiTransaction && Array.isArray(storeName) && storeName.length > 1) {
++              rejectNextMultiTransaction = false;
++              throw new TypeError('Synthetic multi-store transaction failure');
++            }
++            const names = Array.isArray(storeName) ? storeName : [storeName];
++            const stagedStores = new Map(names.map(name => [name, new Map(
++              [...dbMap.get(name)].map(([k, v]) => [k, structuredClone(v)])
++            )]));
+             let aborted = false;
+             let settled = false;
+             let pendingOps = 0;
+@@ -65,7 +72,9 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
+                   if (tx.onabort) tx.onabort({});
+                 });
+               },
+-              objectStore() {
++              objectStore(name) {
++                const staged = stagedStores.get(name);
++                if (!staged) throw new Error('Object store outside transaction');
+                 function runOp(fn) {
+                   const opReq = makeReq();
+                   pendingOps++;
+@@ -87,8 +96,11 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
+                         queueMicrotask(() => {
+                           if (aborted) return;
+                           if (mode === 'readwrite') {
+-                            committed.clear();
+-                            for (const [k, v] of staged.entries()) committed.set(k, v);
++                            for (const [name, staged] of stagedStores) {
++                              const committed = dbMap.get(name);
++                              committed.clear();
++                              for (const [k, v] of staged) committed.set(k, v);
++                            }
+                           }
+                           onCompleteCount++;
+                           if (tx.oncomplete) tx.oncomplete({});
+@@ -128,6 +140,7 @@ function makeTransactionalIdbHarness({ abortNextPut = false, blockOpen = false }
+     indexedDB,
+     setAbortNextPut(v) { abortPutFlag = v; },
+     setBlockOpen(v) { blockOpenFlag = v; },
++    rejectNextMultiTransaction() { rejectNextMultiTransaction = true; },
+     getOnCompleteCount: () => onCompleteCount
+   };
+ }
+@@ -453,3 +466,19 @@ test('C21b real IndexedDB: terminal opId marker survives reload, isolates busine
+     assert.doesNotMatch(JSON.stringify(rows),/1500|4400|pin|token|receiptId/);
+   }finally{db.close();}
+ });
++
++
++test('multi-store transaction failure preserves pending op and never falls back to separate writes', async () => {
++  const { createTypedOpsIdbStore } = await import(STORE_URL);
++  const harness = makeTransactionalIdbHarness();
++  const store = createTypedOpsIdbStore({ indexedDB: harness.indexedDB, namespace: NS_A });
++  const entry = sampleEntry('opid_failure_12345');
++  await store.save(entry);
++  harness.rejectNextMultiTransaction();
++  await assert.rejects(() => store.save(entry), /Synthetic multi-store transaction failure/);
++  assert.equal((await store.loadAll()).length, 1);
++  assert.deepEqual(await store.loadCommittedOpIds(), []);
++  await store.markCommitted(entry.opId);
++  assert.equal((await store.loadAll()).length, 0);
++  assert.deepEqual(await store.loadCommittedOpIds(), [entry.opId]);
++});
