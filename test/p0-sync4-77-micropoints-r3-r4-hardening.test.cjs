@@ -373,6 +373,7 @@ test('R3-02 & R3-04 & C36 (sync-realtime & mock-backend): corrupt non-array jour
     codigoCuaderno: license,
     opsMap: { get: (k) => opsMapStore.get(k) },
     opsIdb: null,
+    recibosComerciales20: new Map(),
     opIdsTerminales20: () => opTerminales.slice()
   };
 
@@ -410,19 +411,28 @@ test('R3-02 & R3-04 & C36 (sync-realtime & mock-backend): corrupt non-array jour
   lsStore.set(journalKey, '{"not":"an-array"}');
   assert.equal(sandbox.__test.leerPendientesYjs(license), null);
 
-  // R3-02: DO-settled opId in opIdsTerminales20() gets pruned cleanly WITHOUT dispatching oc-op-local
-  const settledId = 'settled-20-op-0001';
+  // R7 P0-A: bare opId-only tombstone blocks blind oc-op-local replay WITHOUT erasing journal bytes;
+  // only a verified business-committed 2.0 receipt prunes the roomless journal entry.
+  const bareTerminalId = 'bare-tombstone-op-01';
+  const verifiedSettledId = 'settled-20-op-0001';
   const liveLegacyId = 'pending-10-op-0002';
   lsStore.set(journalKey, JSON.stringify([
-    { opId: settledId, _salaOrigen: license, tipo: 'venta', payload: { productoId: 'p1', delta: -1 } },
+    { opId: bareTerminalId, _salaOrigen: license, tipo: 'venta', payload: { productoId: 'p0', delta: -1 } },
+    { opId: verifiedSettledId, _salaOrigen: license, tipo: 'venta', payload: { productoId: 'p1', delta: -1 } },
     { opId: liveLegacyId, _salaOrigen: license, tipo: 'venta', payload: { productoId: 'p2', delta: -1 } }
   ]));
-  opTerminales = [settledId];
+  opTerminales = [bareTerminalId, verifiedSettledId];
+  yjsMock.recibosComerciales20.set(verifiedSettledId, {
+    opId: verifiedSettledId,
+    committed: true,
+    stage: 'business-committed',
+    receipt: { opId: verifiedSettledId, license, stage: 'business-committed' }
+  });
   sandbox.__test.drenarPendientesYjs();
   assert.equal(dispatched.length, 1);
   assert.equal(dispatched[0].detail.opId, liveLegacyId);
   const remaining = JSON.parse(lsStore.get(journalKey));
-  assert.deepEqual(remaining.map(x => x.opId), [liveLegacyId]);
+  assert.deepEqual(remaining.map(x => x.opId), [bareTerminalId, liveLegacyId]);
 
   // C36 guard: valid C34 cash venta retains opId, non-C34 partial payload falls back to _opIdAjusteOAbonoDurable
   const opVentaDurableMatch = realtimeSrc.match(/const opIdVentaDurable = [\s\S]*?;/);
@@ -598,4 +608,83 @@ test('R5/R6 failback coordinator: activate20 reuses active session and destroy i
   assert.equal(coord.mode(), 'failback-legacy-1.0');
   assert.equal(coord.lastReason(), 'destroyed');
   assert.equal(closedCalls, 1);
+});
+
+test('R7 P0-B & P0-C (sync-yjs): onSettled accepts single notifySettled event object, fences old coordinators/malformed events, and publicarOpLocal re-checks mode & coordinator after await', async () => {
+  const syncSrc = fs.readFileSync(path.join(ROOT, 'docs', 'sync-yjs.js'), 'utf8');
+
+  // R7 P0-B: extract opciones.onSettled block directly from docs/sync-yjs.js
+  const sOn = syncSrc.indexOf('        var origOnSettled =');
+  const eOn = syncSrc.indexOf('        var observadorExterno =', sOn);
+  assert.ok(sOn !== -1 && eOn > sOn);
+  const onSettledBlock = syncSrc.slice(sOn, eOn);
+  const recorded = [];
+  let externalCalls = 0;
+  const activeCoord = { id: 'coord-new' };
+  const oldCoord = { id: 'coord-old' };
+  const API = {
+    coordinadorCorte20: activeCoord,
+    __opIdsTerminales20Cache: new Set()
+  };
+  const bindFor = (coordObj) => {
+    const opciones = { onSettled: () => { externalCalls++; } };
+    const sandbox = {
+      API,
+      coord: coordObj,
+      opciones,
+      Set,
+      String,
+      _registrarReciboComercial20: (id, res) => recorded.push({ id, res })
+    };
+    vm.runInNewContext(onSettledBlock, sandbox);
+    return opciones.onSettled;
+  };
+  const onSettledActive = bindFor(activeCoord);
+  const onSettledStale = bindFor(oldCoord);
+
+  // 1. Valid 1-arg notifySettled event reaches _registrarReciboComercial20
+  onSettledActive({
+    opId: 'r7-p0b-op-0001',
+    status: 'committed',
+    duplicate: false,
+    receipt: { opId: 'r7-p0b-op-0001', stage: 'business-committed' }
+  });
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0].id, 'r7-p0b-op-0001');
+  assert.equal(recorded[0].res.committed, true);
+  assert.equal(API.__opIdsTerminales20Cache.has('r7-p0b-op-0001'), true);
+  assert.equal(externalCalls, 1);
+
+  // 2. Malformed committed event (missing receipt) MUST NOT fabricate committed=true
+  onSettledActive({ opId: 'r7-p0b-bad-0002', status: 'committed', receipt: null });
+  assert.equal(recorded.length, 2);
+  assert.equal(recorded[1].res.committed, false);
+  assert.equal(API.__opIdsTerminales20Cache.has('r7-p0b-bad-0002'), false);
+  const externalBeforeStale = externalCalls;
+
+  // 3. Stale/old coordinator callback MUST NOT record or invoke external callback
+  onSettledStale({
+    opId: 'r7-p0b-stale-03',
+    status: 'committed',
+    receipt: { opId: 'r7-p0b-stale-03', stage: 'business-committed' }
+  });
+  assert.equal(recorded.length, 2);
+  assert.equal(externalCalls, externalBeforeStale);
+
+  // R7 P0-C: publicarOpLocal legacy branch re-checks modoCorte20Activo & coordinadorCorte20 after await
+  const legacyGuardIdx = syncSrc.indexOf('      var mapaActual = API.opsMap, coordActual = API.coordinadorCorte20;');
+  assert.notEqual(legacyGuardIdx, -1);
+  const legacySlice = syncSrc.slice(legacyGuardIdx, legacyGuardIdx + 700);
+  assert.match(legacySlice, /API\.modoCorte20Activo === true \|\| API\.coordinadorCorte20 !== coordActual/);
+});
+
+test('Deep audit (catalog sessions): read-only catalog proof fetch enforces AbortController timeout, exposes isClosed/isActive, and both catalog modules use key-order-independent canon()', async () => {
+  const roSrc = fs.readFileSync(path.join(ROOT, 'src', 'port2-readonly-catalog-session.mjs'), 'utf8');
+  const wrSrc = fs.readFileSync(path.join(ROOT, 'src', 'port2-catalog-delta-writer.mjs'), 'utf8');
+  assert.match(roSrc, /new AbortController\(\)/);
+  assert.match(roSrc, /signal:\s*controller\.signal/);
+  assert.match(roSrc, /isClosed:\s*\(\)\s*=>\s*closed/);
+  assert.match(roSrc, /isActive:\s*\(\)\s*=>\s*ready\s*&&\s*!closed\s*&&\s*isVisible\(\)/);
+  assert.match(roSrc, /function stableValue\(/);
+  assert.match(wrSrc, /function stableValue\(/);
 });

@@ -3206,13 +3206,33 @@
         var coord = null;
         var opciones = Object.assign({}, opc || {});
         var origOnSettled = typeof opciones.onSettled === "function" ? opciones.onSettled : null;
-        opciones.onSettled = function (opId, res) {
-          if (res && res.committed === true && opId) {
+        opciones.onSettled = function (ev) {
+          if (!coord || API.coordinadorCorte20 !== coord) return;
+          if (!ev || typeof ev !== "object") return;
+          var opId = typeof ev.opId === "string" ? ev.opId.trim() : "";
+          if (!opId) return;
+          var receipt = ev.receipt && typeof ev.receipt === "object" ? ev.receipt : null;
+          var committedOk = ev.status === "committed" && !!receipt &&
+            String(receipt.opId || "").trim() === opId &&
+            receipt.stage === "business-committed";
+          var quarantined = ev.status === "quarantined";
+          if (committedOk) {
             API.__opIdsTerminales20Cache = API.__opIdsTerminales20Cache || new Set();
-            API.__opIdsTerminales20Cache.add(String(opId).trim());
+            API.__opIdsTerminales20Cache.add(opId);
           }
-          _registrarReciboComercial20(opId, res);
-          if (origOnSettled) origOnSettled(opId, res);
+          _registrarReciboComercial20(opId, {
+            committed: committedOk,
+            duplicate: ev.duplicate === true,
+            quarantine: quarantined,
+            fallbackLegacy: false,
+            reconcileRequired: !committedOk && !quarantined,
+            retryable: false,
+            stage: committedOk ? "business-committed" : (quarantined ? "conflict-quarantine" : "unverified-settlement"),
+            receipt: committedOk ? receipt : null
+          });
+          if (origOnSettled) {
+            try { origOnSettled(ev); } catch (_) {}
+          }
         };
         var observadorExterno = opciones.onModeChange;
         opciones.onModeChange = function (estado) {
@@ -3849,7 +3869,8 @@
           : typeof API.puedeDespacharOpEnLegado === "function"
             ? API.puedeDespacharOpEnLegado(op.opId) : false;
       }).then(function (permitidoEnLegado) {
-        if (permitidoEnLegado !== true || API.opsMap !== mapaActual) return;
+        if (permitidoEnLegado !== true || API.opsMap !== mapaActual ||
+            API.modoCorte20Activo === true || API.coordinadorCorte20 !== coordActual) return;
         try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
       }).catch(function () {});
       return;
