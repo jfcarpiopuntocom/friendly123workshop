@@ -1,0 +1,88 @@
+{
+  "kit": "b63265991ab149d8ad48caec881c99c4d159d595",
+  "blob": "5a878dcf32e1d7912586268ae75fb752c3b7d347",
+  "results": [
+    {
+      "name": "two concurrent appends both return true and both survive",
+      "baseline": {
+        "pass": false,
+        "count": 1
+      },
+      "candidate": {
+        "pass": true,
+        "count": 2
+      }
+    },
+    {
+      "name": "pruning stale snapshot preserves concurrent append",
+      "baseline": {
+        "pass": false,
+        "count": 0
+      },
+      "candidate": {
+        "pass": true,
+        "count": 1
+      }
+    },
+    {
+      "name": "quota failure reports false",
+      "baseline": {
+        "pass": true,
+        "count": 0
+      },
+      "candidate": {
+        "pass": true,
+        "count": 0
+      }
+    },
+    {
+      "name": "reload reads v1 plus v2 without rewriting legacy",
+      "baseline": {
+        "pass": false,
+        "notApplicable": "baseline has no v2"
+      },
+      "candidate": {
+        "pass": true
+      }
+    },
+    {
+      "name": "licence isolation",
+      "baseline": {
+        "pass": true,
+        "control": true
+      },
+      "candidate": {
+        "pass": true
+      }
+    },
+    {
+      "name": "distinct same-opId payloads preserved for conflict handling",
+      "baseline": {
+        "pass": true,
+        "control": "v1 sequential append also preserves both"
+      },
+      "candidate": {
+        "pass": true
+      }
+    },
+    {
+      "name": "malformed legacy bytes retained and read fails closed",
+      "baseline": {
+        "pass": true
+      },
+      "candidate": {
+        "pass": true
+      }
+    }
+  ],
+  "residual": [
+    {
+      "name": "different payload same opId still qualifies for pruning",
+      "observed": true
+    },
+    {
+      "name": "receipt without licence still qualifies",
+      "observed": true
+    }
+  ]
+}
