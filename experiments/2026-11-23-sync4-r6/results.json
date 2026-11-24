@@ -1,0 +1,200 @@
+{
+  "sourceSha": "395c05ed0a0012d23c031a99b73e473d60d0bc1b",
+  "sourceBlob": "50d1648e86666ec0622c7c8da5dc3499144f0c88",
+  "baseline": [
+    {
+      "name": "cleanup retry local only, one settlement",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "posts": 1,
+        "cleanup": 1,
+        "scheduled": 0,
+        "events": 0,
+        "pending": 1
+      }
+    },
+    {
+      "name": "cleanup crash: durable same-DO intent survives and replay same opId",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "ids": [
+          "synthetic-op-001",
+          "synthetic-op-001"
+        ],
+        "durable": true
+      }
+    },
+    {
+      "name": "destroy during persistence prevents POST; durable intent survives",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "posts": 1,
+        "pending": 0,
+        "stage": "business-committed"
+      }
+    },
+    {
+      "name": "destroy terminal: resume and fresh submit cannot POST",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "posts": 1,
+        "stage": "business-committed"
+      }
+    },
+    {
+      "name": "hidden initial submit durable but no POST, resume works",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "before": 1,
+        "durable": 0,
+        "posts": 1
+      }
+    },
+    {
+      "name": "pause during persistence reversible",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "before": 1,
+        "posts": 1
+      }
+    },
+    {
+      "name": "attempt counter never exceeds durable schema after 12 explicit drains",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "ram": 11,
+        "durable": 10,
+        "stage": "durable-store-unavailable"
+      }
+    },
+    {
+      "name": "normal commit",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "business-committed"
+      }
+    },
+    {
+      "name": "pre-send fallback retires intent",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "auth-denied"
+      }
+    },
+    {
+      "name": "ambiguous ACK same-DO only",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "commit-unverified"
+      }
+    }
+  ],
+  "candidate": [
+    {
+      "name": "cleanup retry local only, one settlement",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "posts": 1,
+        "cleanup": 2,
+        "scheduled": 1,
+        "events": 1,
+        "pending": 0
+      }
+    },
+    {
+      "name": "cleanup crash: durable same-DO intent survives and replay same opId",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "ids": [
+          "synthetic-op-001",
+          "synthetic-op-001"
+        ],
+        "durable": true
+      }
+    },
+    {
+      "name": "destroy during persistence prevents POST; durable intent survives",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "posts": 0,
+        "pending": 1,
+        "stage": "paused-hidden"
+      }
+    },
+    {
+      "name": "destroy terminal: resume and fresh submit cannot POST",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "posts": 0,
+        "stage": "reconciler-destroyed"
+      }
+    },
+    {
+      "name": "hidden initial submit durable but no POST, resume works",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "before": 0,
+        "durable": 1,
+        "posts": 1
+      }
+    },
+    {
+      "name": "pause during persistence reversible",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "before": 0,
+        "posts": 1
+      }
+    },
+    {
+      "name": "attempt counter never exceeds durable schema after 12 explicit drains",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "ram": 10,
+        "durable": 10,
+        "stage": "paused-retry-exhausted"
+      }
+    },
+    {
+      "name": "normal commit",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "business-committed"
+      }
+    },
+    {
+      "name": "pre-send fallback retires intent",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "auth-denied"
+      }
+    },
+    {
+      "name": "ambiguous ACK same-DO only",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "stage": "commit-unverified"
+      }
+    }
+  ]
+}
