@@ -1,0 +1,3 @@
+# R8 — sale opId continuity
+
+Kit e70ed4e12502b1d0284b249e61e34f08470f7d5e. Exact sale payload creation, emit ID selection and typed mapper, separately from R7. Candidate keeps original sale opId for IDs accepted by existing typed/legacy fence (8–96 ASCII alnum/_/-), independent of amount/quantity. Do not add cash fields to historical/fiado/courtesy/discount/partial/transfer sales. Legacy receipt IDs containing colon/dot or >96 remain unresolved at fence; do not silently broaden validation or claim full identity coverage. Test supported and unsupported commerce variants, same-DO mapper, invalid ID, and replay identity. Synthetic fixture; product untouched.
