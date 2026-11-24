@@ -1,0 +1,69 @@
+name: v783 post61 merged-main full native historical audit (no deploy)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v783-post61-full-historical.yml'
+      - 'projects/assembled-v783/app/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      F123_REQUIRE_WEBKIT: '1'
+      F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
+      F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
+    defaults:
+      run:
+        shell: bash
+        working-directory: projects/assembled-v783/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: projects/assembled-v783/app/package-lock.json
+      - name: Pin source and test guard
+        run: |
+          test -f test/helpers/sin-red-produccion.cjs
+          test -f package-lock.json
+          git rev-parse HEAD
+          git status --short
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Install native Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+      - name: Restore immutable historical Yjs test fixtures (read-only GitHub)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 https://github.com/jfcarpiopuntocom/friendly-123.git 82952a84958641010c48bfbee6aab80007ba12e9
+          git show FETCH_HEAD:docs/sync-yjs.js > "$F123_V607_SYNC_FILE"
+          git fetch --no-tags --depth=1 https://github.com/jfcarpiopuntocom/friendly-123.git 7e51ed51560d6138866dae98e4a01ff1772db51c
+          git show FETCH_HEAD:docs/sync-yjs.js > "$F123_V606_SYNC_FILE"
+          test -s "$F123_V607_SYNC_FILE"
+          test -s "$F123_V606_SYNC_FILE"
+          mkdir -p ../evidence/post61-full
+          sha256sum "$F123_V607_SYNC_FILE" "$F123_V606_SYNC_FILE" | tee ../evidence/post61-full/historical-fixtures.sha256
+      - name: Full historical suite (no silenced failures)
+        run: |
+          mkdir -p ../evidence/post61-full
+          git rev-parse HEAD | tee ../evidence/post61-full/sha.txt
+          node --version | tee ../evidence/post61-full/node.txt
+          set +e
+          npm test 2>&1 | tee ../evidence/post61-full/npm-test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "npm_test_exit=$status" | tee ../evidence/post61-full/exit.txt
+          exit "$status"
+      - name: Upload exact SHA, full output and failure proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v783-post61-full-audit-${{ github.run_id }}
+          path: projects/assembled-v783/evidence/post61-full/
+          retention-days: 14
+          if-no-files-found: warn
