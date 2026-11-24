@@ -1,0 +1,124 @@
+{
+  "kit": "e70ed4e12502b1d0284b249e61e34f08470f7d5e",
+  "blobs": [
+    "4325b271f81ee5eefefe16b500c990fc0c19f87f",
+    "65242e2ccd86b97458cfebd7e240e8d8585f4520",
+    "c6e3e4a4aa5f27b4653b93eeead238ab3776ad37"
+  ],
+  "baseline": [
+    {
+      "name": "cash full price",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": true,
+      "amountCents": 1500
+    },
+    {
+      "name": "historical cash",
+      "pass": false,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "fiado",
+      "pass": false,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "partial cash",
+      "pass": false,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "transfer",
+      "pass": false,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "discount",
+      "pass": false,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "courtesy",
+      "pass": false,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "invalid syntax",
+      "pass": true,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    }
+  ],
+  "candidate": [
+    {
+      "name": "cash full price",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": true,
+      "amountCents": 1500
+    },
+    {
+      "name": "historical cash",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "fiado",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "partial cash",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "transfer",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "discount",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "courtesy",
+      "pass": true,
+      "opIdOut": "sale-original-001",
+      "typed": false,
+      "amountCents": null
+    },
+    {
+      "name": "invalid syntax",
+      "pass": true,
+      "opIdOut": "generated-id-001",
+      "typed": false,
+      "amountCents": null
+    }
+  ]
+}
