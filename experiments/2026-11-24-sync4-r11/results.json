@@ -1,0 +1,363 @@
+{
+  "baseProductSha": "58a9d3f46384f2db0839e722cd429a9a07572788",
+  "baseBlob": "f623f98fe91bc3e45d8952d5d03d94a7d96ed0ae",
+  "baseline": 4,
+  "candidate": 14,
+  "total": 14,
+  "results": [
+    {
+      "case": "destroy-before",
+      "baseline": {
+        "pass": false,
+        "res": true,
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": false,
+        "reads": 0,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "assert-destroy-before",
+      "baseline": {
+        "pass": false,
+        "res": {
+          "allowed": true,
+          "opId": "r11-sale-001"
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "allowed": false,
+          "code": "coordinator-destroyed"
+        },
+        "reads": 0,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "destroy-during",
+      "baseline": {
+        "pass": false,
+        "res": true,
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": false,
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "assert-destroy-during",
+      "baseline": {
+        "pass": false,
+        "res": {
+          "allowed": true,
+          "opId": "r11-sale-001"
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "allowed": false,
+          "code": "coordinator-destroyed"
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "claim-during",
+      "baseline": {
+        "pass": false,
+        "res": true,
+        "reads": 3,
+        "submitted": 1,
+        "posted": 1,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": false,
+        "reads": 3,
+        "submitted": 1,
+        "posted": 1,
+        "drains": 0
+      }
+    },
+    {
+      "case": "assert-claim-during",
+      "baseline": {
+        "pass": false,
+        "res": {
+          "allowed": true,
+          "opId": "r11-sale-001"
+        },
+        "reads": 3,
+        "submitted": 1,
+        "posted": 1,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "allowed": false,
+          "code": "latched-same-do-only"
+        },
+        "reads": 3,
+        "submitted": 1,
+        "posted": 1,
+        "drains": 0
+      }
+    },
+    {
+      "case": "submit-destroy-during",
+      "baseline": {
+        "pass": false,
+        "res": {
+          "committed": false,
+          "duplicate": false,
+          "fallbackLegacy": true,
+          "reconcileRequired": false,
+          "quarantine": false,
+          "retryable": false,
+          "retryTarget": null,
+          "stage": "failback-legacy-active",
+          "status": 0,
+          "receipt": null
+        },
+        "reads": 2,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "committed": false,
+          "fallbackLegacy": false,
+          "stage": "coordinator-destroyed"
+        },
+        "reads": 2,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "drain-destroy-during",
+      "baseline": {
+        "pass": false,
+        "res": {
+          "attempted": 1,
+          "results": []
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 1
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "attempted": 0,
+          "results": []
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "drain-hidden-during",
+      "baseline": {
+        "pass": false,
+        "res": {
+          "attempted": 1,
+          "results": []
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 1
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "attempted": 0,
+          "results": []
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "late-fallback",
+      "baseline": {
+        "pass": false,
+        "res": {
+          "fallbackLegacy": true,
+          "stage": "precondition-denied"
+        },
+        "reads": 2,
+        "submitted": 1,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "fallbackLegacy": false,
+          "stage": "coordinator-destroyed"
+        },
+        "reads": 2,
+        "submitted": 1,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "late-committed",
+      "baseline": {
+        "pass": true,
+        "res": {
+          "committed": true,
+          "fallbackLegacy": false,
+          "stage": "business-committed"
+        },
+        "reads": 2,
+        "submitted": 1,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "committed": true,
+          "fallbackLegacy": false,
+          "stage": "business-committed"
+        },
+        "reads": 2,
+        "submitted": 1,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "legacy-fresh",
+      "baseline": {
+        "pass": true,
+        "res": true,
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": true,
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "explicit-failback",
+      "baseline": {
+        "pass": true,
+        "res": {
+          "committed": false,
+          "duplicate": false,
+          "fallbackLegacy": true,
+          "reconcileRequired": false,
+          "quarantine": false,
+          "retryable": false,
+          "retryTarget": null,
+          "stage": "failback-legacy-active",
+          "status": 0,
+          "receipt": null
+        },
+        "reads": 2,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "committed": false,
+          "duplicate": false,
+          "fallbackLegacy": true,
+          "reconcileRequired": false,
+          "quarantine": false,
+          "retryable": false,
+          "retryTarget": null,
+          "stage": "failback-legacy-active",
+          "status": 0,
+          "receipt": null
+        },
+        "reads": 2,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 0
+      }
+    },
+    {
+      "case": "drain-live",
+      "baseline": {
+        "pass": true,
+        "res": {
+          "attempted": 1,
+          "results": []
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 1
+      },
+      "candidate": {
+        "pass": true,
+        "res": {
+          "attempted": 1,
+          "results": []
+        },
+        "reads": 1,
+        "submitted": 0,
+        "posted": 0,
+        "drains": 1
+      }
+    }
+  ],
+  "scope": "exact full coordinator, deterministic synthetic store/reconciler; not a distributed lock nor actual economic effects"
+}
