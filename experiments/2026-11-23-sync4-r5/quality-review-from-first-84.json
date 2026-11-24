@@ -1,0 +1,190 @@
+{
+  "asOf": "2026-11-23",
+  "baseline": {
+    "sha": "9b376643d1ef90adeb9eb70bfba38e9336b85cc5",
+    "pr": 1016,
+    "mergedAt": "2026-11-22T01:49:43Z",
+    "score": 84
+  },
+  "head": "395c05ed0a0012d23c031a99b73e473d60d0bc1b",
+  "commitsAhead": 314,
+  "score": 85.4,
+  "delta": 1.4,
+  "method": "Original100 dimensions and caps, historic conservative +0.1 per distinct source/QA-backed improvement, not per PR; delta only, no subtraction for already-existing faults. This supersedes incomplete 84.1 review. Not exhaustive formal certification, manual estimate consistent with historical incremental method.",
+  "dimensions": [
+    {
+      "id": "business",
+      "weight": 20,
+      "base": 20,
+      "score": 20,
+      "delta": 0,
+      "capped": [
+        "#1103 partial payment and historical date",
+        "#1101 verified commission inconsistency",
+        "#1105 independent group selection (functional UI, no architecture credit)"
+      ]
+    },
+    {
+      "id": "durability",
+      "weight": 20,
+      "base": 20,
+      "score": 20,
+      "delta": 0,
+      "capped": [
+        "#1017 SW claim order",
+        "#1020 PIN-only release adoption",
+        "#1022 bounded decryption",
+        "#1025 duplicate SW update",
+        "#1034 linear Commissions + lazy details",
+        "#1036 PIN DOM burst",
+        "#1038 no dashboard behind PIN",
+        "#1045 local SHA export",
+        "#1046 33% fewer boot JS bytes",
+        "#1067 post-PIN and business-read-model",
+        "#1072 old-shell rescue",
+        "#1090 lazy customer selector",
+        "#1094 IDB watchdogs"
+      ]
+    },
+    {
+      "id": "sync",
+      "weight": 20,
+      "base": 16.3,
+      "score": 17.2,
+      "delta": 0.9,
+      "credits": [
+        [
+          1027,
+          "default certified provider instead of missing injected factory",
+          0.1
+        ],
+        [
+          1030,
+          "real OCSyncControl and rollout head wiring",
+          0.1
+        ],
+        [
+          1037,
+          "close certified writer before untyped fallback",
+          0.1
+        ],
+        [
+          1070,
+          "certified reader and typed commercial route for team roles; later C31/C47 checks green 45270727543/45270731743",
+          0.1
+        ],
+        [
+          1079,
+          "encrypted private relay history C224/C225 grouped with #1078; reported historic sales returned",
+          0.1
+        ],
+        [
+          1089,
+          "exponential retry backoff",
+          0.1
+        ],
+        [
+          1093,
+          "provider-specific durable cursors (includes #1101, counted once)",
+          0.1
+        ],
+        [
+          1094,
+          "protect slow recovery window",
+          0.1
+        ],
+        [
+          1097,
+          "cold received history applied even while relay paused; real relay trial 0→6 sales, 0→4 customers",
+          0.1
+        ]
+      ]
+    },
+    {
+      "id": "security",
+      "weight": 15,
+      "base": 11.3,
+      "score": 11.5,
+      "delta": 0.2,
+      "credits": [
+        [
+          1033,
+          "exact-origin preflight C193, Workerd 44993237539 and deployed bundle checked",
+          0.1
+        ],
+        [
+          1085,
+          "reject known private roots in -cat; 15/15 focused, 69 server QA reported; 18/18 workflow checks",
+          0.1
+        ]
+      ],
+      "held": [
+        "C222 PIN authority workflow failed 45107787238, license deploy failed 45107787258; no additional independent credit without later specific evidence"
+      ]
+    },
+    {
+      "id": "photos",
+      "weight": 10,
+      "base": 8.1,
+      "score": 8.2,
+      "delta": 0.1,
+      "credits": [
+        [
+          1049,
+          "separate full local photo from thumbnail sync; four source regression cases, 32/32 workflows",
+          0.1
+        ]
+      ]
+    },
+    {
+      "id": "migration",
+      "weight": 10,
+      "base": 8.3,
+      "score": 8.5,
+      "delta": 0.2,
+      "credits": [
+        [
+          1026,
+          "cold-join merge barrier stops full merge per frame",
+          0.1
+        ],
+        [
+          1087,
+          "first Firebase restoration no longer stopped by 20MB daily limit; actual failure at 21.4MB",
+          0.1
+        ]
+      ],
+      "held": [
+        "#1053 empty catalog seed lacks independent focused evidence here"
+      ]
+    },
+    {
+      "id": "physical",
+      "weight": 5,
+      "base": 0,
+      "score": 0,
+      "delta": 0
+    }
+  ],
+  "preexisting": {
+    "reconcilerBlob": "50d1648e86666ec0622c7c8da5dc3499144f0c88",
+    "idbBlob": "2b501a97db5b41d3d8b054ca316f2666011a40d1",
+    "sameInBaseAndHead": true,
+    "coordinatorBoth": {
+      "opensAfterTwoActivations": 2,
+      "closes": 1,
+      "modeAfterDestroy": "active-2.0",
+      "reason": "certified"
+    },
+    "otherDefects": "remain open; no historical-delta deduction without demonstrating introduced regression"
+  },
+  "currentHeadPrChecks": {
+    "pr": 1105,
+    "total": 30,
+    "success": 29,
+    "cancelled": 1
+  },
+  "port": 100,
+  "commercialGo": "0/6",
+  "physical": "0/5"
+}
