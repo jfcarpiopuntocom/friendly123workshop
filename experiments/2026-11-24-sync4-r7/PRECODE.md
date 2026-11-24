@@ -1,0 +1,3 @@
+# R7 — independent integration fault injection
+
+Gemini kit e70ed4e12502b1d0284b249e61e34f08470f7d5e, product 395c05ed. Codex fixed atomic IDB fallback with Gemini; do not repeat. Test kit's terminal-only journal pruning, settlement callback shape and stale callback, legacy permission after mode change, and custody check/use gap. Minimum local safety patches only: preserve unverifiable journal bytes, fix callback contract + scope, revalidate current mode/coordinator after await. Read-only legacy permission does not reserve authority: demonstrate residual gap, do not claim distributed closure. Candidate only in separate lab branch; report to existing Notion thread and Codex.
