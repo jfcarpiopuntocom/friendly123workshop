@@ -1,0 +1,178 @@
+{
+  "kit": "e70ed4e12502b1d0284b249e61e34f08470f7d5e",
+  "blobs": [
+    "65242e2ccd86b97458cfebd7e240e8d8585f4520",
+    "c6e3e4a4aa5f27b4653b93eeead238ab3776ad37",
+    "c9aa0072e5dae448f65cbebb9295e58991b7719a"
+  ],
+  "baseline": [
+    {
+      "name": "historical terminal opId-only preserves journal bytes and blocks blind replay",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "journal": 0,
+        "emits": 0,
+        "writes": 1
+      }
+    },
+    {
+      "name": "legacy durable Yjs readback still prunes",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "journal": 0,
+        "emits": 0,
+        "writes": 1
+      }
+    },
+    {
+      "name": "unsettled journal still dispatches and remains durable",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "journal": 1,
+        "emits": 1,
+        "writes": 0
+      }
+    },
+    {
+      "name": "late ACK event object reaches actual receipt recorder",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "id": "not-string",
+        "committed": null
+      }
+    },
+    {
+      "name": "old coordinator callback cannot contaminate new session",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "recorded": 1,
+        "external": 1
+      }
+    },
+    {
+      "name": "malformed committed event cannot fabricate ACK",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "committed": null
+      }
+    },
+    {
+      "name": "legacy permission invalidated when A activates during await",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "writes": 1
+      }
+    },
+    {
+      "name": "legacy permission invalidated when coordinator replaced",
+      "pass": false,
+      "observed": {
+        "pass": false,
+        "writes": 1
+      }
+    },
+    {
+      "name": "stable legacy path remains operational",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "writes": 1
+      }
+    }
+  ],
+  "candidate": [
+    {
+      "name": "historical terminal opId-only preserves journal bytes and blocks blind replay",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "journal": 1,
+        "emits": 0,
+        "writes": 0
+      }
+    },
+    {
+      "name": "legacy durable Yjs readback still prunes",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "journal": 0,
+        "emits": 0,
+        "writes": 1
+      }
+    },
+    {
+      "name": "unsettled journal still dispatches and remains durable",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "journal": 1,
+        "emits": 1,
+        "writes": 0
+      }
+    },
+    {
+      "name": "late ACK event object reaches actual receipt recorder",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "id": "synthetic-op-001",
+        "committed": true
+      }
+    },
+    {
+      "name": "old coordinator callback cannot contaminate new session",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "recorded": 0,
+        "external": 0
+      }
+    },
+    {
+      "name": "malformed committed event cannot fabricate ACK",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "committed": false
+      }
+    },
+    {
+      "name": "legacy permission invalidated when A activates during await",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "writes": 0
+      }
+    },
+    {
+      "name": "legacy permission invalidated when coordinator replaced",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "writes": 0
+      }
+    },
+    {
+      "name": "stable legacy path remains operational",
+      "pass": true,
+      "observed": {
+        "pass": true,
+        "writes": 1
+      }
+    }
+  ],
+  "residual": {
+    "permission": true,
+    "typedPosts": 1,
+    "legacyWrites": 1,
+    "scope": "same store object, previously returned permission used after typed submit; no real ledger effects"
+  }
+}
