@@ -136,6 +136,17 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
   }
 
   async function activate20() {
+    if (!destroyed && isVisible() && currentMode === 'active-2.0' && catalogSession &&
+        (typeof catalogSession.isClosed !== 'function' || !catalogSession.isClosed()) &&
+        (typeof catalogSession.isActive !== 'function' || catalogSession.isActive())) {
+      return Object.freeze({
+        ok: true,
+        mode: currentMode,
+        reason: 'certified',
+        frozenHead: catalogSession.frozenHead,
+        readOnly: catalogSession.readOnly === true
+      });
+    }
     const epoch = ++activationEpoch;
     if (destroyed || !isVisible()) {
       await failbackToLegacy('hidden-or-destroyed');
@@ -328,6 +339,8 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     activationEpoch++;
     destroyed = true;
     closeCatalog();
+    currentMode = 'failback-legacy-1.0';
+    lastFailbackReason = 'destroyed';
     try { reconciler.destroy?.(); } catch (_) {}
   }
 

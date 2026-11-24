@@ -436,3 +436,166 @@ test('R3-02 & R3-04 & C36 (sync-realtime & mock-backend): corrupt non-array jour
   assert.equal(evalDurable(c34CashPayload), 'sale-cash-c34-12345');
   assert.equal(evalDurable(nonC34Payload), 'LEGACY_FALLBACK');
 });
+
+test('R4-04 fail-closed (Codex review blocker): save MUST reject when multi-store IDB transaction throws TypeError (zero split-tx fallback)', async () => {
+  const { indexedDB } = require('fake-indexeddb');
+  const { createTypedOpsIdbStore } = await import(STORE_URL);
+  const faultingIndexedDb = {
+    open(name, version) {
+      const req = indexedDB.open(name, version);
+      const origOnSuccessDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(req), 'onsuccess');
+      let wrapped = null;
+      Object.defineProperty(req, 'onsuccess', {
+        configurable: true,
+        get() { return wrapped; },
+        set(fn) {
+          wrapped = function (ev) {
+            const db = req.result;
+            if (db && !db.__WrappedMultiStoreTypeError) {
+              const origTx = db.transaction.bind(db);
+              db.transaction = function (storeNames, mode) {
+                if (Array.isArray(storeNames) && storeNames.length > 1) {
+                  throw new TypeError('Synthetic platform multi-store TypeError');
+                }
+                return origTx(storeNames, mode);
+              };
+              db.__WrappedMultiStoreTypeError = true;
+            }
+            return fn.call(this, ev);
+          };
+          if (origOnSuccessDescriptor?.set) origOnSuccessDescriptor.set.call(req, wrapped);
+        }
+      });
+      return req;
+    }
+  };
+  const store = await createTypedOpsIdbStore({ namespace: 'c'.repeat(64), indexedDB: faultingIndexedDb });
+  const opId = 'r404-failclosed-typeerr';
+  await assert.rejects(
+    () => store.save({
+      opId,
+      command: sampleSaleCommand(opId),
+      sameDoLocked: true,
+      attempts: 1,
+      state: 'pending',
+      createdAt: 1000,
+      updatedAt: 1000
+    }),
+    (err) => err instanceof TypeError
+  );
+  // Real store must contain ZERO pending rows for that opId
+  const realStore = await createTypedOpsIdbStore({ namespace: 'c'.repeat(64), indexedDB });
+  assert.equal((await realStore.loadAll()).length, 0);
+});
+
+test('R5/R6 reconciler: transient ready recovery, cleanup retry without 2nd POST, 400 quarantine, and timer cooldown fence', async () => {
+  const { createTypedOpsReconciler } = await import(RECONCILER_URL);
+
+  // 1. Transient hydration failure recovers on retry without staying wedged
+  const store = makeFakeStore();
+  let failHydrationOnce = true;
+  const origLoadAll = store.loadAll.bind(store);
+  store.loadAll = async () => {
+    if (failHydrationOnce) {
+      failHydrationOnce = false;
+      throw new Error('transient-idb-contention');
+    }
+    return origLoadAll();
+  };
+  let failCleanupOnce = true;
+  let cleanupCalls = 0;
+  const origMark = store.markCommitted.bind(store);
+  store.markCommitted = async (id) => {
+    cleanupCalls++;
+    if (failCleanupOnce) {
+      failCleanupOnce = false;
+      throw new Error('transient-cleanup-error');
+    }
+    return origMark(id);
+  };
+  let posts = 0;
+  const settledEvents = [];
+  const rec = createTypedOpsReconciler({
+    store,
+    baseDelayMs: 50,
+    maxDelayMs: 80,
+    maxAttempts: 3,
+    onSettled: (ev) => settledEvents.push(ev),
+    dispatch: async (cmd) => {
+      posts++;
+      if (cmd.opId === 'r5-invalid-400-op01') {
+        return { committed: false, stage: 'invalid-command', status: 400, fallbackLegacy: false };
+      }
+      if (cmd.opId === 'r5-cooldown-op-0001') {
+        return { committed: false, stage: 'stored-for-application', retryable: true };
+      }
+      return {
+        committed: true,
+        duplicate: false,
+        stage: 'business-committed',
+        receipt: { opId: cmd.opId, stage: 'business-committed' }
+      };
+    }
+  });
+  await assert.rejects(() => rec.ready(), /durable store unavailable/);
+  assert.equal(await rec.ready(), true);
+
+  // 2. R6 cleanup retry after 200 ACK: 1 POST, 2 cleanup attempts, 1 onSettled event
+  const cleanupRes = await rec.submit(sampleSaleCommand('r6-cleanup-op-00001'));
+  assert.equal(cleanupRes.stage, 'durable-cleanup-pending');
+  await new Promise((r) => setTimeout(r, 130));
+  assert.equal(posts, 1);
+  assert.equal(cleanupCalls, 2);
+  assert.equal(settledEvents.length, 1);
+  assert.equal(rec.pending().length, 0);
+
+  // 3. R5 400 invalid-command moves immediately to quarantined without retrying
+  const qRes = await rec.submit(sampleSaleCommand('r5-invalid-400-op01'));
+  assert.equal(qRes.quarantine, true);
+  assert.equal(rec.quarantined().length, 1);
+
+  // 4. R5 repeat submit while retry timer is scheduled respects cooldown
+  const firstCooldown = await rec.submit(sampleSaleCommand('r5-cooldown-op-0001'));
+  assert.equal(firstCooldown.retryable, true);
+  const postsBeforeRepeat = posts;
+  const secondCooldown = await rec.submit(sampleSaleCommand('r5-cooldown-op-0001'));
+  assert.equal(secondCooldown.committed, false);
+  assert.equal(posts, postsBeforeRepeat);
+  rec.destroy();
+});
+
+test('R5/R6 failback coordinator: activate20 reuses active session and destroy invalidates mode', async () => {
+  const { createVerifiedCrossDeviceFailbackCoordinator } = await import(FAILBACK_URL);
+  const { createTypedOpsReconciler } = await import(RECONCILER_URL);
+  const store = makeFakeStore();
+  const rec = createTypedOpsReconciler({ store, dispatch: async () => ({ committed: true }) });
+  let closedCalls = 0;
+  let openCalls = 0;
+  const coord = createVerifiedCrossDeviceFailbackCoordinator({
+    store,
+    reconciler: rec,
+    isVisible: () => true,
+    openCatalogSession: async () => {
+      openCalls++;
+      let closed = false;
+      return {
+        frozenHead: 'certified-head-r501',
+        readOnly: false,
+        isClosed: () => closed,
+        isActive: () => !closed,
+        close: () => { closed = true; closedCalls++; }
+      };
+    }
+  });
+  const a1 = await coord.activate20();
+  const a2 = await coord.activate20();
+  assert.equal(a1.mode, 'active-2.0');
+  assert.equal(a2.mode, 'active-2.0');
+  assert.equal(openCalls, 1);
+  assert.equal(closedCalls, 0);
+
+  coord.destroy();
+  assert.equal(coord.mode(), 'failback-legacy-1.0');
+  assert.equal(coord.lastReason(), 'destroyed');
+  assert.equal(closedCalls, 1);
+});
