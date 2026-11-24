@@ -217,22 +217,81 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
       const clean = validateEntry(entry);
       const key = storageKey(clean.opId);
       const nextCanonical = canonicalPayload(clean.command);
-      await transact('readwrite', (objectStore, done, fail) => {
-        const getReq = objectStore.get(key);
-        getReq.onsuccess = () => {
-          const existing = getReq.result;
-          if (existing?.value) {
-            if (canonicalPayload(existing.value.command) !== nextCanonical) {
+      try {
+        await transact('readwrite', (objectStore, done, fail, tx) => {
+          const settledStore = tx.objectStore(SETTLED);
+          const settledReq = settledStore.get(key);
+          settledReq.onsuccess = () => {
+            const settled = settledReq.result;
+            if (settled && (settled.namespace === namespace || settled.key === key)) {
+              if (Object.keys(settled).sort().join(',') !== 'key,namespace,opId' ||
+                  settled.namespace !== namespace || settled.opId !== clean.opId || settled.key !== key) {
+                fail(new Error('Corrupt own-business committed opId tombstone'));
+                return;
+              }
+              const err = new Error('Persisted opId already committed');
+              err.code = 'TYPED_OPS_ALREADY_SETTLED';
+              fail(err);
+              return;
+            }
+            const getReq = objectStore.get(key);
+            getReq.onsuccess = () => {
+              const existing = getReq.result;
+              if (existing?.value) {
+                if (canonicalPayload(existing.value.command) !== nextCanonical) {
+                  fail(new Error('Persisted opId command payload mismatch'));
+                  return;
+                }
+              }
+              const putReq = objectStore.put({ key, namespace, value: clean });
+              putReq.onsuccess = () => done(true);
+              putReq.onerror = () => fail(putReq.error || new Error('Typed-ops IndexedDB save failed'));
+            };
+            getReq.onerror = () => fail(getReq.error || new Error('Typed-ops IndexedDB read before save failed'));
+          };
+          settledReq.onerror = () => fail(settledReq.error || new Error('Committed opId check before save failed'));
+        }, [STORE, SETTLED]);
+      } catch (err) {
+        if (!err || err.name !== 'TypeError') throw err;
+        // Minimal string-only IDB test harnesses reject multi-store array tx with TypeError;
+        // real IndexedDB and fake-indexeddb execute the atomic multi-store transaction above.
+        const alreadySettled = await transact('readonly', (settledStore, done, fail) => {
+          const settledReq = settledStore.get(key);
+          settledReq.onsuccess = () => {
+            const settled = settledReq.result;
+            if (!settled || (settled.namespace !== namespace && settled.key !== key)) {
+              done(false);
+              return;
+            }
+            if (Object.keys(settled).sort().join(',') !== 'key,namespace,opId' ||
+                settled.namespace !== namespace || settled.opId !== clean.opId || settled.key !== key) {
+              fail(new Error('Corrupt own-business committed opId tombstone'));
+              return;
+            }
+            done(true);
+          };
+          settledReq.onerror = () => fail(settledReq.error || new Error('Committed opId check before save failed'));
+        }, [SETTLED]);
+        if (alreadySettled) {
+          const settledErr = new Error('Persisted opId already committed');
+          settledErr.code = 'TYPED_OPS_ALREADY_SETTLED';
+          throw settledErr;
+        }
+        await transact('readwrite', (objectStore, done, fail) => {
+          const getReq = objectStore.get(key);
+          getReq.onsuccess = () => {
+            const existing = getReq.result;
+            if (existing?.value && canonicalPayload(existing.value.command) !== nextCanonical) {
               fail(new Error('Persisted opId command payload mismatch'));
               return;
             }
-          }
-          const putReq = objectStore.put({ key, namespace, value: clean });
-          putReq.onsuccess = () => done(true);
-          putReq.onerror = () => fail(putReq.error || new Error('Typed-ops IndexedDB save failed'));
-        };
-        getReq.onerror = () => fail(getReq.error || new Error('Typed-ops IndexedDB read before save failed'));
-      });
+            const putReq = objectStore.put({ key, namespace, value: clean });
+            putReq.onsuccess = () => done(true);
+            putReq.onerror = () => fail(putReq.error || new Error('Typed-ops IndexedDB save failed'));
+          };
+          getReq.onerror = () => fail(getReq.error || new Error('Typed-ops IndexedDB read before save failed'));
+        });
+      }
     },
 
     // Read separately from the queue: a committed operation no longer needs

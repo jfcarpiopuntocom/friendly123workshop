@@ -3205,6 +3205,15 @@
         API.modoCorte20Activo = false;
         var coord = null;
         var opciones = Object.assign({}, opc || {});
+        var origOnSettled = typeof opciones.onSettled === "function" ? opciones.onSettled : null;
+        opciones.onSettled = function (opId, res) {
+          if (res && res.committed === true && opId) {
+            API.__opIdsTerminales20Cache = API.__opIdsTerminales20Cache || new Set();
+            API.__opIdsTerminales20Cache.add(String(opId).trim());
+          }
+          _registrarReciboComercial20(opId, res);
+          if (origOnSettled) origOnSettled(opId, res);
+        };
         var observadorExterno = opciones.onModeChange;
         opciones.onModeChange = function (estado) {
           // C21a failback on iOS pagehide, lost cert, or writer conflict closes
@@ -3215,6 +3224,11 @@
           if (coord && API.coordinadorCorte20 === coord &&
               (!estado || estado.mode !== "active-2.0")) {
             API.modoCorte20Activo = false;
+            API.__ultimoEstadoCorte20 = {
+              activo: false,
+              motivo: String((estado && estado.reason) || "failback").slice(0, 64),
+              en: Date.now()
+            };
             // The coordinator closes its certified writer BEFORE notifying
             // failback. Restore the original encrypted transport and its
             // untouched queue only after that closure.
@@ -3375,6 +3389,11 @@
             if (API.coordinadorCorte20 !== coord || API.modoCorte20Activo !== true ||
                 relayAnteriorApagadoYVacio()) return;
             API.modoCorte20Activo = false;
+            API.__ultimoEstadoCorte20 = {
+              activo: false,
+              motivo: "legacy-relay-restarted",
+              en: Date.now()
+            };
             try {
               if (typeof coord.failbackToLegacy === "function")
                 Promise.resolve(coord.failbackToLegacy("legacy-relay-restarted")).catch(function () {});
@@ -3394,6 +3413,11 @@
         if (window.OCYjs && window.OCYjs !== API) return;
         API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;
         API.modoCorte20Activo = false;
+        API.__ultimoEstadoCorte20 = {
+          activo: false,
+          motivo: String(motivo || "auth-reset").slice(0, 64),
+          en: Date.now()
+        };
         API.corteFotosShaActivo = false;
         API.fotoSha = null;
         API.rolComercial20Activo = null;
@@ -3617,6 +3641,53 @@
           localStorage.getItem("f123_corte20_qa") === "1";
       } catch (_) { return false; }
     };
+    API.__opIdsTerminales20Cache = API.__opIdsTerminales20Cache || new Set();
+    API._refrescarOpIdsTerminales20 = function () {
+      if (!piloto || typeof piloto.crearAlmacenDurableOpsTipadas !== "function" ||
+          typeof window === "undefined" || !window.indexedDB || API.__refrescandoOpIds20) {
+        return Promise.resolve(API.opIdsTerminales20());
+      }
+      API.__refrescandoOpIds20 = true;
+      return Promise.resolve()
+        .then(function () { return piloto.crearAlmacenDurableOpsTipadas({ indexedDB: window.indexedDB }); })
+        .then(function (st) {
+          return st && typeof st.loadCommittedOpIds === "function" ? st.loadCommittedOpIds() : [];
+        })
+        .then(function (ids) {
+          var prevSize = API.__opIdsTerminales20Cache.size;
+          if (Array.isArray(ids)) {
+            ids.forEach(function (id) {
+              if (typeof id === "string" && id.trim()) API.__opIdsTerminales20Cache.add(id.trim());
+            });
+          }
+          if (API.__opIdsTerminales20Cache.size > prevSize && typeof window.dispatchEvent === "function") {
+            try { window.dispatchEvent(new CustomEvent("oc-ops-20-terminales")); } catch (_) {}
+          }
+          return API.opIdsTerminales20();
+        })
+        .catch(function () { return API.opIdsTerminales20(); })
+        .finally(function () { API.__refrescandoOpIds20 = false; });
+    };
+    API.opIdsTerminales20 = function () {
+      var set = new Set(API.__opIdsTerminales20Cache || []);
+      if (API.recibosComerciales20 && typeof API.recibosComerciales20.forEach === "function") {
+        API.recibosComerciales20.forEach(function (entry, id) {
+          if (entry && entry.committed === true && entry.stage === "business-committed" && id) {
+            set.add(String(id).trim());
+          }
+        });
+      }
+      return Array.from(set);
+    };
+    API._reintentarActivarCorte20 = _intentarActivarCorte20SiElegible;
+    if (API.doc && typeof API.doc.once === "function") {
+      API.doc.once("destroy", function () {
+        if (API._reintentarActivarCorte20 === _intentarActivarCorte20SiElegible) {
+          API._reintentarActivarCorte20 = null;
+        }
+      });
+    }
+    void API._refrescarOpIdsTerminales20();
     _intentarActivarCorte20SiElegible();
     API.estado = "activo";
     log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
@@ -3737,7 +3808,7 @@
             var c = API.coordinadorCorte20;
             Promise.resolve(c && typeof c.drainLatchedSameDo === "function" ? c.drainLatchedSameDo() : null)
               .catch(function () {})
-              .finally(function () { if (typeof _intentarActivarCorte20SiElegible === "function") _intentarActivarCorte20SiElegible(); });
+              .finally(function () { if (typeof API._reintentarActivarCorte20 === "function") API._reintentarActivarCorte20(); });
           }, 15000);
         }
         return okLegado;

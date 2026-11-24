@@ -69,14 +69,19 @@ export function createTypedOpsReconciler({
   }
 
   const entries = new Map();
+  const settledOpIds = new Set();
+  const settledPayloads = new Map();
+  const settledReceipts = new Map();
   const inFlight = new Map();
   const timers = new Map();
   let paused = false;
+  let destroyed = false;
+  let reconcilerEpoch = 0;
 
   // IDB may load asynchronously; no command may be sent before hydration.
   // An unreadable/corrupt durable queue blocks the entire dispatcher.
   let initializationError = null;
-  const initialized = Promise.resolve().then(() => store.loadAll()).then(rows => {
+  const initialized = Promise.resolve().then(() => store.loadAll()).then(async rows => {
     if (!Array.isArray(rows)) throw new Error('durable store loadAll must return an array');
     for (const raw of rows) {
       if (!raw || typeof raw !== 'object' || !OP_ID.test(raw.opId || '') ||
@@ -96,6 +101,14 @@ export function createTypedOpsReconciler({
         createdAt: Number.isSafeInteger(raw.createdAt) ? raw.createdAt : now(),
         updatedAt: Number.isSafeInteger(raw.updatedAt) ? raw.updatedAt : now()
       });
+    }
+    if (typeof store.loadCommittedOpIds === 'function') {
+      const committedIds = await store.loadCommittedOpIds();
+      if (Array.isArray(committedIds)) {
+        for (const id of committedIds) {
+          if (OP_ID.test(id || '')) settledOpIds.add(id);
+        }
+      }
     }
   }).catch(error => { initializationError = error; });
 
@@ -160,9 +173,9 @@ export function createTypedOpsReconciler({
 
   function scheduleRetry(entry) {
     clearTimer(entry.opId);
-    if (paused || !isVisible()) return;
+    if (destroyed || paused || !isVisible()) return;
     if (entry.state !== 'pending') return;
-    if (entry.attempts >= maxAttempts) {
+    if (entry.attempts >= Math.min(maxAttempts, 10)) {
       entry.state = 'paused-retry-exhausted';
       entry.updatedAt = now();
       // The record already exists with sameDoLocked:true; a failed update
@@ -173,7 +186,7 @@ export function createTypedOpsReconciler({
     const delay = computeDelay(entry.attempts);
     const id = schedule(() => {
       timers.delete(entry.opId);
-      if (paused || !isVisible()) return;
+      if (destroyed || paused || !isVisible()) return;
       const current = entries.get(entry.opId);
       if (!current || current.state !== 'pending' || inFlight.has(current.opId)) return;
       void trackFlight(current.opId, current.payloadKey, () => runAttempt(current.command, current, false));
@@ -182,9 +195,11 @@ export function createTypedOpsReconciler({
   }
 
   async function runAttempt(command, existingEntry, isInitialSubmit) {
+    const attemptEpoch = reconcilerEpoch;
     const opId = command.opId;
     const payloadKey = canonicalKey(command);
     const lockedBefore = existingEntry?.sameDoLocked === true;
+    const maxAllowed = Math.min(maxAttempts, 10);
 
     // P0: ALWAYS commit original opId to durable storage BEFORE POSTing to DO.
     // Even a crash while the first HTTP request is in flight therefore leaves
@@ -203,9 +218,33 @@ export function createTypedOpsReconciler({
       prepared.sameDoLocked = true;
       await persist(prepared);
       entries.set(opId, prepared);
-    } catch (_) {
+    } catch (err) {
+      if (err && err.code === 'TYPED_OPS_ALREADY_SETTLED') {
+        settledOpIds.add(opId);
+        const knownKey = settledPayloads.get(opId);
+        if (knownKey && knownKey === payloadKey) {
+          return makeOutcome({
+            committed: true, duplicate: true, fallbackLegacy: false,
+            reconcileRequired: false, stage: 'already-committed',
+            receipt: settledReceipts.get(opId) || null
+          });
+        }
+        return makeOutcome({
+          committed: false, fallbackLegacy: false,
+          reconcileRequired: true, retryTarget: 'same-do-only',
+          stage: knownKey ? 'opid-payload-mismatch' : 'already-committed-unverified-payload',
+          status: knownKey ? 409 : 0
+        });
+      }
       return makeOutcome({stage: 'durable-store-unavailable', fallbackLegacy: false,
         reconcileRequired: false, retryable: false, retryTarget: null});
+    }
+    if (destroyed || attemptEpoch !== reconcilerEpoch || paused || !isVisible()) {
+      return makeOutcome({
+        committed: false, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only',
+        stage: destroyed || attemptEpoch !== reconcilerEpoch ? 'reconciler-destroyed' : 'paused-hidden'
+      });
     }
 
     let rawOutcome;
@@ -237,6 +276,9 @@ export function createTypedOpsReconciler({
           await store.markCommitted(opId);
         else
           await store.remove(opId); // Legacy synthetic in-memory test stores.
+        settledOpIds.add(opId);
+        settledPayloads.set(opId, payloadKey);
+        if (res.receipt) settledReceipts.set(opId, Object.freeze({ ...res.receipt }));
         entries.delete(opId);
       } catch (_) {
         return makeOutcome({stage: 'durable-cleanup-pending', fallbackLegacy: false,
@@ -356,8 +398,8 @@ export function createTypedOpsReconciler({
       updatedAt: now()
     };
     entry.sameDoLocked = true;
-    entry.attempts += 1;
-    entry.state = entry.attempts >= maxAttempts ? 'paused-retry-exhausted' : 'pending';
+    entry.attempts = Math.min(10, entry.attempts + 1);
+    entry.state = entry.attempts >= Math.min(maxAttempts, 10) ? 'paused-retry-exhausted' : 'pending';
     entry.updatedAt = now();
     entries.set(opId, entry);
     try { await persist(entry); }
@@ -380,8 +422,10 @@ export function createTypedOpsReconciler({
   }
 
   async function submit(command) {
+    if (destroyed) return makeOutcome({ stage: 'reconciler-destroyed', fallbackLegacy: false });
     try { await ready(); }
     catch (_) { return makeOutcome({stage:'durable-store-unavailable',fallbackLegacy:false}); }
+    if (destroyed) return makeOutcome({ stage: 'reconciler-destroyed', fallbackLegacy: false });
     if (!command || typeof command !== 'object' || Array.isArray(command) || !OP_ID.test(command.opId || '')) {
       return makeOutcome({ stage: 'invalid-command', fallbackLegacy: true });
     }
@@ -396,12 +440,35 @@ export function createTypedOpsReconciler({
     }
 
     const existing = entries.get(opId);
+    if (!existing && settledOpIds.has(opId)) {
+      const knownKey = settledPayloads.get(opId);
+      if (knownKey && knownKey === payloadKey) {
+        return makeOutcome({
+          committed: true, duplicate: true, fallbackLegacy: false,
+          reconcileRequired: false, stage: 'already-committed',
+          receipt: settledReceipts.get(opId) || null
+        });
+      }
+      return makeOutcome({
+        committed: false, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only',
+        stage: knownKey ? 'opid-payload-mismatch' : 'already-committed-unverified-payload',
+        status: knownKey ? 409 : 0
+      });
+    }
     if (existing) {
       if (existing.payloadKey !== payloadKey) {
         return makeOutcome({ stage: 'opid-payload-mismatch', fallbackLegacy: false });
       }
       if (existing.state === 'quarantined') {
         return makeOutcome({ stage: 'conflict-quarantine', quarantine: true, fallbackLegacy: false, status: 409 });
+      }
+      if (existing.state === 'paused-retry-exhausted' || existing.attempts >= Math.min(maxAttempts, 10)) {
+        return makeOutcome({
+          committed: false, fallbackLegacy: false,
+          reconcileRequired: true, retryable: false,
+          retryTarget: 'same-do-only', stage: 'paused-retry-exhausted'
+        });
       }
       if (paused || !isVisible()) {
         return makeOutcome({
@@ -412,6 +479,12 @@ export function createTypedOpsReconciler({
         });
       }
     } else {
+      if (paused || !isVisible()) {
+        return makeOutcome({
+          stage: 'paused-hidden',
+          fallbackLegacy: false
+        });
+      }
       let inFlightUnpersisted = 0;
       for (const id of inFlight.keys()) {
         if (!entries.has(id)) inFlightUnpersisted++;
@@ -425,9 +498,10 @@ export function createTypedOpsReconciler({
   }
 
   async function reconcileNow() {
+    if (destroyed) return Object.freeze({ attempted: 0, results: Object.freeze([]), stage: 'reconciler-destroyed' });
     try { await ready(); }
     catch (_) { return Object.freeze({attempted:0,results:Object.freeze([]),stage:'durable-store-unavailable'}); }
-    if (paused || !isVisible()) {
+    if (destroyed || paused || !isVisible()) {
       return Object.freeze({ attempted: 0, results: Object.freeze([]) });
     }
     const candidates = Array.from(entries.values()).filter(
@@ -435,8 +509,11 @@ export function createTypedOpsReconciler({
     );
     const results = [];
     for (const entry of candidates) {
-      if (paused || !isVisible()) break;
+      if (destroyed || paused || !isVisible()) break;
       clearTimer(entry.opId);
+      if (entry.state === 'paused-retry-exhausted' || entry.attempts >= Math.min(maxAttempts, 10)) {
+        entry.attempts = 0;
+      }
       entry.state = 'pending';
       results.push(await trackFlight(entry.opId, entry.payloadKey, () => runAttempt(entry.command, entry, false)));
     }
@@ -449,6 +526,7 @@ export function createTypedOpsReconciler({
   }
 
   async function resume() {
+    if (destroyed) return Object.freeze({ attempted: 0, results: Object.freeze([]), stage: 'reconciler-destroyed' });
     paused = false;
     if (!isVisible()) return Object.freeze({ attempted: 0, results: Object.freeze([]) });
     return reconcileNow();
@@ -476,7 +554,9 @@ export function createTypedOpsReconciler({
   }
 
   function destroy() {
+    destroyed = true;
     paused = true;
+    reconcilerEpoch++;
     clearAllTimers();
   }
 

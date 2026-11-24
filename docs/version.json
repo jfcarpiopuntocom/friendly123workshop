@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.23",
+  "version": "v0.9.24",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.23 C251: botones de vistas de Commissions independientes, combinables; todos apagados muestran RAW. Sin cambios de estética ni datos comerciales.",
+  "changelog": "v0.9.24 Sync4 hardening: atomic IDB custody, bounded typed-ops retry & epoch guards, pilot diagnostics, and roomless journal settled_ops pruning.",
   "requerida": false,
-  "shell": "f123-shell-v923",
+  "shell": "f123-shell-v924",
   "apagar": [],
-  "releaseName": "v0.9.23",
-  "cacheGeneration": "golden461"
+  "releaseName": "v0.9.24",
+  "cacheGeneration": "golden462"
 }

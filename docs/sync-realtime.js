@@ -1685,9 +1685,14 @@
   function leerPendientesYjs(licencia) {
     try {
       const raw = localStorage.getItem(COLA_YJS_SIN_SALA + licencia);
+      if (raw === null || raw === undefined || raw === "") {
+        _diarioCache = { licencia, raw, ops: [] };
+        return [];
+      }
       if (_diarioCache.ops && _diarioCache.licencia === licencia && _diarioCache.raw === raw) return _diarioCache.ops.slice();
-      const arr = JSON.parse(raw || "[]");
-      const ops = Array.isArray(arr) ? arr : [];
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return null;
+      const ops = arr;
       _diarioCache = { licencia: licencia, raw: raw, ops: ops };
       return ops.slice();
     } catch (_) { return null; } // corrupt/unreadable is NOT an empty journal
@@ -1761,14 +1766,38 @@
       } catch (_) { resolve(null); }
     });
   }
+  function leerTerminales20Set(yjs) {
+    const out = new Set();
+    try {
+      const list = yjs && typeof yjs.opIdsTerminales20 === "function" ? yjs.opIdsTerminales20() : null;
+      if (Array.isArray(list)) {
+        for (const id of list) {
+          if (typeof id === "string" && id.trim()) out.add(id.trim());
+        }
+      }
+    } catch (_) {}
+    return out;
+  }
   function podarPendientesYjs(licencia, yjs) {
+    const terminalesSync = leerTerminales20Set(yjs);
+    if (terminalesSync.size > 0 && codigoCuadernoActivo() === licencia &&
+        window.OCYjs === yjs && yjs.codigoCuaderno === licencia) {
+      const actualesSync = leerPendientesYjs(licencia);
+      if (actualesSync) {
+        const quedanSync = actualesSync.filter(function (op) {
+          return !(op && op.opId && normalizarCodigo(op._salaOrigen) === licencia && terminalesSync.has(op.opId));
+        });
+        if (quedanSync.length !== actualesSync.length) guardarPendientesYjs(licencia, quedanSync);
+      }
+    }
     if (_podaEnCurso || Date.now() - _ultimaPoda < PODA_DIARIO_MIN_MS) return;
     const idb = yjs.opsIdb;
     if (!idb || !idb.db) return; // not open yet (or no IDB at all): no proof possible, keep everything
     _podaEnCurso = true; _ultimaPoda = Date.now();
     leerOpIdsDurablesYjs(yjs).then(function (durables) {
       _podaEnCurso = false;
-      if (!durables || !durables.size) return;
+      const terminales = leerTerminales20Set(window.OCYjs);
+      if ((!durables || !durables.size) && !terminales.size) return;
       // The readback is asynchronous: the active licence or Y.Doc may have
       // switched meanwhile. The proof is valid only for the same licence AND
       // the same persistence object it was read from.
@@ -1776,12 +1805,13 @@
       if (codigoCuadernoActivo() !== licencia || !ahora || ahora.opsIdb !== idb ||
           ahora.codigoCuaderno !== licencia) return;
       // Re-read NOW: OCSyncEmit may have appended while IDB was reading. Only
-      // entries of this licence whose opId was read back from IDB are removed;
-      // anything else (new ops, foreign provenance, malformed) stays.
+      // entries of this licence whose opId was read back from IDB or confirmed
+      // settled in DO (settled_ops) are removed; anything else stays.
       const actuales = leerPendientesYjs(licencia);
       if (!actuales) return; // corrupt journal: never rewrite it
       const quedan = actuales.filter(function (op) {
-        return !(op && op.opId && normalizarCodigo(op._salaOrigen) === licencia && durables.has(op.opId));
+        if (!op || !op.opId || normalizarCodigo(op._salaOrigen) !== licencia) return true;
+        return !((durables && durables.has(op.opId)) || terminales.has(op.opId));
       });
       // A failed write leaves the old (larger) journal: replays are idempotent by opId.
       if (quedan.length !== actuales.length) guardarPendientesYjs(licencia, quedan);
@@ -1794,25 +1824,34 @@
         !yjs.opsMap || yjs.codigoCuaderno !== licencia) return;
     const ops = leerPendientesYjs(licencia);
     if (!ops || !ops.length) return;
+    const terminales20 = leerTerminales20Set(yjs);
     // Never remove a locally durable op merely because Yjs has it in RAM.
     // IndexedDB persistence is asynchronous; opsMap.get is NOT a durable ACK.
     // Keep the journal across reloads, and replay only entries missing from
     // the active same-licence Y.Doc. Removal happens ONLY in podarPendientesYjs,
-    // after the op was read back from the ops Y.Doc's IndexedDB (v766).
+    // after the op was read back from the ops Y.Doc's IndexedDB (v766) or
+    // confirmed settled in 2.0 settled_ops.
     let enDoc = false;
+    let enTerminales20 = false;
     for (const op of ops) {
       if (!op || normalizarCodigo(op._salaOrigen) !== licencia) continue;
+      if (op.opId && terminales20.has(op.opId)) {
+        enTerminales20 = true;
+        continue;
+      }
       try {
         if (!yjs.opsMap.get(op.opId))
           window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op }));
         if (yjs.opsMap.get(op.opId)) enDoc = true;
       } catch (_) {} // the durable journal is retained for another retry
     }
-    if (enDoc) podarPendientesYjs(licencia, yjs);
+    if (enDoc || enTerminales20) podarPendientesYjs(licencia, yjs);
   }
   try {
     window.addEventListener("oc-yjs-activo", drenarPendientesYjs);
     window.addEventListener("visibilitychange", drenarPendientesYjs);
+    window.addEventListener("oc-op-20-recibo", drenarPendientesYjs);
+    window.addEventListener("oc-ops-20-terminales", drenarPendientesYjs);
     setInterval(drenarPendientesYjs, 2000);
   } catch (_) {}
 
