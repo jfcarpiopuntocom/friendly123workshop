@@ -1,0 +1,23 @@
+name: Lab R11 native and combined v925
+on:
+  push:
+    branches: [lab/r10-reconcile-stale-candidates-20261124]
+    paths:
+      - '.github/workflows/lab-r11-native-combined.yml'
+      - 'experiments/2026-11-24-sync4-r11/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-combined:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: node experiments/2026-11-24-sync4-r11/run.mjs
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node experiments/2026-11-24-sync4-r11/run-native-combined.mjs
