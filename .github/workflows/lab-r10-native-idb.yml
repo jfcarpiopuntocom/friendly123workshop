@@ -1,0 +1,23 @@
+name: Lab R10 native IndexedDB
+on:
+  push:
+    branches: [lab/r10-reconcile-stale-candidates-20261124]
+    paths:
+      - '.github/workflows/lab-r10-native-idb.yml'
+      - 'experiments/2026-11-24-sync4-r10/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-idb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: node experiments/2026-11-24-sync4-r10/run-full-strict.mjs
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node experiments/2026-11-24-sync4-r10/run-native.mjs
