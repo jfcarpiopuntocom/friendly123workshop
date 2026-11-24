@@ -1,0 +1,65 @@
+diff --git a/src/port2-typed-ops-idb-store.mjs b/src/port2-typed-ops-idb-store.mjs
+--- a/src/port2-typed-ops-idb-store.mjs
++++ b/src/port2-typed-ops-idb-store.mjs
+@@ -240,6 +240,13 @@
+               fail(new Error('Persisted opId command payload mismatch'));
+               return;
+             }
++            // A stale tab may not reopen a command already quarantined by another connection.
++            if (existing?.value?.state === 'quarantined' && clean.state !== 'quarantined') {
++              const err = new Error('Persisted opId already quarantined');
++              err.code = 'TYPED_OPS_ALREADY_QUARANTINED';
++              fail(err);
++              return;
++            }
+             const putReq = objectStore.put({ key, namespace, value: clean });
+             putReq.onsuccess = () => done(true);
+             putReq.onerror = () => fail(putReq.error || new Error('Typed-ops IndexedDB save failed'));
+diff --git a/src/port2-typed-ops-reconciler.mjs b/src/port2-typed-ops-reconciler.mjs
+--- a/src/port2-typed-ops-reconciler.mjs
++++ b/src/port2-typed-ops-reconciler.mjs
+@@ -134,15 +134,24 @@
+   async function persist(entry) {
+     // store.save must resolve only after its REAL transaction commits. A write
+     // rejection means no HTTP request is allowed (even if the write partly ran).
+-    await store.save({
+-      opId: entry.opId,
+-      command: { ...entry.command },
+-      sameDoLocked: entry.sameDoLocked === true,
+-      attempts: entry.attempts,
+-      state: entry.state,
+-      createdAt: entry.createdAt,
+-      updatedAt: entry.updatedAt
+-    });
++    try {
++      await store.save({
++        opId: entry.opId,
++        command: { ...entry.command },
++        sameDoLocked: entry.sameDoLocked === true,
++        attempts: entry.attempts,
++        state: entry.state,
++        createdAt: entry.createdAt,
++        updatedAt: entry.updatedAt
++      });
++    } catch (err) {
++      if (err?.code === 'TYPED_OPS_ALREADY_QUARANTINED') {
++        entry.state = 'quarantined';
++        entries.set(entry.opId, entry);
++        clearTimer(entry.opId);
++      }
++      throw err;
++    }
+   }
+ 
+   function clearTimer(opId) {
+@@ -234,6 +243,10 @@
+       if (!prepared.verifiedAck) await persist(prepared);
+       entries.set(opId, prepared);
+     } catch (err) {
++      if (err?.code === 'TYPED_OPS_ALREADY_QUARANTINED') {
++        return makeOutcome({stage:'conflict-quarantine', quarantine:true, status:409,
++          fallbackLegacy:false, reconcileRequired:false});
++      }
+       if (err && err.code === 'TYPED_OPS_ALREADY_SETTLED') {
+         settledOpIds.add(opId);
+         const knownKey = settledPayloads.get(opId);
