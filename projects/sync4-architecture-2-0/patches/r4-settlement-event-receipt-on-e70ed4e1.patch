@@ -1,0 +1,56 @@
+diff --git a/docs/sync-yjs.js b/docs/sync-yjs.js
+--- a/docs/sync-yjs.js
++++ b/docs/sync-yjs.js
+@@ -3206,13 +3206,18 @@
+         var coord = null;
+         var opciones = Object.assign({}, opc || {});
+         var origOnSettled = typeof opciones.onSettled === "function" ? opciones.onSettled : null;
+-        opciones.onSettled = function (opId, res) {
+-          if (res && res.committed === true && opId) {
++        opciones.onSettled = function (event) {
++          if (!coord || API.coordinadorCorte20 !== coord || !event || !event.opId) return;
++          var id = String(event.opId).trim();
++          var committed = event.status === "committed" && event.receipt && event.receipt.stage === "business-committed" && event.receipt.opId === id;
++          var res = committed ? { committed: true, duplicate: event.duplicate === true, receipt: event.receipt }
++            : event.status === "quarantined" ? { committed: false, quarantine: true, stage: "conflict-quarantine" } : null;
++          if (committed) {
+             API.__opIdsTerminales20Cache = API.__opIdsTerminales20Cache || new Set();
+-            API.__opIdsTerminales20Cache.add(String(opId).trim());
++            API.__opIdsTerminales20Cache.add(id);
+           }
+-          _registrarReciboComercial20(opId, res);
+-          if (origOnSettled) origOnSettled(opId, res);
++          if (res) _registrarReciboComercial20(id, res);
++          if (origOnSettled) origOnSettled(event);
+         };
+         var observadorExterno = opciones.onModeChange;
+         opciones.onModeChange = function (estado) {
+diff --git a/test/p0-r4-settlement-event.test.cjs b/test/p0-r4-settlement-event.test.cjs
+new file mode 100644
+--- /dev/null
++++ b/test/p0-r4-settlement-event.test.cjs
+@@ -0,0 +1,23 @@
++'use strict';
++const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
++const {pathToFileURL}=require('node:url');const ROOT=path.resolve(__dirname,'..');
++function section(src,start,end){const a=src.indexOf(start),b=src.indexOf(end,a);assert.ok(a>=0&&b>a);return src.slice(a,b)}
++test('settled event records verified receipt, quarantine, and ignores stale coordinator',async()=>{
++ const sync=fs.readFileSync(path.join(ROOT,'docs/sync-yjs.js'),'utf8'),mock=fs.readFileSync(path.join(ROOT,'docs/mock-backend.js'),'utf8');
++ const receipt=section(sync,'    API.recibosComerciales20 = new Map();','    if (piloto && typeof piloto.crearCoordinadorCorte20 === "function") {');
++ const handler=section(mock,'  function _aplicarEstadoReciboDo20(detail) {','  // C42_END');
++ const callback=section(sync,'        var origOnSettled =','        var observadorExterno =');
++ let listeners=new Map(),sales=[{id:'synthetic-op-123',opId:'synthetic-op-123'}],coord={},external=[];
++ const window={addEventListener:(event,fn)=>listeners.set(event,fn),dispatchEvent:event=>listeners.get(event.type)?.(event)};
++ const ctx={window,ventas:sales,coord,opciones:{onSettled:e=>external.push(e)},_mergeSucio:false,_guardarMergePendienteYa:()=>{},CustomEvent:class{constructor(type,o){this.type=type;this.detail=o.detail}}};
++ const rt=vm.runInNewContext(`(function(){var API={coordinadorCorte20:coord};${receipt}${handler}${callback}return {API,opciones};})()`,ctx);
++ const {createTypedOpsReconciler}=await import(pathToFileURL(path.join(ROOT,'src/port2-typed-ops-reconciler.mjs')).href);
++ const store={loadAll:async()=>[],loadCommittedOpIds:async()=>[],save:async()=>{},markCommitted:async()=>{},remove:async()=>{}};
++ let id='synthetic-op-123',receiptValue={opId:id,stage:'business-committed',receiptId:'a'.repeat(24),acceptedAt:1700000000000};
++ let reconciler=createTypedOpsReconciler({store,onSettled:rt.opciones.onSettled,dispatch:async()=>({committed:true,receipt:receiptValue})});
++ await reconciler.submit({opId:id,kind:'sale.record'});
++ assert.equal(sales[0].reciboDo20?.estado,'confirmado-do');assert.equal(sales[0].reciboDo20.receiptId,receiptValue.receiptId);
++ assert.equal(rt.API.__opIdsTerminales20Cache.has(id),true);assert.equal(external[0].opId,id);
++ sales.push({id:'synthetic-quarantine',opId:'synthetic-quarantine'});rt.opciones.onSettled({opId:'synthetic-quarantine',status:'quarantined'});assert.equal(sales[1].reciboDo20.estado,'cuarentena-do');
++ rt.API.coordinadorCorte20={};rt.opciones.onSettled({opId:'synthetic-old-session',status:'committed',receipt:{opId:'synthetic-old-session',stage:'business-committed'}});assert.equal(rt.API.obtenerReciboComercial20('synthetic-old-session'),null);assert.equal(external.length,2);
++});
+
