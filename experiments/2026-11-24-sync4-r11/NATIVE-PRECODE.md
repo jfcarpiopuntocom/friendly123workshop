@@ -1,0 +1,3 @@
+# R11 native + combined release preparation
+
+Product read-only base v0.9.25 58a9d3f46384f2db0839e722cd429a9a07572788. R10b candidate is rebased by transplanting only the already tested trackFlight/reconcileNow functions and WeakMap declaration; exact baseline stored separately. R11 native tests wrap the real IDB store with a deterministic read barrier, preserving real reads; initial suite uses synthetic reconciler, then combined integration tests use full R10b reconciler with deterministic dispatch, two coordinators and same store. No production network, business data, UI, or main repo writes. This is a workshop candidate, not a publication.
