@@ -1,0 +1,3 @@
+# Sync4 R5 — PRECODE
+
+Source friendly-123 master 395c05ed0a0012d23c031a99b73e473d60d0bc1b. Notion plan 4211642b67f381bc8569e6a5406ccc31 and War Room 3ec1642b67f38189acb5e931d489a8f3 reviewed. Lab-only branch, synthetic fixtures. Plan: compare exact baseline and independently patched reconciler/coordinator for transient hydration, retry budget, terminal invalid HTTP, cleanup failure, paused/destroy lifecycle, duplicate activation and stale mode. Retain same-DO latch, durable intent, no provider or UI changes. Test normal commit and ambiguous ACK safeguards; reject candidates that regress them. Record exact patch transforms and runnable assertions. IDB store reserved: leave its implementation unchanged in this experiment. Results not commercial certification.
