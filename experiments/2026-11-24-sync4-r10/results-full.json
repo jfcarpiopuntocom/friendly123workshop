@@ -1,0 +1,503 @@
+{
+  "baseline": 4,
+  "candidate": 10,
+  "total": 10,
+  "results": [
+    {
+      "kind": "settled",
+      "reverse": false,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "bsaves": 1,
+        "beforeRelease": 1,
+        "remaining": [],
+        "terminal": [
+          "sale-second-001",
+          "sale-first-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed",
+          "committed"
+        ],
+        "later": null
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "bsaves": 1,
+        "beforeRelease": 1,
+        "remaining": [],
+        "terminal": [
+          "sale-second-001",
+          "sale-first-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": null
+      }
+    },
+    {
+      "kind": "settled",
+      "reverse": true,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-second-001",
+          "sale-first-001"
+        ],
+        "bsaves": 1,
+        "beforeRelease": 1,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed",
+          "committed"
+        ],
+        "later": null
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-second-001",
+          "sale-first-001"
+        ],
+        "bsaves": 1,
+        "beforeRelease": 1,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": null
+      }
+    },
+    {
+      "kind": "inflight",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 2,
+        "beforeRelease": 1,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed",
+          "committed"
+        ],
+        "later": null
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "bsaves": 1,
+        "beforeRelease": 1,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": null
+      }
+    },
+    {
+      "kind": "quarantine",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 3,
+        "beforeRelease": 2,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "quarantined",
+          "committed",
+          "committed"
+        ],
+        "later": null
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "bsaves": 2,
+        "beforeRelease": 2,
+        "remaining": [
+          {
+            "opId": "sale-second-001",
+            "state": "quarantined",
+            "attempts": 2
+          }
+        ],
+        "terminal": [
+          "sale-first-001"
+        ],
+        "notifications": [
+          "quarantined",
+          "committed"
+        ],
+        "later": null
+      }
+    },
+    {
+      "kind": "pending",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 3,
+        "beforeRelease": 2,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": null
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "bsaves": 2,
+        "beforeRelease": 2,
+        "remaining": [
+          {
+            "opId": "sale-second-001",
+            "state": "pending",
+            "attempts": 2
+          }
+        ],
+        "terminal": [
+          "sale-first-001"
+        ],
+        "notifications": [
+          "committed"
+        ],
+        "later": null
+      }
+    },
+    {
+      "kind": "retry-later",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 3,
+        "beforeRelease": 2,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": {
+          "pass": true,
+          "calls": [
+            "sale-first-001",
+            "sale-second-001",
+            "sale-second-001"
+          ],
+          "remaining": 0
+        }
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 2,
+        "beforeRelease": 2,
+        "remaining": [
+          {
+            "opId": "sale-second-001",
+            "state": "pending",
+            "attempts": 2
+          }
+        ],
+        "terminal": [
+          "sale-first-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": {
+          "pass": true,
+          "calls": [
+            "sale-first-001",
+            "sale-second-001",
+            "sale-second-001"
+          ],
+          "remaining": 0
+        }
+      }
+    },
+    {
+      "kind": "submit-pending",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 3,
+        "beforeRelease": 2,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": null
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "bsaves": 2,
+        "beforeRelease": 2,
+        "remaining": [
+          {
+            "opId": "sale-second-001",
+            "state": "pending",
+            "attempts": 2
+          }
+        ],
+        "terminal": [
+          "sale-first-001"
+        ],
+        "notifications": [
+          "committed"
+        ],
+        "later": null
+      }
+    },
+    {
+      "kind": "timer-pending",
+      "reverse": false,
+      "baseline": {
+        "pass": false,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 3,
+        "beforeRelease": 2,
+        "remaining": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": {
+          "pass": true,
+          "calls": [
+            "sale-first-001",
+            "sale-second-001",
+            "sale-second-001"
+          ],
+          "remaining": 0
+        }
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001",
+          "sale-second-001"
+        ],
+        "bsaves": 2,
+        "beforeRelease": 2,
+        "remaining": [
+          {
+            "opId": "sale-second-001",
+            "state": "pending",
+            "attempts": 2
+          }
+        ],
+        "terminal": [
+          "sale-first-001"
+        ],
+        "notifications": [
+          "committed",
+          "committed"
+        ],
+        "later": {
+          "pass": true,
+          "calls": [
+            "sale-first-001",
+            "sale-second-001",
+            "sale-second-001"
+          ],
+          "remaining": 0
+        }
+      }
+    },
+    {
+      "kind": "serial",
+      "reverse": false,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "rows": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": 2
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "rows": [],
+        "terminal": [
+          "sale-first-001",
+          "sale-second-001"
+        ],
+        "notifications": 2
+      }
+    },
+    {
+      "kind": "hidden",
+      "reverse": false,
+      "baseline": {
+        "pass": true,
+        "calls": [
+          "sale-first-001"
+        ],
+        "rows": [
+          {
+            "opId": "sale-second-001",
+            "command": {
+              "opId": "sale-second-001",
+              "license": "F123-TEST0001",
+              "kind": "sale.record",
+              "productId": "sku1",
+              "quantity": 1,
+              "amountCents": 1500
+            },
+            "sameDoLocked": true,
+            "attempts": 1,
+            "state": "pending",
+            "createdAt": 1,
+            "updatedAt": 1
+          }
+        ],
+        "terminal": [
+          "sale-first-001"
+        ],
+        "notifications": 1
+      },
+      "candidate": {
+        "pass": true,
+        "calls": [
+          "sale-first-001"
+        ],
+        "rows": [
+          {
+            "opId": "sale-second-001",
+            "command": {
+              "opId": "sale-second-001",
+              "license": "F123-TEST0001",
+              "kind": "sale.record",
+              "productId": "sku1",
+              "quantity": 1,
+              "amountCents": 1500
+            },
+            "sameDoLocked": true,
+            "attempts": 1,
+            "state": "pending",
+            "createdAt": 1,
+            "updatedAt": 1
+          }
+        ],
+        "terminal": [
+          "sale-first-001"
+        ],
+        "notifications": 1
+      }
+    }
+  ],
+  "scope": "full exact reconciler and exact command validator; model store with terminal and schema guards; no native IDB; deterministic dispatch and clock",
+  "baseBlob": "d70e8604be1c34a20c92f84619b365f55b8e12fa",
+  "candidateBlob": "82469bd0f97f8dccdbcc5a022b444b0a3fd23e9d"
+}
