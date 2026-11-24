@@ -1,0 +1,2 @@
+# R8b alternative requested by Gemini
+Keep C36 typed payload opId guard and amount/quantity conditions. Use a separate legacyOpId only for otherwise valid sale receipt identifiers, without claiming cash semantics. Existing C36 test intentionally expects generated transport ID for transfer; changing this assertion needs owner review. Colon IDs and migration from historical generated IDs remain open. Exact source fragment tests only.
