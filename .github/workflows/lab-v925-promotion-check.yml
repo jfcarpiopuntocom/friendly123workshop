@@ -1,0 +1,19 @@
+name: Lab v925 patch apply and reverse
+on:
+  push:
+    branches: [lab/r10-reconcile-stale-candidates-20261124]
+    paths:
+      - '.github/workflows/lab-v925-promotion-check.yml'
+      - 'experiments/2026-11-24-promotion-v925/**'
+permissions:
+  contents: read
+jobs:
+  verify-patches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node experiments/2026-11-24-promotion-v925/verify-patches.mjs
