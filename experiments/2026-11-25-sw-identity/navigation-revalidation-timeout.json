@@ -1,0 +1,234 @@
+{
+  "base": "4660c2f7f061a3a0dd848b66321396cb27eb7e5d",
+  "sourceBlob": "29016441c2a500dd0793a81ab74a27318da9be23",
+  "method": "actual SW fetch handler in V8, mocked fetch/cache/clock/abort/hash; no native browser execution. 3000 ms experimental bound, not attributed to actual browser stall",
+  "change": {
+    "before": "            let fresca = null;\n            try { fresca = await fetch(evento.request, { cache: \"no-cache\" }); } catch (_) {}\n            if (local && fresca && fresca.ok) {\n              const [a,b] = await Promise.all([local.clone().arrayBuffer(), fresca.clone().arrayBuffer()]);\n              const [ha,hb] = await Promise.all([crypto.subtle.digest(\"SHA-256\",a),crypto.subtle.digest(\"SHA-256\",b)]);\n              if (new Uint8Array(ha).every((v,i)=>v===new Uint8Array(hb)[i])) {\n                await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);\n                return limpiarRedireccion(fresca);\n              }\n            }\n",
+    "after": "            let timer;\n            const abort = new AbortController();\n            const fresca = await Promise.race([\n              (async () => {\n                try {\n                  const r = await fetch(evento.request, { cache: \"no-cache\", signal: abort.signal });\n                  if (!local || !r || !r.ok) return null;\n                  const [a,b] = await Promise.all([local.clone().arrayBuffer(), r.clone().arrayBuffer()]);\n                  const [ha,hb] = await Promise.all([crypto.subtle.digest(\"SHA-256\",a),crypto.subtle.digest(\"SHA-256\",b)]);\n                  return new Uint8Array(ha).every((v,i)=>v===new Uint8Array(hb)[i]) ? r : null;\n                } catch (_) { return null; }\n              })(),\n              new Promise(resolve => { timer = setTimeout(() => { abort.abort(); resolve(null); }, 3000); })\n            ]).finally(() => clearTimeout(timer));\n            if (fresca) {\n              await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);\n              return limpiarRedireccion(fresca);\n            }\n"
+  },
+  "rows": [
+    {
+      "mode": "hang-headers",
+      "red": {
+        "beforeDeadline": false,
+        "settled": false,
+        "pins": [],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      },
+      "green": {
+        "beforeDeadline": false,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "cached"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 1,
+        "timers": 0,
+        "warnings": []
+      }
+    },
+    {
+      "mode": "hang-body",
+      "red": {
+        "beforeDeadline": false,
+        "settled": false,
+        "pins": [],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      },
+      "green": {
+        "beforeDeadline": false,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "cached"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 1,
+        "timers": 0,
+        "warnings": []
+      }
+    },
+    {
+      "mode": "same",
+      "red": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "network"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      },
+      "green": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "network"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      }
+    },
+    {
+      "mode": "different",
+      "red": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "cached"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      },
+      "green": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "cached"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      }
+    },
+    {
+      "mode": "offline",
+      "red": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "cached"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      },
+      "green": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 200,
+          "body": "old",
+          "tag": "cached"
+        },
+        "pins": [
+          [
+            "new-document",
+            "f123-shell-v933-golden471"
+          ]
+        ],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      }
+    },
+    {
+      "mode": "no-cache",
+      "red": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 503,
+          "body": "Sin conexion y sin copia en cache.",
+          "tag": "fallback"
+        },
+        "pins": [],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      },
+      "green": {
+        "beforeDeadline": true,
+        "settled": true,
+        "value": {
+          "status": 503,
+          "body": "Sin conexion y sin copia en cache.",
+          "tag": "fallback"
+        },
+        "pins": [],
+        "reads": 1,
+        "aborts": 0,
+        "timers": 0,
+        "warnings": []
+      }
+    }
+  ],
+  "limits": [
+    "No proof browser delivered failing navigation to SW",
+    "Does not bound cache or pin storage calls",
+    "Abort may behave differently in native engines",
+    "No runtime changes"
+  ],
+  "runner": "async function run(src,mode){\n let handler,settled=false,value,error,aborts=0,reads=0,now=0,n=0;const pins=[],timers=new Map(),warnings=[];\n class U{constructor(u,b){if(b&&u.startsWith(\"./\"))u=(typeof b===\"string\"?b:b.href)+u.slice(2);const m=/^(https?:\\/\\/[^/]+)([^?]*)(\\?.*)?$/.exec(u);if(!m)throw Error(\"bad url \"+u);this.origin=m[1];this.pathname=m[2];this.search=m[3]||\"\";this.href=u}}\n class R{constructor(body,o={}){this.body=body;this.status=o.status??200;this.ok=this.status>=200&&this.status<300;this.redirected=false;this.tag=o.tag||\"fallback\"}clone(){return this}async arrayBuffer(){if(this.tag===\"network-hang-body\")return new Promise(()=>{});return Uint8Array.from([...this.body].map(c=>c.charCodeAt(0))).buffer}}\n class AC{constructor(){this.signal={aborted:false}}abort(){this.signal.aborted=true;aborts++}}\n const flush=async()=>{for(let i=0;i<50;i++)await Promise.resolve()};\n const self={location:{origin:\"https://fixture.test\",href:\"https://fixture.test/app/sw.js\"},registration:{scope:\"https://fixture.test/app/\"},addEventListener(t,fn){handler=fn}};\n const local=mode===\"no-cache\"?null:new R(\"old\",{tag:\"cached\"});\n const env={self,URL:U,Response:R,AbortController:AC,HOSTS_PERMITIDOS:[\"https://fixture.test\"],SHELL:[\"./index.html\"],CACHE_LOCAL:\"f123-shell-v933-golden471\",abrirCacheLocal:async()=>({match:async()=>local}),fijarShellDeDocumento:async(id,name)=>pins.push([id,name]),caches:{},crypto:{subtle:{digest:async(_,b)=>b}},fetch:async()=>{reads++;if(mode===\"hang-headers\")return new Promise(()=>{});if(mode===\"offline\")throw Error(\"offline\");return new R(mode===\"different\"?\"new\":\"old\",{tag:mode===\"hang-body\"?\"network-hang-body\":\"network\"})},setTimeout:(fn,ms)=>{timers.set(++n,{fn,at:now+ms});return n},clearTimeout:id=>timers.delete(id),console:{warn(...x){warnings.push(x.map(String).join(\" \"))}}};\n new Function(...Object.keys(env),src.slice(src.indexOf('self.addEventListener(\"fetch\"'),src.indexOf(\"/* A4\")))(...Object.values(env));\n handler({request:{url:\"https://fixture.test/app/index.html\",mode:\"navigate\",method:\"GET\"},resultingClientId:\"new-document\",respondWith:p=>Promise.resolve(p).then(r=>{settled=true;value={status:r.status,body:r.body,tag:r.tag}},e=>{settled=true;error=String(e)})});\n await flush();const beforeDeadline=settled;now=3000;for(const [id,t] of [...timers])if(t.at<=now){timers.delete(id);t.fn()}await flush();\n return {beforeDeadline,settled,value,error,pins,reads,aborts,timers:timers.size,warnings};\n}"
+}
