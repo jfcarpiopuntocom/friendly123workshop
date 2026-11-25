@@ -1,0 +1,309 @@
+{
+  "base": "89551cc07db38e0eaa8c8f690f17720c3097ab1f",
+  "sourceBlobs": [
+    "fecce0eb4a5fc078dcb1a79b528c89b81b314a3a",
+    "7ba794eae710b504285049d9b8c8af953a4c6b77",
+    "6b40b555a331af750a135deddacaf85b68c403ad",
+    "da9ce70613868cd4605f6c728536809971274abc",
+    "1a07748f6d150e26578b040f3a5d2440e929222a"
+  ],
+  "changes": [
+    {
+      "path": "docs/mock-backend.js",
+      "before": "        const p = _prodPorId.get(v.productoId);\n        const c = _cliPorId.get(v.clienteId);",
+      "after": "        // Read-only: the recorded retro adjustment replaces an empty zero split, never a real split.\n        if (_retroPorVenta.has(String(v.id)) && v.noCommission !== true && v.split && v.split.montoComisionSocio === 0 && !(Array.isArray(v.split.reparto) && v.split.reparto.some(Boolean))) v = Object.assign({}, v, {split:null});\n        const p = _prodPorId.get(v.productoId);\n        const c = _cliPorId.get(v.clienteId);"
+    },
+    {
+      "path": "src/dashboard/dashboard-main.js",
+      "before": "      var p = prods[v.productoId] || {};\n      var cant = Number(v.cantidad) || 0;",
+      "after": "      // Read-only: the recorded retro adjustment replaces an empty zero split, never a real split.\n      if (_retroPorVenta[String(v.id)] && v.noCommission !== true && v.split && v.split.montoComisionSocio === 0 && !(Array.isArray(v.split.reparto) && v.split.reparto.some(Boolean))) v = Object.assign({}, v, {split:null});\n      var p = prods[v.productoId] || {};\n      var cant = Number(v.cantidad) || 0;"
+    },
+    {
+      "path": "src/dashboard/dashboard-main.js",
+      "before": "asociadoNombre: asoc[v.ubicacionId] || (!v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || \"\" : \"\"),",
+      "after": "asociadoNombre: !v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || \"\" : (asoc[v.ubicacionId] || \"\"),"
+    },
+    {
+      "path": "src/dashboard/dashboard-main.js",
+      "before": "        promotoraId: v.promotoraId || null,\n      };\n    });\n\n    /* LIQUIDACIONES EN LOCAL.",
+      "after": "        promotoraId: !v.split && _retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].payeeId : (v.promotoraId || null),\n      };\n    });\n\n    /* LIQUIDACIONES EN LOCAL."
+    }
+  ],
+  "red": [
+    {
+      "count": 5,
+      "gross": 75,
+      "commission": 12.75,
+      "unknown": 0,
+      "retro": 0,
+      "attributed": 5,
+      "rows": [
+        {
+          "id": "sale-0",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-1",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-2",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-3",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-4",
+          "commission": 12.75,
+          "retro": false,
+          "house": 2.25,
+          "payee": "artist"
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "gross": 75,
+      "commission": 12.75,
+      "unknown": 0,
+      "retro": 0,
+      "attributed": 5,
+      "rows": [
+        {
+          "id": "sale-0",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-1",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-2",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-3",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-4",
+          "commission": 12.75,
+          "retro": false,
+          "house": 2.25,
+          "payee": "artist"
+        }
+      ]
+    }
+  ],
+  "green": [
+    {
+      "count": 5,
+      "gross": 75,
+      "commission": 63.75,
+      "unknown": 0,
+      "retro": 4,
+      "attributed": 5,
+      "rows": [
+        {
+          "id": "sale-0",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-1",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-2",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-3",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-4",
+          "commission": 12.75,
+          "retro": false,
+          "house": 2.25,
+          "payee": "artist"
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "gross": 75,
+      "commission": 63.75,
+      "unknown": 0,
+      "retro": 4,
+      "attributed": 5,
+      "rows": [
+        {
+          "id": "sale-0",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-1",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-2",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-3",
+          "commission": 12.75,
+          "retro": true,
+          "house": 2.25,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-4",
+          "commission": 12.75,
+          "retro": false,
+          "house": 2.25,
+          "payee": "artist"
+        }
+      ]
+    }
+  ],
+  "guard": [
+    {
+      "count": 5,
+      "gross": 75,
+      "commission": 12.75,
+      "unknown": 0,
+      "retro": 0,
+      "attributed": 5,
+      "rows": [
+        {
+          "id": "sale-0",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-1",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-2",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-3",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-4",
+          "commission": 12.75,
+          "retro": false,
+          "house": 2.25,
+          "payee": "artist"
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "gross": 75,
+      "commission": 12.75,
+      "unknown": 0,
+      "retro": 0,
+      "attributed": 5,
+      "rows": [
+        {
+          "id": "sale-0",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-1",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-2",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-3",
+          "commission": 0,
+          "retro": false,
+          "house": 15,
+          "payee": "artist"
+        },
+        {
+          "id": "sale-4",
+          "commission": 12.75,
+          "retro": false,
+          "house": 2.25,
+          "payee": "artist"
+        }
+      ]
+    }
+  ],
+  "limitations": "actual backend and dashboard sale projections, real payout ledger, business read model and historical report; dashboard monthly grouping stubbed, no native or client data; exact 4/5 client case unverified; candidate only, no writes"
+}
