@@ -1,0 +1,26 @@
+{
+  "description": "Exact source executed with two deliberately injected conditions: malformed client URL and cacheName miss rejection. These are defensive hypotheses, not observed native failure causes.",
+  "results": [
+    {
+      "ref": "a296924385196cdc249d1a2357e3b84a4b0e57c1",
+      "error": "Error: Invalid URL",
+      "pins": [],
+      "oldRetained": true
+    },
+    {
+      "ref": "a2740d7d528bc06226b94a6569c51e532c938f1c",
+      "error": null,
+      "pins": [
+        [
+          "https://example.test/app/__f123_client_shell__/a",
+          "f123-shell-v930-golden468"
+        ],
+        [
+          "https://example.test/app/__f123_client_shell__/b",
+          "f123-shell-v930-golden468"
+        ]
+      ],
+      "oldRetained": true
+    }
+  ]
+}
