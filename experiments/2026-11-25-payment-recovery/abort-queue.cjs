@@ -47,5 +47,13 @@ async function native({save,register,patched}){
  const {chromium,webkit}=require('playwright');
  const server=require('node:http').createServer((req,res)=>{res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>synthetic fixture</title>')});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- try{for(const engine of [chromium,webkit]){const browser=await engine.launch();try{const page=await browser.newPage();await page.goto('http://127.0.0.1:'+server.address().port);const result=await page.evaluate(native,{save,register,patched});console.log(engine.name(),JSON.stringify(result));assert.equal(result[0].aborted,1);assert.equal(result[0].errors,0);assert.equal(result[0].first,'pending');assert.equal(result[0].second,'pending');assert.deepEqual(result[0].ids,[]);assert.equal(result[1].first,'rejected');assert.equal(result[1].second,'committed');assert.deepEqual(result[1].ids,['two']);}finally{await browser.close()}}}finally{await new Promise(r=>server.close(r))}
+ try{for(const engine of [chromium,webkit]){const browser=await engine.launch();try{// Twenty independent contexts per engine; batches of four to bound resource load.
+for(let batch=0;batch<5;batch++){await Promise.all(Array.from({length:4},async(_,offset)=>{
+ const iteration=batch*4+offset+1;
+ const context=await browser.newContext();try{const page=await context.newPage();await page.goto('http://127.0.0.1:'+server.address().port);const result=await page.evaluate(native,{save,register,patched});
+ console.log(engine.name(), 'iteration',iteration,JSON.stringify(result));
+ assert.equal(result[0].aborted,1);assert.equal(result[0].errors,0);assert.equal(result[0].first,'pending');assert.equal(result[0].second,'pending');assert.equal(result[0].txs,1);assert.deepEqual(result[0].ids,[]);
+ assert.equal(result[1].aborted,1);assert.equal(result[1].errors,0);assert.equal(result[1].first,'rejected');assert.equal(result[1].second,'committed');assert.equal(result[1].txs,2);assert.equal(result[1].completed,1);assert.deepEqual(result[1].ids,['two']);
+ }finally{await context.close();}
+}));}console.log(engine.name(),'20/20 native abort repetitions verified');}finally{await browser.close()}}}finally{await new Promise(r=>server.close(r))}
 })().catch(e=>{console.error(e);process.exitCode=1});
