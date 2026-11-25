@@ -1,0 +1,24 @@
+{
+  "base": "fb42482a2891360f5f5d402a69af5d09f6567231",
+  "red": false,
+  "green": true,
+  "ledgerVisible": [
+    "unknown",
+    "due",
+    "held"
+  ],
+  "cases": [
+    "historical positive",
+    "paid",
+    "held",
+    "unknown",
+    "associate collected",
+    "conflict",
+    "quarantine",
+    "search expands",
+    "ES",
+    "preserve open"
+  ],
+  "scope": "read-only directory grouping, no payout mutation",
+  "limitations": "V8 source-executed UI string harness, actual payout core, native browser pending"
+}
