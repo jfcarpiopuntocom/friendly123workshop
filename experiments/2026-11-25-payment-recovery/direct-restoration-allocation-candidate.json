@@ -1,0 +1,182 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "dependsOn": "4d98c938498f9fde30f625663f39223a9c3337b6 and earlier combined candidate",
+  "change": {
+    "before": "    var seenExplicit = new Map();",
+    "after": "    // EXPERIMENT: only an unambiguous, direct same-customer restoration with\n    // exact receipt amounts. Preserve historical allocation keys as read aliases.\n    var restoreAliases = new Map(), restoreDrop = new Set();\n    var restoreChildren = new Map(), receiptsBySale = new Map();\n    (ventas || []).forEach(function(v){\n      if(v && v.restauracionDe){\n        var k=String(v.restauracionDe), g=restoreChildren.get(k)||[];\n        g.push(v);restoreChildren.set(k,g);\n      }\n    });\n    mios.forEach(function(h){\n      var d=_d(h);\n      if(h.tipo!==TIPOS.cargo || !d.ventaId)return;\n      var k=String(d.ventaId),g=receiptsBySale.get(k)||[];\n      g.push(h);receiptsBySale.set(k,g);\n    });\n    restoreChildren.forEach(function(children,oldId){\n      if(children.length!==1)return;\n      var old=porId[oldId], v=children[0], nextId=String(v.id||\"\");\n      if(!old || !old.anulada || old.devuelta || old.restauracionDe ||\n         !nextId || oldId===nextId || restoreChildren.has(nextId) ||\n         v.anulada || v.devuelta || String(old.clienteId||\"\")!==String(clienteId) ||\n         String(v.clienteId||\"\")!==String(clienteId) ||\n         !old.info || old.info.formaPago!==\"fiado\" || !v.info || v.info.formaPago!==\"fiado\")return;\n      var prior=receiptsBySale.get(oldId)||[], current=receiptsBySale.get(nextId)||[];\n      if(prior.length!==1 || current.length!==1)return;\n      if(Object.keys(vinculos).some(function(k){return vinculos[k]===oldId||vinculos[k]===nextId;}))return;\n      var amount=_centavosVenta(v);\n      if(amount<=0 || _centavos((Number(old.precioUnit)||0)*(Number(old.cantidad)||0))!==amount ||\n         _centavos(_d(prior[0]).monto)!==amount || _centavos(_d(current[0]).monto)!==amount)return;\n      restoreDrop.add(String(prior[0].id));\n      restoreAliases.set(\"venta:\"+oldId,\"venta:\"+nextId);\n    });\n    if(restoreAliases.size){\n      mios=mios.filter(function(h){return !restoreDrop.has(String(h.id));});\n      todos=todos.map(function(h){\n        if(h.tipo!==APLICACION)return h;\n        var d=_d(h);\n        if(String(d.clienteId)!==String(clienteId))return h;\n        var copy=Object.assign({},d);\n        if(restoreAliases.has(String(d.cargoKey)))copy.cargoKey=restoreAliases.get(String(d.cargoKey));\n        if(Array.isArray(d.partes))copy.partes=d.partes.map(function(p){\n          return p&&restoreAliases.has(String(p.cargoKey))?Object.assign({},p,{cargoKey:restoreAliases.get(String(p.cargoKey))}):p;\n        });\n        return Object.assign({},h,{datos:_anidado(h)?Object.assign({},h.datos,{payload:copy}):copy});\n      });\n    }\n    var seenExplicit = new Map();"
+  },
+  "method": "V8 real cartera source; direct restoration only with exactly one receipt each and exact equal amounts; projection alias, no writes",
+  "red": [
+    {
+      "name": "restored",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "old allocation",
+      "saldo": -206,
+      "applied": 10,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "undo with new key",
+      "saldo": -206,
+      "applied": 10,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "apply new key",
+      "saldo": -206,
+      "applied": 10,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 1,
+      "immutable": true
+    },
+    {
+      "name": "old receipt only",
+      "saldo": -98,
+      "applied": 10,
+      "unassigned": 0,
+      "charges": 1,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "different amount",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "ambiguous restore",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "other customer",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "unrelated sales",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    }
+  ],
+  "green": [
+    {
+      "name": "restored",
+      "saldo": -108,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 1,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "old allocation",
+      "saldo": -98,
+      "applied": 10,
+      "unassigned": 0,
+      "charges": 1,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "undo with new key",
+      "saldo": -98,
+      "applied": 0,
+      "unassigned": 10,
+      "charges": 1,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "apply new key",
+      "saldo": -98,
+      "applied": 7,
+      "unassigned": 3,
+      "charges": 1,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "old receipt only",
+      "saldo": -98,
+      "applied": 10,
+      "unassigned": 0,
+      "charges": 1,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "different amount",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "ambiguous restore",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "other customer",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    },
+    {
+      "name": "unrelated sales",
+      "saldo": -216,
+      "applied": 0,
+      "unassigned": 0,
+      "charges": 2,
+      "conflicts": 0,
+      "immutable": true
+    }
+  ],
+  "limitations": [
+    "No multi-hop, branching, repricing, manual-linked or multiple-receipt restoration fix; must remain reviewable",
+    "The full write paths, UI, native sync and previous regression suite not certified",
+    "No changes to actual business facts"
+  ],
+  "runner": "function test(source){const w={};new Function(\"window\",source)(w);const calc=w.AMG.Cartera.calcularSaldo,t=1790000000000,client=\"a\",h=(id,tipo,d,ts=t)=>({id,tipo,ts,datos:{clienteId:client,...d}});const old={id:\"old\",clienteId:client,cantidad:1,precioUnit:108,fecha:\"2026-11-25\",anulada:true,info:{formaPago:\"fiado\",fiadoAtomico:true}},cur={...old,id:\"new\",anulada:false,restauracionDe:\"old\"},c1=h(\"r-old\",\"cartera_cargo\",{monto:108,ventaId:\"old\"}),c2=h(\"r-new\",\"cartera_cargo\",{monto:108,ventaId:\"new\"}),p=h(\"p\",\"cartera_abono\",{monto:10,opId:\"p\"}),app=h(\"app\",\"cartera_aplicacion\",{opId:\"app\",abonoId:\"p\",accion:\"aplicar\",partes:[{cargoKey:\"venta:old\",monto:10}]},t+1000),undo=h(\"undo\",\"cartera_aplicacion\",{abonoId:\"p\",accion:\"desaplicar\",cargoKey:\"venta:new\",monto:0},t+2000),again=h(\"again\",\"cartera_aplicacion\",{opId:\"again\",abonoId:\"p\",accion:\"aplicar\",cargoKey:\"venta:new\",monto:7},t+3000);const cases=[[\"restored\",[c1,c2],[old,cur]],[\"old allocation\",[c1,c2,p,app],[old,cur]],[\"undo with new key\",[c1,c2,p,app,undo],[old,cur]],[\"apply new key\",[c1,c2,p,app,undo,again],[old,cur]],[\"old receipt only\",[c1,p,app],[old,cur]],[\"different amount\",[c1,{...c2,datos:{...c2.datos,monto:100}}],[old,cur]],[\"ambiguous restore\",[c1,c2],[old,cur,{...cur,id:\"branch\"}]],[\"other customer\",[c1,c2],[old,{...cur,clienteId:\"b\"}]],[\"unrelated sales\",[c1,c2],[{...old,anulada:false},{...cur,restauracionDe:undefined}]]];return cases.map(([name,facts,vs])=>{const snap=JSON.stringify({facts,vs});const r=calc(facts,client,vs);return {name,saldo:r.saldo,applied:r.movimientos.filter(m=>m.tipo===\"cargo\").reduce((n,m)=>n+m.aplicado,0),unassigned:r.movimientos.filter(m=>m.tipo===\"abono\").reduce((n,m)=>n+m.sinAsignar,0),charges:r.movimientos.filter(m=>m.tipo===\"cargo\").length,conflicts:r.conflictosAplicacion,immutable:snap===JSON.stringify({facts,vs})}})}"
+}
