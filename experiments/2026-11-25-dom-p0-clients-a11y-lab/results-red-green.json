@@ -1,0 +1,496 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-25T18:13:13.831Z",
+    "targetSha": "d90e451f5",
+    "targetVersion": "v0.9.27",
+    "syntheticOnly": true,
+    "productTreeUntouched": true,
+    "scopeClass": "PARKING_LOT_POST_STABLE_WORKSHOP_LAB"
+  },
+  "results": [
+    {
+      "profile": "webkit-ipad-1024x768",
+      "red": {
+        "mode": "RED",
+        "profile": "webkit-ipad-1024x768",
+        "engine": "webkit",
+        "pageErrors": [],
+        "measured": [
+          {
+            "step": 1,
+            "vista": "comisiones",
+            "switchMs": 678,
+            "totalDomNodes": 2195,
+            "clientesVistaNodes": 36,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 0,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 2,
+            "vista": "clientes",
+            "switchMs": 11692,
+            "totalDomNodes": 49553,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 3,
+            "vista": "gastos",
+            "switchMs": 3834,
+            "totalDomNodes": 49553,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 4,
+            "vista": "perchas",
+            "switchMs": 5324,
+            "totalDomNodes": 52904,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 5,
+            "vista": "comisiones",
+            "switchMs": 2525,
+            "totalDomNodes": 52904,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          }
+        ],
+        "functionalE2E": null
+      },
+      "green": {
+        "mode": "GREEN",
+        "profile": "webkit-ipad-1024x768",
+        "engine": "webkit",
+        "pageErrors": [],
+        "measured": [
+          {
+            "step": 1,
+            "vista": "comisiones",
+            "switchMs": 953,
+            "totalDomNodes": 2195,
+            "clientesVistaNodes": 36,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 0,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 2,
+            "vista": "clientes",
+            "switchMs": 2757,
+            "totalDomNodes": 5283,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          },
+          {
+            "step": 3,
+            "vista": "gastos",
+            "switchMs": 1199,
+            "totalDomNodes": 8532,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          },
+          {
+            "step": 4,
+            "vista": "perchas",
+            "switchMs": 1144,
+            "totalDomNodes": 8634,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          },
+          {
+            "step": 5,
+            "vista": "comisiones",
+            "switchMs": 862,
+            "totalDomNodes": 8634,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          }
+        ],
+        "functionalE2E": {
+          "initialBatch40": true,
+          "zeroHiddenOptions": true,
+          "showMore40To80": true,
+          "globalSearchCustomer399": true,
+          "lazyEditMount29Countries": true,
+          "saveNoteRoundtrip": true
+        }
+      }
+    },
+    {
+      "profile": "webkit-iphone-390x844",
+      "red": {
+        "mode": "RED",
+        "profile": "webkit-iphone-390x844",
+        "engine": "webkit",
+        "pageErrors": [],
+        "measured": [
+          {
+            "step": 1,
+            "vista": "comisiones",
+            "switchMs": 884,
+            "totalDomNodes": 2195,
+            "clientesVistaNodes": 36,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 0,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 2,
+            "vista": "clientes",
+            "switchMs": 14576,
+            "totalDomNodes": 49553,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 3,
+            "vista": "gastos",
+            "switchMs": 992,
+            "totalDomNodes": 49553,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 4,
+            "vista": "perchas",
+            "switchMs": 3703,
+            "totalDomNodes": 52904,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 5,
+            "vista": "comisiones",
+            "switchMs": 3097,
+            "totalDomNodes": 52904,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": null
+          }
+        ],
+        "functionalE2E": null
+      },
+      "green": {
+        "mode": "GREEN",
+        "profile": "webkit-iphone-390x844",
+        "engine": "webkit",
+        "pageErrors": [],
+        "measured": [
+          {
+            "step": 1,
+            "vista": "comisiones",
+            "switchMs": 937,
+            "totalDomNodes": 2195,
+            "clientesVistaNodes": 36,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 0,
+            "showMoreBtnText": null,
+            "cdp": null
+          },
+          {
+            "step": 2,
+            "vista": "clientes",
+            "switchMs": 2687,
+            "totalDomNodes": 5283,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          },
+          {
+            "step": 3,
+            "vista": "gastos",
+            "switchMs": 1072,
+            "totalDomNodes": 8532,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          },
+          {
+            "step": 4,
+            "vista": "perchas",
+            "switchMs": 1001,
+            "totalDomNodes": 8634,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          },
+          {
+            "step": 5,
+            "vista": "comisiones",
+            "switchMs": 781,
+            "totalDomNodes": 8634,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": null
+          }
+        ],
+        "functionalE2E": {
+          "initialBatch40": true,
+          "zeroHiddenOptions": true,
+          "showMore40To80": true,
+          "globalSearchCustomer399": true,
+          "lazyEditMount29Countries": true,
+          "saveNoteRoundtrip": true
+        }
+      }
+    },
+    {
+      "profile": "chromium-tablet-1024x768-cdp",
+      "red": {
+        "mode": "RED",
+        "profile": "chromium-tablet-1024x768-cdp",
+        "engine": "chromium",
+        "pageErrors": [],
+        "measured": [
+          {
+            "step": 1,
+            "vista": "comisiones",
+            "switchMs": 689,
+            "totalDomNodes": 2198,
+            "clientesVistaNodes": 36,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 0,
+            "showMoreBtnText": null,
+            "cdp": {
+              "jsHeapUsedMB": 44.78,
+              "cdpNodes": 9800,
+              "cdpEventListeners": 794
+            }
+          },
+          {
+            "step": 2,
+            "vista": "clientes",
+            "switchMs": 12388,
+            "totalDomNodes": 49553,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": {
+              "jsHeapUsedMB": 25.53,
+              "cdpNodes": 186720,
+              "cdpEventListeners": 7611
+            }
+          },
+          {
+            "step": 3,
+            "vista": "gastos",
+            "switchMs": 2528,
+            "totalDomNodes": 52802,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": {
+              "jsHeapUsedMB": 17.09,
+              "cdpNodes": 196166,
+              "cdpEventListeners": 10027
+            }
+          },
+          {
+            "step": 4,
+            "vista": "perchas",
+            "switchMs": 3604,
+            "totalDomNodes": 52904,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": {
+              "jsHeapUsedMB": 45.31,
+              "cdpNodes": 195981,
+              "cdpEventListeners": 8453
+            }
+          },
+          {
+            "step": 5,
+            "vista": "comisiones",
+            "switchMs": 557,
+            "totalDomNodes": 52904,
+            "clientesVistaNodes": 46993,
+            "clientesHiddenOptions": 15600,
+            "clientesHiddenEditPanels": 400,
+            "clientesCards": 400,
+            "showMoreBtnText": null,
+            "cdp": {
+              "jsHeapUsedMB": 23.74,
+              "cdpNodes": 198132,
+              "cdpEventListeners": 8509
+            }
+          }
+        ],
+        "functionalE2E": null
+      },
+      "green": {
+        "mode": "GREEN",
+        "profile": "chromium-tablet-1024x768-cdp",
+        "engine": "chromium",
+        "pageErrors": [],
+        "measured": [
+          {
+            "step": 1,
+            "vista": "comisiones",
+            "switchMs": 570,
+            "totalDomNodes": 2198,
+            "clientesVistaNodes": 36,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 0,
+            "showMoreBtnText": null,
+            "cdp": {
+              "jsHeapUsedMB": 43.36,
+              "cdpNodes": 9809,
+              "cdpEventListeners": 797
+            }
+          },
+          {
+            "step": 2,
+            "vista": "clientes",
+            "switchMs": 1771,
+            "totalDomNodes": 5283,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": {
+              "jsHeapUsedMB": 21.23,
+              "cdpNodes": 14127,
+              "cdpEventListeners": 1214
+            }
+          },
+          {
+            "step": 3,
+            "vista": "gastos",
+            "switchMs": 464,
+            "totalDomNodes": 8532,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": {
+              "jsHeapUsedMB": 40.68,
+              "cdpNodes": 23590,
+              "cdpEventListeners": 2028
+            }
+          },
+          {
+            "step": 4,
+            "vista": "perchas",
+            "switchMs": 689,
+            "totalDomNodes": 8634,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": {
+              "jsHeapUsedMB": 35.02,
+              "cdpNodes": 23923,
+              "cdpEventListeners": 2068
+            }
+          },
+          {
+            "step": 5,
+            "vista": "comisiones",
+            "switchMs": 493,
+            "totalDomNodes": 8634,
+            "clientesVistaNodes": 2723,
+            "clientesHiddenOptions": 0,
+            "clientesHiddenEditPanels": 0,
+            "clientesCards": 40,
+            "showMoreBtnText": "Show more (360 remaining)",
+            "cdp": {
+              "jsHeapUsedMB": 48.01,
+              "cdpNodes": 26074,
+              "cdpEventListeners": 2124
+            }
+          }
+        ],
+        "functionalE2E": {
+          "initialBatch40": true,
+          "zeroHiddenOptions": true,
+          "showMore40To80": true,
+          "globalSearchCustomer399": true,
+          "lazyEditMount29Countries": true,
+          "saveNoteRoundtrip": true
+        }
+      }
+    }
+  ]
+}
