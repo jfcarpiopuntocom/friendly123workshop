@@ -1,0 +1,8 @@
+{
+  "base": "26b374a38505908ff79d65433e7eaf234557fc6b",
+  "red": "wrong section",
+  "green": "both result paths, directory original",
+  "html": "<details data-comm-ranking-fold open style=\"margin-bottom:20px;\"><summary style=\"cursor:pointer;min-height:44px;color:var(--ink);\"><h3 class=\"seccion\" style=\"font-size:16px;margin-top:0;\">Results</h3></summary><article data-id=\"paid\">1</article><article data-id=\"unknown\">3</article><article data-id=\"neg\">4</article><details data-comm-ranking-zero><summary style=\"cursor:pointer;min-height:44px;color:var(--ink);font-weight:700;\">No commissions (1)</summary><article data-id=\"zero\">2</article></details></details>",
+  "collapsed": "<details data-comm-ranking-fold style=\"margin-bottom:20px;\"><summary style=\"cursor:pointer;min-height:44px;color:var(--ink);\"><h3 class=\"seccion\" style=\"font-size:16px;margin-top:0;\">Results</h3></summary><article data-id=\"paid\">1</article><article data-id=\"unknown\">3</article><article data-id=\"neg\">4</article><details data-comm-ranking-zero open><summary style=\"cursor:pointer;min-height:44px;color:var(--ink);font-weight:700;\">Sin comisiones (1)</summary><article data-id=\"zero\">2</article></details></details>",
+  "method": "actual renderer with simulated DOM"
+}
