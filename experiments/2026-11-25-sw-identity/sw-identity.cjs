@@ -1,0 +1,36 @@
+'use strict';
+const fs=require('node:fs');
+const [health,worker,oldHealth,oldWorker]=process.argv.slice(2).map(p=>fs.readFileSync(p,'utf8'));
+const a=health.indexOf("    function actualizarEnSilencio() {"),b=health.indexOf("    function ofrecerRecarga(",a),aa=health.indexOf("          var respondio = false;",b),bb=health.indexOf("\n        })\n        .catch(function () { /* sin red",aa);
+if([a,b,aa,bb].some(x=>x<0))throw Error("boundaries");
+const candidateHealth=health.slice(0,a)+"    function actualizarEnSilencio() {\n      if (_actualizacionEnCurso) return;\n      _actualizacionEnCurso = true;\n      Promise.resolve().then(function () {\n        return navigator.serviceWorker.getRegistration();\n      }).then(async function (reg) {\n        if (!reg) return;\n        if (reg.waiting) reg.waiting.postMessage({ tipo: \"skip-waiting\" });\n        await reg.update();\n        if (reg.waiting) reg.waiting.postMessage({ tipo: \"skip-waiting\" });\n      }).catch(function () {}).finally(function () { _actualizacionEnCurso = false; });\n    }\n"+health.slice(b,aa)+"          var sw = navigator.serviceWorker;\n          var terminado = false, timer;\n          function fin() {\n            if (terminado) return false;\n            terminado = true;\n            clearTimeout(timer);\n            sw.removeEventListener(\"message\", recibir);\n            return true;\n          }\n          function recibir(e) {\n            if (e.source !== ctrl || !e.data || e.data.tipo !== \"shell-actual\" || !e.data.shell) return;\n            if (!fin() || sw.controller !== ctrl) return;\n            var sirviendo = String(e.data.shell);\n            var genSirviendo = e.data.cacheGeneration;\n            var genEsperada = v.cacheGeneration ? (\"-\" + String(v.cacheGeneration).replace(/^-/, \"\")) : \"\";\n            if (sirviendo !== v.shell || (genEsperada && genSirviendo !== genEsperada)) {\n              window.__ocMezcla = true;\n              ofrecerRecarga(v.shell + (genEsperada ? \"@\" + genEsperada : \"\"), sirviendo + (genSirviendo ? \"@\" + genSirviendo : \"@legacy\"));\n            }\n          }\n          function sinRespuesta() {\n            if (!fin() || sw.controller !== ctrl) return;\n            try { console.warn(\"[version] sin respuesta de identidad del SW; se solicita actualización segura\"); } catch (_) {}\n            actualizarEnSilencio();\n          }\n          sw.addEventListener(\"message\", recibir);\n          timer = setTimeout(sinRespuesta, 3000);\n          try { ctrl.postMessage({ tipo: \"que-shell\" }); } catch (_) { sinRespuesta(); }"+health.slice(bb);
+const oldReply="    if (ev.data.tipo === \"que-shell\" && ev.source && ev.source.postMessage) {\n      ev.source.postMessage({ tipo: \"shell-actual\", shell: CACHE, cacheGeneration: CACHE_GENERACION });\n      return;\n    }",newReply="    if (ev.data.tipo === \"que-shell\") {\n      const destino = (ev.ports && ev.ports[0]) || ev.source;\n      if (destino && destino.postMessage) destino.postMessage({ tipo: \"shell-actual\", shell: CACHE, cacheGeneration: CACHE_GENERACION });\n      return;\n    }";
+if(worker.split(oldReply).length!==2)throw Error("reply mismatch");
+const candidateWorker=worker.replace(oldReply,newReply);
+function extractHealth(src){const a=src.indexOf("(function autodiagnosticoDeVersion()"),b=src.indexOf("\n})();",a);if(a<0||b<0)throw Error("health boundary");return src.slice(a,b+6);}
+function extractWorker(src){const a=src.lastIndexOf('self.addEventListener("message",');if(a<0)throw Error("worker boundary");return src.slice(a);}
+async function exercise(h,w,{silent=false,offline=false,spoof=false,swap=false,throws=false,alreadyWaiting=false,serverShell="f123-shell-v928",serverGeneration="golden466",workerShell="f123-shell-v928",workerGeneration="-golden466"}={}){
+ const listeners=new Set(),timers=new Map(),messages=[],warnings=[];let n=0,now=0,updates=0,activations=0,reloads=0,handler;
+ const wait={postMessage(m){if(m.tipo==="skip-waiting")activations++;reg.waiting=null;}};
+ const reg={waiting:alreadyWaiting?wait:null,async update(){updates++;if(throws)throw Error("network");this.waiting=wait;}};
+ const source={postMessage(data){for(const fn of [...listeners])fn({data,source:ctrl});}};
+ const ctrl={postMessage(data,ports=[]){if(spoof){for(const fn of [...listeners])fn({source:{},data:{tipo:"shell-actual",shell:serverShell,cacheGeneration:"-"+serverGeneration}});}if(swap)sw.controller={};if(!silent)handler({data,ports,source});}};
+ const sw={controller:ctrl,addEventListener(t,fn){if(t==="message")listeners.add(fn);},removeEventListener(t,fn){listeners.delete(fn);},getRegistration:async()=>reg};
+ const W={AMG:{Salud:{registrar(m){messages.push(m);}}}};
+ class MC{constructor(){this.port1={onmessage:null};this.port2={postMessage:data=>this.port1.onmessage?.({data})}}}
+ const timer=(fn,ms)=>{timers.set(++n,{fn,at:now+ms});return n;};const flush=async()=>{for(let i=0;i<30;i++)await Promise.resolve();};
+ const step=async()=>{await flush();while(timers.size){const [id,t]=[...timers].sort((a,b)=>a[1].at-b[1].at)[0];timers.delete(id);now=t.at;t.fn();await flush();}};
+ new Function("self","CACHE","CACHE_GENERACION",extractWorker(w))({addEventListener(t,fn){handler=fn;},skipWaiting(){}},workerShell,workerGeneration);
+ new Function("navigator","window","document","fetch","MessageChannel","setTimeout","clearTimeout","console","location",extractHealth(h))({serviceWorker:sw},W,{readyState:"complete"},async()=>({ok:!offline,json:async()=>({shell:serverShell,cacheGeneration:serverGeneration})}),MC,timer,id=>timers.delete(id),{warn:m=>warnings.push(m)},{reload(){reloads++;}});
+ await step();return {updates,activations,reloads,messages:messages.length,warnings:warnings.length,listeners:listeners.size,mezcla:!!W.__ocMezcla};
+}
+const cases=[["healthy",{},x=>x.updates===0&&x.warnings===0&&!x.mezcla],
+["stale",{"workerShell":"f123-shell-v920","workerGeneration":"-golden457"},x=>x.updates===1&&x.activations===1&&x.mezcla&&x.warnings===0],
+["same shell old golden",{"workerGeneration":"-golden457"},x=>x.updates===1&&x.mezcla],
+["silent",{"silent":true},x=>x.updates===1&&x.warnings===1&&!x.mezcla],
+["spoofed response",{"spoof":true,"silent":true},x=>x.updates===1&&x.warnings===1&&!x.mezcla],
+["controller replaced",{"swap":true,"silent":true},x=>x.updates===0&&!x.mezcla],
+["offline",{"offline":true},x=>x.updates===0&&x.warnings===0],
+["update reject",{"silent":true,"throws":true},x=>x.updates===1&&x.activations===0],
+["waiting before update",{"workerShell":"f123-shell-v920","alreadyWaiting":true},x=>x.updates===1&&x.activations===2]];
+(async()=>{for(const [name,opts,check] of cases){const red=await exercise(health,worker,opts),green=await exercise(candidateHealth,candidateWorker,opts);console.log(name,check(red),check(green),red,green);if(!check(green)||green.reloads||green.listeners)throw Error(name);}const legacy=await exercise(candidateHealth,oldWorker,{workerShell:"f123-shell-v920",workerGeneration:"-golden457"}),forward=await exercise(oldHealth,candidateWorker,{workerShell:"f123-shell-v929",workerGeneration:"-golden467"});console.log({legacy,forward});if(legacy.updates!==1||!legacy.mezcla||forward.warnings!==0||forward.updates!==1)throw Error("compat");})().catch(e=>{console.error(e);process.exitCode=1});
