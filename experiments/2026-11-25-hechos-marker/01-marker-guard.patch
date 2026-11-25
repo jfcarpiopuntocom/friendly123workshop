@@ -1,0 +1,17 @@
+diff --git a/docs/hechos.js b/docs/hechos.js
+--- a/docs/hechos.js
++++ b/docs/hechos.js
+@@ -323,5 +323,6 @@
+       try {
+         if (!dbVieja || !dbVieja.objectStoreNames || !dbVieja.objectStoreNames.contains(STORE)) {
++          if (!Array.isArray(dbs) || dbs.some(function (d) { return d && d.name === DB_NAME_VIEJA; })) { _registrarFalloMigracion(); return; }
+           _marcarMigracionHecha();
+           return;
+         }
+@@ -359,5 +360,6 @@
+         }
+         if (!lectura.registros.length) {
++          if (!Array.isArray(dbs) || dbs.some(function (d) { return d && d.name === DB_NAME_VIEJA; })) { _registrarFalloMigracion(); return; }
+           _marcarMigracionHecha();
+           return;
+         }
