@@ -1,0 +1,560 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "prior": "474347d5a73fd9304e858c81becc9502fb796af1",
+  "method": "original import and projection functions, simulated IDB, weak hash only in this execution; SHA256 native pending",
+  "red": {
+    "rows": [
+      {
+        "name": "same-opid",
+        "reverse": false,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -15,
+        "expected": -25,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "same-opid",
+        "reverse": true,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -15,
+        "expected": -25,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "distinct-nested",
+        "reverse": false,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -25,
+        "expected": -15,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "distinct-nested",
+        "reverse": true,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -25,
+        "expected": -15,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "same-sale",
+        "reverse": false,
+        "accepted": [
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 2
+        },
+        "balance": -216,
+        "expected": -108,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "same-sale",
+        "reverse": true,
+        "accepted": [
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 2
+        },
+        "balance": -216,
+        "expected": -108,
+        "hashMode": "weak-legacy"
+      }
+    ],
+    "tamperedRejected": true
+  },
+  "green": {
+    "rows": [
+      {
+        "name": "same-opid",
+        "reverse": false,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -25,
+        "expected": -25,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "same-opid",
+        "reverse": true,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -25,
+        "expected": -25,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "distinct-nested",
+        "reverse": false,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -15,
+        "expected": -15,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "distinct-nested",
+        "reverse": true,
+        "accepted": [
+          true,
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 3
+        },
+        "balance": -15,
+        "expected": -15,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "same-sale",
+        "reverse": false,
+        "accepted": [
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 2
+        },
+        "balance": -108,
+        "expected": -108,
+        "hashMode": "weak-legacy"
+      },
+      {
+        "name": "same-sale",
+        "reverse": true,
+        "accepted": [
+          true,
+          true
+        ],
+        "exactReplay": false,
+        "integrity": {
+          "ok": true,
+          "origenes": 2,
+          "hechos": 2
+        },
+        "balance": -108,
+        "expected": -108,
+        "hashMode": "weak-legacy"
+      }
+    ],
+    "tamperedRejected": true
+  },
+  "tenCases": [
+    {
+      "name": "A01 partial payment 10/35",
+      "expected": -25,
+      "actual": -25,
+      "actualUnassigned": 10,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "a-1",
+          "monto": 35,
+          "estado": "pendiente",
+          "pendiente": 35
+        },
+        {
+          "id": "a-2",
+          "monto": 10,
+          "sinAsignar": 10
+        }
+      ]
+    },
+    {
+      "name": "A02 same opId different fact IDs",
+      "expected": -25,
+      "actual": -25,
+      "actualUnassigned": 10,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "a-1",
+          "monto": 35,
+          "estado": "pendiente",
+          "pendiente": 35
+        },
+        {
+          "id": "a-2",
+          "monto": 10,
+          "sinAsignar": 10
+        }
+      ]
+    },
+    {
+      "name": "A03 distinct opIds same value",
+      "expected": -15,
+      "actual": -15,
+      "actualUnassigned": 20,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "a-1",
+          "monto": 35,
+          "estado": "pendiente",
+          "pendiente": 35
+        },
+        {
+          "id": "a-2",
+          "monto": 10,
+          "sinAsignar": 10
+        },
+        {
+          "id": "b-1",
+          "monto": 10,
+          "sinAsignar": 10
+        }
+      ]
+    },
+    {
+      "name": "A04 distinct opIds mixed nested/flat",
+      "expected": -15,
+      "actual": -15,
+      "actualUnassigned": 20,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "a-1",
+          "monto": 35,
+          "estado": "pendiente",
+          "pendiente": 35
+        },
+        {
+          "id": "a-2",
+          "monto": 10,
+          "sinAsignar": 10
+        },
+        {
+          "id": "b-1",
+          "monto": 10,
+          "sinAsignar": 10
+        }
+      ]
+    },
+    {
+      "name": "A05 same linked sale two receipt IDs",
+      "expected": -108,
+      "actual": -108,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "a-3",
+          "monto": 108,
+          "estado": "pendiente",
+          "pendiente": 108
+        }
+      ]
+    },
+    {
+      "name": "A06 receipt not duplicated by atomic sale",
+      "expected": -108,
+      "actual": -108,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "a-3",
+          "monto": 108,
+          "estado": "pendiente",
+          "pendiente": 108
+        }
+      ]
+    },
+    {
+      "name": "A07 observed balance unallocated",
+      "expected": -126,
+      "actual": -126,
+      "expectedUnassigned": 39.5,
+      "actualUnassigned": 39.5,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "c0",
+          "monto": 3.5,
+          "estado": "pendiente",
+          "pendiente": 3.5
+        },
+        {
+          "id": "c1",
+          "monto": 15,
+          "estado": "pendiente",
+          "pendiente": 15
+        },
+        {
+          "id": "c2",
+          "monto": 108,
+          "estado": "pendiente",
+          "pendiente": 108
+        },
+        {
+          "id": "c3",
+          "monto": 18,
+          "estado": "pendiente",
+          "pendiente": 18
+        },
+        {
+          "id": "c4",
+          "monto": 3,
+          "estado": "pendiente",
+          "pendiente": 3
+        },
+        {
+          "id": "p",
+          "monto": 39.5,
+          "sinAsignar": 39.5
+        },
+        {
+          "id": "fiado-venta-sale-last",
+          "monto": 18,
+          "estado": "pendiente",
+          "pendiente": 18
+        }
+      ]
+    },
+    {
+      "name": "A08 allocate existing payment",
+      "expected": -126,
+      "actual": -126,
+      "expectedUnassigned": 0,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "c0",
+          "monto": 3.5,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "c1",
+          "monto": 15,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "c2",
+          "monto": 108,
+          "estado": "pendiente",
+          "pendiente": 108
+        },
+        {
+          "id": "c3",
+          "monto": 18,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "c4",
+          "monto": 3,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "p",
+          "monto": 39.5,
+          "sinAsignar": 0
+        },
+        {
+          "id": "fiado-venta-sale-last",
+          "monto": 18,
+          "estado": "pendiente",
+          "pendiente": 18
+        }
+      ]
+    },
+    {
+      "name": "A09 duplicate allocation replay",
+      "expected": -126,
+      "actual": -126,
+      "expectedUnassigned": 0,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "c0",
+          "monto": 3.5,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "c1",
+          "monto": 15,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "c2",
+          "monto": 108,
+          "estado": "pendiente",
+          "pendiente": 108
+        },
+        {
+          "id": "c3",
+          "monto": 18,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "c4",
+          "monto": 3,
+          "estado": "pagado",
+          "pendiente": 0
+        },
+        {
+          "id": "p",
+          "monto": 39.5,
+          "sinAsignar": 0
+        },
+        {
+          "id": "fiado-venta-sale-last",
+          "monto": 18,
+          "estado": "pendiente",
+          "pendiente": 18
+        }
+      ]
+    },
+    {
+      "name": "A10 counterfactual disputed charge absent",
+      "expected": -18,
+      "actual": -18,
+      "expectedUnassigned": 39.5,
+      "actualUnassigned": 39.5,
+      "unchanged": true,
+      "pass": true,
+      "movements": [
+        {
+          "id": "c0",
+          "monto": 3.5,
+          "estado": "pendiente",
+          "pendiente": 3.5
+        },
+        {
+          "id": "c1",
+          "monto": 15,
+          "estado": "pendiente",
+          "pendiente": 15
+        },
+        {
+          "id": "c3",
+          "monto": 18,
+          "estado": "pendiente",
+          "pendiente": 18
+        },
+        {
+          "id": "c4",
+          "monto": 3,
+          "estado": "pendiente",
+          "pendiente": 3
+        },
+        {
+          "id": "p",
+          "monto": 39.5,
+          "sinAsignar": 39.5
+        },
+        {
+          "id": "fiado-venta-sale-last",
+          "monto": 18,
+          "estado": "pendiente",
+          "pendiente": 18
+        }
+      ]
+    }
+  ],
+  "paymentPass": 1000,
+  "salePass": 1000,
+  "limitations": "payment identity conflicts remain visible only in experimental field, not propagated to UI; combined patch not approved for production; separate author import valid does not certify entire Sync4 transport"
+}
