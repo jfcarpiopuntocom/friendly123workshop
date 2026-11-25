@@ -1,0 +1,111 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "dependencies": [
+    {
+      "ref": "d880fc2c887dd6fd7e2d85ba515dac8966ddc3f8",
+      "path": "payment-alias-stress.cjs"
+    },
+    {
+      "ref": "4d98c938498f9fde30f625663f39223a9c3337b6",
+      "path": "conflict-propagation-candidate.json"
+    }
+  ],
+  "change": {
+    "before": "    var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));\n    var abono = r.movimientos.find(function (m) {",
+    "after": "    var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));\n    if (r.conflictosIdentidadExperimental > 0) {\n      var error = new Error(\"cartera: la identidad del pago requiere conciliación\");\n      error.status = 409; throw error;\n    }\n    var abono = r.movimientos.find(function (m) {"
+  },
+  "red": [
+    {
+      "name": "conflict",
+      "saldo": -13,
+      "conflicts": 1,
+      "accepted": true,
+      "writes": 1,
+      "error": null,
+      "unchanged": true
+    },
+    {
+      "name": "legitimate",
+      "saldo": -13,
+      "conflicts": 0,
+      "accepted": true,
+      "writes": 1,
+      "error": null,
+      "unchanged": true
+    },
+    {
+      "name": "alias-recovery",
+      "saldo": -25,
+      "conflicts": 0,
+      "accepted": false,
+      "writes": 0,
+      "error": {
+        "message": "cartera: el abono no pertenece a este cliente",
+        "status": null
+      },
+      "unchanged": true
+    },
+    {
+      "name": "canonical-recovery",
+      "saldo": -25,
+      "conflicts": 0,
+      "accepted": true,
+      "writes": 1,
+      "error": null,
+      "unchanged": true
+    }
+  ],
+  "green": [
+    {
+      "name": "conflict",
+      "saldo": -13,
+      "conflicts": 1,
+      "accepted": false,
+      "writes": 0,
+      "error": {
+        "message": "cartera: la identidad del pago requiere conciliación",
+        "status": 409
+      },
+      "unchanged": true
+    },
+    {
+      "name": "legitimate",
+      "saldo": -13,
+      "conflicts": 0,
+      "accepted": true,
+      "writes": 1,
+      "error": null,
+      "unchanged": true
+    },
+    {
+      "name": "alias-recovery",
+      "saldo": -25,
+      "conflicts": 0,
+      "accepted": false,
+      "writes": 0,
+      "error": {
+        "message": "cartera: el abono no pertenece a este cliente",
+        "status": null
+      },
+      "unchanged": true
+    },
+    {
+      "name": "canonical-recovery",
+      "saldo": -25,
+      "conflicts": 0,
+      "accepted": true,
+      "writes": 1,
+      "error": null,
+      "unchanged": true
+    }
+  ],
+  "method": "actual aplicarAbono + saldoDeCliente + preflight/repetido callback, synthetic Hechos storage and registrar, no network. Candidate is payment+conflict only; sale/restoration not applied here.",
+  "limits": [
+    "Guard rejects NEW allocation when identity conflict is unresolved; exact replay path remains separate and needs own review.",
+    "Alias recovery still fails at write preflight after alias disappears in projection; canonical works. No fix attempted for this boundary.",
+    "API catch maps status 409; UI still needs localized status and clear recovery; no native browser execution.",
+    "No product changes."
+  ],
+  "runner": "async function probe(s){\n const t=1790000000000,cl=\"synthetic\",f=(id,tipo,d)=>({id,tipo,ts:t,datos:{clienteId:cl,...d}});\n const charge=f(\"c\",\"cartera_cargo\",{monto:35}),p=f(\"p\",\"cartera_abono\",{monto:10,opId:\"payment:one\"}),q=f(\"q\",\"cartera_abono\",{monto:12,opId:\"payment:one\"});\n const rows=[];\n for(const [name,facts,abonoId] of [[\"conflict\",[charge,p,q],\"p\"],[\"legitimate\",[charge,p,{...q,datos:{...q.datos,opId:\"payment:two\"}}],\"p\"],[\"alias-recovery\",[charge,p,{...p,id:\"q\"}],\"q\"],[\"canonical-recovery\",[charge,p,{...p,id:\"q\"}],\"p\"]]){\n  let n=0;const w={AMG:{Hechos:{todos:async()=>facts,verificarCadenas:async()=>({ok:true}),registrar:async(tipo,datos,opt)=>{const duplicate=opt?.repetido?.(facts);if(duplicate)return duplicate;n++;return {id:\"allocation-new\",tipo,datos};}}}};new Function(\"window\",s)(w);const api=w.AMG.Cartera;const initial=JSON.stringify(facts),view=await api.saldoDeCliente(cl,[]);let accepted=false,error=null;try{accepted=!!await api.aplicarAbono(cl,abonoId,[{cargoKey:\"cargo:c\",monto:5}],[],\"allocation:one\")}catch(e){error={message:e.message,status:e.status??null}}rows.push({name,saldo:view.saldo,conflicts:view.conflictosIdentidadExperimental??null,accepted,writes:n,error,unchanged:JSON.stringify(facts)===initial});\n }return rows\n}"
+}
