@@ -1,0 +1,62 @@
+{
+  "base": "26b374a38505908ff79d65433e7eaf234557fc6b",
+  "red": {
+    "first": [
+      200,
+      "new"
+    ],
+    "retained": false,
+    "otherChannel": true,
+    "restarted": [
+      200,
+      "new"
+    ],
+    "missing": [
+      200,
+      "network-new"
+    ],
+    "two": [
+      200,
+      "next"
+    ],
+    "second": [
+      200,
+      "next"
+    ],
+    "retired": true,
+    "claims": 3,
+    "net": 1
+  },
+  "green": {
+    "first": [
+      200,
+      "old"
+    ],
+    "retained": true,
+    "otherChannel": true,
+    "restarted": [
+      200,
+      "old"
+    ],
+    "missing": [
+      503,
+      "Sin conexion y sin copia en cache."
+    ],
+    "two": [
+      200,
+      "old"
+    ],
+    "second": [
+      200,
+      "new"
+    ],
+    "retired": true,
+    "claims": 3,
+    "net": 0
+  },
+  "scope": "actual activate/fetch handlers, synthetic CacheStorage and clients; native browser pending",
+  "changes": {
+    "activate": "self.addEventListener(\"activate\", (evento) => {\n  try {\n    evento.waitUntil(\n      caches.keys()\n        .then(prepararShellPorDocumento)\n        .then(() => broadcastActualizacion())\n        // C179: persist document affinity before claiming clients; only retire unused shells.\n        .then(() => self.clients.claim())\n        .catch((e) => { try { console.warn(\"[SW] activate con errores:\", e && e.message); } catch (_) {} })\n    );\n  } catch (e) {\n    try { console.warn(\"[SW] activate fallo por completo:\", e && e.message); } catch (_) {}\n  }\n});\n\n// A document outlives its controller. Persist affinity in CacheStorage, not SW RAM:\n// Safari may terminate/restart the worker between two requests from that document.\nfunction cacheDeAfinidad() { return \"f123-shell-client-pins\" + CANAL; }\nfunction claveDeDocumento(id) {\n  return new URL(\"./__f123_client_shell__/\" + encodeURIComponent(id), self.registration.scope).href;\n}\nasync function leerShellDeDocumento(id) {\n  if (!id) return null;\n  const r = await caches.match(claveDeDocumento(id), { cacheName: cacheDeAfinidad() });\n  if (!r) return null;\n  const nombre = await r.text();\n  return nombre === \"?\" || esDeMiCanal(nombre) && /^f123-shell-v[0-9]+(?:-|$)/.test(nombre) ? nombre : \"?\";\n}\nasync function fijarShellDeDocumento(id, nombre) {\n  if (!id) return;\n  await (await caches.open(cacheDeAfinidad())).put(claveDeDocumento(id), new Response(nombre));\n}\nfunction clienteDeMiCanal(cliente) {\n  const url = new URL(cliente.url), scope = new URL(self.registration.scope);\n  if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return false;\n  return !/^(next|previo)\\//.test(url.pathname.slice(scope.pathname.length));\n}\nasync function prepararShellPorDocumento(nombres) {\n  const anteriores = nombres.filter(n => esDeMiCanal(n) && /^f123-shell-v[0-9]+(?:-|$)/.test(n) && n !== CACHE_LOCAL);\n  const clientes = (await self.clients.matchAll({ type: \"window\", includeUncontrolled: true })).filter(clienteDeMiCanal);\n  const conservar = new Set();\n  for (const cliente of clientes) {\n    let nombre = await leerShellDeDocumento(cliente.id);\n    if (nombre === null) {\n      // Upgrade from a legacy SW: a sole prior shell is the only available witness.\n      nombre = anteriores.length === 1 ? anteriores[0] : anteriores.length ? \"?\" : CACHE_LOCAL;\n      await fijarShellDeDocumento(cliente.id, nombre);\n    }\n    if (nombre === \"?\") anteriores.forEach(n => conservar.add(n));\n    else conservar.add(nombre);\n  }\n  // Prune dead document pins without touching the business stores or other channels.\n  if (nombres.includes(cacheDeAfinidad())) {\n    const meta = await caches.open(cacheDeAfinidad());\n    const vivos = new Set(clientes.map(c => claveDeDocumento(c.id)));\n    for (const k of await meta.keys()) if (!vivos.has(k.url)) await meta.delete(k);\n  }\n  await Promise.all(anteriores.filter(n => !conservar.has(n)).map(n => caches.delete(n)));\n}\n\n",
+    "fetchInsert": "      // A pre-takeover document must never receive executable bytes from a different release.\n      const scope = new URL(self.registration.scope);\n      const enScope = url.pathname.startsWith(scope.pathname) &&\n        !/^(next|previo)\\//.test(url.pathname.slice(scope.pathname.length));\n      const recursoVersionado = enScope && (esArchivoDelShell ||\n        /\\.(?:m?js|css|wasm)$/i.test(url.pathname) ||\n        SHELL.some(u => new URL(u, scope).pathname === url.pathname));\n      if (evento.request.mode !== \"navigate\" && recursoVersionado && evento.clientId) {\n        evento.respondWith((async () => {\n          const nombre = await leerShellDeDocumento(evento.clientId);\n          if (nombre && nombre !== CACHE_LOCAL) {\n            if (nombre === \"?\") return respuestaOffline();\n            // Ignore query only for the static release resources; never fetch a\n            // missing old script from today's deployment or search a different cache.\n            const anterior = await caches.match(evento.request, { cacheName: nombre, ignoreSearch: true });\n            return anterior ? limpiarRedireccion(anterior) : respuestaOffline();\n          }\n          const local = await abrirCacheLocal().then(c => c.match(evento.request)).catch(() => null);\n          return limpiarRedireccion(local || await fetch(evento.request, { cache: \"no-cache\" }).then(guardar));\n        })().catch(() => respuestaOffline()));\n        return;\n      }\n      // Network-revalidate navigations, but do not bind new HTML to an older\n      // controller's asset cache. Prefer the installed entry if bytes differ.\n      if (evento.request.mode === \"navigate\" && enScope) {\n        const rel = url.pathname.slice(scope.pathname.length);\n        const entrada = rel === \"\" ? \"./index.html\" : rel === \"dashboard\" ? \"./dashboard.html\" : \"./\" + rel;\n        if (SHELL.includes(entrada) && /\\.html$/.test(entrada)) {\n          evento.respondWith((async () => {\n            const cache = await abrirCacheLocal();\n            const local = await cache.match(entrada);\n            let fresca = null;\n            try { fresca = await fetch(evento.request, { cache: \"no-cache\" }); } catch (_) {}\n            if (local && fresca && fresca.ok) {\n              const [a,b] = await Promise.all([local.clone().arrayBuffer(), fresca.clone().arrayBuffer()]);\n              const [ha,hb] = await Promise.all([crypto.subtle.digest(\"SHA-256\",a),crypto.subtle.digest(\"SHA-256\",b)]);\n              if (new Uint8Array(ha).every((v,i)=>v===new Uint8Array(hb)[i])) {\n                await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);\n                return limpiarRedireccion(fresca);\n              }\n            }\n            if (local) {\n              await fijarShellDeDocumento(evento.resultingClientId, CACHE_LOCAL);\n              return limpiarRedireccion(local);\n            }\n            // No certified cached entry: do not attach arbitrary network HTML\n            // to this release's executable assets. Standalone recovery remains outside SHELL.\n            return respuestaOffline();\n          })().catch(() => respuestaOffline()));\n          return;\n        }\n      }\n"
+  }
+}
