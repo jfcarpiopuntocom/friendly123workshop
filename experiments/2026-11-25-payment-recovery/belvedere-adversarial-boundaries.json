@@ -1,0 +1,153 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "blob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "method": "real original and combined experimental payment/sale patch source functions, mocked only Hechos for async saldoDeCliente. No browser or transport.",
+  "original": {
+    "sameClientConflict": {
+      "projection": {
+        "saldo": -13,
+        "conflicts": null,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      },
+      "api": {
+        "saldo": -13,
+        "conflicts": null,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      }
+    },
+    "crossClientOpId": {
+      "a": {
+        "saldo": -25,
+        "conflicts": null,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "c",
+          "p"
+        ]
+      },
+      "b": {
+        "saldo": -25,
+        "conflicts": null,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "d",
+          "q"
+        ]
+      }
+    },
+    "restoration": {
+      "saldo": -216,
+      "conflicts": null,
+      "applicationConflicts": 0,
+      "count": 2,
+      "ids": [
+        "c-old",
+        "c-new"
+      ]
+    },
+    "storedAmountMismatch": {
+      "saldo": -216,
+      "conflicts": null,
+      "applicationConflicts": 0,
+      "count": 2,
+      "ids": [
+        "c1",
+        "c2"
+      ]
+    },
+    "unchanged": true
+  },
+  "candidate": {
+    "sameClientConflict": {
+      "projection": {
+        "saldo": -13,
+        "conflicts": 1,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      },
+      "api": {
+        "saldo": -13,
+        "conflicts": null,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      }
+    },
+    "crossClientOpId": {
+      "a": {
+        "saldo": -25,
+        "conflicts": 0,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "c",
+          "p"
+        ]
+      },
+      "b": {
+        "saldo": -25,
+        "conflicts": 0,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "d",
+          "q"
+        ]
+      }
+    },
+    "restoration": {
+      "saldo": -216,
+      "conflicts": 0,
+      "applicationConflicts": 0,
+      "count": 2,
+      "ids": [
+        "c-new",
+        "c-old"
+      ]
+    },
+    "storedAmountMismatch": {
+      "saldo": -108,
+      "conflicts": 0,
+      "applicationConflicts": 0,
+      "count": 1,
+      "ids": [
+        "c1"
+      ]
+    },
+    "unchanged": true
+  },
+  "notes": [
+    "Experimental conflict signal lost in saldoDeCliente; conflict balance remains arithmetic -13, not certified.",
+    "Cross-client opId collision not detected by candidate; write-side movimientoExistente searches opId globally. Confirm scope against transport contract.",
+    "Restoration: two receipts attached to same effective obligation still double count. Requires explicit alias of old/new sale keys before fixing to preserve applications.",
+    "Equal stored amounts 100 against actual sale 108 collapse to 108 without flag. May be legitimate repricing; investigate before choosing policy."
+  ],
+  "patches": [
+    "ff4cd5b0b687b332ac9735280825f7983eac3b9f",
+    "8bb6fcd46e87b60e4fcf45bbebdb396343d4a4ca"
+  ],
+  "runner": "async function audit(source){const w={};new Function(\"window\",source)(w);const calc=w.AMG.Cartera.calcularSaldo;const t=1790000000000,h=(id,tipo,datos,ts=t)=>({id,tipo,ts,datos});const cargo=(id,clienteId,monto,ventaId)=>h(id,\"cartera_cargo\",{clienteId,monto,motivo:\"charge\",ventaId});const payment=(id,clienteId,monto,opId)=>h(id,\"cartera_abono\",{clienteId,monto,motivo:\"payment\",opId});const v={id:\"sale\",clienteId:\"a\",cantidad:1,precioUnit:108,fecha:\"2026-11-25\",info:{formaPago:\"fiado\",fiadoAtomico:true}};const facts=[cargo(\"c\",\"a\",35),payment(\"p\",\"a\",10,\"same\"),payment(\"q\",\"a\",12,\"same\")];w.AMG.Hechos={todos:async()=>facts,verificarCadenas:async()=>({ok:true})};const direct=calc(facts,\"a\",[]),read=await w.AMG.Cartera.saldoDeCliente(\"a\",[]);const restored={...v,id:\"restored\",restauracionDe:\"sale\"};const restoredFacts=[cargo(\"c-old\",\"a\",108,\"sale\"),cargo(\"c-new\",\"a\",108,\"restored\")];const differentClientFacts=[cargo(\"c\",\"a\",35),cargo(\"d\",\"b\",35),payment(\"p\",\"a\",10,\"same\"),payment(\"q\",\"b\",10,\"same\")];const summary=r=>({saldo:r.saldo,conflicts:r.conflictosIdentidadExperimental??null,applicationConflicts:r.conflictosAplicacion,count:r.movimientos.length,ids:r.movimientos.map(m=>m.id)});const unchanged=JSON.stringify({facts,restoredFacts,differentClientFacts});const result={sameClientConflict:{projection:summary(direct),api:summary(read)},crossClientOpId:{a:summary(calc(differentClientFacts,\"a\",[])),b:summary(calc(differentClientFacts,\"b\",[]))},restoration:summary(calc(restoredFacts,\"a\",[{...v,anulada:true},restored])),storedAmountMismatch:summary(calc([cargo(\"c1\",\"a\",100,\"sale\"),cargo(\"c2\",\"a\",100,\"sale\")],\"a\",[v]))};return {...result,unchanged:unchanged===JSON.stringify({facts,restoredFacts,differentClientFacts})}}"
+}
