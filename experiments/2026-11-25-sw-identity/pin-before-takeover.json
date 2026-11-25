@@ -1,0 +1,19 @@
+{
+  "base": "a2740d7d528bc06226b94a6569c51e532c938f1c",
+  "red": {
+    "actions": [
+      "skipWaiting"
+    ],
+    "pin": null,
+    "old": true
+  },
+  "green": {
+    "actions": [
+      "pin",
+      "skipWaiting"
+    ],
+    "pin": "f123-shell-v931-golden469",
+    "old": true
+  },
+  "method": "exact install handlers V8 with synthetic CacheStorage and existing client; tests order before skipWaiting, native Chromium remains unproven"
+}
