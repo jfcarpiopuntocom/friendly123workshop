@@ -1,0 +1,30 @@
+name: Workshop - payment append and IDB abort (isolated QA)
+on:
+  push:
+    paths:
+      - 'experiments/2026-11-25-payment-recovery/**'
+      - '.github/workflows/qa-payment-abort-workshop-20261125.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  payment-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source-executed payment fault injections
+        run: node experiments/2026-11-25-payment-recovery/source-executed.cjs
+      - name: Abort event queue regression
+        run: node experiments/2026-11-25-payment-recovery/abort-queue.cjs
+      - name: Install browser test tooling
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+      - name: Native IndexedDB abort in Chromium and WebKit
+        run: node experiments/2026-11-25-payment-recovery/abort-queue.cjs --native
