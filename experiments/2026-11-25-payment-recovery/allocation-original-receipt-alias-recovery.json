@@ -1,0 +1,201 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "dependencies": [
+    {
+      "ref": "d880fc2c887dd6fd7e2d85ba515dac8966ddc3f8",
+      "path": "payment-alias-stress.cjs"
+    },
+    {
+      "ref": "4d98c938498f9fde30f625663f39223a9c3337b6",
+      "path": "conflict-propagation-candidate.json"
+    },
+    {
+      "ref": "3954495e36a6d2ee36c44be745505e4f20d4f8f5",
+      "path": "allocation-conflict-write-guard.json"
+    }
+  ],
+  "changes": [
+    [
+      "    var abono = r.movimientos.find(function (m) {\n      return m.tipo === \"abono\" && String(m.id) === String(abonoId);\n    });",
+      "    var canonico = r.aliasesAbonoExperimental.get(String(abonoId)) || String(abonoId);\n    var abono = r.movimientos.find(function (m) {\n      return m.tipo === \"abono\" && String(m.id) === canonico;\n    });"
+    ],
+    [
+      "conflictosIdentidadExperimental: ambiguous,",
+      "conflictosIdentidadExperimental: ambiguous,\n      aliasesAbonoExperimental: aliases,"
+    ]
+  ],
+  "red": [
+    {
+      "mode": "alias-new",
+      "receipt": null,
+      "error": {
+        "message": "cartera: el abono no pertenece a este cliente",
+        "status": null
+      },
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [],
+      "applied": 0,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "alias-replay",
+      "receipt": "existing",
+      "error": null,
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [
+        "existing"
+      ],
+      "applied": 5,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "canonical",
+      "receipt": "new",
+      "error": null,
+      "writes": 1,
+      "storedRef": "p",
+      "accepted": [
+        "new"
+      ],
+      "applied": 5,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "conflict",
+      "receipt": null,
+      "error": {
+        "message": "cartera: la identidad del pago requiere conciliación",
+        "status": 409
+      },
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [],
+      "applied": 0,
+      "saldo": -13,
+      "unchanged": true
+    },
+    {
+      "mode": "overallocate",
+      "receipt": null,
+      "error": {
+        "message": "cartera: el abono no pertenece a este cliente",
+        "status": null
+      },
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [],
+      "applied": 0,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "foreign",
+      "receipt": null,
+      "error": {
+        "message": "cartera: la identidad del pago requiere conciliación",
+        "status": 409
+      },
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [],
+      "applied": 0,
+      "saldo": -25,
+      "unchanged": true
+    }
+  ],
+  "green": [
+    {
+      "mode": "alias-new",
+      "receipt": "new",
+      "error": null,
+      "writes": 1,
+      "storedRef": "q",
+      "accepted": [
+        "new"
+      ],
+      "applied": 5,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "alias-replay",
+      "receipt": "existing",
+      "error": null,
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [
+        "existing"
+      ],
+      "applied": 5,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "canonical",
+      "receipt": "new",
+      "error": null,
+      "writes": 1,
+      "storedRef": "p",
+      "accepted": [
+        "new"
+      ],
+      "applied": 5,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "conflict",
+      "receipt": null,
+      "error": {
+        "message": "cartera: la identidad del pago requiere conciliación",
+        "status": 409
+      },
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [],
+      "applied": 0,
+      "saldo": -13,
+      "unchanged": true
+    },
+    {
+      "mode": "overallocate",
+      "receipt": null,
+      "error": {
+        "message": "cartera: el monto supera lo que queda sin asignar de ese pago",
+        "status": null
+      },
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [],
+      "applied": 0,
+      "saldo": -25,
+      "unchanged": true
+    },
+    {
+      "mode": "foreign",
+      "receipt": null,
+      "error": {
+        "message": "cartera: la identidad del pago requiere conciliación",
+        "status": 409
+      },
+      "writes": 0,
+      "storedRef": null,
+      "accepted": [],
+      "applied": 0,
+      "saldo": -25,
+      "unchanged": true
+    }
+  ],
+  "method": "actual aplicarAbono + calcularSaldo + queue callback, simulated append without altering original fixture",
+  "limits": [
+    "Aliases scoped by existing payment candidate. Internal Map not propagated to saldoDeCliente or role view.",
+    "Exact original abonoId retained in new immutable fact. Projection resolves it. Same opId replay with changed alias still intentionally not certified; review semantics.",
+    "Not tested in combined restoration candidate, full IDB, UI or transport."
+  ],
+  "runner": "async function run(s){const rows=[];for(const mode of [\"alias-new\",\"alias-replay\",\"canonical\",\"conflict\",\"overallocate\",\"foreign\"]){const cl=\"synthetic\",f=(id,tipo,datos,ts=1790000000000)=>({id,tipo,ts,datos:{clienteId:cl,...datos}});const charge=f(\"c\",\"cartera_cargo\",{monto:35}),p=f(\"p\",\"cartera_abono\",{monto:10,opId:\"payment:one\"}),q=f(\"q\",\"cartera_abono\",{monto:mode===\"conflict\"?12:10,opId:\"payment:one\",...(mode===\"foreign\"?{clienteId:\"other\"}:{})});const facts=[charge,p,q];const target=mode===\"canonical\"?\"p\":\"q\";if(mode===\"alias-replay\")facts.push(f(\"existing\",\"cartera_aplicacion\",{abonoId:\"q\",accion:\"aplicar\",partes:[{cargoKey:\"cargo:c\",monto:5}],opId:\"allocation:one\"},1790000001000));const old=JSON.stringify(facts),written=[];const w={AMG:{Hechos:{todos:async()=>facts.slice(),verificarCadenas:async()=>({ok:true}),registrar:async(tipo,datos,opts)=>{const previous=opts?.repetido?.(facts.slice());if(previous)return previous;const h=f(\"new\",tipo,datos,1790000002000);written.push(h);return h;}}}};new Function(\"window\",s)(w);const api=w.AMG.Cartera;let receipt,error;try{receipt=await api.aplicarAbono(cl,target,[{cargoKey:\"cargo:c\",monto:mode===\"overallocate\"?11:5}],[],\"allocation:one\")}catch(e){error={message:e.message,status:e.status??null}}const result=api.calcularSaldo([...facts,...written],cl,[]);rows.push({mode,receipt:receipt?.id??null,error:error??null,writes:written.length,storedRef:written[0]?.datos.abonoId??null,accepted:result.aplicacionesAceptadas,applied:result.movimientos.find(m=>m.id===\"c\").aplicado,saldo:result.saldo,unchanged:JSON.stringify(facts)===old});}return rows}"
+}
