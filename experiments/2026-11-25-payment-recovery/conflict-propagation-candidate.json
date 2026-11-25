@@ -1,0 +1,178 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "baseBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "dependsOn": "experimental combined payment/sale candidate",
+  "changes": [
+    [
+      "if(h.tipo!==TIPOS.abono||String(d.clienteId)!==String(clienteId)||!d.opId)return;",
+      "if(h.tipo!==TIPOS.abono||!d.opId)return;"
+    ],
+    [
+      "    groups.forEach(function(g){\n      function fingerprint",
+      "    groups.forEach(function(g){\n      if(!g.some(function(h){return String(_d(h).clienteId)===String(clienteId);}))return;\n      function fingerprint"
+    ],
+    [
+      "integridad: integridad, conflictosAplicacion: r.conflictosAplicacion,",
+      "integridad: integridad, conflictosAplicacion: r.conflictosAplicacion,\n          conflictosIdentidadExperimental: r.conflictosIdentidadExperimental || 0,"
+    ],
+    [
+      "conflictosAplicacion: saldoInfo.conflictosAplicacion || 0,",
+      "conflictosAplicacion: saldoInfo.conflictosAplicacion || 0,\n      conflictosIdentidadExperimental: saldoInfo.conflictosIdentidadExperimental || 0,"
+    ]
+  ],
+  "red": {
+    "sameClientConflict": {
+      "projection": {
+        "saldo": -13,
+        "conflicts": 1,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      },
+      "api": {
+        "saldo": -13,
+        "conflicts": null,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      }
+    },
+    "crossClientOpId": {
+      "a": {
+        "saldo": -25,
+        "conflicts": 0,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "c",
+          "p"
+        ]
+      },
+      "b": {
+        "saldo": -25,
+        "conflicts": 0,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "d",
+          "q"
+        ]
+      }
+    },
+    "restoration": {
+      "saldo": -216,
+      "conflicts": 0,
+      "applicationConflicts": 0,
+      "count": 2,
+      "ids": [
+        "c-new",
+        "c-old"
+      ]
+    },
+    "storedAmountMismatch": {
+      "saldo": -108,
+      "conflicts": 0,
+      "applicationConflicts": 0,
+      "count": 1,
+      "ids": [
+        "c1"
+      ]
+    },
+    "unchanged": true
+  },
+  "green": {
+    "sameClientConflict": {
+      "projection": {
+        "saldo": -13,
+        "conflicts": 1,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      },
+      "api": {
+        "saldo": -13,
+        "conflicts": 1,
+        "applicationConflicts": 0,
+        "count": 3,
+        "ids": [
+          "c",
+          "p",
+          "q"
+        ]
+      }
+    },
+    "crossClientOpId": {
+      "a": {
+        "saldo": -25,
+        "conflicts": 1,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "c",
+          "p"
+        ]
+      },
+      "b": {
+        "saldo": -25,
+        "conflicts": 1,
+        "applicationConflicts": 0,
+        "count": 2,
+        "ids": [
+          "d",
+          "q"
+        ]
+      }
+    },
+    "restoration": {
+      "saldo": -216,
+      "conflicts": 0,
+      "applicationConflicts": 0,
+      "count": 2,
+      "ids": [
+        "c-new",
+        "c-old"
+      ]
+    },
+    "storedAmountMismatch": {
+      "saldo": -108,
+      "conflicts": 0,
+      "applicationConflicts": 0,
+      "count": 1,
+      "ids": [
+        "c1"
+      ]
+    },
+    "unchanged": true
+  },
+  "before": {
+    "employee": null,
+    "owner": null,
+    "employeeHistory": 0,
+    "unrelated": null,
+    "saldo": -25,
+    "chain": true
+  },
+  "after": {
+    "employee": 1,
+    "owner": 1,
+    "employeeHistory": 0,
+    "unrelated": 0,
+    "saldo": -25,
+    "chain": true
+  },
+  "limitations": "Only propagation through saldoDeCliente and vistaCarteraSegunRol, cross-client payment opId detection. Same balance arithmetic deliberately preserved with experimental conflict signal; UI and endpoint not verified. Restoration still RED; no production promotion.",
+  "method": "V8 actual source functions; mocked Hechos reads/chain result; no IDB, no transport",
+  "runner": "async function check(source){const w={};new Function(\"window\",source)(w);const api=w.AMG.Cartera;const h=(id,tipo,datos)=>({id,tipo,ts:1790000000000,datos});const f=[h(\"c\",\"cartera_cargo\",{clienteId:\"a\",monto:35}),h(\"p\",\"cartera_abono\",{clienteId:\"a\",monto:10,opId:\"same\"}),h(\"q\",\"cartera_abono\",{clienteId:\"b\",monto:10,opId:\"same\"})];w.AMG.Hechos={todos:async()=>f,verificarCadenas:async()=>({ok:true})};const result=await api.saldoDeCliente(\"a\",[]);const other=await api.saldoDeCliente(\"unrelated\",[]);const employee=api.vistaCarteraSegunRol(result,\"empleado\"),owner=api.vistaCarteraSegunRol(result,\"dueno\");return {employee:employee.conflictosIdentidadExperimental??null,owner:owner.conflictosIdentidadExperimental??null,employeeHistory:employee.historial.length,unrelated:other.conflictosIdentidadExperimental??null,saldo:employee.saldo,chain:employee.integridad.ok}}"
+}
