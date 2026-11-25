@@ -1,0 +1,27 @@
+{
+  "base": "89551cc07db38e0eaa8c8f690f17720c3097ab1f",
+  "sourceExperiment": "1bddfbd1609ea7b7e387089b88260c8f17c59593",
+  "monthly": {
+    "red": {
+      "history": 12.75,
+      "rows": 9,
+      "due": 114.75
+    },
+    "green": {
+      "history": 63.75,
+      "rows": 5,
+      "due": 63.75
+    },
+    "gross": 75,
+    "sourceUnchanged": true,
+    "paidCase": 51,
+    "noAdjustments": 12.75
+  },
+  "scope": "projection only; no new financial facts; explicit noCommission contradictions still for review",
+  "tests": [
+    "test/dashboard-settlement-corrections.test.js",
+    "test/p0-commission-retro-zero-split.test.cjs"
+  ],
+  "testSource": "'use strict';\nconst {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');\nconst core=require('../docs/core/payout-ledger.js'),history=require('../docs/core/commission-history.js');\nconst source=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');\nconst a=source.indexOf('function ventasParaReportes(uid)'),b=source.indexOf('  const realFetch =',a);\nassert.ok(a>0&&b>a);\nfunction fixture(){const ventas=Array.from({length:5},(_,i)=>({id:'book-'+i,fecha:'2026-10-15T12:00:00Z',ubicacionId:'rack',productoId:'book',promotoraId:'artist',cantidad:1,precioUnit:15,costoUnit:1,split:{montoComisionSocio:i===4?12.75:0,montoNetoDueno:i===4?2.25:15,comisionPct:i===4?85:0,reparto:i===4?[{promotoraId:'artist',monto:12.75}]:[]}}));return {ventas,ajustesComision:ventas.slice(0,4).map(v=>({id:'adj-retro-'+v.id,tipo:'recalculo-retroactivo',ventaId:v.id,productoId:'book',ubicacionId:'rack',fecha:v.fecha,montoBruto:0,montoComisionSocio:12.75,montoNetoDueno:-12.75,reparto:[{promotoraId:'artist',monto:12.75}],comisionPct:85})),productos:[{id:'book',nombre:'book',pctAsociado:85,comisionistaId:'artist'}],ubicaciones:[{id:'rack',nombre:'rack',tipo:'socio',promotoraId:'artist'}],promotoras:[{id:'artist',nombre:'Artist'}],clientes:[],payouts:[],payoutConflicts:[]};}\nfunction rows(e){const args={_payoutCore:()=>core,ventasActivas:()=>e.ventas.filter(v=>!v.anulada),ajustesComision:e.ajustesComision,ubicaciones:e.ubicaciones,payouts:e.payouts,payoutConflicts:e.payoutConflicts,ajusteRetencion:null,productos:e.productos,clientes:e.clientes,promotoras:e.promotoras,normPctAsociado:x=>x,nombreUbic:()=> 'rack',esDelMesActual:()=>false,fechaLocalDe:v=>String(v||'').slice(0,10)};return new Function(...Object.keys(args),source.slice(a,b)+'\\nreturn ventasParaReportes();')(...Object.values(args));}\ntest('historical API: all five amounts from recorded ledger, immutable receipts, no implied adjustment',()=>{const e=fixture(),before=JSON.stringify(e),r=rows(e),t=history.project({sales:r,group:'comisionista'}).totals;assert.deepEqual([t.count,t.gross,t.commission],[5,75,63.75]);assert.equal(r.filter(v=>v.comisionAjusteRetroIncluido).length,4);assert.equal(r.reduce((n,v)=>n+v.netoCasa,0),11.25);assert.equal(JSON.stringify(e),before);e.ajustesComision=[];assert.equal(history.project({sales:rows(e)}).totals.commission,12.75);});\ntest('historical API: real nonzero split and explicit noCommission never overwritten by this repair',()=>{const e=fixture();e.ventas[0].noCommission=true;e.ventas[1].split={montoComisionSocio:7.5,montoNetoDueno:7.5,comisionPct:50,reparto:[{promotoraId:'artist',monto:7.5}]};const r=rows(e);assert.equal(r[0].comisionAsociado,0);assert.equal(r[0].comisionAjusteRetroIncluido,false);assert.equal(r[1].comisionAsociado,7.5);assert.equal(r[1].comisionAjusteRetroIncluido,false);});\n",
+  "monthlyTest": "\ntest('five real historical receipts: recorded retro adjustments replace only empty zero splits, no duplicate monthly payable',()=>{\n const state=fixture();\n state.ventas=Array.from({length:5},(_,i)=>({\n   id:'book-'+i,productoId:'p1',ubicacionId:'rack-1',promotoraId:'artist-1',\n   fecha:'2026-10-15T12:00:00Z',cantidad:1,precioUnit:15,costoUnit:1,\n   split:{montoComisionSocio:i===4?12.75:0,montoNetoDueno:i===4?2.25:15,comisionPct:i===4?85:0,\n          reparto:i===4?[{promotoraId:'artist-1',monto:12.75}]:[]}\n }));\n state.ajustesComision=state.ventas.slice(0,4).map(v=>({id:'adj-retro-'+v.id,tipo:'recalculo-retroactivo',\n   ventaId:v.id,productoId:'p1',ubicacionId:'rack-1',fecha:v.fecha,montoBruto:0,montoComisionSocio:12.75,\n   montoNetoDueno:-12.75,reparto:[{promotoraId:'artist-1',monto:12.75}],comisionPct:85}));\n const original=JSON.stringify(state);\n const history=require('../docs/core/commission-history.js');\n const c=dashboard(state);\n const check=(ctx,due,commission,rows)=>{\n   const h=history.project({sales:ctx.datos.ventas,group:'comisionista'});\n   assert.equal(h.totals.count,5);assert.equal(h.totals.gross,75);assert.equal(h.totals.commission,commission);\n   const r=ctx.cmFilas('2026-10'),g=ctx.cmAgrupar(r,'producto')[0];\n   assert.equal(r.length,rows);assert.equal(g.bruto,75);assert.equal(g.socio,commission);\n   assert.equal(g.pend,due);assert.equal(ctx.totalesHub().pend,due);\n };\n check(c,63.75,63.75,5);\n assert.equal(JSON.stringify(state),original,'projection never rewrites source facts');\n state.ventas[4].liquidada=true;check(dashboard(state),51,63.75,5);\n state.ventas[4].liquidada=false;state.ajustesComision=[];check(dashboard(state),12.75,12.75,5);\n});\n"
+}
