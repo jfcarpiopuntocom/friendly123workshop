@@ -1,0 +1,78 @@
+{
+  "base": "d3dcec750c10950f9b7e61c59bd0e699a81480d9",
+  "sourceBlob": "4364887bf227e8ed91197e9ba3771925d4029f5a",
+  "method": "actual fetch handler executed in V8, synthetic request/cache; no native proof clientId missing",
+  "change": {
+    "before": "if (evento.request.mode !== \"navigate\" && recursoVersionado && evento.clientId) {",
+    "after": "if (evento.request.mode !== \"navigate\" && recursoVersionado) {"
+  },
+  "evidence": [
+    {
+      "name": "no-id mixed",
+      "red": {
+        "status": 200,
+        "body": "new"
+      },
+      "green": {
+        "status": 503,
+        "body": "Sin conexion y sin copia en cache."
+      }
+    },
+    {
+      "name": "no-id mixed query",
+      "red": {
+        "status": 200,
+        "body": "network-new"
+      },
+      "green": {
+        "status": 503,
+        "body": "Sin conexion y sin copia en cache."
+      }
+    },
+    {
+      "name": "known old",
+      "red": {
+        "status": 200,
+        "body": "old"
+      },
+      "green": {
+        "status": 200,
+        "body": "old"
+      }
+    },
+    {
+      "name": "known new",
+      "red": {
+        "status": 200,
+        "body": "new"
+      },
+      "green": {
+        "status": 200,
+        "body": "new"
+      }
+    },
+    {
+      "name": "no-id single generation",
+      "red": {
+        "status": 200,
+        "body": "new"
+      },
+      "green": {
+        "status": 200,
+        "body": "new"
+      }
+    },
+    {
+      "name": "unknown id mixed",
+      "red": {
+        "status": 503,
+        "body": "Sin conexion y sin copia en cache."
+      },
+      "green": {
+        "status": 503,
+        "body": "Sin conexion y sin copia en cache."
+      }
+    }
+  ],
+  "risks": "Fail closed 503 for anonymous versioned assets while multiple shells retained; may affect real browser resource loads; native testing required, separate from Chromium navigation stall."
+}
