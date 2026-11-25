@@ -1,0 +1,135 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "dependencies": [
+    {
+      "ref": "d880fc2c887dd6fd7e2d85ba515dac8966ddc3f8",
+      "f": "payment-alias-stress.cjs"
+    },
+    {
+      "ref": "474347d5a73fd9304e858c81becc9502fb796af1",
+      "f": "explicit-sale-identity-stress.cjs"
+    },
+    {
+      "ref": "4d98c938498f9fde30f625663f39223a9c3337b6",
+      "f": "conflict-propagation-candidate.json"
+    },
+    {
+      "ref": "e051ef51fe31034f24e073c5bf973f35b58eca33",
+      "f": "direct-restoration-allocation-candidate.json"
+    },
+    {
+      "ref": "0ed65c07f803f313d341694a381b5955fbb2ee06",
+      "f": "belvedere-10000-payment-transitions.json"
+    },
+    {
+      "ref": "71cf35b5083d9460cfb9fd807bc05c49ba0479f1",
+      "f": "cartera-projection-adversarial.cjs"
+    }
+  ],
+  "ten": [
+    {
+      "name": "A01 partial payment 10/35",
+      "expected": -25,
+      "actual": -25,
+      "actualUnassigned": 10,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A02 same opId different fact IDs",
+      "expected": -25,
+      "actual": -25,
+      "actualUnassigned": 10,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A03 distinct opIds same value",
+      "expected": -15,
+      "actual": -15,
+      "actualUnassigned": 20,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A04 distinct opIds mixed nested/flat",
+      "expected": -15,
+      "actual": -15,
+      "actualUnassigned": 20,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A05 same linked sale two receipt IDs",
+      "expected": -108,
+      "actual": -108,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A06 receipt not duplicated by atomic sale",
+      "expected": -108,
+      "actual": -108,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A07 observed balance unallocated",
+      "expected": -126,
+      "actual": -126,
+      "expectedUnassigned": 39.5,
+      "actualUnassigned": 39.5,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A08 allocate existing payment",
+      "expected": -126,
+      "actual": -126,
+      "expectedUnassigned": 0,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A09 duplicate allocation replay",
+      "expected": -126,
+      "actual": -126,
+      "expectedUnassigned": 0,
+      "actualUnassigned": 0,
+      "unchanged": true,
+      "pass": true
+    },
+    {
+      "name": "A10 counterfactual disputed charge absent",
+      "expected": -18,
+      "actual": -18,
+      "expectedUnassigned": 39.5,
+      "actualUnassigned": 39.5,
+      "unchanged": true,
+      "pass": true
+    }
+  ],
+  "stress": [
+    {
+      "pass": 567,
+      "fail": 9433
+    },
+    {
+      "pass": 10000,
+      "fail": 0
+    }
+  ],
+  "operations": {
+    "new": 2065,
+    "alias": 1954,
+    "distinct": 2066,
+    "apply": 1932,
+    "undo": 1983
+  },
+  "method": "Reconstructed exact experimental patches including direct restoration; actual reader V8, fixtures only. No browser, no transport; original 10000-step oracle rerun after latest change.",
+  "limits": "Known unresolved ambiguous restoration cases, UI/API enforcement, full native IDB and Sync4, real account. No promotion."
+}
