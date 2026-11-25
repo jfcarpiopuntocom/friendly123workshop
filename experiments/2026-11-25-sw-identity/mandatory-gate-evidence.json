@@ -1,0 +1,73 @@
+{
+  "base": "8704d3fd167ccf51ba40542d0e67ff91ae8ad331",
+  "files": [
+    "scripts/p0-hotfix-tests.cjs",
+    "test/p0-business-guards-selection.test.cjs"
+  ],
+  "red": {
+    "mandatory": 0,
+    "checks": [
+      {
+        "changed": [
+          "docs/sw.js"
+        ],
+        "count": 0
+      },
+      {
+        "changed": [
+          "docs/mock-backend.js"
+        ],
+        "count": 0
+      },
+      {
+        "changed": [
+          "docs/version.json"
+        ],
+        "count": 0
+      },
+      {
+        "changed": [
+          "README.md"
+        ],
+        "count": 0
+      }
+    ]
+  },
+  "green": {
+    "mandatory": 3,
+    "checks": [
+      {
+        "changed": [
+          "docs/sw.js"
+        ],
+        "count": 3
+      },
+      {
+        "changed": [
+          "docs/mock-backend.js"
+        ],
+        "count": 3
+      },
+      {
+        "changed": [
+          "docs/version.json"
+        ],
+        "count": 3
+      },
+      {
+        "changed": [
+          "README.md"
+        ],
+        "count": 3
+      }
+    ]
+  },
+  "method": "actual selector and mandatory list executed in V8 with mocked filesystem; test files verified separately via GitHub; no native browser execution in this experiment",
+  "sourceChanges": {
+    "scripts/p0-hotfix-tests.cjs": {
+      "before": "  'test/p0-business-guards-selection.test.cjs', // guard the mandatory gate itself",
+      "after": "  'test/p0-business-guards-selection.test.cjs', // guard the mandatory gate itself\n  'test/p0-sw-identity-protocol.test.cjs', // stale/silent SW, both reply channels\n  'test/e2-sw-real-browser.test.cjs', // native Chromium/WebKit, PIN-only adoption\n  'test/v448-golden-generation.test.js', // cache generation and channel isolation\n  't"
+    },
+    "test/p0-business-guards-selection.test.cjs": "\ntest('Every P0 release preserves SW identity and real PIN-only takeover coverage',()=>{\n for(const changed of [['docs/sw.js'],['docs/mock-backend.js'],['docs/version.json'],['README.md']]){\n   const selected=selectP0Tests(changed);\n   for(const filename of [\"test/p0-sw-identity-protocol.test.cjs\",\"test/e2-sw-real-browser.test.cjs\",\"test/v448-golden-generation.test.js\"]){\n     assert.ok(fs.existsSync(path.join(__dirname,'..',filename)),filename+' exists');\n     assert.ok(MANDATORY.includes(filename),filename+' must stay mandatory');\n     assert.ok(selected.includes(filename),filename+' must execute on '+changed.join(','));\n   }\n }\n});\n"
+  }
+}
