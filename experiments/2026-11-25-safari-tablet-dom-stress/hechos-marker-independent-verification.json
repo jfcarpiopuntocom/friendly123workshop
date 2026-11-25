@@ -1,0 +1,732 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-25T17:11:24.021Z",
+    "targetSha": "5c4a72cea",
+    "codexWorkshopRef": "lab/p0-perf-gate-v926-20261124@7f6136fbb",
+    "sliceLen": 5505,
+    "sliceFnv1a": 4155518902,
+    "syntheticOnly": true
+  },
+  "engines": [
+    {
+      "engine": "chromium",
+      "version": "151.0.7922.34",
+      "red": {
+        "passed": 5,
+        "total": 9,
+        "results": [
+          {
+            "case": "complete absent",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete raw-only",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout raw-only",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-empty",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "both raw + scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "restart after ambiguous empty",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [],
+              "rawRows": [
+                "foreign"
+              ]
+            }
+          },
+          {
+            "case": "adversarial: databases() unsupported + empty",
+            "advisoryOnly": true,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          }
+        ]
+      },
+      "green": {
+        "passed": 9,
+        "total": 9,
+        "results": [
+          {
+            "case": "complete absent",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete raw-only",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout raw-only",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "both raw + scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "restart after ambiguous empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": {
+              "marker": true,
+              "rows": [
+                "late-owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            }
+          },
+          {
+            "case": "adversarial: databases() unsupported + empty",
+            "advisoryOnly": true,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          }
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "version": "26.5",
+      "red": {
+        "passed": 5,
+        "total": 9,
+        "results": [
+          {
+            "case": "complete absent",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete raw-only",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout raw-only",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-empty",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "both raw + scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "restart after ambiguous empty",
+            "advisoryOnly": false,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [],
+              "rawRows": [
+                "foreign"
+              ]
+            }
+          },
+          {
+            "case": "adversarial: databases() unsupported + empty",
+            "advisoryOnly": true,
+            "ok": false,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          }
+        ]
+      },
+      "green": {
+        "passed": 9,
+        "total": 9,
+        "results": [
+          {
+            "case": "complete absent",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete raw-only",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout raw-only",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "timeout scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "complete scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          },
+          {
+            "case": "both raw + scoped-populated",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": true,
+              "rows": [
+                "owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": null
+          },
+          {
+            "case": "restart after ambiguous empty",
+            "advisoryOnly": false,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            },
+            "second": {
+              "marker": true,
+              "rows": [
+                "late-owned"
+              ],
+              "attempts": 0,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": [
+                "foreign"
+              ]
+            }
+          },
+          {
+            "case": "adversarial: databases() unsupported + empty",
+            "advisoryOnly": true,
+            "ok": true,
+            "first": {
+              "marker": false,
+              "rows": [],
+              "attempts": 1,
+              "opens": [
+                "f123::amg_hechos_db"
+              ],
+              "rawRows": null
+            },
+            "second": null
+          }
+        ]
+      }
+    }
+  ]
+}
