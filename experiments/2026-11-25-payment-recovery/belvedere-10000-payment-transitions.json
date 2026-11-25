@@ -1,0 +1,381 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "candidateDependencies": [
+    "d880fc2c887dd6fd7e2d85ba515dac8966ddc3f8",
+    "474347d5a73fd9304e858c81becc9502fb796af1",
+    "4d98c938498f9fde30f625663f39223a9c3337b6"
+  ],
+  "method": "100 deterministic seeds x 100 cumulative operations; independent integer cent model; shuffled facts each step; actual original and experimental reader; one manual debt and identified payments only, no IDB, Sync4, browser, latency or restored sales",
+  "counts": [
+    {
+      "pass": 567,
+      "fail": 9433
+    },
+    {
+      "pass": 10000,
+      "fail": 0
+    }
+  ],
+  "operations": {
+    "new": 2065,
+    "alias": 1954,
+    "distinct": 2066,
+    "apply": 1932,
+    "undo": 1983
+  },
+  "failures": [
+    [
+      {
+        "seed": 1,
+        "step": 3,
+        "expected": {
+          "saldo": -98145,
+          "applied": 0,
+          "unassigned": 1855,
+          "count": 3,
+          "conflicts": 0,
+          "immutable": true
+        },
+        "actual": {
+          "saldo": -97240,
+          "applied": 0,
+          "unassigned": 2760,
+          "count": 4,
+          "conflicts": 0,
+          "immutable": true
+        },
+        "trace": [
+          {
+            "type": "new",
+            "amount": 334
+          },
+          {
+            "type": "new",
+            "amount": 905
+          },
+          {
+            "type": "new",
+            "amount": 616
+          },
+          {
+            "type": "alias",
+            "opId": "payment-2",
+            "id": "a-4"
+          }
+        ],
+        "facts": [
+          {
+            "id": "z-payment-1",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "payload": {
+                "clienteId": "synthetic",
+                "monto": 3.34,
+                "motivo": "payment",
+                "opId": "payment-1"
+              }
+            }
+          },
+          {
+            "id": "z-payment-2",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 9.05,
+              "motivo": "payment",
+              "opId": "payment-2"
+            }
+          },
+          {
+            "id": "z-payment-3",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 6.16,
+              "motivo": "payment",
+              "opId": "payment-3"
+            }
+          },
+          {
+            "id": "charge",
+            "tipo": "cartera_cargo",
+            "ts": 1790000000000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 1000,
+              "motivo": "charge"
+            }
+          },
+          {
+            "id": "a-4",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 9.05,
+              "motivo": "payment",
+              "opId": "payment-2"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 1,
+        "step": 4,
+        "expected": {
+          "saldo": -98145,
+          "applied": 0,
+          "unassigned": 1855,
+          "count": 3,
+          "conflicts": 0,
+          "immutable": true
+        },
+        "actual": {
+          "saldo": -97240,
+          "applied": 0,
+          "unassigned": 2760,
+          "count": 4,
+          "conflicts": 0,
+          "immutable": true
+        },
+        "trace": [
+          {
+            "type": "new",
+            "amount": 334
+          },
+          {
+            "type": "new",
+            "amount": 905
+          },
+          {
+            "type": "new",
+            "amount": 616
+          },
+          {
+            "type": "alias",
+            "opId": "payment-2",
+            "id": "a-4"
+          },
+          {
+            "type": "undo",
+            "opId": "payment-2",
+            "abonoId": "a-4"
+          }
+        ],
+        "facts": [
+          {
+            "id": "z-payment-1",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "payload": {
+                "clienteId": "synthetic",
+                "monto": 3.34,
+                "motivo": "payment",
+                "opId": "payment-1"
+              }
+            }
+          },
+          {
+            "id": "z-payment-2",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 9.05,
+              "motivo": "payment",
+              "opId": "payment-2"
+            }
+          },
+          {
+            "id": "undo-5",
+            "tipo": "cartera_aplicacion",
+            "ts": 1790000014000,
+            "datos": {
+              "clienteId": "synthetic",
+              "abonoId": "a-4",
+              "accion": "desaplicar",
+              "cargoKey": "cargo:charge",
+              "monto": 0
+            }
+          },
+          {
+            "id": "charge",
+            "tipo": "cartera_cargo",
+            "ts": 1790000000000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 1000,
+              "motivo": "charge"
+            }
+          },
+          {
+            "id": "z-payment-3",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 6.16,
+              "motivo": "payment",
+              "opId": "payment-3"
+            }
+          },
+          {
+            "id": "a-4",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 9.05,
+              "motivo": "payment",
+              "opId": "payment-2"
+            }
+          }
+        ]
+      },
+      {
+        "seed": 1,
+        "step": 5,
+        "expected": {
+          "saldo": -98145,
+          "applied": 210,
+          "unassigned": 1645,
+          "count": 3,
+          "conflicts": 0,
+          "immutable": true
+        },
+        "actual": {
+          "saldo": -97240,
+          "applied": 210,
+          "unassigned": 2550,
+          "count": 4,
+          "conflicts": 0,
+          "immutable": true
+        },
+        "trace": [
+          {
+            "type": "new",
+            "amount": 334
+          },
+          {
+            "type": "new",
+            "amount": 905
+          },
+          {
+            "type": "new",
+            "amount": 616
+          },
+          {
+            "type": "alias",
+            "opId": "payment-2",
+            "id": "a-4"
+          },
+          {
+            "type": "undo",
+            "opId": "payment-2",
+            "abonoId": "a-4"
+          },
+          {
+            "type": "apply",
+            "opId": "payment-1",
+            "abonoId": "z-payment-1",
+            "n": 210
+          }
+        ],
+        "facts": [
+          {
+            "id": "z-payment-3",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 6.16,
+              "motivo": "payment",
+              "opId": "payment-3"
+            }
+          },
+          {
+            "id": "a-4",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 9.05,
+              "motivo": "payment",
+              "opId": "payment-2"
+            }
+          },
+          {
+            "id": "z-payment-1",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "payload": {
+                "clienteId": "synthetic",
+                "monto": 3.34,
+                "motivo": "payment",
+                "opId": "payment-1"
+              }
+            }
+          },
+          {
+            "id": "z-payment-2",
+            "tipo": "cartera_abono",
+            "ts": 1790000001000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 9.05,
+              "motivo": "payment",
+              "opId": "payment-2"
+            }
+          },
+          {
+            "id": "undo-5",
+            "tipo": "cartera_aplicacion",
+            "ts": 1790000014000,
+            "datos": {
+              "clienteId": "synthetic",
+              "abonoId": "a-4",
+              "accion": "desaplicar",
+              "cargoKey": "cargo:charge",
+              "monto": 0
+            }
+          },
+          {
+            "id": "charge",
+            "tipo": "cartera_cargo",
+            "ts": 1790000000000,
+            "datos": {
+              "clienteId": "synthetic",
+              "monto": 1000,
+              "motivo": "charge"
+            }
+          },
+          {
+            "id": "allocation-6",
+            "tipo": "cartera_aplicacion",
+            "ts": 1790000015000,
+            "datos": {
+              "clienteId": "synthetic",
+              "opId": "alloc-6",
+              "abonoId": "z-payment-1",
+              "accion": "aplicar",
+              "partes": [
+                {
+                  "cargoKey": "cargo:charge",
+                  "monto": 2.1
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    []
+  ],
+  "runner": "function stress(original,candidate){const load=s=>{const w={};new Function(\"window\",s)(w);return w.AMG.Cartera.calcularSaldo};const readers=[load(original),load(candidate)];const counts=[{pass:0,fail:0},{pass:0,fail:0}],failures=[[],[]],operations={new:0,alias:0,distinct:0,apply:0,undo:0};const cents=n=>Math.round(n*100);\n for(let seed=1;seed<=100;seed++){let rng=seed;const rnd=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng};const client=\"synthetic\";const h=(id,tipo,datos,ts)=>({id,tipo,ts,datos:{clienteId:client,...datos}});const debt=100000,baseTime=1790000000000;const facts=[h(\"charge\",\"cartera_cargo\",{monto:debt/100,motivo:\"charge\"},baseTime)],payments=[],trace=[];let id=0;\n const add=(amount,nested)=>{const opId=\"payment-\"+(++id),fact=h(\"z-\"+opId,\"cartera_abono\",{monto:amount/100,motivo:\"payment\",opId},baseTime+1000);if(nested)fact.datos={payload:fact.datos};facts.push(fact);payments.push({opId,amount,applied:0,ids:[fact.id],payload:fact.datos.payload||fact.datos});};\n for(let step=0;step<100;step++){const time=baseTime+10000+step*1000,mode=payments.length?rnd()%5:0,pay=payments.length?payments[rnd()%payments.length]:null;let op;\n if(mode===0){let amount=1+rnd()%999;add(amount,!!(rnd()%2));op={type:\"new\",amount};}\n else if(mode===1){const alias=\"a-\"+(++id);let fact=h(alias,\"cartera_abono\",{...pay.payload},baseTime+1000);if(rnd()%2)fact.datos={payload:fact.datos};facts.push(fact);pay.ids.push(alias);op={type:\"alias\",opId:pay.opId,id:alias};}\n else if(mode===2){add(pay.amount,!!(rnd()%2));op={type:\"distinct\",amount:pay.amount};}\n else if(mode===3){const remaining=pay.amount-pay.applied;if(remaining>0){const n=1+rnd()%remaining,abonoId=pay.ids[rnd()%pay.ids.length];facts.push(h(\"allocation-\"+(++id),\"cartera_aplicacion\",{opId:\"alloc-\"+id,abonoId,accion:\"aplicar\",partes:[{cargoKey:\"cargo:charge\",monto:n/100}]},time));pay.applied+=n;op={type:\"apply\",opId:pay.opId,abonoId,n};}else{add(1,false);op={type:\"new\",amount:1};}}\n else {const abonoId=pay.ids[rnd()%pay.ids.length];facts.push(h(\"undo-\"+(++id),\"cartera_aplicacion\",{abonoId,accion:\"desaplicar\",cargoKey:\"cargo:charge\",monto:0},time));pay.applied=0;op={type:\"undo\",opId:pay.opId,abonoId};}\n operations[op.type]++;trace.push(op);\n const shuffled=facts.slice();for(let i=shuffled.length-1;i>0;i--){const j=rnd()%(i+1);[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]}const snap=JSON.stringify(shuffled);const credit=payments.reduce((a,p)=>a+p.amount,0),applied=payments.reduce((a,p)=>a+p.applied,0);const expected={saldo:credit-debt,applied,unassigned:credit-applied,count:payments.length,conflicts:0,immutable:true};\n for(let k=0;k<2;k++){const r=readers[k](shuffled,client,[]);const actual={saldo:cents(r.saldo),applied:cents(r.movimientos.filter(m=>m.tipo===\"cargo\").reduce((a,m)=>a+m.aplicado,0)),unassigned:cents(r.movimientos.filter(m=>m.tipo===\"abono\").reduce((a,m)=>a+m.sinAsignar,0)),count:r.movimientos.filter(m=>m.tipo===\"abono\").length,conflicts:r.conflictosAplicacion,immutable:snap===JSON.stringify(shuffled)};if(JSON.stringify(actual)===JSON.stringify(expected))counts[k].pass++;else{counts[k].fail++;if(failures[k].length<3)failures[k].push({seed,step,expected,actual,trace:trace.slice(),facts:shuffled});}}\n }\n }return {counts,operations,failures};}"
+}
