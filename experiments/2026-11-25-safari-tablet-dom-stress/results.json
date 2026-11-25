@@ -1,0 +1,998 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-25T06:58:58.328Z",
+    "startedAt": "2026-11-25T06:53:53.604Z",
+    "targetRepo": "friendly-123",
+    "targetSha": "c3ec60e0b",
+    "targetVersion": "v0.9.27",
+    "syntheticOnly": true,
+    "nodeVersion": "v26.13.1",
+    "platform": "win32"
+  },
+  "appRuns": [
+    {
+      "profile": "webkit-ipad-1024x768",
+      "engine": "webkit",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "counts": {
+        "ubicaciones": 12,
+        "promotoras": 15,
+        "productos": 1200,
+        "productosEnUbicacionPrincipal": 600,
+        "clientes": 400,
+        "ventas": 2000,
+        "gastos": 400
+      },
+      "bootMs": 1321,
+      "importMs": 144,
+      "seededReloadMs": 1138,
+      "pageErrors": [],
+      "tabs": [
+        {
+          "vista": "hoy",
+          "label": "Today",
+          "switchMs": 806,
+          "totalDomNodes": 1359,
+          "activeSectionDomNodes": 214,
+          "hiddenRetainedDomNodes": 719,
+          "gridNodes": {
+            "gridVender": 0,
+            "gridInventario": 0,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 100,
+            "vista-escanear": 86,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "escanear",
+          "label": "Sell (#gridVender)",
+          "switchMs": 2756,
+          "totalDomNodes": 9015,
+          "activeSectionDomNodes": 7714,
+          "hiddenRetainedDomNodes": 847,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 0,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 100,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "inventario",
+          "label": "Inventory (#gridInventario)",
+          "switchMs": 1940,
+          "totalDomNodes": 22246,
+          "activeSectionDomNodes": 13331,
+          "hiddenRetainedDomNodes": 8461,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "etiquetas",
+          "label": "Labels (#gridEtiquetas)",
+          "switchMs": 1473,
+          "totalDomNodes": 27046,
+          "activeSectionDomNodes": 4811,
+          "hiddenRetainedDomNodes": 21781,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "comisiones",
+          "label": "Commissions (#listaComisiones)",
+          "switchMs": 1366,
+          "totalDomNodes": 28057,
+          "activeSectionDomNodes": 1026,
+          "hiddenRetainedDomNodes": 26577,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 1026,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "clientes",
+          "label": "Customers (#listaClientes)",
+          "switchMs": 25096,
+          "totalDomNodes": 75014,
+          "activeSectionDomNodes": 46993,
+          "hiddenRetainedDomNodes": 27567,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "gastos",
+          "label": "Expenses (#listaGastos)",
+          "switchMs": 5613,
+          "totalDomNodes": 78263,
+          "activeSectionDomNodes": 3296,
+          "hiddenRetainedDomNodes": 74513,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 3200
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 3296,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "perchas",
+          "label": "Shelves (#vista-perchas)",
+          "switchMs": 4023,
+          "totalDomNodes": 78365,
+          "activeSectionDomNodes": 115,
+          "hiddenRetainedDomNodes": 77795,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 3200
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 115,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 3296,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        }
+      ],
+      "inventoryDetails": {
+        "venderTiles": 1200,
+        "inventoryDirectEditBtns": 0,
+        "inventoryStockAdjustBtns": 2400,
+        "inventoryChildren": 1201,
+        "etiquetasChildren": 1200,
+        "gastosChildren": 400,
+        "clientesTextLength": 445507,
+        "clientesHiddenOptionNodes": 15600,
+        "clientesHiddenEditPanels": 400,
+        "clientesSvgNodes": 4400,
+        "comisionesNodes": 714,
+        "comisionesShowMoreBtns": 0
+      },
+      "stressCycles": {
+        "totalSwitches": 15,
+        "avgSwitchMs": 3754,
+        "maxSwitch": {
+          "cycle": 2,
+          "vista": "escanear",
+          "ms": 5983
+        },
+        "before": {
+          "totalDomNodes": 78365,
+          "hiddenRetainedDomNodes": 77795,
+          "cdp": null
+        },
+        "after": {
+          "totalDomNodes": 78365,
+          "hiddenRetainedDomNodes": 76884,
+          "cdp": null
+        }
+      }
+    },
+    {
+      "profile": "webkit-iphone-390x844",
+      "engine": "webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "counts": {
+        "ubicaciones": 12,
+        "promotoras": 15,
+        "productos": 1200,
+        "productosEnUbicacionPrincipal": 600,
+        "clientes": 400,
+        "ventas": 2000,
+        "gastos": 400
+      },
+      "bootMs": 1681,
+      "importMs": 203,
+      "seededReloadMs": 741,
+      "pageErrors": [],
+      "tabs": [
+        {
+          "vista": "hoy",
+          "label": "Today",
+          "switchMs": 621,
+          "totalDomNodes": 1359,
+          "activeSectionDomNodes": 214,
+          "hiddenRetainedDomNodes": 719,
+          "gridNodes": {
+            "gridVender": 0,
+            "gridInventario": 0,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 100,
+            "vista-escanear": 86,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "escanear",
+          "label": "Sell (#gridVender)",
+          "switchMs": 3083,
+          "totalDomNodes": 9015,
+          "activeSectionDomNodes": 7714,
+          "hiddenRetainedDomNodes": 847,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 0,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 100,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "inventario",
+          "label": "Inventory (#gridInventario)",
+          "switchMs": 2224,
+          "totalDomNodes": 22246,
+          "activeSectionDomNodes": 13331,
+          "hiddenRetainedDomNodes": 8461,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "etiquetas",
+          "label": "Labels (#gridEtiquetas)",
+          "switchMs": 1852,
+          "totalDomNodes": 27046,
+          "activeSectionDomNodes": 4811,
+          "hiddenRetainedDomNodes": 21781,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "comisiones",
+          "label": "Commissions (#listaComisiones)",
+          "switchMs": 1520,
+          "totalDomNodes": 28057,
+          "activeSectionDomNodes": 1026,
+          "hiddenRetainedDomNodes": 26577,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 1026,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "clientes",
+          "label": "Customers (#listaClientes)",
+          "switchMs": 31722,
+          "totalDomNodes": 75014,
+          "activeSectionDomNodes": 46993,
+          "hiddenRetainedDomNodes": 27567,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "gastos",
+          "label": "Expenses (#listaGastos)",
+          "switchMs": 5198,
+          "totalDomNodes": 78263,
+          "activeSectionDomNodes": 3296,
+          "hiddenRetainedDomNodes": 74513,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 3200
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 3296,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        },
+        {
+          "vista": "perchas",
+          "label": "Shelves (#vista-perchas)",
+          "switchMs": 3425,
+          "totalDomNodes": 78365,
+          "activeSectionDomNodes": 115,
+          "hiddenRetainedDomNodes": 77795,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 3200
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 115,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 3296,
+            "vista-avanzado": 410
+          },
+          "cdp": null
+        }
+      ],
+      "inventoryDetails": {
+        "venderTiles": 1200,
+        "inventoryDirectEditBtns": 0,
+        "inventoryStockAdjustBtns": 2400,
+        "inventoryChildren": 1201,
+        "etiquetasChildren": 1200,
+        "gastosChildren": 400,
+        "clientesTextLength": 445507,
+        "clientesHiddenOptionNodes": 15600,
+        "clientesHiddenEditPanels": 400,
+        "clientesSvgNodes": 4400,
+        "comisionesNodes": 714,
+        "comisionesShowMoreBtns": 0
+      },
+      "stressCycles": {
+        "totalSwitches": 15,
+        "avgSwitchMs": 4467,
+        "maxSwitch": {
+          "cycle": 3,
+          "vista": "escanear",
+          "ms": 7938
+        },
+        "before": {
+          "totalDomNodes": 78365,
+          "hiddenRetainedDomNodes": 77795,
+          "cdp": null
+        },
+        "after": {
+          "totalDomNodes": 78365,
+          "hiddenRetainedDomNodes": 76884,
+          "cdp": null
+        }
+      }
+    },
+    {
+      "profile": "chromium-tablet-1024x768-cdp",
+      "engine": "chromium",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "counts": {
+        "ubicaciones": 12,
+        "promotoras": 15,
+        "productos": 1200,
+        "productosEnUbicacionPrincipal": 600,
+        "clientes": 400,
+        "ventas": 2000,
+        "gastos": 400
+      },
+      "bootMs": 2746,
+      "importMs": 304,
+      "seededReloadMs": 982,
+      "pageErrors": [],
+      "tabs": [
+        {
+          "vista": "hoy",
+          "label": "Today",
+          "switchMs": 541,
+          "totalDomNodes": 1362,
+          "activeSectionDomNodes": 214,
+          "hiddenRetainedDomNodes": 719,
+          "gridNodes": {
+            "gridVender": 0,
+            "gridInventario": 0,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 100,
+            "vista-escanear": 86,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 38.98,
+            "jsHeapTotalMB": 58.03,
+            "cdpNodes": 8050,
+            "cdpEventListeners": 761,
+            "layoutCount": 13,
+            "recalcStyleCount": 20
+          }
+        },
+        {
+          "vista": "escanear",
+          "label": "Sell (#gridVender)",
+          "switchMs": 2023,
+          "totalDomNodes": 9015,
+          "activeSectionDomNodes": 7714,
+          "hiddenRetainedDomNodes": 847,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 0,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 100,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 24.07,
+            "jsHeapTotalMB": 59.52,
+            "cdpNodes": 26885,
+            "cdpEventListeners": 370,
+            "layoutCount": 16,
+            "recalcStyleCount": 24
+          }
+        },
+        {
+          "vista": "inventario",
+          "label": "Inventory (#gridInventario)",
+          "switchMs": 1411,
+          "totalDomNodes": 22246,
+          "activeSectionDomNodes": 13331,
+          "hiddenRetainedDomNodes": 8461,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 0,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 11,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 19.41,
+            "jsHeapTotalMB": 62.05,
+            "cdpNodes": 68953,
+            "cdpEventListeners": 5168,
+            "layoutCount": 19,
+            "recalcStyleCount": 47
+          }
+        },
+        {
+          "vista": "etiquetas",
+          "label": "Labels (#gridEtiquetas)",
+          "switchMs": 825,
+          "totalDomNodes": 27046,
+          "activeSectionDomNodes": 4811,
+          "hiddenRetainedDomNodes": 21781,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 0,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 15,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 45.04,
+            "jsHeapTotalMB": 74.76,
+            "cdpNodes": 83362,
+            "cdpEventListeners": 6373,
+            "layoutCount": 22,
+            "recalcStyleCount": 52
+          }
+        },
+        {
+          "vista": "comisiones",
+          "label": "Commissions (#listaComisiones)",
+          "switchMs": 874,
+          "totalDomNodes": 28057,
+          "activeSectionDomNodes": 1026,
+          "hiddenRetainedDomNodes": 26577,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 0,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 36,
+            "vista-comisiones": 1026,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 41.22,
+            "jsHeapTotalMB": 82.63,
+            "cdpNodes": 85516,
+            "cdpEventListeners": 6429,
+            "layoutCount": 26,
+            "recalcStyleCount": 56
+          }
+        },
+        {
+          "vista": "clientes",
+          "label": "Customers (#listaClientes)",
+          "switchMs": 13141,
+          "totalDomNodes": 75014,
+          "activeSectionDomNodes": 46993,
+          "hiddenRetainedDomNodes": 27567,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 0
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 47,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 45.64,
+            "jsHeapTotalMB": 101.8,
+            "cdpNodes": 264440,
+            "cdpEventListeners": 15245,
+            "layoutCount": 30,
+            "recalcStyleCount": 61
+          }
+        },
+        {
+          "vista": "gastos",
+          "label": "Expenses (#listaGastos)",
+          "switchMs": 3015,
+          "totalDomNodes": 78263,
+          "activeSectionDomNodes": 3296,
+          "hiddenRetainedDomNodes": 74513,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 3200
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 14,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 3296,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 46.06,
+            "jsHeapTotalMB": 102.89,
+            "cdpNodes": 270999,
+            "cdpEventListeners": 14433,
+            "layoutCount": 34,
+            "recalcStyleCount": 65
+          }
+        },
+        {
+          "vista": "perchas",
+          "label": "Shelves (#vista-perchas)",
+          "switchMs": 2319,
+          "totalDomNodes": 78365,
+          "activeSectionDomNodes": 115,
+          "hiddenRetainedDomNodes": 77795,
+          "gridNodes": {
+            "gridVender": 7200,
+            "gridInventario": 13226,
+            "gridEtiquetas": 4800,
+            "listaComisiones": 714,
+            "listaClientes": 46890,
+            "listaGastos": 3200
+          },
+          "perVista": {
+            "vista-hoy": 214,
+            "vista-inventario": 13331,
+            "vista-escanear": 7714,
+            "vista-etiquetas": 4811,
+            "vista-perchas": 115,
+            "vista-clientes": 46993,
+            "vista-comisiones": 1026,
+            "vista-gastos": 3296,
+            "vista-avanzado": 410
+          },
+          "cdp": {
+            "jsHeapUsedMB": 48.07,
+            "jsHeapTotalMB": 103.14,
+            "cdpNodes": 271334,
+            "cdpEventListeners": 14473,
+            "layoutCount": 39,
+            "recalcStyleCount": 74
+          }
+        }
+      ],
+      "inventoryDetails": {
+        "venderTiles": 1200,
+        "inventoryDirectEditBtns": 0,
+        "inventoryStockAdjustBtns": 2400,
+        "inventoryChildren": 1201,
+        "etiquetasChildren": 1200,
+        "gastosChildren": 400,
+        "clientesTextLength": 445507,
+        "clientesHiddenOptionNodes": 15600,
+        "clientesHiddenEditPanels": 400,
+        "clientesSvgNodes": 4400,
+        "comisionesNodes": 714,
+        "comisionesShowMoreBtns": 0
+      },
+      "stressCycles": {
+        "totalSwitches": 15,
+        "avgSwitchMs": 1934,
+        "maxSwitch": {
+          "cycle": 2,
+          "vista": "escanear",
+          "ms": 3776
+        },
+        "before": {
+          "totalDomNodes": 78365,
+          "hiddenRetainedDomNodes": 77795,
+          "cdp": {
+            "jsHeapUsedMB": 16.96,
+            "jsHeapTotalMB": 17.87,
+            "cdpNodes": 271307,
+            "cdpEventListeners": 14440,
+            "layoutCount": 39,
+            "recalcStyleCount": 74
+          }
+        },
+        "after": {
+          "totalDomNodes": 78365,
+          "hiddenRetainedDomNodes": 76884,
+          "cdp": {
+            "jsHeapUsedMB": 20.62,
+            "jsHeapTotalMB": 22.37,
+            "cdpNodes": 271472,
+            "cdpEventListeners": 14450,
+            "layoutCount": 91,
+            "recalcStyleCount": 138
+          }
+        }
+      }
+    }
+  ],
+  "dashboardRuns": [
+    {
+      "profile": "webkit-ipad-1024x768",
+      "engine": "webkit",
+      "pageErrors": [],
+      "afterLoad": {
+        "treeWalkerCalls": 1,
+        "treeWalkerNextNodeCalls": 298,
+        "qsaAttrCalls": 1,
+        "mutationObserverInstances": 1
+      },
+      "burst": {
+        "tableInsertPlusObserverMs": 502,
+        "afterTable": {
+          "treeWalkerCalls": 2,
+          "treeWalkerNextNodeCalls": 12000,
+          "qsaAttrCalls": 2,
+          "mutationObserverInstances": 1
+        },
+        "tenHeartbeatsMs": 213,
+        "afterHeartbeats": {
+          "treeWalkerCalls": 153,
+          "treeWalkerNextNodeCalls": 12495,
+          "qsaAttrCalls": 153,
+          "mutationObserverInstances": 1
+        }
+      },
+      "cdpBefore": null,
+      "cdpAfter": null
+    },
+    {
+      "profile": "chromium-tablet-1024x768-cdp",
+      "engine": "chromium",
+      "pageErrors": [],
+      "afterLoad": {
+        "treeWalkerCalls": 1,
+        "treeWalkerNextNodeCalls": 298,
+        "qsaAttrCalls": 1,
+        "mutationObserverInstances": 1
+      },
+      "burst": {
+        "tableInsertPlusObserverMs": 468.4,
+        "afterTable": {
+          "treeWalkerCalls": 2,
+          "treeWalkerNextNodeCalls": 12000,
+          "qsaAttrCalls": 2,
+          "mutationObserverInstances": 1
+        },
+        "tenHeartbeatsMs": 100.2,
+        "afterHeartbeats": {
+          "treeWalkerCalls": 153,
+          "treeWalkerNextNodeCalls": 12495,
+          "qsaAttrCalls": 153,
+          "mutationObserverInstances": 1
+        }
+      },
+      "cdpBefore": {
+        "jsHeapUsedMB": 2.2,
+        "jsHeapTotalMB": 3.75,
+        "cdpNodes": 708,
+        "cdpEventListeners": 60,
+        "layoutCount": 2,
+        "recalcStyleCount": 3
+      },
+      "cdpAfter": {
+        "jsHeapUsedMB": 1.78,
+        "jsHeapTotalMB": 5.63,
+        "cdpNodes": 15534,
+        "cdpEventListeners": 60,
+        "layoutCount": 10,
+        "recalcStyleCount": 11
+      }
+    }
+  ]
+}
