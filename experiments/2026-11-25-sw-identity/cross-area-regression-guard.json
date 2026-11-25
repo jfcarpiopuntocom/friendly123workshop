@@ -1,0 +1,64 @@
+{
+  "base": "324397832a419ecb27613aed508568ce4b8fce57",
+  "red": {
+    "mandatory": 1,
+    "unique": true,
+    "checks": [
+      {
+        "changed": [
+          "docs/sw.js"
+        ],
+        "count": 1
+      },
+      {
+        "changed": [
+          "docs/mock-backend.js"
+        ],
+        "count": 1
+      },
+      {
+        "changed": [
+          "docs/version.json"
+        ],
+        "count": 1
+      },
+      {
+        "changed": [
+          "README.md"
+        ],
+        "count": 1
+      }
+    ]
+  },
+  "green": {
+    "mandatory": 3,
+    "unique": true,
+    "checks": [
+      {
+        "changed": [
+          "docs/sw.js"
+        ],
+        "count": 3
+      },
+      {
+        "changed": [
+          "docs/mock-backend.js"
+        ],
+        "count": 3
+      },
+      {
+        "changed": [
+          "docs/version.json"
+        ],
+        "count": 3
+      },
+      {
+        "changed": [
+          "README.md"
+        ],
+        "count": 3
+      }
+    ]
+  },
+  "method": "actual P0 selector V8 with mock FS, three files verified in GitHub, native gate pending"
+}
