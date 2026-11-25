@@ -1,0 +1,11 @@
+{
+  "source": "8704d3fd167ccf51ba40542d0e67ff91ae8ad331",
+  "actual": "docs/sw.js activate/fetch",
+  "oldCacheRetired": true,
+  "newControllerClaimed": true,
+  "requestClient": "old-document",
+  "lateLoadServed": "new",
+  "method": "actual handlers V8 synthetic caches/request; does not establish real UI crash",
+  "risk": "old document lazy loads new assets after skipWaiting+claim before PIN adoption",
+  "next": "native old document with real lazy asset, preserve PIN-only policy; no production change on this evidence"
+}
