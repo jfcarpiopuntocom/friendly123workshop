@@ -1,0 +1,165 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "harnessCommit": "5a424350502c9a5c67a3e8abdaf8c1ec8ab135a3",
+  "blobs": [
+    "49353f93f067d8efdd4484ecd689ebf628980ae5",
+    "ff4cd5b0b687b332ac9735280825f7983eac3b9f",
+    "61be24d84fd0a10b5b9bcf0866ab858fcd3272b3",
+    "3d74c0edc6642943cfb95e5ce8e525a7609a5dcf"
+  ],
+  "runtime": "isolated JavaScript V8, no native IndexedDB",
+  "red": [
+    {
+      "name": "alias-write",
+      "out": {
+        "error": "cartera: el abono no pertenece a este cliente",
+        "status": null
+      },
+      "writes": 0,
+      "saldo": -25,
+      "applied": 0,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "alias-retry",
+      "out": {
+        "error": "cartera: la referencia pertenece a otra asignación",
+        "status": 409
+      },
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "canonical-changes-on-receive",
+      "out": {
+        "error": "cartera: la referencia pertenece a otra asignación",
+        "status": 409
+      },
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "conflict-before-write",
+      "out": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "saldo": -13,
+      "applied": 10,
+      "conflicts": 0,
+      "identity": 1,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "conflict-inside-queue",
+      "out": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "saldo": -13,
+      "applied": 10,
+      "conflicts": 0,
+      "identity": 1,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "alias-undo",
+      "out": {
+        "ok": true
+      },
+      "writes": 2,
+      "saldo": -25,
+      "applied": 0,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    }
+  ],
+  "green": [
+    {
+      "name": "alias-write",
+      "out": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "alias-retry",
+      "out": {
+        "same": true
+      },
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "canonical-changes-on-receive",
+      "out": {
+        "same": true
+      },
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "conflict-before-write",
+      "out": {
+        "error": "cartera: identidad de movimiento en conflicto",
+        "status": 409
+      },
+      "writes": 0,
+      "saldo": -13,
+      "applied": 0,
+      "conflicts": 0,
+      "identity": 1,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "conflict-inside-queue",
+      "out": {
+        "error": "cartera: identidad de movimiento en conflicto",
+        "status": 409
+      },
+      "writes": 0,
+      "saldo": -13,
+      "applied": 0,
+      "conflicts": 0,
+      "identity": 1,
+      "originalFactsPreserved": true
+    },
+    {
+      "name": "alias-undo",
+      "out": {
+        "ok": true
+      },
+      "writes": 2,
+      "saldo": -25,
+      "applied": 0,
+      "conflicts": 0,
+      "identity": 0,
+      "originalFactsPreserved": true
+    }
+  ],
+  "scope": "actual Cartera functions; mocked Hechos transaction queue; synthetic facts only"
+}
