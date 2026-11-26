@@ -1,0 +1,149 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "blobs": {
+    "source": "e4396184dee07a7b0c963c7ed28241c38b50ba5e",
+    "harness": "7d661c912dc9389cc8a11704a4624b239d436322"
+  },
+  "scope": "actual UI handler and confirmarAsignacion with synthetic errors and mocked HTTP; no browser",
+  "red": [
+    {
+      "lang": "ES",
+      "name": "unconfirmed",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "reference-unavailable",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "confirmed-pending",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "identity-conflict",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "confirmed-storage-fail",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "unconfirmed",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "reference-unavailable",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "confirmed-pending",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "identity-conflict",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "confirmed-storage-fail",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "color": "#B0183E"
+    }
+  ],
+  "green": [
+    {
+      "lang": "ES",
+      "name": "unconfirmed",
+      "text": "Pago por confirmar. Reutiliza la referencia original.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "reference-unavailable",
+      "text": "Referencia del pago no disponible. Verifica el historial antes de continuar.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "confirmed-pending",
+      "text": "Pago confirmado; asignación pendiente. No cobres de nuevo.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "identity-conflict",
+      "text": "Conflicto de identidad del pago. Revisa el historial antes de continuar.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "ES",
+      "name": "confirmed-storage-fail",
+      "text": "Pago confirmado; referencia de asignación no disponible. No cobres de nuevo.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "unconfirmed",
+      "text": "Payment not yet confirmed. Reuse the original reference.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "reference-unavailable",
+      "text": "Payment reference unavailable. Verify history before continuing.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "confirmed-pending",
+      "text": "Payment confirmed; allocation pending. Do not charge again.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "identity-conflict",
+      "text": "Payment identity conflict. Review history before continuing.",
+      "color": "#B0183E"
+    },
+    {
+      "lang": "EN",
+      "name": "confirmed-storage-fail",
+      "text": "Payment confirmed; allocation reference unavailable. Do not charge again.",
+      "color": "#B0183E"
+    }
+  ],
+  "httpRed": {
+    "status": 409,
+    "ok": false,
+    "errorStatus": null,
+    "releases": 0
+  },
+  "httpGreen": {
+    "status": 409,
+    "ok": false,
+    "errorStatus": 409,
+    "releases": 0
+  },
+  "success": {
+    "status": 200,
+    "ok": true,
+    "releases": 2
+  }
+}
