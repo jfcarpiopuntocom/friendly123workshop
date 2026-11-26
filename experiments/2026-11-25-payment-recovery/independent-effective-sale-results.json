@@ -1,0 +1,333 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "prior": "787fb489a74eaf4120ee361d5d637070c37a833f",
+  "scope": "synthetic projection, not native IDB or write API",
+  "rows": [
+    {
+      "name": "A05",
+      "expected": {
+        "saldo": -108,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -108,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "A05 payment",
+      "expected": {
+        "saldo": -98,
+        "applied": 10,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -206,
+        "applied": 20,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -98,
+        "applied": 10,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "restored sale",
+      "expected": {
+        "saldo": -108,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -108,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "restored sale + new key",
+      "expected": {
+        "saldo": -98,
+        "applied": 10,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -206,
+        "applied": 10,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -98,
+        "applied": 10,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "restored sale + undo old key",
+      "expected": {
+        "saldo": -98,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -206,
+        "applied": 10,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -98,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "different sales",
+      "expected": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "missing sale",
+      "expected": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "different customer",
+      "expected": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "unequal historic amounts",
+      "expected": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 1,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 1,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "manual independent charges",
+      "expected": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -216,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "annulled no restore",
+      "expected": {
+        "saldo": 0,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": 0,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": 0,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "cash sale",
+      "expected": {
+        "saldo": 0,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": 0,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": 0,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "single receipt repriced",
+      "expected": {
+        "saldo": -80,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -80,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -80,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "10/35 no sale",
+      "expected": {
+        "saldo": -25,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "red": {
+        "saldo": -25,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "green": {
+        "saldo": -25,
+        "applied": 0,
+        "conflict": 0,
+        "allocationConflicts": 0
+      },
+      "pass": true,
+      "beforePass": true
+    }
+  ],
+  "stress": {
+    "pass": 1000,
+    "red": 1000
+  }
+}
