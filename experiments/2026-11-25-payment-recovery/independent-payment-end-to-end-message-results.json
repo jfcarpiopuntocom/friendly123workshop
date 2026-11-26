@@ -1,0 +1,674 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "blob": "e4396184dee07a7b0c963c7ed28241c38b50ba5e",
+  "harnessCommit": "d56c3f34cd195478012170a8149718e635d73b4e",
+  "red": [
+    {
+      "es": true,
+      "mode": "intent-failed",
+      "status": null,
+      "success": false,
+      "message": "Pago conservado; asignación pendiente: injected persistence error",
+      "posts": [],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": true,
+      "mode": "payment-uncertain",
+      "status": null,
+      "success": false,
+      "message": "Pago conservado; asignación pendiente: lost response",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": true,
+      "mode": "payment-conflict",
+      "status": null,
+      "success": false,
+      "message": "Pago conservado; asignación pendiente: injected server error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": true,
+      "mode": "allocation-failed",
+      "status": null,
+      "success": false,
+      "message": "Pago conservado; asignación pendiente: injected server error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": true,
+      "mode": "allocation-conflict",
+      "status": null,
+      "success": false,
+      "message": "Pago conservado; asignación pendiente: injected server error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": true,
+      "mode": "receipt-intent-failed",
+      "status": null,
+      "success": false,
+      "message": "Pago conservado; asignación pendiente: injected persistence error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": true,
+      "mode": "success",
+      "status": null,
+      "success": true,
+      "message": "",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [
+        "allocation",
+        "payment"
+      ],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "intent-failed",
+      "status": null,
+      "success": false,
+      "message": "Payment preserved; allocation pending: injected persistence error",
+      "posts": [],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": false,
+      "mode": "payment-uncertain",
+      "status": null,
+      "success": false,
+      "message": "Payment preserved; allocation pending: lost response",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": false,
+      "mode": "payment-conflict",
+      "status": null,
+      "success": false,
+      "message": "Payment preserved; allocation pending: injected server error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": false,
+      "mode": "allocation-failed",
+      "status": null,
+      "success": false,
+      "message": "Payment preserved; allocation pending: injected server error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "allocation-conflict",
+      "status": null,
+      "success": false,
+      "message": "Payment preserved; allocation pending: injected server error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "receipt-intent-failed",
+      "status": null,
+      "success": false,
+      "message": "Payment preserved; allocation pending: injected persistence error",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "success",
+      "status": null,
+      "success": true,
+      "message": "",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [
+        "allocation",
+        "payment"
+      ],
+      "receipt": "receipt-1"
+    }
+  ],
+  "green": [
+    {
+      "es": true,
+      "mode": "intent-failed",
+      "status": null,
+      "success": false,
+      "message": "No se envió un nuevo pago en este intento. Conserva la referencia anterior.",
+      "posts": [],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": true,
+      "mode": "payment-uncertain",
+      "status": null,
+      "success": false,
+      "message": "Pago sin confirmar. Reanuda con la referencia original.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": true,
+      "mode": "payment-conflict",
+      "status": 409,
+      "success": false,
+      "message": "Conflicto de referencia; pago sin confirmar. Revisa el historial.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": true,
+      "mode": "allocation-failed",
+      "status": 503,
+      "success": false,
+      "message": "Pago confirmado; asignación pendiente.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": true,
+      "mode": "allocation-conflict",
+      "status": 409,
+      "success": false,
+      "message": "Pago confirmado; conflicto de asignación. Revisa el historial.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": true,
+      "mode": "receipt-intent-failed",
+      "status": null,
+      "success": false,
+      "message": "Pago confirmado; asignación pendiente.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": true,
+      "mode": "success",
+      "status": null,
+      "success": true,
+      "message": "",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [
+        "allocation",
+        "payment"
+      ],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "intent-failed",
+      "status": null,
+      "success": false,
+      "message": "No new payment sent in this attempt. Keep the earlier reference.",
+      "posts": [],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": false,
+      "mode": "payment-uncertain",
+      "status": null,
+      "success": false,
+      "message": "Payment unconfirmed. Resume with the original reference.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": false,
+      "mode": "payment-conflict",
+      "status": 409,
+      "success": false,
+      "message": "Reference conflict; payment unconfirmed. Review history.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": null
+    },
+    {
+      "es": false,
+      "mode": "allocation-failed",
+      "status": 503,
+      "success": false,
+      "message": "Payment confirmed; allocation pending.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "allocation-conflict",
+      "status": 409,
+      "success": false,
+      "message": "Payment confirmed; allocation conflict. Review history.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "receipt-intent-failed",
+      "status": null,
+      "success": false,
+      "message": "Payment confirmed; allocation pending.",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        }
+      ],
+      "released": [],
+      "receipt": "receipt-1"
+    },
+    {
+      "es": false,
+      "mode": "success",
+      "status": null,
+      "success": true,
+      "message": "",
+      "posts": [
+        {
+          "url": "/api/clientes/A/abonar",
+          "body": {
+            "monto": 10,
+            "motivo": "Abono",
+            "opId": "customer-payment:p"
+          }
+        },
+        {
+          "url": "/api/clientes/A/aplicar",
+          "body": {
+            "abonoId": "receipt-1",
+            "partes": [
+              {
+                "cargoKey": "cargo:c",
+                "monto": 10
+              }
+            ],
+            "opId": "customer-allocation:p"
+          }
+        }
+      ],
+      "released": [
+        "allocation",
+        "payment"
+      ],
+      "receipt": "receipt-1"
+    }
+  ],
+  "scope": "exact source functions; injected fetch and persistence; message object, not native DOM"
+}
