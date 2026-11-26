@@ -1,0 +1,74 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "carteraBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "hechosBlob": "c32397ff26db5cae625d71d3fc7efdafc78663b9",
+  "harnessCommit": "90d20565b55a9ff9bdd3054777237883b9c17658",
+  "scope": "V8, injected faults, simulated persistence and shared serial queue, not actual multi-device",
+  "results": {
+    "before": {
+      "pass": 20,
+      "total": 20,
+      "observed": {
+        "pass": true,
+        "first": [
+          "cartera: no se pudo guardar el hecho"
+        ],
+        "countAfterFirst": 0,
+        "countAfterRetry": 1,
+        "eventsAfterRetry": 1,
+        "stable": true,
+        "recovered": true,
+        "attempts": 3
+      }
+    },
+    "after": {
+      "pass": 20,
+      "total": 20,
+      "observed": {
+        "pass": true,
+        "first": [
+          "cartera: no se pudo guardar el hecho"
+        ],
+        "countAfterFirst": 1,
+        "countAfterRetry": 1,
+        "eventsAfterRetry": 0,
+        "stable": true,
+        "recovered": true,
+        "attempts": 2
+      }
+    },
+    "listener": {
+      "pass": 20,
+      "total": 20,
+      "observed": {
+        "pass": true,
+        "first": [
+          "simulated listener failure"
+        ],
+        "countAfterFirst": 1,
+        "countAfterRetry": 1,
+        "eventsAfterRetry": 1,
+        "stable": true,
+        "recovered": true,
+        "attempts": 2
+      }
+    },
+    "cross-context": {
+      "pass": 20,
+      "total": 20,
+      "observed": {
+        "pass": true,
+        "first": [
+          "ok",
+          409
+        ],
+        "countAfterFirst": 1,
+        "countAfterRetry": 1,
+        "eventsAfterRetry": 1,
+        "stable": true,
+        "recovered": true,
+        "attempts": 3
+      }
+    }
+  }
+}
