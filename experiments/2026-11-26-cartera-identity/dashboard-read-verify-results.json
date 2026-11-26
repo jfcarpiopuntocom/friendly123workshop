@@ -1,0 +1,375 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "experiment": "0a42db6764b6585cecc792a4cf6af71e791411a0",
+  "environment": "V8; extracted original function; simulated IDB and crypto events, timers",
+  "results": {
+    "original": [
+      {
+        "name": "normal",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": true,
+          "reason": "",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 1,
+          "rows": 1,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read timeout",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "",
+          "closes": 0,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read timeout late complete",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "verified": true,
+          "reason": "",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 1,
+          "rows": 1,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read success but no complete",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "",
+          "closes": 0,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read abort",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read error then abort",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto timeout",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto late success",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "verified": true,
+          "reason": "",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 1,
+          "rows": 1,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto late rejection",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "cadena-invalida",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto reject",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "cadena-invalida",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto bad",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "cadena-invalida",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "logout during crypto",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "logout during read",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "",
+          "closes": 0,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "name": "normal",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": true,
+          "reason": "",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 1,
+          "rows": 1,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read timeout",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 1,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read timeout late complete",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 1,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read success but no complete",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 1,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read abort",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "read error then abort",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto timeout",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto late success",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto late rejection",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "error-lectura",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto reject",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "cadena-invalida",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "crypto bad",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "cadena-invalida",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "logout during crypto",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "",
+          "closes": 1,
+          "aborts": 0,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      },
+      {
+        "name": "logout during read",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "verified": false,
+          "reason": "",
+          "closes": 1,
+          "aborts": 1,
+          "shown": 0,
+          "rows": 0,
+          "timers": 0
+        }
+      }
+    ]
+  }
+}
