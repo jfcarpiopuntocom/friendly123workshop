@@ -1,0 +1,348 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "prior": "33cc7c8acf303b88c9fed32366f77854a091bba4",
+  "harness": "8eb6bdf2103752ab43723af7a13e61a72b08a142",
+  "rows": [
+    {
+      "name": "three generations, old receipt, end allocation",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "three generations, final receipt, historical allocation",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "three generations, old and final receipts",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "historical undo",
+      "expected": [
+        -25,
+        0,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "after": [
+        -25,
+        0,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        0,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "ordinary 10/35",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "single restoration",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "dead end",
+      "expected": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "before": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "after": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "reverse": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "ambiguous fork",
+      "expected": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "before": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "after": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "reverse": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "synthetic obligation historical key",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "synthetic undo",
+      "expected": [
+        -25,
+        0,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "after": [
+        -25,
+        0,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        0,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "foreign historical ID not remapped",
+      "expected": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "before": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "after": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "reverse": [
+        -25,
+        0,
+        0,
+        1
+      ],
+      "pass": true
+    },
+    {
+      "name": "manual overlap guarded",
+      "expected": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "before": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "after": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "reverse": [
+        -70,
+        0,
+        1,
+        0
+      ],
+      "pass": true
+    }
+  ],
+  "stress": {
+    "seed": 52187,
+    "pass": 1000,
+    "red": 1000
+  }
+}
