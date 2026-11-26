@@ -1,0 +1,98 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "integratedHarness": "4207cdde4b5bf43fe708e2587acd9b65bfb4f652",
+  "blobs": [
+    "49353f93f067d8efdd4484ecd689ebf628980ae5",
+    "c32397ff26db5cae625d71d3fc7efdafc78663b9",
+    "ff4cd5b0b687b332ac9735280825f7983eac3b9f",
+    "61be24d84fd0a10b5b9bcf0866ab858fcd3272b3",
+    "3d74c0edc6642943cfb95e5ce8e525a7609a5dcf",
+    "78ca678c42ef5069ec2321f664ee367539f1498c",
+    "a3cf03f91967ec5e1875cd2d626072b72b43644d"
+  ],
+  "runtime": "isolated V8, injected transaction/hash/meta",
+  "patchReplay": "exact reconstructed source checked in memory; git apply not executed",
+  "red": {
+    "conflict": {
+      "outcome": {
+        "state": "rejected",
+        "status": null,
+        "message": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+      },
+      "next": {
+        "state": "resolved",
+        "id": "device-1"
+      },
+      "stats": {
+        "attempts": 1,
+        "commits": 1
+      },
+      "allocationCount": 0
+    },
+    "abort": {
+      "first": {
+        "state": "pending"
+      },
+      "second": {
+        "state": "pending"
+      },
+      "duplicate": {
+        "state": "pending"
+      },
+      "stats": {
+        "attempts": 1,
+        "commits": 0
+      },
+      "balance": -35,
+      "receiptCount": 0,
+      "opIds": [],
+      "events": []
+    }
+  },
+  "green": {
+    "conflict": {
+      "outcome": {
+        "state": "rejected",
+        "status": 409,
+        "message": "cartera: identidad de movimiento en conflicto"
+      },
+      "next": {
+        "state": "resolved",
+        "id": "device-1"
+      },
+      "stats": {
+        "attempts": 1,
+        "commits": 1
+      },
+      "allocationCount": 0
+    },
+    "abort": {
+      "first": {
+        "state": "rejected",
+        "status": null,
+        "message": "cartera: no se pudo guardar el hecho"
+      },
+      "second": {
+        "state": "resolved",
+        "id": "device-1"
+      },
+      "duplicate": {
+        "state": "resolved",
+        "id": "device-1"
+      },
+      "stats": {
+        "attempts": 2,
+        "commits": 1
+      },
+      "balance": -25,
+      "receiptCount": 1,
+      "opIds": [
+        "retry-pay"
+      ],
+      "events": [
+        "oc-hecho-local"
+      ]
+    }
+  },
+  "scope": "actual Cartera, guardar, construirYGuardar and registrar; injected synthetic storage, hash and metadata; not native IDB or Sync4"
+}
