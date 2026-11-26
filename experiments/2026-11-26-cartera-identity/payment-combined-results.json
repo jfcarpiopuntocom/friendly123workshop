@@ -1,0 +1,341 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "experiment": "464810d8ed678dace49a5f4791d332aba62a6819",
+  "environment": "V8; extracted functions; simulated fetch and storage",
+  "results": {
+    "ui": {
+      "original": [
+        {
+          "id": "new pre-send failure",
+          "es": false,
+          "pass": 0,
+          "total": 20,
+          "last": "Payment preserved; allocation pending: retry allocation"
+        },
+        {
+          "id": "new pre-send failure",
+          "es": true,
+          "pass": 0,
+          "total": 20,
+          "last": "Pago conservado; asignación pendiente: reintenta la asignación"
+        },
+        {
+          "id": "existing intent storage error",
+          "es": false,
+          "pass": 0,
+          "total": 20,
+          "last": "Payment preserved; allocation pending: retry allocation"
+        },
+        {
+          "id": "existing intent storage error",
+          "es": true,
+          "pass": 0,
+          "total": 20,
+          "last": "Pago conservado; asignación pendiente: reintenta la asignación"
+        },
+        {
+          "id": "uncertain network",
+          "es": false,
+          "pass": 0,
+          "total": 20,
+          "last": "Payment preserved; allocation pending: network"
+        },
+        {
+          "id": "uncertain network",
+          "es": true,
+          "pass": 0,
+          "total": 20,
+          "last": "Pago conservado; asignación pendiente: network"
+        },
+        {
+          "id": "receipt then allocation error",
+          "es": false,
+          "pass": 0,
+          "total": 20,
+          "last": "Payment preserved; allocation pending: network"
+        },
+        {
+          "id": "receipt then allocation error",
+          "es": true,
+          "pass": 0,
+          "total": 20,
+          "last": "Pago conservado; asignación pendiente: network"
+        },
+        {
+          "id": "receipt then storage error",
+          "es": false,
+          "pass": 0,
+          "total": 20,
+          "last": "Payment preserved; allocation pending: retry allocation"
+        },
+        {
+          "id": "receipt then storage error",
+          "es": true,
+          "pass": 0,
+          "total": 20,
+          "last": "Pago conservado; asignación pendiente: reintenta la asignación"
+        },
+        {
+          "id": "identity conflict",
+          "es": false,
+          "pass": 0,
+          "total": 20,
+          "last": "Payment preserved; allocation pending: retry allocation"
+        },
+        {
+          "id": "identity conflict",
+          "es": true,
+          "pass": 0,
+          "total": 20,
+          "last": "Pago conservado; asignación pendiente: reintenta la asignación"
+        }
+      ],
+      "candidate": [
+        {
+          "id": "new pre-send failure",
+          "es": false,
+          "pass": 20,
+          "total": 20,
+          "last": "This payment was not sent. Its reference requires review."
+        },
+        {
+          "id": "new pre-send failure",
+          "es": true,
+          "pass": 20,
+          "total": 20,
+          "last": "No se envió este pago. Su referencia requiere revisión."
+        },
+        {
+          "id": "existing intent storage error",
+          "es": false,
+          "pass": 20,
+          "total": 20,
+          "last": "Payment reference requires review. Do not charge again."
+        },
+        {
+          "id": "existing intent storage error",
+          "es": true,
+          "pass": 20,
+          "total": 20,
+          "last": "Referencia de pago requiere revisión. No cobres de nuevo."
+        },
+        {
+          "id": "uncertain network",
+          "es": false,
+          "pass": 20,
+          "total": 20,
+          "last": "Payment unconfirmed. Verify the original reference before charging again."
+        },
+        {
+          "id": "uncertain network",
+          "es": true,
+          "pass": 20,
+          "total": 20,
+          "last": "Pago sin confirmar. Verifica la referencia original antes de cobrar de nuevo."
+        },
+        {
+          "id": "receipt then allocation error",
+          "es": false,
+          "pass": 20,
+          "total": 20,
+          "last": "Payment receipt identified; allocation awaiting confirmation. Do not charge again."
+        },
+        {
+          "id": "receipt then allocation error",
+          "es": true,
+          "pass": 20,
+          "total": 20,
+          "last": "Recibo de pago identificado; asignación pendiente de confirmar. No cobres de nuevo."
+        },
+        {
+          "id": "receipt then storage error",
+          "es": false,
+          "pass": 20,
+          "total": 20,
+          "last": "Payment receipt identified; allocation awaiting confirmation. Do not charge again."
+        },
+        {
+          "id": "receipt then storage error",
+          "es": true,
+          "pass": 20,
+          "total": 20,
+          "last": "Recibo de pago identificado; asignación pendiente de confirmar. No cobres de nuevo."
+        },
+        {
+          "id": "identity conflict",
+          "es": false,
+          "pass": 20,
+          "total": 20,
+          "last": "Payment reference requires review. Do not charge again."
+        },
+        {
+          "id": "identity conflict",
+          "es": true,
+          "pass": 20,
+          "total": 20,
+          "last": "Referencia de pago requiere revisión. No cobres de nuevo."
+        }
+      ]
+    },
+    "http": {
+      "original": [
+        {
+          "name": "payment 409",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": null,
+            "error": true
+          }
+        },
+        {
+          "name": "payment 503",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": null,
+            "error": true
+          }
+        },
+        {
+          "name": "allocation 409",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": null,
+            "error": true
+          }
+        },
+        {
+          "name": "allocation 503",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": null,
+            "error": true
+          }
+        },
+        {
+          "name": "payment success",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 1,
+            "status": null,
+            "error": false
+          }
+        },
+        {
+          "name": "allocation success",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 2,
+            "status": null,
+            "error": false
+          }
+        },
+        {
+          "name": "mismatched receipt",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": null,
+            "error": true
+          }
+        }
+      ],
+      "candidate": [
+        {
+          "name": "payment 409",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": 409,
+            "error": true
+          }
+        },
+        {
+          "name": "payment 503",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": 503,
+            "error": true
+          }
+        },
+        {
+          "name": "allocation 409",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": 409,
+            "error": true
+          }
+        },
+        {
+          "name": "allocation 503",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": 503,
+            "error": true
+          }
+        },
+        {
+          "name": "payment success",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 1,
+            "status": null,
+            "error": false
+          }
+        },
+        {
+          "name": "allocation success",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 2,
+            "status": null,
+            "error": false
+          }
+        },
+        {
+          "name": "mismatched receipt",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "posts": 1,
+            "releases": 0,
+            "status": null,
+            "error": true
+          }
+        }
+      ]
+    }
+  }
+}
