@@ -1,0 +1,363 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "experiment": "715b8ed6323f10606530a80efd965bc5fa805f94",
+  "scope": "V8, actual discovery block, simulated IDB listing and timers",
+  "result": {
+    "original": [
+      {
+        "name": "scoped modern",
+        "want": "open",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "scoped legacy",
+        "want": "sin-migrar",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "other namespace",
+        "want": "sin-almacen",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "raw ignored with isolation",
+        "want": "sin-almacen",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "raw legacy ignored",
+        "want": "sin-almacen",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-migrar"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "raw valid without isolation",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "empty list",
+        "want": "sin-almacen",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "list rejected",
+        "want": "open",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "error-lectura"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "list throws",
+        "want": "open",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "error-lectura"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "invalid list",
+        "want": "open",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "error-lectura"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "unsupported listing",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "hanging list then late success",
+        "want": "open",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "late rejected after timeout",
+        "want": "open",
+        "pass": 0,
+        "total": 20,
+        "last": {
+          "events": [
+            "error-lectura"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "session invalidated during listing",
+        "want": "",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [],
+          "timers": 0
+        }
+      },
+      {
+        "name": "session invalidated before timeout",
+        "want": "",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [],
+          "timers": 0
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "name": "scoped modern",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "scoped legacy",
+        "want": "sin-migrar",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-migrar"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "other namespace",
+        "want": "sin-almacen",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "raw ignored with isolation",
+        "want": "sin-almacen",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "raw legacy ignored",
+        "want": "sin-almacen",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "raw valid without isolation",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "empty list",
+        "want": "sin-almacen",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "sin-almacen"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "list rejected",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "list throws",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "invalid list",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "unsupported listing",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "hanging list then late success",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "late rejected after timeout",
+        "want": "open",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [
+            "open"
+          ],
+          "timers": 0
+        }
+      },
+      {
+        "name": "session invalidated during listing",
+        "want": "",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [],
+          "timers": 0
+        }
+      },
+      {
+        "name": "session invalidated before timeout",
+        "want": "",
+        "pass": 20,
+        "total": 20,
+        "last": {
+          "events": [],
+          "timers": 0
+        }
+      }
+    ]
+  }
+}
