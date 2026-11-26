@@ -1,0 +1,314 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "prior": "755373ae4b0ae8ea6acef5afa2ba3796a7affcf8",
+  "rows": [
+    {
+      "name": "manual direct",
+      "before": {
+        "saldo": -216,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "after": {
+        "saldo": -216,
+        "conflicts": 1,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "reverse": {
+        "saldo": -216,
+        "conflicts": 1,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "manual direct plus direct alias",
+      "before": {
+        "saldo": -216,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "after": {
+        "saldo": -324,
+        "conflicts": 1,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "a2",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "reverse": {
+        "saldo": -324,
+        "conflicts": 1,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "a2",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "fork",
+      "before": {
+        "saldo": -216,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "b",
+            "key": "venta:new",
+            "monto": 108
+          }
+        ]
+      },
+      "after": {
+        "saldo": -216,
+        "conflicts": 1,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 0
+          },
+          {
+            "id": "b",
+            "key": "venta:new",
+            "monto": 108
+          },
+          {
+            "id": "c",
+            "key": "venta:other",
+            "monto": 108
+          }
+        ]
+      },
+      "reverse": {
+        "saldo": -216,
+        "conflicts": 1,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 0
+          },
+          {
+            "id": "b",
+            "key": "venta:new",
+            "monto": 108
+          },
+          {
+            "id": "c",
+            "key": "venta:other",
+            "monto": 108
+          }
+        ]
+      },
+      "pass": true,
+      "beforePass": false
+    },
+    {
+      "name": "single restoration",
+      "before": {
+        "saldo": -108,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "after": {
+        "saldo": -108,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "reverse": {
+        "saldo": -108,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "direct A05",
+      "before": {
+        "saldo": -108,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "after": {
+        "saldo": -108,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "reverse": {
+        "saldo": -108,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          }
+        ]
+      },
+      "pass": true,
+      "beforePass": true
+    },
+    {
+      "name": "separate manual",
+      "before": {
+        "saldo": -216,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "cargo:m",
+            "monto": 108
+          }
+        ]
+      },
+      "after": {
+        "saldo": -216,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "cargo:m",
+            "monto": 108
+          }
+        ]
+      },
+      "reverse": {
+        "saldo": -216,
+        "conflicts": 0,
+        "charges": [
+          {
+            "id": "a",
+            "key": "venta:old",
+            "monto": 108
+          },
+          {
+            "id": "m",
+            "key": "cargo:m",
+            "monto": 108
+          }
+        ]
+      },
+      "pass": true,
+      "beforePass": true
+    }
+  ]
+}
