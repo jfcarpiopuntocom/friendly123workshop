@@ -1,0 +1,174 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "blobs": [
+    {
+      "name": "cartera.js",
+      "sha": "49353f93f067d8efdd4484ecd689ebf628980ae5"
+    },
+    {
+      "name": "hechos.js",
+      "sha": "c32397ff26db5cae625d71d3fc7efdafc78663b9"
+    },
+    {
+      "name": "payment-alias-stress.cjs",
+      "sha": "ff4cd5b0b687b332ac9735280825f7983eac3b9f"
+    },
+    {
+      "name": "independent-identity-conflict.cjs",
+      "sha": "61be24d84fd0a10b5b9bcf0866ab858fcd3272b3"
+    },
+    {
+      "name": "independent-alias-write.cjs",
+      "sha": "3d74c0edc6642943cfb95e5ce8e525a7609a5dcf"
+    },
+    {
+      "name": "independent-conflict-queue.cjs",
+      "sha": "78ca678c42ef5069ec2321f664ee367539f1498c"
+    },
+    {
+      "name": "independent-integrated-queue.cjs",
+      "sha": "73a74b6c9a68af920c7028d150341195e8441464"
+    }
+  ],
+  "runtime": "isolated V8; real Cartera and registrar, injected construirYGuardar; no native IDB",
+  "red": [
+    {
+      "mode": "queued-conflict",
+      "first": {
+        "status": null,
+        "error": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 0,
+      "saldo": -3,
+      "identity": 1,
+      "originalsPreserved": true,
+      "logs": [
+        "[hechos] no se pudo registrar: cartera: identidad de movimiento en conflicto"
+      ]
+    },
+    {
+      "mode": "alias-retry",
+      "first": {
+        "id": "write-1"
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 1,
+      "saldo": -25,
+      "identity": 0,
+      "originalsPreserved": true,
+      "logs": []
+    },
+    {
+      "mode": "legacy-null",
+      "first": {
+        "null": true
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 1,
+      "saldo": -25,
+      "identity": 0,
+      "originalsPreserved": true,
+      "logs": [
+        "[hechos] no se pudo registrar: legacy conflict"
+      ]
+    },
+    {
+      "mode": "generic-failure",
+      "first": {
+        "status": null,
+        "error": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 1,
+      "saldo": -25,
+      "identity": 0,
+      "originalsPreserved": true,
+      "logs": [
+        "[hechos] no se pudo registrar: abort injected"
+      ]
+    }
+  ],
+  "green": [
+    {
+      "mode": "queued-conflict",
+      "first": {
+        "status": 409,
+        "error": "cartera: identidad de movimiento en conflicto"
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 0,
+      "saldo": -3,
+      "identity": 1,
+      "originalsPreserved": true,
+      "logs": [
+        "[hechos] no se pudo registrar: cartera: identidad de movimiento en conflicto"
+      ]
+    },
+    {
+      "mode": "alias-retry",
+      "first": {
+        "id": "write-1"
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 1,
+      "saldo": -25,
+      "identity": 0,
+      "originalsPreserved": true,
+      "logs": []
+    },
+    {
+      "mode": "legacy-null",
+      "first": {
+        "null": true
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 1,
+      "saldo": -25,
+      "identity": 0,
+      "originalsPreserved": true,
+      "logs": [
+        "[hechos] no se pudo registrar: legacy conflict"
+      ]
+    },
+    {
+      "mode": "generic-failure",
+      "first": {
+        "status": null,
+        "error": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+      },
+      "second": {
+        "id": "write-1"
+      },
+      "writes": 1,
+      "assignments": 1,
+      "saldo": -25,
+      "identity": 0,
+      "originalsPreserved": true,
+      "logs": [
+        "[hechos] no se pudo registrar: abort injected"
+      ]
+    }
+  ]
+}
