@@ -1,0 +1,17 @@
+'use strict';
+// node independent-dashboard-coverage-render.cjs dashboard-main.js sync-realtime.js hechos-chain-readonly.js independent-dashboard-remote-chain.cjs
+const fs=require('node:fs');
+async function run(dashboard,producer,verifier,prior){
+ const swap=(s,a,b)=>{if(s.split(a).length!==2)throw Error("anchor "+a);return s.replace(a,b)};
+ const a=dashboard.indexOf("  function pintarFinanzasFoto() {"),b=dashboard.indexOf("\n  /* PERISCOPIO DE DATOS",a);if(a<0||b<0)throw Error("renderer");
+ const original=dashboard.slice(a,b).trimEnd();
+ const fixed=swap(swap(original,'if (datos.cobertura && (datos.cobertura.gastos === false || datos.cobertura.hechosFinancieros === false)) {','if (coverage.gastos === false || coverage.hechosFinancieros !== true || coverage.verificacionHechos !== 1) {'),'var motivo = datos.cobertura.motivoHechos;','var motivo = coverage.motivoHechos;');
+ const local=swap(dashboard,'datos.cobertura.hechosFinancieros = true;\n                datos.cobertura.motivoHechos = null;','datos.cobertura.hechosFinancieros = true;\n                datos.cobertura.verificacionHechos = 1;\n                datos.cobertura.motivoHechos = null;');
+ const footer=prior.lastIndexOf("\nrun(...process.argv");const previous=await new Function("require","producer","verifier",prior.slice(0,footer)+"\nreturn run(producer,verifier);")(()=>({}),producer,verifier);
+ const sender=swap(previous.patch.after,"hechosFinancieros:integridadHechos,motivoHechos:motivoHechos,","hechosFinancieros:integridadHechos,verificacionHechos:integridadHechos?1:null,motivoHechos:motivoHechos,");
+ const cases=[["legacy-true",{gastos:true,hechosFinancieros:true},false],["missing-coverage",undefined,false],["gap",{gastos:true,hechosFinancieros:false,motivoHechos:"cadena-invalida"},false],["verified",{gastos:true,hechosFinancieros:true,verificacionHechos:1},true],["unknown-schema",{gastos:true,hechosFinancieros:true,verificacionHechos:2},false],["gastos-missing",{gastos:false,hechosFinancieros:true,verificacionHechos:1},false]];
+ function suite(code){const out=[];for(const es of [true,false])for(const [name,cobertura,expected] of cases){const datos={gastos:[],transferencias:[],gastosMensuales:{},hechosFinancieros:[{tipo:"cartera_abono"}],cobertura};const el={innerHTML:""};const RM={day:()=>"2026-11-26",businessResult:()=>({houseAfterExpensesCents:1234}),number:x=>Number(x)||0,sum:x=>x.reduce((a,b)=>a+b,0)};new Function("$","window","datos","localStorage","money","esc","flechaComisionesMesHtml",code+"\npintarFinanzasFoto();")(()=>el,{OCBusinessReadModel:RM},datos,{getItem:()=>es?"es":"en"},n=>String(n),String,()=>"<span>commission</span>");const showsFacts=el.innerHTML.includes("customer credit facts:");out.push({es,name,showsFacts,expected,pass:showsFacts===expected,housePreserved:el.innerHTML.includes("12.34")})}return out}
+ const red=suite(original),green=suite(fixed);if(green.some(x=>!x.pass||!x.housePreserved)||red.filter(x=>!x.pass).length!==6)throw Error(JSON.stringify({red,green}));
+ return {red,green,patch:{sender,local:local.replace(original,fixed)},scope:"source-executed renderer with synthetic DOM; no build/browser; proof version is experimental, not cryptographic attestation"};
+}
+run(...process.argv.slice(2,6).map(p=>fs.readFileSync(p,'utf8'))).then(({patch,...r})=>{if(process.argv.includes('--emit'))fs.writeFileSync('dashboard-coverage-candidate.json',JSON.stringify(patch,null,2),{flag:'wx'});console.log(JSON.stringify(r,null,2))}).catch(e=>{console.error(e);process.exitCode=1});
