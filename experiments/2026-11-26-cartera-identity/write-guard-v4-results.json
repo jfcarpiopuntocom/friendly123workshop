@@ -1,0 +1,324 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "carteraBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "hechosBlob": "c32397ff26db5cae625d71d3fc7efdafc78663b9",
+  "candidateCommit": "1ea3b5bdef3a6906d409a6963869effb1499808c",
+  "execution": "V8; source fetched from GitHub; simulated persistence; actual registrar queue in contract suite",
+  "countRegression": {
+    "original": [
+      {
+        "name": "exact retry",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "name": "two opIds same sale",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "concurrent opIds same sale",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "cross customer sale",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "legacy first",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "separate sales",
+        "pass": 20,
+        "total": 20,
+        "expected": 2,
+        "observed": 2
+      },
+      {
+        "name": "separate manual charges",
+        "pass": 20,
+        "total": 20,
+        "expected": 2,
+        "observed": 2
+      },
+      {
+        "name": "mixed concurrent opId and legacy",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "mixed concurrent legacy and opId",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "mixed cross client modern first",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "mixed cross client legacy first",
+        "pass": 0,
+        "total": 20,
+        "expected": 1,
+        "observed": 2
+      },
+      {
+        "name": "same sale mismatched amount",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1,
+        "err": "cartera: la venta ya tiene un cargo; requiere una correccion, no otro cargo"
+      }
+    ],
+    "candidate": [
+      {
+        "name": "exact retry",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "name": "two opIds same sale",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1,
+        "err": 409
+      },
+      {
+        "name": "concurrent opIds same sale",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "name": "cross customer sale",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1,
+        "err": 409
+      },
+      {
+        "name": "legacy first",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1,
+        "err": 409
+      },
+      {
+        "name": "separate sales",
+        "pass": 20,
+        "total": 20,
+        "expected": 2,
+        "observed": 2
+      },
+      {
+        "name": "separate manual charges",
+        "pass": 20,
+        "total": 20,
+        "expected": 2,
+        "observed": 2
+      },
+      {
+        "name": "mixed concurrent opId and legacy",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "name": "mixed concurrent legacy and opId",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "name": "mixed cross client modern first",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "name": "mixed cross client legacy first",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "name": "same sale mismatched amount",
+        "pass": 20,
+        "total": 20,
+        "expected": 1,
+        "observed": 1,
+        "err": "cartera: la venta ya tiene un cargo; requiere una correccion, no otro cargo"
+      }
+    ]
+  },
+  "contract": {
+    "v3": [
+      {
+        "name": "concurrent conflict opId payload",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": [
+            409
+          ]
+        }
+      },
+      {
+        "name": "concurrent sale different opId",
+        "pass": 0,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": [
+            "cartera: no se pudo guardar el hecho"
+          ]
+        }
+      },
+      {
+        "name": "concurrent modern then legacy",
+        "pass": 0,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 2,
+          "errors": []
+        }
+      },
+      {
+        "name": "concurrent legacy then modern",
+        "pass": 0,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": [
+            "cartera: no se pudo guardar el hecho"
+          ]
+        }
+      },
+      {
+        "name": "exact retry",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": []
+        }
+      },
+      {
+        "name": "two separate payments",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 2,
+          "events": 2,
+          "errors": []
+        }
+      }
+    ],
+    "v4": [
+      {
+        "name": "concurrent conflict opId payload",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": [
+            409
+          ]
+        }
+      },
+      {
+        "name": "concurrent sale different opId",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": [
+            409
+          ]
+        }
+      },
+      {
+        "name": "concurrent modern then legacy",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": []
+        }
+      },
+      {
+        "name": "concurrent legacy then modern",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": [
+            409
+          ]
+        }
+      },
+      {
+        "name": "exact retry",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 1,
+          "events": 1,
+          "errors": []
+        }
+      },
+      {
+        "name": "two separate payments",
+        "pass": 20,
+        "total": 20,
+        "observed": {
+          "facts": 2,
+          "events": 2,
+          "errors": []
+        }
+      }
+    ]
+  }
+}
