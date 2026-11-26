@@ -1,0 +1,44 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "source": "e4396184dee07a7b0c963c7ed28241c38b50ba5e",
+  "harness": "7d661c912dc9389cc8a11704a4624b239d436322",
+  "scope": "actual confirmarAsignacion candidate, mocked fetch and release; no real transport or IDB",
+  "rows": [
+    {
+      "name": "lost-response",
+      "pass": 20,
+      "total": 20,
+      "expectedReleases": 0
+    },
+    {
+      "name": "malformed-json",
+      "pass": 20,
+      "total": 20,
+      "expectedReleases": 0
+    },
+    {
+      "name": "wrong-opid",
+      "pass": 20,
+      "total": 20,
+      "expectedReleases": 0
+    },
+    {
+      "name": "missing-receipt",
+      "pass": 20,
+      "total": 20,
+      "expectedReleases": 0
+    },
+    {
+      "name": "conflict",
+      "pass": 20,
+      "total": 20,
+      "expectedReleases": 0
+    },
+    {
+      "name": "verified",
+      "pass": 20,
+      "total": 20,
+      "expectedReleases": 2
+    }
+  ]
+}
