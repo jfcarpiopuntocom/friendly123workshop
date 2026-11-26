@@ -1,0 +1,381 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "ref": "44996a11d319eb74397f7607cd36d101637b8a71",
+  "sourceBlobs": [
+    "5b002b8b8c5f507cb1c78dff32f196de5238d73e",
+    "c82edfe4a008182f20f69536d1a7000ef0b9410f"
+  ],
+  "environment": "V8, DOM/Worker/timers/PDF simulated",
+  "result": {
+    "reconciliation": [
+      {
+        "kind": "timeout",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "timeout",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pdf timeout",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pdf timeout",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "null response",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "null response",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "empty rows",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "empty rows",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "malformed row",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "malformed row",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "worker error",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "worker error",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ],
+    "candidate": [
+      {
+        "kind": "timeout",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "timeout",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pdf timeout",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pdf timeout",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "null response",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "null response",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "empty rows",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "empty rows",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "malformed row",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "malformed row",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "worker error",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "worker error",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ]
+  },
+  "regression": {
+    "original": [
+      {
+        "kind": "valid",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "retained visible",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "retained visible",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected before calculate",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected before calculate",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected during worker",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected during worker",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected before PDF",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected before PDF",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected during PDF",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "rejected during PDF",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pending refresh",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pending refresh",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "recovered",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "recovered",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ],
+    "candidate": [
+      {
+        "kind": "valid",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "retained visible",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "retained visible",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected before calculate",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected before calculate",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected during worker",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected during worker",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected before PDF",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected before PDF",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected during PDF",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "rejected during PDF",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending refresh",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending refresh",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "recovered",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "recovered",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ]
+  }
+}
