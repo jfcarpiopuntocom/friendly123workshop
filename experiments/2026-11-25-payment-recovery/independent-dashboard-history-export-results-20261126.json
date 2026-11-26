@@ -1,0 +1,1660 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "blobs": {
+    "dashboard": "c82edfe4a008182f20f69536d1a7000ef0b9410f",
+    "history": "f3d5c2d72259352653872f8bd7edaf649c882385",
+    "export": "e523e6301b4b010c31b9debed6aa835424703d34"
+  },
+  "history": {
+    "red": [
+      {
+        "name": "drop-known-same",
+        "expected": false,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": false
+      },
+      {
+        "name": "drop-known-peer",
+        "expected": false,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": false
+      },
+      {
+        "name": "changed-hash-same",
+        "expected": false,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": false
+      },
+      {
+        "name": "duplicate-id",
+        "expected": false,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": false
+      },
+      {
+        "name": "missing-hash",
+        "expected": false,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": false
+      },
+      {
+        "name": "legacy-coverage",
+        "expected": false,
+        "accepted": true,
+        "retained": true,
+        "stale": false,
+        "recovered": null,
+        "pass": false
+      },
+      {
+        "name": "unknown-coverage",
+        "expected": false,
+        "accepted": true,
+        "retained": true,
+        "stale": false,
+        "recovered": null,
+        "pass": false
+      },
+      {
+        "name": "additive",
+        "expected": true,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": true
+      },
+      {
+        "name": "reordered",
+        "expected": true,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": true
+      },
+      {
+        "name": "exact-replay",
+        "expected": true,
+        "accepted": true,
+        "retained": true,
+        "stale": false,
+        "recovered": null,
+        "pass": true
+      },
+      {
+        "name": "incomplete-cover",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      }
+    ],
+    "green": [
+      {
+        "name": "drop-known-same",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      },
+      {
+        "name": "drop-known-peer",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      },
+      {
+        "name": "changed-hash-same",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      },
+      {
+        "name": "duplicate-id",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      },
+      {
+        "name": "missing-hash",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      },
+      {
+        "name": "legacy-coverage",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      },
+      {
+        "name": "unknown-coverage",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      },
+      {
+        "name": "additive",
+        "expected": true,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": true
+      },
+      {
+        "name": "reordered",
+        "expected": true,
+        "accepted": true,
+        "retained": false,
+        "stale": false,
+        "recovered": null,
+        "pass": true
+      },
+      {
+        "name": "exact-replay",
+        "expected": true,
+        "accepted": true,
+        "retained": true,
+        "stale": false,
+        "recovered": null,
+        "pass": true
+      },
+      {
+        "name": "incomplete-cover",
+        "expected": false,
+        "accepted": false,
+        "retained": true,
+        "stale": true,
+        "recovered": true,
+        "pass": true
+      }
+    ],
+    "scope": "exact receive function, synthetic chunks with claimed verification marker; no native transport, hash checking occurs at producer; same authorized notebook assumed"
+  },
+  "export": {
+    "red": [
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "csv",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "json",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "copy",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": false,
+        "pass": false
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      }
+    ],
+    "green": [
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "no-coverage",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "legacy",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "unverified",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "stale-retained",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "missing-table",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "verified-empty",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "local-old-remote-flag",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": true,
+        "name": "sales-unaffected",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "no-coverage",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "legacy",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "unverified",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "stale-retained",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "csv",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "xlsx",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "json",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "copy",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "missing-table",
+        "tipo": "pdf",
+        "exported": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "verified-empty",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "local-old-remote-flag",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "csv",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "xlsx",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "json",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "copy",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      },
+      {
+        "es": false,
+        "name": "sales-unaffected",
+        "tipo": "pdf",
+        "exported": true,
+        "expected": true,
+        "pass": true
+      }
+    ],
+    "scope": "exact exportar function, mocked exporters; tests verify dispatch not generated files. Table warning patch not executed here."
+  }
+}
