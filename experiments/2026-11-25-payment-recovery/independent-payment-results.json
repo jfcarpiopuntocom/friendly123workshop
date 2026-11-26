@@ -1,0 +1,129 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "49353f93f067d8efdd4484ecd689ebf628980ae5",
+  "scope": "synthetic storage, exact source-executed functions; not production candidate",
+  "regression": {
+    "pass": 1000,
+    "legacy": -95,
+    "conflictFlag": 1
+  },
+  "queue": {
+    "red": [
+      {
+        "mode": "late-identity-conflict",
+        "writes": 0,
+        "id": null,
+        "error": {
+          "status": null,
+          "message": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+        },
+        "logs": [
+          "[hechos] no se pudo registrar: cartera: identidad de pago en conflicto"
+        ],
+        "saldo": -10,
+        "applied": 0
+      },
+      {
+        "mode": "conflicting-application-replay",
+        "writes": 0,
+        "id": "app1",
+        "error": null,
+        "logs": [],
+        "saldo": -25,
+        "applied": 10
+      },
+      {
+        "mode": "valid-replay",
+        "writes": 0,
+        "id": "app1",
+        "error": null,
+        "logs": [],
+        "saldo": -25,
+        "applied": 10
+      },
+      {
+        "mode": "storage-failure",
+        "writes": 0,
+        "id": null,
+        "error": {
+          "status": null,
+          "message": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+        },
+        "logs": [
+          "[hechos] no se pudo registrar: fixture storage failure"
+        ],
+        "saldo": -25,
+        "applied": 0
+      },
+      {
+        "mode": "normal-10-35",
+        "writes": 1,
+        "id": "write-1",
+        "error": null,
+        "logs": [],
+        "saldo": -25,
+        "applied": 10
+      }
+    ],
+    "green": [
+      {
+        "mode": "late-identity-conflict",
+        "writes": 0,
+        "id": null,
+        "error": {
+          "status": 409,
+          "message": "cartera: identidad de pago en conflicto"
+        },
+        "logs": [
+          "[hechos] no se pudo registrar: cartera: identidad de pago en conflicto"
+        ],
+        "saldo": -10,
+        "applied": 0
+      },
+      {
+        "mode": "conflicting-application-replay",
+        "writes": 0,
+        "id": null,
+        "error": {
+          "status": 409,
+          "message": "cartera: la referencia pertenece a otra asignación"
+        },
+        "logs": [],
+        "saldo": -25,
+        "applied": 10
+      },
+      {
+        "mode": "valid-replay",
+        "writes": 0,
+        "id": "app1",
+        "error": null,
+        "logs": [],
+        "saldo": -25,
+        "applied": 10
+      },
+      {
+        "mode": "storage-failure",
+        "writes": 0,
+        "id": null,
+        "error": {
+          "status": null,
+          "message": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+        },
+        "logs": [
+          "[hechos] no se pudo registrar: fixture storage failure"
+        ],
+        "saldo": -25,
+        "applied": 0
+      },
+      {
+        "mode": "normal-10-35",
+        "writes": 1,
+        "id": "write-1",
+        "error": null,
+        "logs": [],
+        "saldo": -25,
+        "applied": 10
+      }
+    ]
+  }
+}
