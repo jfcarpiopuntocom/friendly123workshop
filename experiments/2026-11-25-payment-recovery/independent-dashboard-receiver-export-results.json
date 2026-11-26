@@ -1,0 +1,2007 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "c82edfe4a008182f20f69536d1a7000ef0b9410f",
+  "runtime": "V8 isolated",
+  "results": [
+    {
+      "path": "independent-dashboard-retain-facts.cjs",
+      "ref": "3026cda8b85a94a815c58660aedba9948f98c4d1",
+      "blob": "8a96b405c7a1c02c9dcea7413a6841c775a7a00d",
+      "red": [
+        {
+          "name": "missing-other-author",
+          "expected": false,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": false,
+          "pass": false
+        },
+        {
+          "name": "missing-same-author",
+          "expected": false,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": false,
+          "pass": false
+        },
+        {
+          "name": "changed-hash",
+          "expected": false,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": false,
+          "pass": false
+        },
+        {
+          "name": "duplicate-id",
+          "expected": false,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": false,
+          "pass": false
+        },
+        {
+          "name": "legacy-proof",
+          "expected": false,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": false,
+          "pass": false
+        },
+        {
+          "name": "missing-coverage",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "unavailable",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "reordered",
+          "expected": true,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": null,
+          "pass": true
+        },
+        {
+          "name": "append",
+          "expected": true,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": null,
+          "pass": true
+        },
+        {
+          "name": "same-snapshot",
+          "expected": true,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": null,
+          "pass": true
+        }
+      ],
+      "green": [
+        {
+          "name": "missing-other-author",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "missing-same-author",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "changed-hash",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "duplicate-id",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "legacy-proof",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "missing-coverage",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "unavailable",
+          "expected": false,
+          "accepted": false,
+          "preserved": true,
+          "stale": true,
+          "recovery": true,
+          "pass": true
+        },
+        {
+          "name": "reordered",
+          "expected": true,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": null,
+          "pass": true
+        },
+        {
+          "name": "append",
+          "expected": true,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": null,
+          "pass": true
+        },
+        {
+          "name": "same-snapshot",
+          "expected": true,
+          "accepted": true,
+          "preserved": false,
+          "stale": false,
+          "recovery": null,
+          "pass": true
+        }
+      ],
+      "scope": "exact receiver function, synthetic complete snapshots, hash comparison only; no network or browser"
+    },
+    {
+      "path": "independent-dashboard-journal-export.cjs",
+      "ref": "3a7c645d77f4db672e2c503718b3cb0f0e001dac",
+      "blob": "841979b223e985dca4216d2294222867b665d001",
+      "red": [
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "json",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": false,
+          "actual": true,
+          "pass": false
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        }
+      ],
+      "green": [
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": true,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "stale",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "legacy",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "missing",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "json",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "hechosFinancieros",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": false,
+          "actual": false,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "verified",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "stale",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "legacy",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "missing",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "csv",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "xlsx",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "json",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "pdf",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        },
+        {
+          "es": false,
+          "vista": "ventas",
+          "state": "unavailable",
+          "type": "copy",
+          "expected": true,
+          "actual": true,
+          "pass": true
+        }
+      ],
+      "scope": "exact export dispatcher; mocked Tabulator/PDF/clipboard, no native downloads; experimental policy for unverified journal only"
+    }
+  ]
+}
