@@ -1,0 +1,108 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "commit": "814b9df4f9699ae625d60749ba6c504da0b85a5d",
+  "sourceBlob": "c82edfe4a008182f20f69536d1a7000ef0b9410f",
+  "environment": "V8, extracted pintarTabla prefix, simulated DOM/view; no browser",
+  "results": {
+    "original": [
+      {
+        "name": "verified empty",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "verified rows",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "explicit missing",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>"
+      },
+      {
+        "name": "unknown coverage",
+        "pass": 0,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "missing array",
+        "pass": 0,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "remote conflict",
+        "pass": 0,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "remote coherent",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "local with stale remote flag",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      }
+    ],
+    "candidate": [
+      {
+        "name": "verified empty",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "verified rows",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "explicit missing",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>"
+      },
+      {
+        "name": "unknown coverage",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>"
+      },
+      {
+        "name": "missing array",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>"
+      },
+      {
+        "name": "remote conflict",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>"
+      },
+      {
+        "name": "remote coherent",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      },
+      {
+        "name": "local with stale remote flag",
+        "pass": 20,
+        "total": 20,
+        "last": "<strong>confirmed</strong>"
+      }
+    ]
+  }
+}
