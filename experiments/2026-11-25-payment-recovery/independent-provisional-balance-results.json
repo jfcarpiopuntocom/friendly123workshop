@@ -1,0 +1,447 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "blobs": [
+    {
+      "path": "docs/cartera.js",
+      "sha": "49353f93f067d8efdd4484ecd689ebf628980ae5"
+    },
+    {
+      "path": "docs/mock-backend.js",
+      "sha": "c9cf737fef64111d2db5d2b9dc70d5eacac2448a"
+    },
+    {
+      "path": "docs/plan-pagos-ui.js",
+      "sha": "e4396184dee07a7b0c963c7ed28241c38b50ba5e"
+    }
+  ],
+  "harnessCommit": "9169f6d215c7b888a0b5ab823df47aa1346570cf",
+  "red": [
+    {
+      "type": "view",
+      "rol": "empleado",
+      "flag": 0,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 0,
+      "export": false,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "empleado",
+      "flag": 1,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 0,
+      "export": false,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "dueno",
+      "flag": 0,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "dueno",
+      "flag": 1,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "admin",
+      "flag": 0,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "admin",
+      "flag": 1,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "contador",
+      "flag": 0,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "contador",
+      "flag": 1,
+      "provisional": null,
+      "identity": null,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "route",
+      "mode": "clean",
+      "status": 200,
+      "receipt": "allocation-1",
+      "needsReview": false,
+      "writes": 1,
+      "logs": 1
+    },
+    {
+      "type": "route",
+      "mode": "conflict-after-commit",
+      "status": 200,
+      "receipt": "allocation-1",
+      "needsReview": false,
+      "writes": 1,
+      "logs": 1
+    },
+    {
+      "type": "route",
+      "mode": "already-rejected",
+      "status": 409,
+      "receipt": null,
+      "needsReview": true,
+      "writes": 1,
+      "logs": 0
+    },
+    {
+      "type": "route",
+      "mode": "throw-409",
+      "status": 409,
+      "receipt": null,
+      "needsReview": false,
+      "writes": 0,
+      "logs": 0
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 0,
+      "saldo": -25,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "Owes $25. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 0,
+      "saldo": 0,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "No outstanding balance. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 1,
+      "saldo": -25,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "Owes $25. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 1,
+      "saldo": 0,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "No outstanding balance. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 0,
+      "saldo": -25,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "Owes $25. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 0,
+      "saldo": 0,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "No outstanding balance. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 1,
+      "saldo": -25,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "Owes $25. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 1,
+      "saldo": 0,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "No outstanding balance. $25 would bring them current.",
+      "message": ""
+    }
+  ],
+  "green": [
+    {
+      "type": "view",
+      "rol": "empleado",
+      "flag": 0,
+      "provisional": false,
+      "identity": 0,
+      "pending": 1,
+      "history": 0,
+      "export": false,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "empleado",
+      "flag": 1,
+      "provisional": true,
+      "identity": 1,
+      "pending": 0,
+      "history": 0,
+      "export": false,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "dueno",
+      "flag": 0,
+      "provisional": false,
+      "identity": 0,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "dueno",
+      "flag": 1,
+      "provisional": true,
+      "identity": 1,
+      "pending": 0,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "admin",
+      "flag": 0,
+      "provisional": false,
+      "identity": 0,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "admin",
+      "flag": 1,
+      "provisional": true,
+      "identity": 1,
+      "pending": 0,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "contador",
+      "flag": 0,
+      "provisional": false,
+      "identity": 0,
+      "pending": 1,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "view",
+      "rol": "contador",
+      "flag": 1,
+      "provisional": true,
+      "identity": 1,
+      "pending": 0,
+      "history": 2,
+      "export": true,
+      "saldo": -25
+    },
+    {
+      "type": "route",
+      "mode": "clean",
+      "status": 200,
+      "receipt": "allocation-1",
+      "needsReview": false,
+      "writes": 1,
+      "logs": 1
+    },
+    {
+      "type": "route",
+      "mode": "conflict-after-commit",
+      "status": 409,
+      "receipt": null,
+      "needsReview": true,
+      "writes": 1,
+      "logs": 0
+    },
+    {
+      "type": "route",
+      "mode": "already-rejected",
+      "status": 409,
+      "receipt": null,
+      "needsReview": true,
+      "writes": 1,
+      "logs": 0
+    },
+    {
+      "type": "route",
+      "mode": "throw-409",
+      "status": 409,
+      "receipt": null,
+      "needsReview": false,
+      "writes": 0,
+      "logs": 0
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 0,
+      "saldo": -25,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "Owes $25. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 0,
+      "saldo": 0,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "No outstanding balance. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 1,
+      "saldo": -25,
+      "planCalls": 0,
+      "painted": 0,
+      "suggestion": "",
+      "context": "",
+      "message": "Saldo pendiente de verificación. Revisa el historial antes de asignar el pago."
+    },
+    {
+      "type": "modal",
+      "es": true,
+      "flag": 1,
+      "saldo": 0,
+      "planCalls": 0,
+      "painted": 0,
+      "suggestion": "",
+      "context": "",
+      "message": "Saldo pendiente de verificación. Revisa el historial antes de asignar el pago."
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 0,
+      "saldo": -25,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "Owes $25. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 0,
+      "saldo": 0,
+      "planCalls": 1,
+      "painted": 1,
+      "suggestion": "25.00",
+      "context": "No outstanding balance. $25 would bring them current.",
+      "message": ""
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 1,
+      "saldo": -25,
+      "planCalls": 0,
+      "painted": 0,
+      "suggestion": "",
+      "context": "",
+      "message": "Balance pending verification. Review the history before allocating payment."
+    },
+    {
+      "type": "modal",
+      "es": false,
+      "flag": 1,
+      "saldo": 0,
+      "planCalls": 0,
+      "painted": 0,
+      "suggestion": "",
+      "context": "",
+      "message": "Balance pending verification. Review the history before allocating payment."
+    }
+  ],
+  "scope": "source-executed view, local allocation route and modal promise chain; dependency injection; numeric balance kept for backward compatibility, explicit provisional flag; no browser, IDB, or network"
+}
