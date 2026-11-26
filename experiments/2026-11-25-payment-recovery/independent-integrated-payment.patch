@@ -1,0 +1,131 @@
+diff --git a/docs/cartera.js b/docs/cartera.js
+--- a/docs/cartera.js
++++ b/docs/cartera.js
+@@ -39,6 +39,7 @@
+     hs.forEach(function (h) {
+       var d = _d(h);
+       var k = [h.tipo, d[campoDueno], d.monto, d.motivo || "", Math.floor((Number(h.ts) || 0) / 2000)].join("|");
++      if (h.tipo === "cartera_abono" && d.opId) k = JSON.stringify(["identified-payment", String(d.opId), String(h.id)]);
+       (grupos[k] = grupos[k] || []).push(h);
+     });
+     var out = [];
+@@ -178,7 +179,7 @@
+        ":registrado" a proposito: hechos.js solo persiste ":completado", asi que
+        este aviso no puede volver a duplicar nada. */
+     if (global.AMG && global.AMG.Hechos && global.AMG.Hechos.registrar) {
+-      var opciones = relacion && relacion.opId ? { repetido: function (hechos) {
++      var opciones = relacion && relacion.opId ? { propagarConflicto: true, repetido: function (hechos) {
+         return movimientoExistente(hechos, clienteId, tipo, monto, motivo, relacion);
+       }} : null;
+       return global.AMG.Hechos.registrar(TIPOS[tipo], payload, opciones).then(function (r) {
+@@ -363,8 +364,10 @@
+      misma foto del saldo. La concurrencia REMOTA converge por _aplicaciones. */
+   function _validarPartesAplicacion(todos, clienteId, abonoId, partes, ventas) {
+     var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
++    if (r.conflictosIdentidadExperimental) { var e = new Error('cartera: identidad de movimiento en conflicto'); e.status = 409; throw e; }
++    var canon = r.aliasesAbonoExperimental.get(String(abonoId)) || String(abonoId);
+     var abono = r.movimientos.find(function (m) {
+-      return m.tipo === "abono" && String(m.id) === String(abonoId);
++      return m.tipo === "abono" && String(m.id) === canon;
+     });
+     if (!abono) throw new Error("cartera: el abono no pertenece a este cliente");
+     var libre = _centavos(abono.sinAsignar), pedido = 0, vistos = Object.create(null), normal = [];
+@@ -408,7 +411,12 @@
+         if (!clave) return null;
+         var anterior = lista.find(function (h) { return h.tipo === APLICACION && String(_d(h).opId || "") === clave; });
+         if (!anterior) return null;
+-        if (!_mismaAplicacion(anterior, clienteId, abonoId, partes)) {
++        var proy = calcularSaldo(lista, clienteId, _ventasActuales(ventas));
++        if (proy.conflictosIdentidadExperimental) { var e = new Error('cartera: identidad de movimiento en conflicto'); e.status = 409; throw e; }
++        var canon = function(id) { return proy.aliasesAbonoExperimental.get(String(id)) || String(id); };
++        var dAnterior = _d(anterior);
++        var previoNormal = Object.assign({}, anterior, { datos: Object.assign({}, dAnterior, { abonoId: canon(dAnterior.abonoId) }) });
++        if (!_mismaAplicacion(previoNormal, clienteId, canon(abonoId), partes)) {
+           var e = new Error("cartera: la referencia pertenece a otra asignación");
+           e.status = 409; throw e;
+         }
+@@ -424,6 +432,7 @@
+       };
+       if (clave) payload.opId = clave;
+       return global.AMG.Hechos.registrar(APLICACION, payload, {
++        propagarConflicto: true,
+         repetido: function (lista) {
+           var viejo = buscarRepetido(lista);
+           if (viejo) return viejo;
+@@ -445,6 +454,28 @@
+ 
+   /* Funcion PURA (sin storage): todos = hechos; ventas = ventas actuales o null (=> montos guardados). */
+   function calcularSaldo(todos, clienteId, ventas) {
++    // EXPERIMENT: exact payment identities only. Never modify original facts.
++    var aliases = new Map(), groups = new Map(), ambiguous = 0;
++    var sorted = todos.slice().sort(function(a,b){return String(a.id).localeCompare(String(b.id));});
++    sorted.forEach(function(h){
++      var d=_d(h);
++      if((h.tipo!==TIPOS.abono&&h.tipo!==TIPOS.cargo)||!d.opId)return;
++      var key=String(d.opId);
++      var g=groups.get(key)||[];g.push(h);groups.set(key,g);
++    });
++    groups.forEach(function(g){
++      if(!g.some(function(h){return String(_d(h).clienteId)===String(clienteId);}))return;
++      function fingerprint(h){var d=_d(h);return JSON.stringify([h.tipo,String(d.clienteId),Number(d.monto),d.motivo||'',String(d.ventaId||'')]);}
++      if(g.some(function(h){return fingerprint(h)!==fingerprint(g[0]);})){ambiguous++;return;}
++      if(g[0].tipo===TIPOS.abono)g.slice(1).forEach(function(h){aliases.set(String(h.id),String(g[0].id));});
++    });
++    todos=todos.filter(function(h){return !aliases.has(String(h.id));}).map(function(h){
++      if(h.tipo!==APLICACION)return h;
++      var d=_d(h),canonical=aliases.get(String(d.abonoId));
++      if(!canonical||String(d.clienteId)!==String(clienteId))return h;
++      var copy=Object.assign({},d,{abonoId:canonical});
++      return Object.assign({},h,{datos:_anidado(h)?Object.assign({},h.datos,{payload:copy}):copy});
++    });
+     var mios = _sinDuplicados(todos.filter(function (h) {
+       return (h.tipo === TIPOS.cargo || h.tipo === TIPOS.abono) &&
+         String(_d(h).clienteId || "") === String(clienteId);
+@@ -529,6 +560,8 @@
+     _marcarConsumos(movimientos, todos, clienteId);
+     return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos,
+       conflictosAplicacion: movimientos.conflictosAplicacion || 0,
++      conflictosIdentidadExperimental: ambiguous,
++      aliasesAbonoExperimental: aliases,
+       aplicacionesAceptadas: movimientos.aplicacionesAceptadas || [] };
+   }
+ 
+@@ -543,7 +576,7 @@
+     return global.AMG.Hechos.todos().then(function (todos) {
+       var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
+       return Promise.resolve(global.AMG.Hechos.verificarCadenas(todos)).then(function (integridad) {
+-        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad, conflictosAplicacion: r.conflictosAplicacion,
++        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad, conflictosAplicacion: r.conflictosAplicacion, conflictosIdentidadExperimental: r.conflictosIdentidadExperimental || 0,
+           aplicacionesAceptadas: r.aplicacionesAceptadas };
+       });
+     });
+diff --git a/docs/hechos.js b/docs/hechos.js
+--- a/docs/hechos.js
++++ b/docs/hechos.js
+@@ -466,6 +466,7 @@
+         req.onerror = function () { fallo = req.error; };
+         tx.oncomplete = function () { resolve(hecho); };
+         tx.onerror = function () { reject(fallo || tx.error); };
++        tx.onabort = function () { reject(fallo || tx.error || new DOMException("hecho abortado", "AbortError")); };
+       });
+     });
+   }
+@@ -589,12 +590,15 @@
+     });
+   }
+   function registrar(tipo, datos, opciones) {
+-    _cola = _cola.then(function () { return construirYGuardar(tipo, datos, 0, opciones); }).catch(function (e) {
+-      // Fase A nunca puede tumbar la app: si algo falla, se anota y se sigue.
++    var trabajo = _cola.then(function () { return construirYGuardar(tipo, datos, 0, opciones); });
++    _cola = trabajo.catch(function (e) {
+       try { console.warn("[hechos] no se pudo registrar:", e && e.message); } catch (_) {}
+       return null;
+     });
+-    return _cola;
++    return opciones && opciones.propagarConflicto ? trabajo.catch(function (e) {
++      if (e && e.status === 409) throw e;
++      return null;
++    }) : _cola;
+   }
+ 
+   // ---------------------------------------------------------------------------
