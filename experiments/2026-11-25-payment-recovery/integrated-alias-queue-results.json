@@ -1,0 +1,198 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "inputs": [
+    {
+      "path": "docs/cartera.js",
+      "ref": "344e7a448c097231b0f026ebc0dd4c703110944e",
+      "blob": "49353f93f067d8efdd4484ecd689ebf628980ae5"
+    },
+    {
+      "path": "docs/hechos.js",
+      "ref": "344e7a448c097231b0f026ebc0dd4c703110944e",
+      "blob": "c32397ff26db5cae625d71d3fc7efdafc78663b9"
+    },
+    {
+      "path": "experiments/2026-11-25-payment-recovery/payment-alias-stress.cjs",
+      "ref": "0c1533f6",
+      "blob": "ff4cd5b0b687b332ac9735280825f7983eac3b9f"
+    },
+    {
+      "path": "experiments/2026-11-25-payment-recovery/independent-identity-conflict.cjs",
+      "ref": "8c57231c149d6e1b1902f27147023dc3103c963c",
+      "blob": "61be24d84fd0a10b5b9bcf0866ab858fcd3272b3"
+    },
+    {
+      "path": "experiments/2026-11-25-payment-recovery/independent-alias-write.cjs",
+      "ref": "5a424350502c9a5c67a3e8abdaf8c1ec8ab135a3",
+      "blob": "3d74c0edc6642943cfb95e5ce8e525a7609a5dcf"
+    },
+    {
+      "path": "experiments/2026-11-25-payment-recovery/independent-conflict-queue.cjs",
+      "ref": "fd5936de15d2a895912473155347d2f94f010ed5",
+      "blob": "78ca678c42ef5069ec2321f664ee367539f1498c"
+    }
+  ],
+  "red": [
+    {
+      "name": "conflict during real registrar queue",
+      "results": [
+        {
+          "ok": false,
+          "status": null,
+          "error": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+        },
+        {
+          "ok": true,
+          "id": "write-1"
+        }
+      ],
+      "writes": 1,
+      "saldo": -13,
+      "applied": 0,
+      "identity": 1,
+      "originalFactsPreserved": true,
+      "warnings": [
+        "[hechos] no se pudo registrar: cartera: identidad de movimiento en conflicto"
+      ]
+    },
+    {
+      "name": "concurrent alias retries one intention",
+      "results": [
+        {
+          "ok": true,
+          "id": "write-1"
+        },
+        {
+          "ok": true,
+          "id": "write-1"
+        }
+      ],
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "identity": 0,
+      "originalFactsPreserved": true,
+      "warnings": []
+    },
+    {
+      "name": "storage failure then retry same intention",
+      "results": [
+        {
+          "ok": false,
+          "status": null,
+          "error": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+        },
+        {
+          "ok": true,
+          "id": "write-1"
+        }
+      ],
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "identity": 0,
+      "originalFactsPreserved": true,
+      "warnings": [
+        "[hechos] no se pudo registrar: injected storage failure"
+      ]
+    },
+    {
+      "name": "conflict before queue",
+      "results": [
+        {
+          "ok": false,
+          "status": 409,
+          "error": "cartera: identidad de movimiento en conflicto"
+        }
+      ],
+      "writes": 0,
+      "saldo": -13,
+      "applied": 0,
+      "identity": 1,
+      "originalFactsPreserved": true,
+      "warnings": []
+    }
+  ],
+  "green": [
+    {
+      "name": "conflict during real registrar queue",
+      "results": [
+        {
+          "ok": false,
+          "status": 409,
+          "error": "cartera: identidad de movimiento en conflicto"
+        },
+        {
+          "ok": true,
+          "id": "write-1"
+        }
+      ],
+      "writes": 1,
+      "saldo": -13,
+      "applied": 0,
+      "identity": 1,
+      "originalFactsPreserved": true,
+      "warnings": [
+        "[hechos] no se pudo registrar: cartera: identidad de movimiento en conflicto"
+      ]
+    },
+    {
+      "name": "concurrent alias retries one intention",
+      "results": [
+        {
+          "ok": true,
+          "id": "write-1"
+        },
+        {
+          "ok": true,
+          "id": "write-1"
+        }
+      ],
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "identity": 0,
+      "originalFactsPreserved": true,
+      "warnings": []
+    },
+    {
+      "name": "storage failure then retry same intention",
+      "results": [
+        {
+          "ok": false,
+          "status": null,
+          "error": "cartera: no se pudo confirmar la asignación; el pago permanece guardado"
+        },
+        {
+          "ok": true,
+          "id": "write-1"
+        }
+      ],
+      "writes": 1,
+      "saldo": -25,
+      "applied": 10,
+      "identity": 0,
+      "originalFactsPreserved": true,
+      "warnings": [
+        "[hechos] no se pudo registrar: injected storage failure"
+      ]
+    },
+    {
+      "name": "conflict before queue",
+      "results": [
+        {
+          "ok": false,
+          "status": 409,
+          "error": "cartera: identidad de movimiento en conflicto"
+        }
+      ],
+      "writes": 0,
+      "saldo": -13,
+      "applied": 0,
+      "identity": 1,
+      "originalFactsPreserved": true,
+      "warnings": []
+    }
+  ],
+  "scope": "real Cartera source and real extracted Hechos.registrar; injected construirYGuardar and storage; no native IDB"
+}
