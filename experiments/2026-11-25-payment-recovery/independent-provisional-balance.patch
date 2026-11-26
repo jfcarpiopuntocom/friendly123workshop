@@ -1,0 +1,268 @@
+diff --git a/docs/cartera.js b/docs/cartera.js
+--- a/docs/cartera.js
++++ b/docs/cartera.js
+@@ -620,17 +620,20 @@
+   // que debe — no depende de que cada pantalla nueva se acuerde de ocultarlo.
+   function vistaCarteraSegunRol(saldoInfo, rol) {
+     var esEmpleado = rol === "empleado";
+-    return {
+-      saldo: saldoInfo.saldo,
+-      integridad: saldoInfo.integridad,
+-      conflictosAplicacion: saldoInfo.conflictosAplicacion || 0,
+-      tienePendiente: saldoInfo.saldo < 0,
+-      // El encargado ve el saldo de ESTE cliente (case by case), pero nunca el
+-      // historial completo de movimientos ni la posibilidad de exportar.
+-      historial: esEmpleado ? [] : saldoInfo.movimientos,
+-      // 2026-10-21 (fiados de Belen): para COBRAR, todo rol necesita ver que consumos
+-      // siguen abiertos. Solo lo minimo (sin quien registro ni pagos ajenos).
+-      consumosPendientes: (saldoInfo.movimientos || []).filter(function (m) {
++    var identidadEnConflicto = Number(saldoInfo.conflictosIdentidadExperimental || 0) > 0;
++    return {
++      saldo: saldoInfo.saldo,
++      saldoProvisional: identidadEnConflicto,
++      conflictosIdentidadExperimental: saldoInfo.conflictosIdentidadExperimental || 0,
++      integridad: saldoInfo.integridad,
++      conflictosAplicacion: saldoInfo.conflictosAplicacion || 0,
++      tienePendiente: saldoInfo.saldo < 0,
++      // El encargado ve el saldo de ESTE cliente (case by case), pero nunca el
++      // historial completo de movimientos ni la posibilidad de exportar.
++      historial: esEmpleado ? [] : saldoInfo.movimientos,
++      // 2026-10-21 (fiados de Belen): para COBRAR, todo rol necesita ver que consumos
++      // siguen abiertos. Solo lo minimo (sin quien registro ni pagos ajenos).
++      consumosPendientes: (identidadEnConflicto ? [] : (saldoInfo.movimientos || [])).filter(function (m) {
+         return m.tipo === "cargo" && (m.estado === "pendiente" || m.estado === "parcial");
+       }).map(function (m) {
+         return { cargoKey: m.cargoKey, motivo: m.motivo, fecha: m.fecha, monto: m.monto, pendiente: m.pendiente, estado: m.estado };
+diff --git a/docs/mock-backend.js b/docs/mock-backend.js
+--- a/docs/mock-backend.js
++++ b/docs/mock-backend.js
+@@ -9591,6 +9591,9 @@
+           return J({ error: (e && e.message) || "Could not apply the payment." }, e && e.status === 409 ? 409 : 400);
+         }
+         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
++        if (Number(info.conflictosIdentidadExperimental || 0) > 0) {
++          return J({ error: "Payment allocation needs review; the account has conflicting movement identities.", needsReview: true }, 409);
++        }
+         if (!Array.isArray(info.aplicacionesAceptadas) ||
+             !info.aplicacionesAceptadas.includes(String(asignacion.id))) {
+           // Concurrent remote events may have consumed this capacity first.
+diff --git a/docs/plan-pagos-ui.js b/docs/plan-pagos-ui.js
+--- a/docs/plan-pagos-ui.js
++++ b/docs/plan-pagos-ui.js
+@@ -700,6 +700,12 @@
+             ? "Algunos consumos pertenecen a otro cliente según las ventas. No pueden asignarse aquí; revisa el historial sin borrar nada."
+             : "Some purchases are linked to another customer. They cannot be paid here; review the history without deleting anything.";
+         }
++        if (info && info.saldoProvisional) {
++          q("pp-ab-msg").style.color = "#B0183E";
++          q("pp-ab-msg").textContent = es ? "Saldo pendiente de verificación. Revisa el historial antes de asignar el pago." : "Balance pending verification. Review the history before allocating payment.";
++          q("pp-ab-ctx").textContent = "";
++          return;
++        }
+         var debe = info && info.saldo < 0 ? -info.saldo : 0;
+         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
+           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
+diff --git a/src/app/app-inline-01.js b/src/app/app-inline-01.js
+--- a/src/app/app-inline-01.js
++++ b/src/app/app-inline-01.js
+@@ -1514,102 +1514,104 @@
+     const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
+     if (el.__carteraLectura !== lectura) return; // a late read cannot undo a payment repaint
+     const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es");
+-    const integridadPendiente = !!(info && info.integridad && !info.integridad.ok);
+-    const avisoIntegridad = integridadPendiente
+-      ? '<span style="display:inline-block;margin-left:8px;font-size:12px;color:#19354B;font-weight:600;">' + (es ? 'Saldo pendiente de verificar — ' : 'Balance pending verification — ') +
+-        escHtml(info.integridad.razon || "sync incomplete") + '</span>'
+-      : "";
+-    // HOTFIX 2026-10-02: an integrity warning is diagnostic, not a reason to hide
+-    // a debt already computed by /cartera or the owner's existing payment action.
+-    if (!info || (!info.saldo && !(Array.isArray(info.historial) && info.historial.length))) {
+-      el.innerHTML = integridadPendiente ? avisoIntegridad : "";
+-      return;
+-    }
+-    // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
+-    // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
+-    const debe = info.saldo < 0;
+-    const color = debe ? "#E8365D" : "#00704A";
+-    // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
+-    // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
+-    // (ni crédito a favor ni deuda). Restaurada.
+-    const texto = info.saldo === 0
+-      ? (integridadPendiente ? `${es ? 'Saldo registrado' : 'Recorded balance'} ${fmtMoney(0)}` : `${es ? 'Cuenta saldada · Pagado' : 'Account settled · Paid'} · ${fmtMoney(0)}`)
+-      : debe ? `${es ? "Deuda" : "Debt"} ${fmtMoney(-info.saldo)}` : `${es ? "Pagado · Saldo a favor" : "Paid · Credit balance"} ${fmtMoney(info.saldo)}`;
+-    // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
+-    const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
+-    // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
+-    // el mismo item" + "debe tener fecha de expiracion" (JFC 2026-09-02). Se
+-    // extrae de los motivos [for:...][exp:YYYY-MM-DD]. #9: se avisa "expires soon"
+-    // (ámbar) a ≤3 días, y al vencer se muestra EXPIRED y el monto se TACHA (no se
+-    // borra el dato — nunca romper datos).
+-    let restringido = "", expiradoTodo = false;
+-    if (info.saldo > 0 && Array.isArray(info.historial)) {
+-      const hoy = new Date().toLocaleDateString("en-CA");
+-      const abonos = info.historial.filter((h) => h.tipo === "abono");
+-      const partes = abonos.map((h) => {
+-        const mi = /\[for:([^\]]+)\]/.exec(h.motivo || "");
+-        const me = /\[exp:(\d{4}-\d{2}-\d{2})\]/.exec(h.motivo || "");
+-        return { item: mi ? mi[1].trim() : "", exp: me ? me[1] : "" };
+-      }).filter((p) => p.item);
+-      const items = [...new Set(partes.map((p) => p.item))];
+-      const exps = partes.map((p) => p.exp).filter(Boolean).sort();
+-      // #12: si dueño/admin extendió/acortó la expiración, ese override manda.
+-      const proxExp = _credExpOverride(clienteId) || exps[0] || "";
+-      const expirado = proxExp && proxExp <= hoy;
+-      expiradoTodo = expirado;
+-      // Días hasta la expiración más próxima (para el aviso ámbar).
+-      let diasRest = null;
+-      if (proxExp && !expirado) { const pe = proxExp.split("-").map(Number); diasRest = Math.round((new Date(pe[0], pe[1] - 1, pe[2]) - new Date(hoy.split("-").map(Number)[0], hoy.split("-").map(Number)[1] - 1, hoy.split("-").map(Number)[2])) / 86400000); }
+-      if (items.length) {
+-        restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
+-        if (proxExp) {
+-          if (expirado) {
+-            restringido += ` <span style="font-size:12px;font-weight:700;color:#B8123C;">EXPIRED (${escHtml(fmtFechaLoc(proxExp))})</span>`;
+-          } else if (diasRest != null && diasRest <= 3) {
+-            restringido += ` <span style="font-size:12px;font-weight:700;color:#F97316;">expires soon (${escHtml(fmtFechaLoc(proxExp))})</span>`;
+-          } else {
+-            restringido += ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(fmtFechaLoc(proxExp))}</span>`;
+-          }
+-          // #12: lapicito NARANJA de precaución para dueño/admin — cambia la expiración.
+-          const _rolC = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+-          if (_rolC === "dueno" || _rolC === "admin") {
+-            restringido += ` <button type="button" class="oc-edit-btn oc-edit-btn--warn" title="Change expiration" onclick="editarExpiracionCredito(${argHtml(clienteId)})" style="padding:2px 7px;font-size:12px;">✎</button>`;
+-          }
+-        }
+-      }
+-    }
+-    const alertaOn = window.AMG && window.AMG.Cartera ? window.AMG.Cartera.alertaActiva(clienteId) : true;
+-    const badge = (debe && alertaOn)
+-      ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#E8365D;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
+-      : "";
+-    // JFC 2026-09-02: cuando el cliente DEBE, se ofrece "Record a payment" (el modal
+-    // de plan-pagos, que abona a la deuda). Así ese flujo sigue vivo aunque el botón
+-    // "Record credit (abono)" ahora abra el modal de crédito a favor (item+expiración).
+-    const btnPagar = debe
+-      ? ` <button type="button" onclick="ocPagarDeuda(${argHtml(clienteId)})" class="oc-edit-btn" style="padding:2px 9px;">${t("cust.recordPayment")}</button>`
+-      : "";
+-    // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
+-    const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
+-    // Belén (2026-09-23): la suma de compras fiadas NO es el saldo. Cargos
+-    // manuales y pagos también cuentan; mostrar el libro que explica el neto,
+-    // sin alterar ni recalcular ningún hecho monetario guardado.
+-    const movimientos = Array.isArray(info.historial) ? info.historial : [];
+-    const cargos = movimientos.filter((m) => m.tipo === "cargo").reduce((n, m) => n + Math.round((Number(m.monto) || 0) * 100), 0) / 100;
+-    const abonos = movimientos.filter((m) => m.tipo === "abono").reduce((n, m) => n + Math.round((Number(m.monto) || 0) * 100), 0) / 100;
+-    const desglose = debe
+-      ? `${es ? "Cargos" : "Charges"} ${fmtMoney(cargos)} − ${es ? "pagos/créditos" : "payments/credits"} ${fmtMoney(abonos)} = ${es ? "deuda" : "amount owed"} ${fmtMoney(-info.saldo)}`
+-      : `${es ? "Pagos/créditos" : "Payments/credits"} ${fmtMoney(abonos)} − ${es ? "cargos" : "charges"} ${fmtMoney(cargos)} = ${info.saldo === 0 ? (es ? 'saldo' : 'balance') : (es ? "crédito" : "credit")} ${fmtMoney(info.saldo)}`;
+-    const detalle = movimientos.length ? `<details style="margin-top:6px;font-size:13px;color:#19354B;">
+-      <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
+-      <div style="margin:5px 0;font-weight:700;">${desglose}</div>
+-      ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
+-        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${typeof _estadoConsumoCartera === "function" ? _estadoConsumoCartera(m, es) : ""}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
+-        <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
+-      </div>`).join("")}</details>` : "";
+-    const avisoAsignacion = Number(info.conflictosAplicacion) > 0
+-      ? ` <span role="alert" style="display:block;color:#B0183E;font-size:12px;font-weight:700;">${es ? "Hay asignaciones de pagos que requieren revisión entre aparatos; los pagos originales se conservan." : "Some purchase allocations need cross-device review; original payments are preserved."}</span>`
+-      : "";
+-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${avisoAsignacion}${detalle}`;
++    const identidadPendiente = !!(info && info.saldoProvisional);
++    const integridadPendiente = !!(info && info.integridad && !info.integridad.ok);
++    const avisoIdentidad = identidadPendiente ? '<span role="alert" style="display:block;color:#B0183E;font-size:12px;font-weight:700;">' + (es ? "Saldo pendiente de verificación — identidad de movimientos en conflicto" : "Balance pending verification — conflicting movement identities") + "</span>" : "";
++    const avisoIntegridad = integridadPendiente
++      ? '<span style="display:inline-block;margin-left:8px;font-size:12px;color:#19354B;font-weight:600;">' + (es ? 'Saldo pendiente de verificar — ' : 'Balance pending verification — ') +
++        escHtml(info.integridad.razon || "sync incomplete") + '</span>'
++      : "";
++    // HOTFIX 2026-10-02: an integrity warning is diagnostic, not a reason to hide
++    // a debt already computed by /cartera or the owner's existing payment action.
++    if (!info || (!info.saldo && !(Array.isArray(info.historial) && info.historial.length))) {
++      el.innerHTML = avisoIdentidad + (integridadPendiente ? avisoIntegridad : "");
++      return;
++    }
++    // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
++    // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
++    const debe = info.saldo < 0;
++    const color = debe ? "#E8365D" : "#00704A";
++    // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
++    // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
++    // (ni crédito a favor ni deuda). Restaurada.
++    const texto = identidadPendiente ? `${es ? "Saldo provisional" : "Provisional balance"} ${fmtMoney(info.saldo)}` : info.saldo === 0
++      ? (integridadPendiente ? `${es ? 'Saldo registrado' : 'Recorded balance'} ${fmtMoney(0)}` : `${es ? 'Cuenta saldada · Pagado' : 'Account settled · Paid'} · ${fmtMoney(0)}`)
++      : debe ? `${es ? "Deuda" : "Debt"} ${fmtMoney(-info.saldo)}` : `${es ? "Pagado · Saldo a favor" : "Paid · Credit balance"} ${fmtMoney(info.saldo)}`;
++    // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
++    const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
++    // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
++    // el mismo item" + "debe tener fecha de expiracion" (JFC 2026-09-02). Se
++    // extrae de los motivos [for:...][exp:YYYY-MM-DD]. #9: se avisa "expires soon"
++    // (ámbar) a ≤3 días, y al vencer se muestra EXPIRED y el monto se TACHA (no se
++    // borra el dato — nunca romper datos).
++    let restringido = "", expiradoTodo = false;
++    if (info.saldo > 0 && Array.isArray(info.historial)) {
++      const hoy = new Date().toLocaleDateString("en-CA");
++      const abonos = info.historial.filter((h) => h.tipo === "abono");
++      const partes = abonos.map((h) => {
++        const mi = /\[for:([^\]]+)\]/.exec(h.motivo || "");
++        const me = /\[exp:(\d{4}-\d{2}-\d{2})\]/.exec(h.motivo || "");
++        return { item: mi ? mi[1].trim() : "", exp: me ? me[1] : "" };
++      }).filter((p) => p.item);
++      const items = [...new Set(partes.map((p) => p.item))];
++      const exps = partes.map((p) => p.exp).filter(Boolean).sort();
++      // #12: si dueño/admin extendió/acortó la expiración, ese override manda.
++      const proxExp = _credExpOverride(clienteId) || exps[0] || "";
++      const expirado = proxExp && proxExp <= hoy;
++      expiradoTodo = expirado;
++      // Días hasta la expiración más próxima (para el aviso ámbar).
++      let diasRest = null;
++      if (proxExp && !expirado) { const pe = proxExp.split("-").map(Number); diasRest = Math.round((new Date(pe[0], pe[1] - 1, pe[2]) - new Date(hoy.split("-").map(Number)[0], hoy.split("-").map(Number)[1] - 1, hoy.split("-").map(Number)[2])) / 86400000); }
++      if (items.length) {
++        restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
++        if (proxExp) {
++          if (expirado) {
++            restringido += ` <span style="font-size:12px;font-weight:700;color:#B8123C;">EXPIRED (${escHtml(fmtFechaLoc(proxExp))})</span>`;
++          } else if (diasRest != null && diasRest <= 3) {
++            restringido += ` <span style="font-size:12px;font-weight:700;color:#F97316;">expires soon (${escHtml(fmtFechaLoc(proxExp))})</span>`;
++          } else {
++            restringido += ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(fmtFechaLoc(proxExp))}</span>`;
++          }
++          // #12: lapicito NARANJA de precaución para dueño/admin — cambia la expiración.
++          const _rolC = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
++          if (_rolC === "dueno" || _rolC === "admin") {
++            restringido += ` <button type="button" class="oc-edit-btn oc-edit-btn--warn" title="Change expiration" onclick="editarExpiracionCredito(${argHtml(clienteId)})" style="padding:2px 7px;font-size:12px;">✎</button>`;
++          }
++        }
++      }
++    }
++    const alertaOn = window.AMG && window.AMG.Cartera ? window.AMG.Cartera.alertaActiva(clienteId) : true;
++    const badge = (debe && alertaOn)
++      ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#E8365D;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
++      : "";
++    // JFC 2026-09-02: cuando el cliente DEBE, se ofrece "Record a payment" (el modal
++    // de plan-pagos, que abona a la deuda). Así ese flujo sigue vivo aunque el botón
++    // "Record credit (abono)" ahora abra el modal de crédito a favor (item+expiración).
++    const btnPagar = debe
++      ? ` <button type="button" onclick="ocPagarDeuda(${argHtml(clienteId)})" class="oc-edit-btn" style="padding:2px 9px;">${t("cust.recordPayment")}</button>`
++      : "";
++    // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
++    const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
++    // Belén (2026-09-23): la suma de compras fiadas NO es el saldo. Cargos
++    // manuales y pagos también cuentan; mostrar el libro que explica el neto,
++    // sin alterar ni recalcular ningún hecho monetario guardado.
++    const movimientos = Array.isArray(info.historial) ? info.historial : [];
++    const cargos = movimientos.filter((m) => m.tipo === "cargo").reduce((n, m) => n + Math.round((Number(m.monto) || 0) * 100), 0) / 100;
++    const abonos = movimientos.filter((m) => m.tipo === "abono").reduce((n, m) => n + Math.round((Number(m.monto) || 0) * 100), 0) / 100;
++    const desglose = identidadPendiente ? `${es ? "Cargos" : "Charges"} ${fmtMoney(cargos)} / ${es ? "pagos/créditos" : "payments/credits"} ${fmtMoney(abonos)} · ${es ? "Saldo provisional" : "Provisional balance"} ${fmtMoney(info.saldo)}` : debe
++      ? `${es ? "Cargos" : "Charges"} ${fmtMoney(cargos)} − ${es ? "pagos/créditos" : "payments/credits"} ${fmtMoney(abonos)} = ${es ? "deuda" : "amount owed"} ${fmtMoney(-info.saldo)}`
++      : `${es ? "Pagos/créditos" : "Payments/credits"} ${fmtMoney(abonos)} − ${es ? "cargos" : "charges"} ${fmtMoney(cargos)} = ${info.saldo === 0 ? (es ? 'saldo' : 'balance') : (es ? "crédito" : "credit")} ${fmtMoney(info.saldo)}`;
++    const detalle = movimientos.length ? `<details style="margin-top:6px;font-size:13px;color:#19354B;">
++      <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
++      <div style="margin:5px 0;font-weight:700;">${desglose}</div>
++      ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
++        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${typeof _estadoConsumoCartera === "function" ? _estadoConsumoCartera(m, es) : ""}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
++        <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
++      </div>`).join("")}</details>` : "";
++    const avisoAsignacion = Number(info.conflictosAplicacion) > 0
++      ? ` <span role="alert" style="display:block;color:#B0183E;font-size:12px;font-weight:700;">${es ? "Hay asignaciones de pagos que requieren revisión entre aparatos; los pagos originales se conservan." : "Some purchase allocations need cross-device review; original payments are preserved."}</span>`
++      : "";
++    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${avisoIdentidad}${avisoAsignacion}${detalle}`;
+   } catch (e) {
+     if (el.__carteraLectura !== lectura) return;
+     console.error("[pintarSaldoCartera]", e);
