@@ -1,0 +1,1245 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "experiment": "2bb2709b548c9ec55d5f92bcb72e37cab16695eb",
+  "environment": "V8 extracted functions; simulated IDB, timers and verification",
+  "results": {
+    "list": {
+      "original": [
+        {
+          "name": "scoped modern",
+          "want": "open",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "scoped legacy",
+          "want": "sin-migrar",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "other namespace",
+          "want": "sin-almacen",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "raw ignored with isolation",
+          "want": "sin-almacen",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "raw legacy ignored",
+          "want": "sin-almacen",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-migrar"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "raw valid without isolation",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "empty list",
+          "want": "sin-almacen",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "list rejected",
+          "want": "open",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "error-lectura"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "list throws",
+          "want": "open",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "error-lectura"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "invalid list",
+          "want": "open",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "error-lectura"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "unsupported listing",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "hanging list then late success",
+          "want": "open",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "late rejected after timeout",
+          "want": "open",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "events": [
+              "error-lectura"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "session invalidated during listing",
+          "want": "",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [],
+            "timers": 0
+          }
+        },
+        {
+          "name": "session invalidated before timeout",
+          "want": "",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [],
+            "timers": 0
+          }
+        }
+      ],
+      "candidate": [
+        {
+          "name": "scoped modern",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "scoped legacy",
+          "want": "sin-migrar",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-migrar"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "other namespace",
+          "want": "sin-almacen",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "raw ignored with isolation",
+          "want": "sin-almacen",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "raw legacy ignored",
+          "want": "sin-almacen",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "raw valid without isolation",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "empty list",
+          "want": "sin-almacen",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "sin-almacen"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "list rejected",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "list throws",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "invalid list",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "unsupported listing",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "hanging list then late success",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "late rejected after timeout",
+          "want": "open",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [
+              "open"
+            ],
+            "timers": 0
+          }
+        },
+        {
+          "name": "session invalidated during listing",
+          "want": "",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [],
+            "timers": 0
+          }
+        },
+        {
+          "name": "session invalidated before timeout",
+          "want": "",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "events": [],
+            "timers": 0
+          }
+        }
+      ]
+    },
+    "open": {
+      "original": [
+        {
+          "name": "read existing",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "",
+            "verified": true
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "",
+            "verified": true
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "missing DB",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "sin-almacen",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "sin-almacen",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "error opening",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "missing store",
+          "expected": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "base-sin-store",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "base-sin-store",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "stale before success",
+          "expected": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "timeout only",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "",
+            "verified": false
+          },
+          "pass": 0,
+          "total": 20
+        },
+        {
+          "name": "timeout then success",
+          "expected": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "",
+            "verified": true
+          },
+          "pass": 0,
+          "total": 20
+        },
+        {
+          "name": "timeout then upgrade",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "sin-almacen",
+            "verified": false
+          },
+          "pass": 0,
+          "total": 20
+        },
+        {
+          "name": "blocked then succeeds",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "bloqueado",
+            "verified": true
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "bloqueado",
+            "verified": true
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "blocked then timeout",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "transaction abort",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "invalid chain",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "cadena-invalida",
+            "verified": false
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "cadena-invalida",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        }
+      ],
+      "candidate": [
+        {
+          "name": "read existing",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "",
+            "verified": true
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "",
+            "verified": true
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "missing DB",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "sin-almacen",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "sin-almacen",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "error opening",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "missing store",
+          "expected": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "base-sin-store",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "base-sin-store",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "stale before success",
+          "expected": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "timeout only",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "timeout then success",
+          "expected": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "timeout then upgrade",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 1,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "blocked then succeeds",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "bloqueado",
+            "verified": true
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "reason": "bloqueado",
+            "verified": true
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "blocked then timeout",
+          "expected": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 0,
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "transaction abort",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "error-lectura",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        },
+        {
+          "name": "invalid chain",
+          "expected": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "cadena-invalida",
+            "verified": false
+          },
+          "last": {
+            "reads": 1,
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "reason": "cadena-invalida",
+            "verified": false
+          },
+          "pass": 20,
+          "total": 20
+        }
+      ]
+    },
+    "read": {
+      "original": [
+        {
+          "name": "normal",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": true,
+            "reason": "",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "rows": 1,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read timeout",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "",
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read timeout late complete",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "verified": true,
+            "reason": "",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "rows": 1,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read success but no complete",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "",
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read abort",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read error then abort",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto timeout",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto late success",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "verified": true,
+            "reason": "",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "rows": 1,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto late rejection",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "cadena-invalida",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto reject",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "cadena-invalida",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto bad",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "cadena-invalida",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "logout during crypto",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "logout during read",
+          "pass": 0,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "",
+            "closes": 0,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        }
+      ],
+      "candidate": [
+        {
+          "name": "normal",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": true,
+            "reason": "",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 1,
+            "rows": 1,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read timeout",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 1,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read timeout late complete",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 1,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read success but no complete",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 1,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read abort",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "read error then abort",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto timeout",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto late success",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto late rejection",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "error-lectura",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto reject",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "cadena-invalida",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "crypto bad",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "cadena-invalida",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "logout during crypto",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "",
+            "closes": 1,
+            "aborts": 0,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        },
+        {
+          "name": "logout during read",
+          "pass": 20,
+          "total": 20,
+          "last": {
+            "verified": false,
+            "reason": "",
+            "closes": 1,
+            "aborts": 1,
+            "shown": 0,
+            "rows": 0,
+            "timers": 0
+          }
+        }
+      ]
+    }
+  }
+}
