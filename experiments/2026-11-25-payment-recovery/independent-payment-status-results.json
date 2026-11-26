@@ -1,0 +1,161 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "blob": "e4396184dee07a7b0c963c7ed28241c38b50ba5e",
+  "scope": "source-executed UI handler and mocked HTTP; no browser DOM",
+  "red": [
+    {
+      "name": "storage-before-send",
+      "locale": "en",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "pass": false
+    },
+    {
+      "name": "storage-before-send",
+      "locale": "es",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "pass": false
+    },
+    {
+      "name": "lost-ack",
+      "locale": "en",
+      "text": "Payment preserved; allocation pending: network",
+      "pass": false
+    },
+    {
+      "name": "lost-ack",
+      "locale": "es",
+      "text": "Pago conservado; asignación pendiente: network",
+      "pass": false
+    },
+    {
+      "name": "confirmed-allocation-pending",
+      "locale": "en",
+      "text": "Payment preserved; allocation pending: network",
+      "pass": false
+    },
+    {
+      "name": "confirmed-allocation-pending",
+      "locale": "es",
+      "text": "Pago conservado; asignación pendiente: network",
+      "pass": false
+    },
+    {
+      "name": "confirmed-storage-failed",
+      "locale": "en",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "pass": false
+    },
+    {
+      "name": "confirmed-storage-failed",
+      "locale": "es",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "pass": false
+    },
+    {
+      "name": "identity-conflict",
+      "locale": "en",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "pass": false
+    },
+    {
+      "name": "identity-conflict",
+      "locale": "es",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "pass": false
+    },
+    {
+      "name": "allocation-conflict",
+      "locale": "en",
+      "text": "Payment preserved; allocation pending: retry allocation",
+      "pass": false
+    },
+    {
+      "name": "allocation-conflict",
+      "locale": "es",
+      "text": "Pago conservado; asignación pendiente: reintenta la asignación",
+      "pass": false
+    }
+  ],
+  "green": [
+    {
+      "name": "storage-before-send",
+      "locale": "en",
+      "text": "Reference not saved; payment was not sent in this attempt. Review any earlier attempt.",
+      "pass": true
+    },
+    {
+      "name": "storage-before-send",
+      "locale": "es",
+      "text": "Referencia no guardada; no se envió el pago en este intento. Revisa cualquier intento anterior.",
+      "pass": true
+    },
+    {
+      "name": "lost-ack",
+      "locale": "en",
+      "text": "Payment unconfirmed. Resume using the original reference and verify the receipt.",
+      "pass": true
+    },
+    {
+      "name": "lost-ack",
+      "locale": "es",
+      "text": "Pago por confirmar. Reanuda con la referencia original y verifica el recibo.",
+      "pass": true
+    },
+    {
+      "name": "confirmed-allocation-pending",
+      "locale": "en",
+      "text": "Payment confirmed; allocation pending. Resume the same operation.",
+      "pass": true
+    },
+    {
+      "name": "confirmed-allocation-pending",
+      "locale": "es",
+      "text": "Pago confirmado; asignación pendiente. Reanuda la misma operación.",
+      "pass": true
+    },
+    {
+      "name": "confirmed-storage-failed",
+      "locale": "en",
+      "text": "Payment confirmed; allocation pending. Resume the same operation.",
+      "pass": true
+    },
+    {
+      "name": "confirmed-storage-failed",
+      "locale": "es",
+      "text": "Pago confirmado; asignación pendiente. Reanuda la misma operación.",
+      "pass": true
+    },
+    {
+      "name": "identity-conflict",
+      "locale": "en",
+      "text": "Reference conflict. Review history before continuing; keep the original reference.",
+      "pass": true
+    },
+    {
+      "name": "identity-conflict",
+      "locale": "es",
+      "text": "Conflicto de referencia. Revisa el historial antes de continuar; conserva la referencia original.",
+      "pass": true
+    },
+    {
+      "name": "allocation-conflict",
+      "locale": "en",
+      "text": "Reference conflict. Review history before continuing; keep the original reference.",
+      "pass": true
+    },
+    {
+      "name": "allocation-conflict",
+      "locale": "es",
+      "text": "Conflicto de referencia. Revisa el historial antes de continuar; conserva la referencia original.",
+      "pass": true
+    }
+  ],
+  "transportRed": {
+    "status": null,
+    "released": 0
+  },
+  "transportGreen": {
+    "status": 409,
+    "released": 0
+  }
+}
