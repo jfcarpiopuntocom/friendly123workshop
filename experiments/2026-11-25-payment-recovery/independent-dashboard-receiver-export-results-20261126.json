@@ -1,0 +1,521 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "c82edfe4a008182f20f69536d1a7000ef0b9410f",
+  "results": {
+    "export": {
+      "blob": "b1912c9749dfeb04a15ab0b1c765a99c243c8ac2",
+      "red": [
+        {
+          "es": true,
+          "name": "verified",
+          "expected": true,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": true,
+          "name": "legacy",
+          "expected": false,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        },
+        {
+          "es": true,
+          "name": "unknown",
+          "expected": false,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        },
+        {
+          "es": true,
+          "name": "incomplete",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        },
+        {
+          "es": true,
+          "name": "stale",
+          "expected": false,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        },
+        {
+          "es": false,
+          "name": "verified",
+          "expected": true,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": false,
+          "name": "legacy",
+          "expected": false,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        },
+        {
+          "es": false,
+          "name": "unknown",
+          "expected": false,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        },
+        {
+          "es": false,
+          "name": "incomplete",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        },
+        {
+          "es": false,
+          "name": "stale",
+          "expected": false,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": false
+        }
+      ],
+      "green": [
+        {
+          "es": true,
+          "name": "verified",
+          "expected": true,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": true,
+          "name": "legacy",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": true,
+          "name": "unknown",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": true,
+          "name": "incomplete",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": true,
+          "name": "stale",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": false,
+          "name": "verified",
+          "expected": true,
+          "warning": false,
+          "factDownloads": 5,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": false,
+          "name": "legacy",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": false,
+          "name": "unknown",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": false,
+          "name": "incomplete",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        },
+        {
+          "es": false,
+          "name": "stale",
+          "expected": false,
+          "warning": true,
+          "factDownloads": 0,
+          "otherDownloads": 1,
+          "displayed": 1,
+          "pass": true
+        }
+      ],
+      "scope": "actual table/export functions, DOM and exporter spies; raw forensic rows preserved with pending warning, operational export blocked only for unverified financial facts; no actual file export"
+    },
+    "receiver": {
+      "blob": "420a8089fc51138e24b7f43a1de995e3ca7cb1fb",
+      "red": [
+        {
+          "name": "missing-id-same",
+          "expected": false,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-1"
+          ],
+          "hashes": [
+            "hash1"
+          ],
+          "paints": 1,
+          "pass": false
+        },
+        {
+          "name": "missing-id-peer",
+          "expected": false,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-1"
+          ],
+          "hashes": [
+            "hash1"
+          ],
+          "paints": 1,
+          "pass": false
+        },
+        {
+          "name": "changed-hash",
+          "expected": false,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "different"
+          ],
+          "paints": 1,
+          "pass": false
+        },
+        {
+          "name": "legacy-marker",
+          "expected": false,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 1,
+          "pass": false
+        },
+        {
+          "name": "missing-coverage",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        },
+        {
+          "name": "duplicate-id",
+          "expected": false,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-1",
+            "A-2",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2",
+            "hash2"
+          ],
+          "paints": 1,
+          "pass": false
+        },
+        {
+          "name": "reordered",
+          "expected": true,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-2",
+            "A-1"
+          ],
+          "hashes": [
+            "hash2",
+            "hash1"
+          ],
+          "paints": 1,
+          "pass": true
+        },
+        {
+          "name": "additive",
+          "expected": true,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-2",
+            "B-1",
+            "A-1"
+          ],
+          "hashes": [
+            "hash2",
+            "hash3",
+            "hash1"
+          ],
+          "paints": 1,
+          "pass": true
+        },
+        {
+          "name": "explicit-incomplete",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        }
+      ],
+      "green": [
+        {
+          "name": "missing-id-same",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        },
+        {
+          "name": "missing-id-peer",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        },
+        {
+          "name": "changed-hash",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        },
+        {
+          "name": "legacy-marker",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        },
+        {
+          "name": "missing-coverage",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        },
+        {
+          "name": "duplicate-id",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        },
+        {
+          "name": "reordered",
+          "expected": true,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-2",
+            "A-1"
+          ],
+          "hashes": [
+            "hash2",
+            "hash1"
+          ],
+          "paints": 1,
+          "pass": true
+        },
+        {
+          "name": "additive",
+          "expected": true,
+          "accepted": true,
+          "stale": false,
+          "ids": [
+            "A-2",
+            "B-1",
+            "A-1"
+          ],
+          "hashes": [
+            "hash2",
+            "hash3",
+            "hash1"
+          ],
+          "paints": 1,
+          "pass": true
+        },
+        {
+          "name": "explicit-incomplete",
+          "expected": false,
+          "accepted": false,
+          "stale": true,
+          "ids": [
+            "A-1",
+            "A-2"
+          ],
+          "hashes": [
+            "hash1",
+            "hash2"
+          ],
+          "paints": 0,
+          "recovered": true,
+          "pass": true
+        }
+      ],
+      "scope": "exact receiver; synthetic chunks, opaque hashes; no transport/browser; previous remote verified snapshot only"
+    }
+  }
+}
