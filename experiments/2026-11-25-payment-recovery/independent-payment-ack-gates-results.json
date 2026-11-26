@@ -1,0 +1,169 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "sourceBlob": "e4396184dee07a7b0c963c7ed28241c38b50ba5e",
+  "priorHarnessBlob": "00231bd7ced38b938c89677e69a50bdbd8c82ef0",
+  "priorCases": 12,
+  "red": {
+    "rows": [
+      {
+        "name": "conflict",
+        "ok": false,
+        "status": null,
+        "needsReview": false,
+        "released": []
+      },
+      {
+        "name": "needs-review",
+        "ok": false,
+        "status": null,
+        "needsReview": false,
+        "released": []
+      },
+      {
+        "name": "wrong-ack",
+        "ok": false,
+        "status": null,
+        "needsReview": false,
+        "released": []
+      },
+      {
+        "name": "success",
+        "ok": true,
+        "released": [
+          "alloc-1",
+          "pay-1"
+        ]
+      },
+      {
+        "name": "payment-conflict",
+        "ok": false,
+        "status": null,
+        "needsReview": false
+      }
+    ],
+    "msgs": [
+      {
+        "locale": "es",
+        "name": "review",
+        "text": "Pago conservado; asignación pendiente: reintenta la asignación"
+      },
+      {
+        "locale": "es",
+        "name": "receipt",
+        "text": "Pago conservado; asignación pendiente: reintenta la asignación"
+      },
+      {
+        "locale": "es",
+        "name": "reference",
+        "text": "Pago conservado; asignación pendiente: reintenta la asignación"
+      },
+      {
+        "locale": "es",
+        "name": "unknown",
+        "text": "Pago conservado; asignación pendiente: reintenta la asignación"
+      },
+      {
+        "locale": "en",
+        "name": "review",
+        "text": "Payment preserved; allocation pending: retry allocation"
+      },
+      {
+        "locale": "en",
+        "name": "receipt",
+        "text": "Payment preserved; allocation pending: retry allocation"
+      },
+      {
+        "locale": "en",
+        "name": "reference",
+        "text": "Payment preserved; allocation pending: retry allocation"
+      },
+      {
+        "locale": "en",
+        "name": "unknown",
+        "text": "Payment preserved; allocation pending: retry allocation"
+      }
+    ]
+  },
+  "green": {
+    "rows": [
+      {
+        "name": "conflict",
+        "ok": false,
+        "status": 409,
+        "needsReview": true,
+        "released": []
+      },
+      {
+        "name": "needs-review",
+        "ok": false,
+        "status": 422,
+        "needsReview": true,
+        "released": []
+      },
+      {
+        "name": "wrong-ack",
+        "ok": false,
+        "status": 200,
+        "needsReview": false,
+        "released": []
+      },
+      {
+        "name": "success",
+        "ok": true,
+        "released": [
+          "alloc-1",
+          "pay-1"
+        ]
+      },
+      {
+        "name": "payment-conflict",
+        "ok": false,
+        "status": 409,
+        "needsReview": true
+      }
+    ],
+    "msgs": [
+      {
+        "locale": "es",
+        "name": "review",
+        "text": "Conflicto de referencia. Revisa el historial antes de continuar; conserva la referencia original."
+      },
+      {
+        "locale": "es",
+        "name": "receipt",
+        "text": "Pago confirmado; asignación pendiente. Reanuda la misma operación."
+      },
+      {
+        "locale": "es",
+        "name": "reference",
+        "text": "Referencia no guardada; revisa la operación original antes de cobrar."
+      },
+      {
+        "locale": "es",
+        "name": "unknown",
+        "text": "Pago por confirmar. Reanuda con la referencia original y verifica el recibo."
+      },
+      {
+        "locale": "en",
+        "name": "review",
+        "text": "Reference conflict. Review history before continuing; keep the original reference."
+      },
+      {
+        "locale": "en",
+        "name": "receipt",
+        "text": "Payment confirmed; allocation pending. Resume the same operation."
+      },
+      {
+        "locale": "en",
+        "name": "reference",
+        "text": "Reference not saved; review the original operation before charging."
+      },
+      {
+        "locale": "en",
+        "name": "unknown",
+        "text": "Payment unconfirmed. Resume using the original reference and verify the receipt."
+      }
+    ]
+  },
+  "scope": "source-executed UI and HTTP handlers; simulated HTTP/storage/DOM; not native UI"
+}
