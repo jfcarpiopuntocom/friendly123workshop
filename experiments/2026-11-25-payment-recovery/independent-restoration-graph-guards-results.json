@@ -1,0 +1,313 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "prior": "8eb6bdf2103752ab43723af7a13e61a72b08a142",
+  "harness": "d451802c0dba1fc351969abbc5ba5791616a01ce",
+  "rows": [
+    {
+      "name": "duplicate ID contradictory price",
+      "expected": [
+        -25,
+        10,
+        1,
+        0
+      ],
+      "before": [
+        -89,
+        10,
+        0,
+        0
+      ],
+      "beforeReverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        1,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        1,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "duplicate ID identical sale",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "beforeReverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "cross-customer intermediate",
+      "expected": [
+        -25,
+        0,
+        2,
+        1
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "beforeReverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        0,
+        2,
+        1
+      ],
+      "reverse": [
+        -25,
+        0,
+        2,
+        1
+      ],
+      "pass": true
+    },
+    {
+      "name": "cycle",
+      "expected": [
+        10,
+        0,
+        1,
+        1
+      ],
+      "before": [
+        10,
+        0,
+        0,
+        1
+      ],
+      "beforeReverse": [
+        10,
+        0,
+        0,
+        1
+      ],
+      "after": [
+        10,
+        0,
+        1,
+        1
+      ],
+      "reverse": [
+        10,
+        0,
+        1,
+        1
+      ],
+      "pass": true
+    },
+    {
+      "name": "linear history",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "beforeReverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "synthetic historical allocation",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "beforeReverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "ordinary 10/35",
+      "expected": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "before": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "beforeReverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "after": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "reverse": [
+        -25,
+        10,
+        0,
+        0
+      ],
+      "pass": true
+    },
+    {
+      "name": "true fork",
+      "expected": [
+        -60,
+        0,
+        1,
+        1
+      ],
+      "before": [
+        -60,
+        0,
+        1,
+        1
+      ],
+      "beforeReverse": [
+        -60,
+        0,
+        1,
+        1
+      ],
+      "after": [
+        -60,
+        0,
+        1,
+        1
+      ],
+      "reverse": [
+        -60,
+        0,
+        1,
+        1
+      ],
+      "pass": true
+    },
+    {
+      "name": "closed sibling conservative conflict",
+      "expected": [
+        -25,
+        0,
+        1,
+        1
+      ],
+      "before": [
+        -25,
+        0,
+        1,
+        1
+      ],
+      "beforeReverse": [
+        -25,
+        0,
+        1,
+        1
+      ],
+      "after": [
+        -25,
+        0,
+        1,
+        1
+      ],
+      "reverse": [
+        -25,
+        0,
+        1,
+        1
+      ],
+      "pass": true
+    }
+  ]
+}
