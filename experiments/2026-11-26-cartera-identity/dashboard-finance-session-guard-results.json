@@ -1,0 +1,203 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "experiment": "47df7b4fd726ceb9326e55c9694c45a3cf6d6e03",
+  "environment": "V8, DOM/Worker/session simulated",
+  "results": {
+    "prior": [
+      {
+        "kind": "valid",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unauthorized",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "unauthorized",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "switch",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "switch",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "logout",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "logout",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "error after switch",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "error after switch",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "direct unauthorized",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "direct unauthorized",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "direct switch",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "direct switch",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pdf switch",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pdf switch",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      }
+    ],
+    "candidate": [
+      {
+        "kind": "valid",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "valid",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unauthorized",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unauthorized",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "switch",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "switch",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "logout",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "logout",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "error after switch",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "error after switch",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "direct unauthorized",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "direct unauthorized",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "direct switch",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "direct switch",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pdf switch",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pdf switch",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ]
+  }
+}
