@@ -1,0 +1,155 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "candidate": "64f30c1e3ea30cde7a563d45599ae79000b04ac9",
+  "environment": "V8; simulated DOM and Worker",
+  "results": {
+    "prior": [
+      {
+        "kind": "month",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "month",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "cadence",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "cadence",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "group",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "group",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "change back during worker",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "change back during worker",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pending reconciliation",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending reconciliation",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ],
+    "candidate": [
+      {
+        "kind": "month",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "month",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "cadence",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "cadence",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "group",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "group",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "change back during worker",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "change back during worker",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending reconciliation",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending reconciliation",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ]
+  }
+}
