@@ -1,0 +1,56 @@
+name: Workshop commissions lazy directory benchmark
+on:
+  push:
+    branches: [experiment/commissions-lazy-directory-20261127]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    if: github.ref_name == 'experiment/commissions-lazy-directory-20261127' || github.head_ref == 'experiment/commissions-lazy-directory-20261127'
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node --test experiments/commissions-lazy-directory/browser.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: commissions-lazy-browser-results
+          path: commissions-lazy-browser-results.json
+  build-hotfix-artifact:
+    if: github.ref_name == 'experiment/commissions-lazy-directory-20261127' || github.head_ref == 'experiment/commissions-lazy-directory-20261127'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 8fde20542165c8cf671e7ccedc172009c4d0ef24
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate exact source-parity assets (no publish)
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          git diff --stat
+          git diff --binary -- docs/ > /tmp/1118-generated-assets.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr1118-generated-assets-unsealed
+          path: /tmp/1118-generated-assets.patch

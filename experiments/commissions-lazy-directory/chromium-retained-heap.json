@@ -1,0 +1,48 @@
+{
+  "engine": "Chromium 144 native CDP",
+  "scope": "isolated shell with transcribed card/list rendering, 1000 agents; same data loaded before baseline; forced body layout and GC; difference post-render minus pre-render",
+  "samples": 20,
+  "unitHeap": "bytes of retained V8 JS heap only, excludes total browser/native DOM memory and peak memory",
+  "results": [
+    {
+      "variant": "A",
+      "median": {
+        "heap": 128132,
+        "nodes": 23023,
+        "listeners": 2001
+      },
+      "p95": {
+        "heap": 137644,
+        "nodes": 23023,
+        "listeners": 2001
+      }
+    },
+    {
+      "variant": "B",
+      "median": {
+        "heap": 128108,
+        "nodes": 23023,
+        "listeners": 2001
+      },
+      "p95": {
+        "heap": 128132,
+        "nodes": 23023,
+        "listeners": 2001
+      }
+    },
+    {
+      "variant": "C",
+      "median": {
+        "heap": 0,
+        "nodes": -1,
+        "listeners": 0
+      },
+      "p95": {
+        "heap": 180,
+        "nodes": 22,
+        "listeners": 2
+      }
+    }
+  ],
+  "limitations": "CDP Memory.getDOMCounters is browser-wide for target, includes text and other nodes; tiny negative baseline drift from GC, not negative DOM use. No Safari equivalence, peak or crash data."
+}

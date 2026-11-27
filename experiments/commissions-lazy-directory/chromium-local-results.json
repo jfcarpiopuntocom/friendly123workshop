@@ -1,0 +1,84 @@
+{
+  "source": "8fde20542165c8cf671e7ccedc172009c4d0ef24",
+  "browser": "Chromium 144.0.7559.96 Debian, viewport 390x844",
+  "scope": "native DOM with transcribed production card and list renderers, isolated simplified shell; not the full app or original exact-source CI fixture",
+  "iterationsPerCell": 20,
+  "initialMetric": "synchronous shell/list construction before forced layout; opening wall time through toggle, excludes paint; do not compare opening as end-to-end latency",
+  "results": [
+    {
+      "variant": "A",
+      "n": 8,
+      "initialNodes": 64,
+      "p95InitialMs": 1.6,
+      "p95OpenWallMs": 0,
+      "p95ClosedRepaintMs": 0.8
+    },
+    {
+      "variant": "A",
+      "n": 100,
+      "initialNodes": 800,
+      "p95InitialMs": 4.2,
+      "p95OpenWallMs": 0,
+      "p95ClosedRepaintMs": 0.8
+    },
+    {
+      "variant": "A",
+      "n": 1000,
+      "initialNodes": 8000,
+      "p95InitialMs": 26.9,
+      "p95OpenWallMs": 0,
+      "p95ClosedRepaintMs": 0.6
+    },
+    {
+      "variant": "B",
+      "n": 8,
+      "initialNodes": 64,
+      "p95InitialMs": 0.4,
+      "p95OpenWallMs": 0.1,
+      "p95ClosedRepaintMs": 0.2
+    },
+    {
+      "variant": "B",
+      "n": 100,
+      "initialNodes": 800,
+      "p95InitialMs": 2.4,
+      "p95OpenWallMs": 9.3,
+      "p95ClosedRepaintMs": 0.3
+    },
+    {
+      "variant": "B",
+      "n": 1000,
+      "initialNodes": 8000,
+      "p95InitialMs": 22.3,
+      "p95OpenWallMs": 104.8,
+      "p95ClosedRepaintMs": 0.6
+    },
+    {
+      "variant": "C",
+      "n": 8,
+      "initialNodes": 0,
+      "p95InitialMs": 0.1,
+      "p95OpenWallMs": 1,
+      "p95ClosedRepaintMs": 0.2
+    },
+    {
+      "variant": "C",
+      "n": 100,
+      "initialNodes": 0,
+      "p95InitialMs": 0.1,
+      "p95OpenWallMs": 2,
+      "p95ClosedRepaintMs": 0.2
+    },
+    {
+      "variant": "C",
+      "n": 1000,
+      "initialNodes": 0,
+      "p95InitialMs": 0.1,
+      "p95OpenWallMs": 23.8,
+      "p95ClosedRepaintMs": 0.2
+    }
+  ],
+  "checks": "180/180 cycles: native toggle, hidden search via checkVisibility, form outside, independent ranking, search, edit, canceled archive, closed repaint, latest notes after reopen",
+  "testCorrection": "getClientRects length is not a valid visibility test for closed details in Chromium; isolated test first failed then checkVisibility proved hidden. Playwright isVisible also returned false.",
+  "limitations": "No iPhone, WebKit, full CSS, physical memory measurement or crash certification; synthetic fixture only."
+}
