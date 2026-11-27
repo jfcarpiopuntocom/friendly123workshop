@@ -700,6 +700,12 @@
             ? "Algunos consumos pertenecen a otro cliente según las ventas. No pueden asignarse aquí; revisa el historial sin borrar nada."
             : "Some purchases are linked to another customer. They cannot be paid here; review the history without deleting anything.";
         }
+        if (info && info.saldoProvisional) {
+          q("pp-ab-msg").style.color = "#B0183E";
+          q("pp-ab-msg").textContent = es ? "Saldo pendiente de verificación. Revisa el historial antes de asignar el pago." : "Balance pending verification. Review the history before allocating payment.";
+          q("pp-ab-ctx").textContent = "";
+          return;
+        }
         var debe = info && info.saldo < 0 ? -info.saldo : 0;
         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
