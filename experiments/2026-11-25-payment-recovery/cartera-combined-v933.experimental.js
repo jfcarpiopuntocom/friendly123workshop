@@ -372,7 +372,8 @@
     if (!abono) throw new Error("cartera: el abono no pertenece a este cliente");
     var libre = _centavos(abono.sinAsignar), pedido = 0, vistos = Object.create(null), normal = [];
     partes.forEach(function (p) {
-      var ck = String(p && p.cargoKey || ""), n = Number(p && p.monto), cent = Math.round(n * 100);
+      var originalKey = String(p && p.cargoKey || ""), ck = r.aliasesCargoExperimental.get(originalKey) || originalKey;
+      var n = Number(p && p.monto), cent = Math.round(n * 100);
       if (!ck || vistos[ck]) throw new Error("cartera: consumo repetido en la misma asignación");
       vistos[ck] = true;
       var cargo = r.movimientos.find(function (m) {
@@ -384,7 +385,7 @@
         throw new Error("cartera: el monto supera lo que falta pagar de ese consumo");
       }
       pedido += cent;
-      normal.push({ cargoKey: ck, monto: cent / 100 });
+      normal.push({ cargoKey: originalKey, monto: cent / 100 });
     });
     if (!Number.isSafeInteger(pedido) || pedido > libre) {
       throw new Error("cartera: el monto supera lo que queda sin asignar de ese pago");
@@ -415,8 +416,9 @@
         if (proy.conflictosIdentidadExperimental) { var e = new Error('cartera: identidad de movimiento en conflicto'); e.status = 409; throw e; }
         var canon = function(id) { return proy.aliasesAbonoExperimental.get(String(id)) || String(id); };
         var dAnterior = _d(anterior);
-        var previoNormal = Object.assign({}, anterior, { datos: Object.assign({}, dAnterior, { abonoId: canon(dAnterior.abonoId) }) });
-        if (!_mismaAplicacion(previoNormal, clienteId, canon(abonoId), partes)) {
+        var remapParts = function(ps) { return ps.map(function(p){ var k=String(p.cargoKey); return Object.assign({},p,{cargoKey:proy.aliasesCargoExperimental.get(k)||k}); }); };
+        var previoNormal = Object.assign({}, anterior, { datos: Object.assign({}, dAnterior, { abonoId: canon(dAnterior.abonoId), partes:remapParts(_partesAplicacion(dAnterior)) }) });
+        if (!_mismaAplicacion(previoNormal, clienteId, canon(abonoId), remapParts(partes))) {
           var e = new Error("cartera: la referencia pertenece a otra asignación");
           e.status = 409; throw e;
         }
@@ -657,7 +659,7 @@
     return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos,
       conflictosAplicacion: movimientos.conflictosAplicacion || 0,
       conflictosIdentidadExperimental: ambiguous,
-      aliasesAbonoExperimental: aliases,
+      aliasesAbonoExperimental: aliases, aliasesCargoExperimental: saleAliases,
       aplicacionesAceptadas: movimientos.aplicacionesAceptadas || [] };
   }
 
