@@ -1,0 +1,28 @@
+name: Workshop - cross-worker shell pin coherence
+on:
+  push:
+    paths:
+      - 'experiments/2026-11-26-sw-pin-coherence/**'
+      - '.github/workflows/qa-sw-pin-coherence-20261126.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shell-pin-coherence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact-source deterministic RED and GREEN
+        run: node experiments/2026-11-26-sw-pin-coherence/affinity.cjs
+      - name: Install browser test tooling
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+      - name: Native CacheStorage (two independent instances)
+        run: node experiments/2026-11-26-sw-pin-coherence/affinity.cjs --native
