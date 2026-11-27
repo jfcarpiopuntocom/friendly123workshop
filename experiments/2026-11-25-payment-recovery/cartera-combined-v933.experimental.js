@@ -751,8 +751,11 @@
   // que debe — no depende de que cada pantalla nueva se acuerde de ocultarlo.
   function vistaCarteraSegunRol(saldoInfo, rol) {
     var esEmpleado = rol === "empleado";
+    var identidadEnConflicto = Number(saldoInfo.conflictosIdentidadExperimental || 0) > 0;
     return {
       saldo: saldoInfo.saldo,
+      saldoProvisional: identidadEnConflicto,
+      conflictosIdentidadExperimental: saldoInfo.conflictosIdentidadExperimental || 0,
       integridad: saldoInfo.integridad,
       conflictosAplicacion: saldoInfo.conflictosAplicacion || 0,
       tienePendiente: saldoInfo.saldo < 0,
@@ -761,7 +764,7 @@
       historial: esEmpleado ? [] : saldoInfo.movimientos,
       // 2026-10-21 (fiados de Belen): para COBRAR, todo rol necesita ver que consumos
       // siguen abiertos. Solo lo minimo (sin quien registro ni pagos ajenos).
-      consumosPendientes: (saldoInfo.movimientos || []).filter(function (m) {
+      consumosPendientes: (identidadEnConflicto ? [] : (saldoInfo.movimientos || [])).filter(function (m) {
         return m.tipo === "cargo" && (m.estado === "pendiente" || m.estado === "parcial");
       }).map(function (m) {
         return { cargoKey: m.cargoKey, motivo: m.motivo, fecha: m.fecha, monto: m.monto, pendiente: m.pendiente, estado: m.estado };
