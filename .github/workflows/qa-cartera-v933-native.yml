@@ -1,0 +1,25 @@
+name: Workshop - integrated commercial projection and native retry
+on:
+  push:
+    branches: ['experiment/integrated-cartera-queue-20261126']
+    paths:
+      - 'experiments/2026-11-25-payment-recovery/*v933*'
+      - '.github/workflows/qa-cartera-v933-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node experiments/2026-11-25-payment-recovery/native-cartera-v933.test.cjs
