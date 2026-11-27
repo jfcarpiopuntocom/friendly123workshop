@@ -1,0 +1,25 @@
+name: Workshop commissions lazy directory benchmark
+on:
+  push:
+    branches: [experiment/commissions-lazy-directory-20261127]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node --test experiments/commissions-lazy-directory/browser.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: commissions-lazy-browser-results
+          path: commissions-lazy-browser-results.json
