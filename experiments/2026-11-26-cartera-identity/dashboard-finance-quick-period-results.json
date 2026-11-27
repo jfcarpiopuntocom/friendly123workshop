@@ -1,0 +1,159 @@
+{
+  "base": "344e7a448c097231b0f026ebc0dd4c703110944e",
+  "experiment": "977538439ddee94420037cc3ff8467198721cff3",
+  "sourceBlobs": [
+    "5b002b8b8c5f507cb1c78dff32f196de5238d73e",
+    "c82edfe4a008182f20f69536d1a7000ef0b9410f"
+  ],
+  "environment": "V8, finance module and extracted global period controls; simulated DOM/worker",
+  "results": {
+    "prior": [
+      {
+        "kind": "quick",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "quick",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "from",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "from",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "to",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "to",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "change back",
+        "lang": "es",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "change back",
+        "lang": "en",
+        "pass": 0,
+        "total": 20
+      },
+      {
+        "kind": "pending",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ],
+    "candidate": [
+      {
+        "kind": "quick",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "quick",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "from",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "from",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "to",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "to",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "unchanged",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "change back",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "change back",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending",
+        "lang": "es",
+        "pass": 20,
+        "total": 20
+      },
+      {
+        "kind": "pending",
+        "lang": "en",
+        "pass": 20,
+        "total": 20
+      }
+    ]
+  }
+}
