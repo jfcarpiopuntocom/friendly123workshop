@@ -2,11 +2,15 @@ name: Workshop commissions lazy directory benchmark
 on:
   push:
     branches: [experiment/commissions-lazy-directory-20261127]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   benchmark:
+    if: github.ref_name == 'experiment/commissions-lazy-directory-20261127' || github.head_ref == 'experiment/commissions-lazy-directory-20261127'
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
