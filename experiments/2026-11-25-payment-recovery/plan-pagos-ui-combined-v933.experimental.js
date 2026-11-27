@@ -1,0 +1,958 @@
+/*!
+ * plan-pagos-ui.js — friendly-123 · Interfaz de cuotas y abonos
+ * ============================================================================
+ * Fase B del plan (PLAN-cuotas-2026-08-13.md). El motor esta en plan-pagos.js
+ * y este archivo NO calcula nada de dinero: solo pinta lo que el motor deriva.
+ * Si algo de aca se borra, ningun saldo ni ninguna cuota se pierde.
+ *
+ * DONDE VIVE CADA COSA, Y POR QUE (decidido con las reglas de arquitectura de
+ * informacion de NN/g, no por gusto):
+ *
+ *   LA ALERTA va en Hoy. Un contador de cuotas atrasadas en el tablero que el
+ *   dueno abre cada manana. Responde el trabajo diario, "a quien llamo hoy",
+ *   sin costar un boton de menu. Esconderlo seria "el split equivocado": un
+ *   plan de pagos NO es una funcion poco usada.
+ *
+ *   LA GESTION va dentro de Clientes, con un filtro. No hay boton nuevo en el
+ *   menu: cada enlace de navegacion que se agrega empeora las decisiones de
+ *   todos los demas, y un plan de pagos ES una cuenta por cobrar con
+ *   calendario, no una seccion aparte.
+ *
+ * COPY (research de cobranza, 2026-08-13): el aviso se encuadra como un olvido,
+ * nunca como una falta. "No ha llegado la cuota", jamas "usted no pago". Y los
+ * recordatorios se espacian; esta UI no repite nada a diario.
+ *
+ * NARANJA, NO ROJO: el rojo tiene significado en el semaforo Simon, es
+ * emergencia de stock. Un cliente atrasado es "urgente, pronto", que en el
+ * lenguaje de esta app es naranja. NO cambiar a rojo.
+ * ============================================================================
+ */
+(function (global) {
+  "use strict";
+
+  var COLORES = {
+    al_dia:     { bg: "#00C87A", txt: "on track" },
+    adelantado: { bg: "#00C87A", txt: "ahead" },
+    atrasado:   { bg: "#E86040", txt: "behind" },
+    /* The plan is done: nothing is owed. No more payments get announced. */
+    cumplido:   { bg: "#00C87A", txt: "paid off" }
+  };
+
+  var css = document.createElement("style");
+  css.textContent = "" +
+    "#pp-hoy{display:none;margin:0 0 14px;padding:14px 16px;border-radius:14px;background:#FFF1EC;border-left:5px solid #E86040;}" +
+    "#pp-hoy.hay{display:block;}" +
+    "#pp-hoy .t{font-size:17px;font-weight:800;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;margin:0 0 4px;}" +
+    "#pp-hoy .s{font-size:15px;line-height:1.5;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;margin:0 0 10px;}" +
+    "#pp-hoy button{min-height:44px;padding:10px 18px;border:none;border-radius:10px;background:#E86040;" +
+      "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:15px;cursor:pointer;}" +
+    ".pp-chip{display:inline-block;font-size:14px;font-weight:700;padding:6px 12px;border-radius:8px;" +
+      "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}" +
+    "#pp-ab-consumos .pp-chip{color:#19354B !important;-webkit-text-fill-color:#19354B !important;}" +
+    "#pp-ab-consumos .pp-chip.pp-chip-on{background:#19354B !important;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}" +
+    ".pp-prox{display:block;font-size:14px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;margin-top:6px;}" +
+    "#pp-filtro{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}" +
+    "#pp-filtro button{min-height:44px;padding:10px 16px;border:2px solid #E2E8ED;border-radius:10px;background:#FFFFFF;" +
+      "font-size:14px;font-weight:700;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;}" +
+    "#pp-filtro button.on{background:#0F1923;border-color:#0F1923;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}" +
+    ".pp-modal{position:fixed;inset:0;z-index:9998;background:rgba(15,25,35,.82);display:flex;align-items:center;" +
+      "justify-content:center;padding:20px;overflow-y:auto;}" +
+    ".pp-caja{background:#FFFFFF;border-radius:16px;padding:24px 20px;max-width:440px;width:100%;margin:auto;}" +
+    ".pp-caja h3{font-size:20px;font-weight:800;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;margin:0 0 14px;}" +
+    ".pp-fg{margin-bottom:14px;}" +
+    ".pp-fg label{display:block;font-size:14px;font-weight:700;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;margin-bottom:6px;}" +
+    ".pp-fg input,.pp-fg select{width:100%;min-height:44px;padding:10px 12px;border:2px solid #E2E8ED;border-radius:10px;" +
+      "font-size:16px;background:#FFFFFF;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}" +
+    ".pp-check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px;font-weight:700;" +
+      "color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;}" +
+    ".pp-check input{width:22px;height:22px;}" +
+    ".pp-resumen{font-size:15px;line-height:1.5;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;" +
+      "background:#F8F9FB;border-left:4px solid #00C87A;border-radius:0 8px 8px 0;padding:12px 14px;margin:0 0 14px;}" +
+    ".pp-btn{width:100%;min-height:48px;padding:12px;border:none;border-radius:12px;background:#E86040;" +
+      "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;}" +
+    ".pp-btn.gris{background:#FFFFFF;border:2px solid #E2E8ED;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;margin-top:10px;}" +
+    ".pp-msg{font-size:15px;font-weight:700;margin:10px 0 0;}" +
+    ".pp-anular{display:block;margin-top:8px;min-height:44px;padding:8px 14px;border:2px solid #E2E8ED;" +
+      "border-radius:10px;background:#FFFFFF;font-size:14px;font-weight:700;" +
+      "color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;}";
+  document.head.appendChild(css);
+
+  /* Formateador PLANO, a proposito. El fmtMoney() de index.html devuelve un
+     <span> con markup, y este modulo pinta con textContent: usarlo mostraria
+     la etiqueta cruda en pantalla. */
+  function fmt(n) {
+    return "$" + (Number(n) || 0).toFixed(2);
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  /* API es un const en el scope de index.html, invisible desde aca. Se replica
+     la unica constante que hace falta en vez de exportarla y arriesgar que
+     alguien la reasigne desde fuera. */
+  var API = "/api";
+
+  function esDueno() {
+    try {
+      var r = global.OCAuth && global.OCAuth.rolActual && global.OCAuth.rolActual();
+      return r === "dueno" || r === "admin";
+    } catch (_) { return false; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // B1 y B4 · el chip del cliente dice el estado, y la proxima cuota en palabras
+  // ---------------------------------------------------------------------------
+  /* Se engancha DESPUES de pintarSaldoCartera (index.html) en vez de
+     reemplazarla: si este archivo no carga, el saldo se sigue viendo igual. */
+  function adornar(clienteId) {
+    var el = document.getElementById("cartera-" + clienteId);
+    if (!el || !global.AMG || !global.AMG.PlanPagos) return;
+    // La casilla de avisarme manda: si esta apagada, no se anuncia nada.
+    var avisar = true;
+    try { avisar = global.AMG.Cartera ? global.AMG.Cartera.alertaActiva(clienteId) : true; } catch (_) {}
+    global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
+      if (!e.hayPlan) return;
+      if (document.getElementById("pp-chip-" + clienteId)) return;
+      var c = COLORES[e.estado] || COLORES.al_dia;
+      var extra = e.diferencia < 0 ? " " + fmt(-e.diferencia) : (e.diferencia > 0 ? " " + fmt(e.diferencia) : "");
+      var s = document.createElement("span");
+      if (avisar || e.estado !== "atrasado") {
+        s.id = "pp-chip-" + clienteId;
+        s.className = "pp-chip";
+        s.style.background = c.bg;
+        s.style.marginLeft = "8px";
+        s.textContent = c.txt + extra;
+        el.appendChild(s);
+      }
+      if (e.proximoVencimiento) {
+        var p = document.createElement("span");
+        p.className = "pp-prox";
+        p.textContent = "Next payment: " + fmt(e.montoCuota) + " on " +
+          global.AMG.PlanPagos.fechaEnPalabras(e.proximoVencimiento);
+        el.appendChild(p);
+      }
+      /* Cancel the agreement. Owner only, same as recording credit: an employee
+         does not renegotiate. The engine does NOT delete the old plan, it emits
+         plan_pago_anulado, so the history shows there was a renegotiation
+         instead of hiding it. And the balance is untouched: cancelling an
+         agreement does not forgive a debt. */
+      if (esDueno()) {
+        var b = document.createElement("button");
+        b.className = "pp-anular";
+        b.type = "button";
+        b.textContent = "Change the plan";
+        b.addEventListener("click", function () { modalAnular(clienteId); });
+        el.appendChild(b);
+      }
+    }).catch(function () {});
+  }
+
+  var original = global.pintarSaldoCartera;
+  if (typeof original === "function") {
+    global.pintarSaldoCartera = function (clienteId) {
+      var r = original.apply(this, arguments);
+      Promise.resolve(r).then(function () { adornar(clienteId); }).catch(function () {});
+      return r;
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // B2 · acordar el plan en el mismo momento en que se fia
+  // ---------------------------------------------------------------------------
+  /* Reemplaza el prompt() del fiado por un modal de verdad. El plan se acuerda
+     cuando se fia, en la vida real: ponerlo en otra pantalla garantiza que
+     nadie lo use. */
+  function modalFiar(clienteId, nombre) {
+    if (document.getElementById("pp-modal-fiar")) return;
+    var m = document.createElement("div");
+    m.className = "pp-modal";
+    m.id = "pp-modal-fiar";
+    m.innerHTML =
+      '<div class="pp-caja">' +
+        '<h3>Record credit for ' + esc(nombre) + '</h3>' +
+        '<div class="pp-fg"><label for="pp-monto">How much</label>' +
+          '<input id="pp-monto" type="number" inputmode="decimal" min="0" step="any"></div>' +
+        '<div class="pp-fg"><label for="pp-motivo">Reason (optional)</label>' +
+          '<input id="pp-motivo" type="text" autocomplete="off"></div>' +
+        '<label class="pp-check"><input type="checkbox" id="pp-conplan"> Set up a payment plan</label>' +
+        '<div id="pp-campos" style="display:none;margin-top:12px;">' +
+          '<div class="pp-fg"><label for="pp-cuotas">Number of payments</label>' +
+            '<input id="pp-cuotas" type="number" inputmode="numeric" min="1" step="1" value="3"></div>' +
+          '<div class="pp-fg"><label for="pp-frec">How often</label>' +
+            '<select id="pp-frec"><option value="mensual">Monthly</option>' +
+            '<option value="quincenal">Every two weeks</option>' +
+            '<option value="semanal">Weekly</option></select></div>' +
+          '<div class="pp-fg"><label for="pp-desde">First payment due</label>' +
+            '<input id="pp-desde" type="date"></div>' +
+          '<div class="pp-fg"><label for="pp-gracia">Start warning after how many days late</label>' +
+            '<input id="pp-gracia" type="number" inputmode="numeric" min="0" step="1" value="0"></div>' +
+          '<p class="pp-resumen" id="pp-resumen"></p>' +
+        '</div>' +
+        '<button type="button" class="pp-btn" id="pp-ok">Record</button>' +
+        '<button type="button" class="pp-btn gris" id="pp-cancel">Cancel</button>' +
+        '<p class="pp-msg" id="pp-msg"></p>' +
+      '</div>';
+    document.body.appendChild(m);
+
+    var $ = function (id) { return m.querySelector("#" + id); };
+    var hoy = new Date();
+    $("pp-desde").value = new Date(hoy.getTime() - hoy.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+    function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
+    function onKey(ev) { if (ev.key === "Escape" || ev.key === "Esc") { ev.stopPropagation(); cerrar(); } }
+    document.addEventListener("keydown", onKey, true);
+    m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
+    $("pp-cancel").addEventListener("click", cerrar);
+
+    function resumir() {
+      var total = Number($("pp-monto").value) || 0;
+      var n = Math.max(1, Math.floor(Number($("pp-cuotas").value) || 1));
+      if (!(total > 0)) { $("pp-resumen").textContent = "Enter the amount first."; return; }
+      var cuota = total / n;
+      var cada = { mensual: "a month", quincenal: "every two weeks", semanal: "a week" }[$("pp-frec").value];
+      $("pp-resumen").textContent = n + " payments of " + fmt(cuota) + " " + cada + ".";
+    }
+    ["pp-monto", "pp-cuotas", "pp-frec"].forEach(function (id) {
+      $(id).addEventListener("input", resumir);
+      $(id).addEventListener("change", resumir);
+    });
+    $("pp-conplan").addEventListener("change", function () {
+      $("pp-campos").style.display = this.checked ? "block" : "none";
+      if (this.checked) resumir();
+    });
+
+    var planYaRegistrado = false; /* true cuando el cargo ya se asento pero el plan fallo */
+    $("pp-ok").addEventListener("click", function (ev) {
+      var btn = ev.currentTarget;
+      if (btn.disabled || planYaRegistrado) return;
+      btn.disabled = true;
+      setTimeout(function () { btn.disabled = planYaRegistrado; }, 1000);
+      var msg = $("pp-msg");
+      var monto = Number($("pp-monto").value);
+      if (!(monto > 0)) { msg.style.color = "#B0183E"; msg.textContent = "The amount must be greater than zero."; return; }
+      var conPlan = $("pp-conplan").checked;
+      var motivo = $("pp-motivo").value || "";
+
+      /* HUECO LUIS (2026-08-13): validar el plan ANTES de tocar el dinero.
+         Antes se cobraba primero y se validaba despues, asi que un campo vacio
+         dejaba el cargo hecho, un error tecnico en pantalla, y cada reintento
+         volvia a fiar. Aca no se toca un centavo hasta que el plan cierre. */
+      var nCuotas = 0, fechaPlan = null;
+      if (conPlan) {
+        nCuotas = Math.floor(Number($("pp-cuotas").value));
+        if (!(nCuotas >= 1)) {
+          msg.style.color = "#B0183E";
+          msg.textContent = "Enter how many payments, at least one.";
+          return;
+        }
+        fechaPlan = new Date(($("pp-desde").value || "") + "T00:00:00");
+        if (isNaN(fechaPlan.getTime())) {
+          msg.style.color = "#B0183E";
+          msg.textContent = "Pick the date of the first payment.";
+          return;
+        }
+      }
+
+      /* El cargo va PRIMERO y el plan despues, a proposito: si el plan falla,
+         la deuda igual quedo registrada. Al reves se perderia el dinero. */
+      fetch(API + "/clientes/" + clienteId + "/fiar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ monto: monto, motivo: motivo })
+      }).then(function (r) { return r.json(); }).then(function (r) {
+        if (r && r.error) throw new Error(r.error);
+        if (!conPlan) return null;
+        return global.AMG.PlanPagos.crearPlan(clienteId, {
+          montoTotal: monto,
+          numCuotas: nCuotas,
+          frecuencia: $("pp-frec").value,
+          primerVencimiento: fechaPlan,
+          avisarDesdeDias: Math.max(0, Number($("pp-gracia").value) || 0),
+          motivo: motivo
+        });
+      }).then(function () {
+        cerrar();
+        if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
+        refrescarHoy();
+      }).catch(function (e) {
+        /* If we got here after the charge already went through, retrying would
+           record the credit twice. Close the modal and tell the whole truth. */
+        /* v736 (JFC 2026-11-11): ya NO es un alert nativo bloqueante. El MISMO texto va en la
+           linea #pp-msg del propio modal. El modal queda abierto y "Record" bloqueado
+           (planYaRegistrado) para que nadie fie dos veces; "Cancel" lo cierra. */
+        planYaRegistrado = true;
+        if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
+        refrescarHoy();
+        msg.style.color = "#B0183E";
+        msg.textContent = "The credit was recorded, but the payment plan could not be saved. " +
+          "You can set it up later. (" + ((e && e.message) || "error") + ")";
+      });
+    });
+
+    $("pp-monto").focus();
+  }
+  global.fiarCliente = modalFiar;
+
+  /* Abonar tambien pasa a modal. Con prompt() no se puede mostrar cuanto debe
+     ni cuanto falta para la cuota, que es justo lo que hace falta saber en el
+     momento de recibir la plata. Y desentonaba con el modal de fiar. */
+  // The payment write-ahead reference is mandatory: if browser storage is full,
+  // never send money and never expose a raw QuotaExceededError to the customer.
+  // A confirmed receipt is a DIFFERENT state: it must never claim "no payment".
+  function guardarReferenciaPago(clave, dato, cobroConfirmado) {
+    var txt = JSON.stringify(dato);
+    try {
+      localStorage.setItem(clave, txt);
+      if (localStorage.getItem(clave) !== txt) throw new Error("write/readback mismatch");
+    } catch (_) {
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      var e = new Error(cobroConfirmado
+        ? (es ? "Pago posiblemente registrado; falta guardar su asignación. No lo cobres de nuevo. Conserva el historial y avisa al responsable." : "Payment may be recorded; its allocation could not be saved. Do not charge again. Preserve the history and contact the owner.")
+        : (es ? "No se envió este pago: el almacenamiento del navegador está lleno. No reintentes ni borres datos; avisa al responsable." : "This payment was not sent: browser storage is full. Do not retry or clear data; contact the owner."));
+      e.codigo = "F123_REFERENCIA_PAGO_NO_GUARDADA";
+      e.cobroConfirmado = !!cobroConfirmado;
+      throw e;
+    }
+  }
+  // P0 Belén / Safari QuotaExceeded: payment intents live in transactional IDB.
+  // Never infer a customer account from a stale key in another notebook.
+  // The store contains a hash of the active business+device identity, not PINs.
+  function _pagoAutorizarCobro() {
+    // Hermes P0: this guard must run even on the pre-v792 localStorage fallback.
+    // Missing IndexedDB, WebCrypto or notebook metadata is NOT a role grant.
+    var r = global.OCAuth && global.OCAuth.rolActual && global.OCAuth.rolActual();
+    if (r !== "dueno" && r !== "admin" && r !== "empleado") {
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      throw new Error(es
+        ? "Tu rol no está autorizado para registrar fiados o abonos. Pide al dueño o administrador que lo realice."
+        : "Your role is not authorized to record credit or payments. Ask the owner or an admin.");
+    }
+  }
+  function _pagoIdentidad() {
+    var owned;
+    try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) { return null; }
+    if (!owned || !owned.licenseCode || !owned.instanceId) return null;
+    // The active notebook, not f123_owned, owns the money. A joined device may
+    // retain a different commercial owner license in f123_owned.
+    var licenciaPropia = String(owned.licenseCode).trim().toUpperCase().replace(/\s+/g, "");
+    var tienda = global.OCTienda;
+    var licencia = tienda && typeof tienda.licenciaActual === "function"
+      ? String(tienda.licenciaActual() || "").trim().toUpperCase().replace(/\s+/g, "")
+      : (localStorage.getItem("f123_tienda_activa") ? "" : licenciaPropia);
+    var instancia = String(owned.instanceId);
+    if (!licencia || !/^[A-Za-z0-9_-]{6,128}$/.test(instancia))
+      throw new Error("Identidad del cuaderno activo no certificada; conserva el pago para revisar.");
+    var rol = global.OCAuth && global.OCAuth.rolActual && global.OCAuth.rolActual();
+    if (rol !== "dueno" && rol !== "admin" && rol !== "empleado")
+      throw new Error("Sesión de tienda no autorizada; conserva el pago para revisar.");
+    return { identidad: licencia + "\u0000" + instancia, rol: rol,
+      // Legacy localStorage payment references were not scoped to a license;
+      // an old reference cannot prove which shop owns it after a join/switch.
+      legacyAmbiguo: licencia !== licenciaPropia };
+  }
+  async function _pagoIDB() {
+    _pagoAutorizarCobro(); // authorize BEFORE falling back to localStorage
+    if (!global.indexedDB || !global.crypto || !global.crypto.subtle) return null;
+    var activo = _pagoIdentidad();
+    if (!activo) return null; // historical/local-only installs retain their old path
+    var bytes = new TextEncoder().encode("f123-credit-intent-v1:" + activo.identidad);
+    var hash = new Uint8Array(await global.crypto.subtle.digest("SHA-256", bytes));
+    var namespace = Array.from(hash, function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+    var modulo = await import("./pago-intento-idb.mjs");
+    return { tienda: activo.identidad, rol: activo.rol,
+      legacyAmbiguo: activo.legacyAmbiguo,
+      store: modulo.createPaymentIntentStore({indexedDB: global.indexedDB, namespace: namespace}) };
+  }
+  function _pagoMismaSesion(ctx) {
+    if (!ctx) return;
+    var ahora = _pagoIdentidad();
+    if (!ahora || ahora.identidad !== ctx.tienda || ahora.rol !== ctx.rol)
+      throw new Error("La sesión de esta tienda cambió; no reintentes el cobro con otra identidad.");
+  }
+  function _pagoSinRecibo(dato) {
+    var copia = Object.assign({}, dato);
+    delete copia.abonoId;
+    return JSON.stringify(copia);
+  }
+  function _pagoCompatibles(a, b) {
+    return a && b && a.opId === b.opId && _pagoSinRecibo(a) === _pagoSinRecibo(b) &&
+      (!a.abonoId || !b.abonoId || a.abonoId === b.abonoId);
+  }
+  async function leerReferenciaDurable(clienteId, tipo) {
+    var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
+    var ctx = await _pagoIDB();
+    if (!ctx) return legacy;
+    _pagoMismaSesion(ctx);
+    var idb = await ctx.store.get({clientId: clienteId, kind: tipo});
+    _pagoMismaSesion(ctx);
+    if (legacy && ctx.legacyAmbiguo)
+      throw new Error("Payment intent conflict: referencia histórica sin licencia verificable.");
+    if (legacy && idb && !_pagoCompatibles(legacy, idb))
+      throw new Error("Payment intent conflict: una referencia anterior necesita revisión antes de cobrar.");
+    return idb && idb.abonoId ? idb : (legacy || idb);
+  }
+  async function guardarReferenciaPagoDurable(clave, dato, cobroConfirmado, clienteId, tipo) {
+    var ctx;
+    try {
+      ctx = await _pagoIDB();
+      if (!ctx) { guardarReferenciaPago(clave, dato, cobroConfirmado); return null; }
+      _pagoMismaSesion(ctx);
+      var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
+      if (legacy && ctx.legacyAmbiguo)
+        throw new Error("Payment intent conflict: legacy reference belongs to an unknown notebook.");
+      if (legacy && !_pagoCompatibles(legacy, dato))
+        throw new Error("Payment intent conflict: referencia local diferente.");
+      var existente = await ctx.store.get({clientId: clienteId, kind: tipo});
+      if (!existente) await ctx.store.putIfAbsent({clientId: clienteId, kind: tipo, value: dato});
+      else if (existente.opId !== dato.opId || !_pagoCompatibles(existente, dato))
+        throw new Error("Payment intent conflict: original opId o recibo no coincide.");
+      else if (JSON.stringify(existente) !== JSON.stringify(dato)) {
+        if (existente.abonoId && !dato.abonoId) {
+          // Another tab already confirmed a receipt; never reverse that proof.
+          throw new Error("Payment intent conflict: recibo confirmado en otra pestaña.");
+        }
+        await ctx.store.replaceIfOp({clientId: clienteId, kind: tipo,
+          expectedOpId: dato.opId, value: dato});
+      }
+      var comprobado = await ctx.store.get({clientId: clienteId, kind: tipo});
+      if (!comprobado || JSON.stringify(comprobado) !== JSON.stringify(dato))
+        throw new Error("Payment intent conflict: no durable readback.");
+      _pagoMismaSesion(ctx);
+      return ctx;
+    } catch (error) {
+      if (error && error.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") throw error;
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      var msg = cobroConfirmado
+        ? (es ? "Pago confirmado; su asignación sigue pendiente. No cobres de nuevo." :
+          "Payment confirmed; allocation remains pending. Do not charge again.")
+        : (es ? "No se envió el pago: su referencia no pudo guardarse. No borres datos." :
+          "Payment not sent: durable reference unavailable. Do not clear data.");
+      var e = new Error(msg + " (" + ((error && error.message) || "persistence") + ")");
+      e.codigo = "F123_REFERENCIA_PAGO_NO_GUARDADA";
+      e.cobroConfirmado = !!cobroConfirmado;
+      throw e;
+    }
+  }
+  async function _pagoLiberarReferencia(clave, clienteId, tipo, opId, ctx) {
+    try {
+      if (!ctx) ctx = await _pagoIDB();
+      if (ctx) {
+        _pagoMismaSesion(ctx);
+        await ctx.store.removeIfOp({kind: tipo, clientId: clienteId, expectedOpId: opId});
+      }
+    } catch (_) { /* a confirmed receipt is still confirmed; preserve pending IDB */ }
+    try {
+      var raw = localStorage.getItem(clave);
+      if (raw && JSON.parse(raw).opId === opId) localStorage.removeItem(clave);
+    } catch (_) { /* legacy cleanup best effort, never revoke receipt */ }
+  }
+
+  function claveAbono(clienteId) { return 'f123_customer_payment_intent_v1:' + clienteId; }
+  function abonoPendiente(clienteId) {
+    var txt = localStorage.getItem(claveAbono(clienteId));
+    return txt ? JSON.parse(txt) : null;
+  }
+  // Save the intention before submitting. An uncertain response keeps this exact
+  // key across reload; confirming it rereads the receipt rather than receiving
+  // the same money twice. Payment and general/item credit share this boundary.
+  global.ocEnviarAbono = async function (clienteId, monto, motivo, opciones) {
+    _pagoAutorizarCobro();
+    var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
+    var payload = { monto: Number(Number(monto).toFixed(2)), motivo: String(motivo || '').slice(0,300) };
+    if (!Number.isSafeInteger(Math.round(payload.monto * 100)) || !(payload.monto > 0)) throw new Error(es ? 'Ingresa un importe válido de al menos un centavo.' : 'Enter a valid amount of at least one cent.');
+    var key = claveAbono(clienteId), previo = await leerReferenciaDurable(clienteId, "payment");
+    // A different allocation is still awaiting confirmation for this customer.
+    // Direct/unassigned payments must not silently overtake that receipt.
+    if (!(opciones && opciones.opId) && await leerReferenciaDurable(clienteId, "allocation"))
+      throw new Error(es ? "Existe una asignación anterior pendiente. Reanúdala antes de otro pago." :
+        "A previous allocation is pending. Resume it before another payment.");
+    var intencionId = opciones && opciones.opId ? String(opciones.opId) : "";
+    if (intencionId && (intencionId.length > 160 || !intencionId.trim())) throw new Error("Invalid payment reference.");
+    if (previo && (previo.monto !== payload.monto || previo.motivo !== payload.motivo ||
+        (intencionId && previo.opId !== intencionId))) {
+      throw new Error(es ? 'Hay un pago anterior por confirmar. Revisa y confirma ese mismo importe antes de registrar otro.' : 'An earlier payment needs confirmation. Review and confirm that same amount before recording another.');
+    }
+    if (!previo) {
+      payload.opId = intencionId || ('customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)));
+    } else payload = previo;
+    // The intent MUST be readable from durable storage before a financial POST.
+    var contextoPago = await guardarReferenciaPagoDurable(key, payload, false, clienteId, "payment");
+    _pagoMismaSesion(contextoPago);
+    _pagoAutorizarCobro(); // role may have changed while async IDB intent persisted
+    var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    var result = await response.json();
+    if (!response.ok || result.error) { var e = new Error(result.error || 'Could not confirm the payment.'); e.status = response.status; throw e; }
+    if (result.opId !== payload.opId || !result.movimientoId) throw new Error(es ? 'El pago no está confirmado. Conserva este importe para revisarlo.' : 'The payment is not confirmed. Keep this amount for review.');
+    if (!(opciones && opciones.conservarIntencion))
+      await _pagoLiberarReferencia(key, clienteId, "payment", payload.opId, contextoPago);
+    return result;
+  };
+  /* A confirmed payment must never be repeated to retry its allocation. */
+  function claveAsignacion(clienteId) { return "f123_customer_allocation_intent_v1:" + clienteId; }
+  function leerAsignacion(clienteId) {
+    var txt = localStorage.getItem(claveAsignacion(clienteId));
+    if (!txt) return null;
+    var dato = JSON.parse(txt);
+    if (!dato || (!dato.abonoId && !dato.paymentOpId) || !dato.opId ||
+        !Number.isFinite(Number(dato.monto)) || !(Number(dato.monto) > 0) ||
+        !Array.isArray(dato.partes) || !dato.partes.length) {
+      throw new Error("Saved allocation requires review.");
+    }
+    return dato;
+  }
+  async function confirmarAsignacion(clienteId, dato, contextoPago) {
+    _pagoMismaSesion(contextoPago);
+    var res = await fetch(API + "/clientes/" + clienteId + "/aplicar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ abonoId: dato.abonoId, partes: dato.partes, opId: dato.opId })
+    });
+    var respuesta = await res.json().catch(function () { return {}; });
+    if (!res.ok || respuesta.error || !respuesta.aplicacionId || respuesta.opId !== dato.opId) {
+      var e = new Error(respuesta.error || "Payment saved; allocation pending confirmation."); e.status = res.status; throw e;
+    }
+    // Only a verified business allocation receipt can retire the intent.
+    await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", dato.opId, contextoPago);
+    if (dato.paymentOpId)
+      await _pagoLiberarReferencia(claveAbono(clienteId), clienteId, "payment", dato.paymentOpId, contextoPago);
+    return respuesta;
+  }
+  async function reanudarAsignacion(clienteId, dato) {
+    var contextoPago = await guardarReferenciaPagoDurable(
+      claveAsignacion(clienteId), dato, !!dato.abonoId, clienteId, "allocation");
+    if (!dato.abonoId) {
+      if (!dato.paymentOpId) throw new Error("Missing original payment reference. Review history; do not pay again.");
+      var r = await global.ocEnviarAbono(clienteId, dato.monto, dato.motivo || "Abono",
+        { opId: dato.paymentOpId, conservarIntencion: true });
+      if (!r || !r.movimientoId) throw new Error("Payment receipt not confirmed. Retry with the same reference.");
+      dato.abonoId = String(r.movimientoId);
+      contextoPago = await guardarReferenciaPagoDurable(
+        claveAsignacion(clienteId), dato, true, clienteId, "allocation");
+    }
+    return confirmarAsignacion(clienteId, dato, contextoPago);
+  }
+  function modalAbonar(clienteId, nombre) {
+    _pagoAutorizarCobro(); // no modal for accounting-only / artist roles
+    if (document.getElementById("pp-modal-abono")) return;
+    var m = document.createElement("div");
+    m.className = "pp-modal";
+    m.id = "pp-modal-abono";
+    m.innerHTML =
+      '<div class="pp-caja">' +
+        '<h3>Record a payment</h3>' +
+        '<p class="pp-resumen" id="pp-ab-ctx">Loading...</p>' +
+        '<div class="pp-fg"><label for="pp-ab-monto">Payment amount</label>' +
+          '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0.01" step="any">' +
+          '<p id="pp-ab-partial-hint" style="font-size:13px;margin:6px 0 0;">You can pay part of the amount owed, e.g. $10 of $35.</p>' +
+          '<button type="button" id="pp-ab-change" class="pp-anular" style="display:none;">Change amount before payment</button></div>' +
+        /* 2026-10-21 (fiados de Belen, decision JFC): quien cobra toca los consumos que se pagan.
+           Sin seleccion, el pago queda «sin asignar» (nunca se reparte solo). */
+        '<div class="pp-fg" id="pp-ab-consumos-wrap" style="display:none;"><label id="pp-ab-consumos-lbl"></label>' +
+          '<div id="pp-ab-consumos" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div></div>' +
+        '<button type="button" class="pp-btn" id="pp-ab-ok">Record payment</button>' +
+        '<button type="button" class="pp-btn gris" id="pp-ab-cancel">Cancel</button>' +
+        '<p class="pp-msg" id="pp-ab-msg"></p>' +
+      '</div>';
+    document.body.appendChild(m);
+    var q = function (id) { return m.querySelector("#" + id); };
+    var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
+    q("pp-ab-partial-hint").textContent = es ? "Puedes abonar una parte, por ejemplo $10 de $35." : "You can pay part of the balance, e.g. $10 of $35.";
+    var montoEditadoPorOperador = false;
+    q("pp-ab-monto").addEventListener("input", function () { montoEditadoPorOperador = true; });
+    var anterior = null, pendienteAsignacion = null, referenciaLocalValida = true;
+    var consumosCargados = [];
+    try { anterior = abonoPendiente(clienteId); } catch (_) { referenciaLocalValida = false; }
+    try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
+      referenciaLocalValida = false;
+      q("pp-ab-msg").textContent = (e && e.message) || "Saved allocation requires review.";
+      q("pp-ab-ok").disabled = true;
+    }
+    if (pendienteAsignacion) {
+      q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
+      q("pp-ab-monto").disabled = true;
+      q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
+      q("pp-ab-msg").textContent = pendienteAsignacion.abonoId
+        ? (es ? "Pago confirmado. Solo falta asignarlo; no se cobrará otra vez." : "Payment confirmed. Only allocation remains; no new payment.")
+        : (es ? "Operación interrumpida. Se comprobará el pago con su referencia original; no se duplicará." : "Interrupted operation. Original payment reference will be reused, never duplicated.");
+    } else if (anterior) {
+      q('pp-ab-monto').value = Number(anterior.monto).toFixed(2);
+      q('pp-ab-msg').textContent = es ? 'Pago anterior por confirmar. Confirma el mismo importe; no se registrará dos veces.' : 'An earlier payment needs confirmation. Confirm the same amount; it will not be recorded twice.';
+    }
+
+    // Async IDB hydration must finish before the user can attempt a payment.
+    // A stale/foreign legacy reference and an IDB reference are never merged by guess.
+    q("pp-ab-ok").disabled = true;
+    Promise.all([leerReferenciaDurable(clienteId, "payment"),
+      leerReferenciaDurable(clienteId, "allocation")]).then(function (refs) {
+      if (!referenciaLocalValida) throw new Error("La referencia anterior requiere revisión.");
+      anterior = refs[0]; pendienteAsignacion = refs[1];
+      // An allocation intent alone is safe to replace only if the mandatory
+      // PAYMENT write-ahead reference was never persisted. Once a payment
+      // intent exists, its old opId must be reconciled, never changed to $10.
+      if (pendienteAsignacion && !anterior && !pendienteAsignacion.abonoId) {
+        q("pp-ab-change").style.display = "";
+        q("pp-ab-change").textContent = es ? "Cambiar importe antes del cobro" : "Change amount before payment";
+      }
+      if (pendienteAsignacion) {
+        q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
+        q("pp-ab-monto").disabled = true;
+        q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
+        q("pp-ab-msg").textContent = pendienteAsignacion.abonoId
+          ? (es ? "Pago confirmado; solo queda asignarlo." : "Payment confirmed; only allocation remains.")
+          : (es ? "Operación anterior pendiente: mismo cobro y referencia." :
+            "Pending operation: original payment reference will be reused.");
+      } else if (anterior) {
+        q("pp-ab-monto").value = Number(anterior.monto).toFixed(2);
+        q("pp-ab-msg").textContent = es ? "Pago anterior por confirmar; se usará su referencia." :
+          "An earlier payment will use its original reference.";
+      }
+      q("pp-ab-ok").disabled = false;
+    }).catch(function (error) {
+      q("pp-ab-msg").style.color = "#B0183E";
+      q("pp-ab-msg").textContent = (error && error.message) || "Storage reference unavailable.";
+      q("pp-ab-ok").disabled = true;
+    });
+    function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
+    function onKey(ev) { if (ev.key === "Escape" || ev.key === "Esc") { ev.stopPropagation(); cerrar(); } }
+    document.addEventListener("keydown", onKey, true);
+    m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
+    q("pp-ab-cancel").addEventListener("click", cerrar);
+    q("pp-ab-change").addEventListener("click", async function () {
+      var btn = q("pp-ab-change");
+      btn.disabled = true;
+      try {
+        _pagoAutorizarCobro();
+        if (!pendienteAsignacion || pendienteAsignacion.abonoId ||
+            await leerReferenciaDurable(clienteId, "payment"))
+          throw new Error(es ? "El cobro anterior necesita revisión antes de cambiar su importe." :
+            "The original payment requires review before changing its amount.");
+        await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", pendienteAsignacion.opId);
+        if (await leerReferenciaDurable(clienteId, "allocation"))
+          throw new Error(es ? "No se pudo confirmar la cancelación de la intención anterior." :
+            "Could not confirm removal of the unsent allocation intent.");
+        pendienteAsignacion = null;
+        q("pp-ab-monto").disabled = false;
+        q("pp-ab-monto").value = "";
+        montoEditadoPorOperador = false;
+        q("pp-ab-ok").textContent = es ? "Registrar abono" : "Record payment";
+        q("pp-ab-msg").textContent = es ? "Escribe el importe parcial y selecciona la compra." :
+          "Enter the partial amount and select its purchase.";
+        btn.style.display = "none";
+        pintarConsumos(consumosCargados);
+        q("pp-ab-monto").focus();
+      } catch (e) {
+        q("pp-ab-msg").style.color = "#B0183E";
+        q("pp-ab-msg").textContent = (e && e.message) || "Payment reference needs review.";
+      } finally { btn.disabled = false; }
+    });
+
+    // Orden en que quien cobra toco los consumos: ese orden (elegido, no automatico) decide
+    // cual queda parcial si el pago no alcanza para todos.
+    var elegidos = [];
+    function pintarConsumos(lista) {
+      if (pendienteAsignacion) return; // Se reintenta solo la intencion ya confirmada.
+      lista = Array.isArray(lista) ? lista : [];
+      if (!lista.length) return;
+      q("pp-ab-consumos-wrap").style.display = "";
+      q("pp-ab-consumos-lbl").textContent = es ? "¿Qué consumos paga? Toca los que se pagan." : "Which purchases does this pay? Tap the ones being paid.";
+      var box = q("pp-ab-consumos");
+      box.innerHTML = lista.map(function (c) {
+        var fecha = c.fecha ? new Date(c.fecha).toLocaleDateString(es ? "es" : "en") : "";
+        var falta = c.estado === "parcial" ? (es ? " · falta " : " · owes ") + fmt(c.pendiente) : "";
+        return '<button type="button" class="pp-chip" data-k="' + esc(c.cargoKey) + '" data-p="' + Number(c.pendiente) +
+          '" style="min-height:44px;padding:6px 10px;border:2px solid #19354B;border-radius:18px;background:#fff;color:#19354B;font-size:14px;">' +
+          esc(c.motivo || (es ? "Consumo" : "Purchase")) + " · " + fmt(c.monto) + falta + (fecha ? " · " + esc(fecha) : "") + "</button>";
+      }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".pp-chip"), function (b) {
+        b.addEventListener("click", function () {
+          var k = b.getAttribute("data-k"), i = elegidos.indexOf(k);
+          if (i === -1) { elegidos.push(k); b.classList.add("pp-chip-on"); }
+          else { elegidos.splice(i, 1); b.classList.remove("pp-chip-on"); }
+          var total = elegidos.reduce(function (s, kk) {
+            var el = Array.prototype.find.call(box.querySelectorAll(".pp-chip"), function (node) { return node.getAttribute("data-k") === kk; });
+            return s + Math.round(Number(el && el.getAttribute("data-p")) * 100);
+          }, 0);
+          // A chosen purchase sets a SUGGESTION, never replaces the amount the cashier typed.
+          if (elegidos.length && !montoEditadoPorOperador) q("pp-ab-monto").value = (total / 100).toFixed(2);
+        });
+      });
+    }
+    function partesElegidas(monto) {
+      var box = q("pp-ab-consumos"), resto = Math.round(Number(monto) * 100), partes = [];
+      elegidos.forEach(function (k) {
+        if (resto <= 0) return;
+        var el = Array.prototype.find.call(box.querySelectorAll(".pp-chip"), function (node) { return node.getAttribute("data-k") === k; });
+        var p = Math.min(resto, Math.round(Number(el && el.getAttribute("data-p")) * 100));
+        if (p > 0) { partes.push({ cargoKey: k, monto: p / 100 }); resto -= p; }
+      });
+      return partes;
+    }
+
+    /* Contexto ANTES de escribir el monto: cuanto debe y, si hay plan, cuanto
+       falta para ponerse al dia. Sugerir ese numero ahorra la cuenta mental. */
+    fetch(API + "/clientes/" + clienteId + "/cartera")
+      .then(function (r) { return r.json(); })
+      .then(function (info) {
+        consumosCargados = info && info.consumosPendientes || [];
+        pintarConsumos(consumosCargados);
+        if (info && info.consumosEnRevision) {
+          q("pp-ab-msg").style.color = "#B0183E";
+          q("pp-ab-msg").textContent = es
+            ? "Algunos consumos pertenecen a otro cliente según las ventas. No pueden asignarse aquí; revisa el historial sin borrar nada."
+            : "Some purchases are linked to another customer. They cannot be paid here; review the history without deleting anything.";
+        }
+        var debe = info && info.saldo < 0 ? -info.saldo : 0;
+        return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
+          var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
+          if (e.hayPlan && e.diferencia < 0) {
+            var falta = -e.diferencia;
+            t += " " + fmt(falta) + " would bring them current.";
+            if (!anterior && !pendienteAsignacion && !elegidos.length && !q("pp-ab-monto").value) q("pp-ab-monto").value = falta.toFixed(2);
+          } else if (e.hayPlan) {
+            t += " They are " + (e.diferencia > 0 ? "ahead of" : "on track with") + " their plan.";
+          }
+          q("pp-ab-ctx").textContent = t;
+        });
+      }).catch(function () { q("pp-ab-ctx").textContent = ""; });
+
+    q("pp-ab-ok").addEventListener("click", function (ev) {
+      var btn = ev.currentTarget;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      var bloqueoAlmacenamiento = false;
+      var msg = q("pp-ab-msg"), monto = Number(q("pp-ab-monto").value);
+      var errorAsignacion = function (e) {
+        msg.style.color = "#B0183E";
+        var confirmado = !!(pendienteAsignacion && pendienteAsignacion.abonoId) || !!(e && e.cobroConfirmado);
+        var conflicto = !!(e && e.status === 409);
+        var sinReferencia = !!(e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA");
+        if (conflicto) msg.textContent = confirmado
+          ? (es ? "Pago confirmado; asignación en conflicto. Revisa el historial antes de continuar." : "Payment confirmed; allocation conflict. Review history before continuing.")
+          : (es ? "Conflicto de pago; recibo sin confirmar. Revisa la referencia original." : "Payment conflict; receipt unconfirmed. Review the original reference.");
+        else if (confirmado) msg.textContent = es
+          ? "Pago confirmado; asignación pendiente. No cobres de nuevo." : "Payment confirmed; allocation pending. Do not charge again.";
+        else if (sinReferencia) msg.textContent = es
+          ? "Referencia no guardada; verifica el estado del pago antes de reanudar." : "Reference not saved; verify payment status before resuming.";
+        else msg.textContent = es
+          ? "Pago sin confirmar. Reanuda con la misma referencia." : "Payment unconfirmed. Resume with the same reference.";
+      };
+      function finalizar() {
+        cerrar();
+        if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
+        refrescarHoy();
+      }
+      if (pendienteAsignacion) {
+        reanudarAsignacion(clienteId, pendienteAsignacion).then(finalizar).catch(function (e) {
+          if (e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") bloqueoAlmacenamiento = true;
+          errorAsignacion(e);
+        }).finally(function () { btn.disabled = bloqueoAlmacenamiento; });
+        return;
+      }
+      var centavos = Math.round(monto * 100);
+      if (!Number.isSafeInteger(centavos) || centavos <= 0 || Math.abs(centavos / 100 - monto) > 0.000001) {
+        btn.disabled = false; msg.style.color = "#B0183E";
+        msg.textContent = es ? "Escribe un abono válido, con máximo dos decimales." : "Enter a valid payment amount, with at most two decimals.";
+        return;
+      }
+      var partes = partesElegidas(monto);
+      var asignadoCentavos = partes.reduce(function (s, p) { return s + Math.round(p.monto * 100); }, 0);
+      if (elegidos.length && asignadoCentavos !== centavos) {
+        btn.disabled = false; msg.style.color = "#B0183E";
+        msg.textContent = es ? "El abono supera los consumos elegidos. Corrige el importe." : "Payment exceeds the selected purchases. Adjust the amount.";
+        return;
+      }
+      var motivo = anterior ? anterior.motivo : "Abono";
+      var tarea;
+      if (partes.length) {
+        // Persist the entire intention BEFORE touching money. After a reload,
+        // the same paymentOpId is used for verification/retry; never a second payment.
+        var pagoId = (anterior && anterior.opId) ||
+          ("customer-payment:" + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2)));
+        pendienteAsignacion = {
+          paymentOpId: pagoId, opId: "customer-allocation:" + pagoId.slice("customer-payment:".length),
+          abonoId: null, partes: partes, monto: monto, motivo: motivo
+        };
+        tarea = guardarReferenciaPagoDurable(
+          claveAsignacion(clienteId), pendienteAsignacion, false, clienteId, "allocation")
+          .then(function () { return reanudarAsignacion(clienteId, pendienteAsignacion); })
+          .catch(function (errorGuardar) {
+            // Keep the exact pending reference if storage succeeded and the
+            // network failed. Never create a new opId on an uncertain payment.
+            throw errorGuardar;
+          });
+      } else {
+        tarea = global.ocEnviarAbono(clienteId, monto, motivo); // Legitimate unassigned payment.
+      }
+      Promise.resolve(tarea).then(finalizar).catch(function (e) {
+        if (e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") bloqueoAlmacenamiento = true;
+        if (pendienteAsignacion) {
+          q("pp-ab-monto").disabled = true;
+          q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
+          errorAsignacion(e);
+        } else {
+          msg.style.color = "#B0183E";
+          msg.textContent = (e && e.message) || "Could not confirm the payment.";
+        }
+      }).finally(function () { btn.disabled = bloqueoAlmacenamiento; });
+    });
+
+    q("pp-ab-monto").focus();
+  }
+  global.abonarCliente = modalAbonar;
+
+  /* Cancel the installment agreement. Nothing is deleted and the balance is
+     untouched: it emits a plan_pago_anulado fact, and from then on the engine
+     stops seeing an active plan. If a new one is agreed later, it is created
+     fresh and the history shows both. */
+  function modalAnular(clienteId) {
+    if (document.getElementById("pp-modal-anular")) return;
+    var m = document.createElement("div");
+    m.className = "pp-modal";
+    m.id = "pp-modal-anular";
+    m.innerHTML =
+      '<div class="pp-caja">' +
+        '<h3>Change the installment agreement</h3>' +
+        '<p class="pp-resumen">The debt is NOT forgiven: the balance stays the same. What gets cancelled is the agreed schedule. You can set up new installments later from Record credit.</p>' +
+        '<div class="pp-fg"><label for="pp-an-motivo">Why it is changing (optional)</label>' +
+          '<input id="pp-an-motivo" type="text" autocomplete="off"></div>' +
+        '<button type="button" class="pp-btn" id="pp-an-ok">Cancel the agreement</button>' +
+        '<button type="button" class="pp-btn gris" id="pp-an-cancel">Leave it as is</button>' +
+        '<p class="pp-msg" id="pp-an-msg"></p>' +
+      '</div>';
+    document.body.appendChild(m);
+    function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
+    function onKey(ev) { if (ev.key === "Escape" || ev.key === "Esc") { ev.stopPropagation(); cerrar(); } }
+    document.addEventListener("keydown", onKey, true);
+    m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
+    m.querySelector("#pp-an-cancel").addEventListener("click", cerrar);
+    m.querySelector("#pp-an-ok").addEventListener("click", function (ev) {
+      var btn = ev.currentTarget;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      global.AMG.PlanPagos.anularPlan(clienteId, m.querySelector("#pp-an-motivo").value || "")
+        .then(function () {
+          cerrar();
+          var chip = document.getElementById("pp-chip-" + clienteId);
+          if (chip) chip.remove();
+          if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
+          refrescarHoy();
+        })
+        .catch(function (e) {
+          btn.disabled = false;
+          var msg = m.querySelector("#pp-an-msg");
+          msg.style.color = "#B0183E";
+          msg.textContent = (e && e.message) || "Could not cancel it.";
+        });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // B3 · la alerta en Hoy, y el filtro en Clientes
+  // ---------------------------------------------------------------------------
+  function clientesConEstado() {
+    if (!global.AMG || !global.AMG.PlanPagos) return Promise.resolve([]);
+    return fetch(API + "/clientes").then(function (r) { return r.json(); }).then(function (d) {
+      var lista = ((d && d.clientes) || d || []).filter(function (c) { return c && !c.borrado && !c.despedido; });
+      return Promise.all(lista.map(function (c) {
+        return global.AMG.PlanPagos.estadoDelPlan(c.id).then(function (e) {
+          return { id: c.id, nombre: c.nombre, estado: e };
+        });
+      }));
+    }).catch(function () { return []; });
+  }
+
+  function refrescarHoy() {
+    var caja = document.getElementById("pp-hoy");
+    if (!caja) return;
+    if (!esDueno()) { caja.classList.remove("hay"); return; }
+    clientesConEstado().then(function (todos) {
+      var atrasados = todos.filter(function (x) {
+        if (!x.estado.hayPlan || x.estado.estado !== "atrasado") return false;
+        // La casilla de avisarme manda tambien aca.
+        try { return global.AMG.Cartera ? global.AMG.Cartera.alertaActiva(x.id) : true; } catch (_) { return true; }
+      });
+      if (!atrasados.length) { caja.classList.remove("hay"); caja.innerHTML = ""; return; }
+      var total = atrasados.reduce(function (a, x) { return a + Math.abs(x.estado.diferencia); }, 0);
+      var n = atrasados.length;
+      caja.innerHTML =
+        '<p class="t">' + n + (n === 1 ? " payment has not arrived" : " payments have not arrived") + '</p>' +
+        '<p class="s">' + fmt(total) + ' in total, from ' + (n === 1 ? "one customer" : n + " customers") +
+          ' on a payment plan.</p>' +
+        '<button type="button" id="pp-ver">See who they are</button>';
+      caja.classList.add("hay");
+      caja.querySelector("#pp-ver").addEventListener("click", function () {
+        var b = document.querySelector('nav button[data-vista="clientes"]');
+        if (b) b.click();
+        setTimeout(function () { aplicarFiltro("atrasados"); }, 400);
+      });
+    });
+  }
+
+  var filtroActual = "todos";
+  function aplicarFiltro(cual) {
+    filtroActual = cual;
+    var barra = document.getElementById("pp-filtro");
+    if (barra) {
+      barra.querySelectorAll("button").forEach(function (b) {
+        b.classList.toggle("on", b.dataset.f === cual);
+      });
+    }
+    clientesConEstado().then(function (todos) {
+      var mapa = {};
+      todos.forEach(function (x) { mapa[x.id] = x.estado; });
+      document.querySelectorAll('[id^="cartera-"]').forEach(function (el) {
+        var id = el.id.replace("cartera-", "");
+        var e = mapa[id] || { hayPlan: false };
+        var mostrar = cual === "todos" ||
+          (cual === "conplan" && e.hayPlan) ||
+          (cual === "atrasados" && e.hayPlan && e.estado === "atrasado");
+        // Se oculta la TARJETA entera, no solo el chip: filtrar a medias es peor
+        // que no filtrar, porque deja al dueno contando tarjetas vacias.
+        var card = el.closest(".cliente-card") || el.parentElement;
+        if (card) card.style.display = mostrar ? "" : "none";
+      });
+    });
+  }
+
+  function montar() {
+    var hoy = document.getElementById("vista-hoy");
+    if (hoy && !document.getElementById("pp-hoy")) {
+      var d = document.createElement("div");
+      d.id = "pp-hoy";
+      hoy.insertBefore(d, hoy.firstChild);
+    }
+    var cli = document.getElementById("vista-clientes");
+    if (cli && !document.getElementById("pp-filtro") && esDueno()) {
+      var f = document.createElement("div");
+      f.id = "pp-filtro";
+      f.innerHTML =
+        '<button type="button" data-f="todos" class="on">All</button>' +
+        '<button type="button" data-f="conplan">On a plan</button>' +
+        '<button type="button" data-f="atrasados">Behind</button>';
+      var ancla = cli.querySelector("details");
+      if (ancla && ancla.nextSibling) cli.insertBefore(f, ancla.nextSibling);
+      else cli.appendChild(f);
+      f.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () { aplicarFiltro(b.dataset.f); });
+      });
+    }
+    refrescarHoy();
+  }
+
+  global.addEventListener("oc-login", function () { setTimeout(montar, 600); });
+  global.addEventListener("oc-sync-merge", function () { try { refrescarHoy(); } catch (_) {} });
+  global.addEventListener("oc-catalogo-cambiado", function () { try { refrescarHoy(); } catch (_) {} });
+  try {
+    if (global.AMG && global.AMG.EventBus && typeof global.AMG.EventBus.on === "function") {
+      global.AMG.EventBus.on("oc:datos:clientes", function () { try { refrescarHoy(); } catch (_) {} });
+    }
+  } catch (_) {}
+  /* Al cerrar sesion la alerta desaparece: un encargado no debe ver la lista
+     global de quien debe, ni siquiera de refilon. */
+  global.addEventListener("oc-logout", function () {
+    var c = document.getElementById("pp-hoy");
+    if (c) { c.classList.remove("hay"); c.innerHTML = ""; }
+  });
+
+  global.AMG = global.AMG || {};
+  global.AMG.PlanPagosUI = { VERSION: "1.0.0", refrescarHoy: refrescarHoy, aplicarFiltro: aplicarFiltro, montar: montar };
+})(typeof window !== "undefined" ? window : this);
