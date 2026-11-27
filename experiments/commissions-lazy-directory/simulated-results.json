@@ -1,0 +1,105 @@
+{
+  "source": "8fde20542165c8cf671e7ccedc172009c4d0ef24",
+  "method": "synthetic JS DOM mock; counts of generated card markup and listener registrations, not native DOM or memory; clock Date.now coarse",
+  "results": [
+    {
+      "variant": "A",
+      "n": 8,
+      "iterations": 20,
+      "initialCards": 8,
+      "closedRepaintCards": 8,
+      "initialCardListeners": 16,
+      "p95InitialMs": 1,
+      "p95OpenMs": 0,
+      "p95RepaintMs": 1
+    },
+    {
+      "variant": "A",
+      "n": 100,
+      "iterations": 20,
+      "initialCards": 100,
+      "closedRepaintCards": 100,
+      "initialCardListeners": 200,
+      "p95InitialMs": 1,
+      "p95OpenMs": 0,
+      "p95RepaintMs": 1
+    },
+    {
+      "variant": "A",
+      "n": 1000,
+      "iterations": 20,
+      "initialCards": 1000,
+      "closedRepaintCards": 1000,
+      "initialCardListeners": 2000,
+      "p95InitialMs": 6,
+      "p95OpenMs": 0,
+      "p95RepaintMs": 6
+    },
+    {
+      "variant": "B",
+      "n": 8,
+      "iterations": 20,
+      "initialCards": 8,
+      "closedRepaintCards": 8,
+      "initialCardListeners": 16,
+      "p95InitialMs": 1,
+      "p95OpenMs": 0,
+      "p95RepaintMs": 0
+    },
+    {
+      "variant": "B",
+      "n": 100,
+      "iterations": 20,
+      "initialCards": 100,
+      "closedRepaintCards": 100,
+      "initialCardListeners": 200,
+      "p95InitialMs": 1,
+      "p95OpenMs": 0,
+      "p95RepaintMs": 1
+    },
+    {
+      "variant": "B",
+      "n": 1000,
+      "iterations": 20,
+      "initialCards": 1000,
+      "closedRepaintCards": 1000,
+      "initialCardListeners": 2000,
+      "p95InitialMs": 5,
+      "p95OpenMs": 0,
+      "p95RepaintMs": 5
+    },
+    {
+      "variant": "C",
+      "n": 8,
+      "iterations": 20,
+      "initialCards": 0,
+      "closedRepaintCards": 0,
+      "initialCardListeners": 0,
+      "p95InitialMs": 0,
+      "p95OpenMs": 0,
+      "p95RepaintMs": 0
+    },
+    {
+      "variant": "C",
+      "n": 100,
+      "iterations": 20,
+      "initialCards": 0,
+      "closedRepaintCards": 0,
+      "initialCardListeners": 0,
+      "p95InitialMs": 0,
+      "p95OpenMs": 1,
+      "p95RepaintMs": 0
+    },
+    {
+      "variant": "C",
+      "n": 1000,
+      "iterations": 20,
+      "initialCards": 0,
+      "closedRepaintCards": 0,
+      "initialCardListeners": 0,
+      "p95InitialMs": 1,
+      "p95OpenMs": 4,
+      "p95RepaintMs": 1
+    }
+  ]
+}
